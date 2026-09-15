@@ -27,6 +27,22 @@ function buildHeaders(anonKey, prefer) {
     return headers;
 }
 
+export class SupabaseRequestError extends Error {
+    constructor(message, status, data = null) {
+        super(message);
+        this.name = 'SupabaseRequestError';
+        this.status = status;
+        this.data = data;
+        this.isAuthError = status === 401 || status === 403;
+        const msg = String(message || '').toLowerCase();
+        const code = String(data?.code || '');
+        this.isSchemaError = status === 400 && (
+            msg.includes('column') || msg.includes('schema') || msg.includes('photo_url') ||
+            code === 'PGRST204' || code === 'PGRST200' || code === '42703'
+        );
+    }
+}
+
 async function requestSupabase(path, options = {}) {
     const { url, anonKey } = getSupabaseConfig();
     const response = await fetch(`${url}/rest/v1/${path}`, {
@@ -38,78 +54,308 @@ async function requestSupabase(path, options = {}) {
     });
 
     if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || `Supabase request failed: ${response.status}`);
+        let errorBody = null;
+        let errorMessage = '';
+        try {
+            errorBody = await response.json();
+            errorMessage = errorBody.message || errorBody.error || errorBody.hint || JSON.stringify(errorBody);
+        } catch {
+            errorMessage = await response.text();
+        }
+        throw new SupabaseRequestError(
+            errorMessage || `Supabase request failed: ${response.status}`,
+            response.status,
+            errorBody
+        );
     }
 
     if (response.status === 204) return null;
     return response.json();
 }
 
-function normalizeCommentInput({ placeId, placeName, authorName, rating, commentText }) {
-    const payload = {
-        place_id: String(placeId || '').trim(),
-        place_name: String(placeName || '').trim(),
-        author_name: String(authorName || '').trim(),
-        rating: Number.parseInt(rating, 10),
-        comment_text: String(commentText || '').trim(),
+export class CommentValidationError extends Error {
+    constructor(message, field = 'general') {
+        super(message);
+        this.name = 'CommentValidationError';
+        this.code = 'VALIDATION_ERROR';
+        this.field = field;
+    }
+}
+
+export class CommentCooldownError extends Error {
+    constructor(remainingSeconds) {
+        super(`Vui lòng chờ ${remainingSeconds} giây trước khi gửi bình luận tiếp theo.`);
+        this.name = 'CommentCooldownError';
+        this.code = 'COOLDOWN_ERROR';
+        this.remainingSeconds = remainingSeconds;
+    }
+}
+
+export function isMockMode(overrides = {}) {
+    try {
+        if (typeof window !== 'undefined' && window.location && window.location.search) {
+            const params = new URLSearchParams(window.location.search);
+            const sourceParam = params.get('source');
+            if (sourceParam) {
+                return sourceParam.toLowerCase().trim() === 'mock';
+            }
+        }
+        const config = initConfig(overrides);
+        return Boolean(config && config.dataSource === 'mock');
+    } catch {
+        return false;
+    }
+}
+
+const INITIAL_MOCK_COMMENTS = [
+    {
+        id: 'mock_cmt_1',
+        place_id: 'bun-nuoc-leo-tho-dia-tra-vinh',
+        place_name: 'Bún Nước Lèo Thổ Địa Trà Vinh',
+        author_name: 'Thạch Minh',
+        rating: 5,
+        comment_text: 'Nước lèo mắm bò hóc đậm đà, heo quay da giòn rụm! Giá 35k cực kỳ hợp lý.',
+        created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+        photo_url: null,
+        client_review_id: 'clrev_mock_1'
+    },
+    {
+        id: 'mock_cmt_2',
+        place_id: 'goc-hen-pho-co-cafe',
+        place_name: 'Góc Hẹn Phố Cổ Cafe',
+        author_name: 'Bảo Trâm',
+        rating: 5,
+        comment_text: 'Không gian vintage yên tĩnh, cà phê sữa thơm béo chuẩn vị miền Tây.',
+        created_at: new Date(Date.now() - 3600000 * 12).toISOString(),
+        photo_url: null,
+        client_review_id: 'clrev_mock_2'
+    },
+    {
+        id: 'mock_cmt_3',
+        place_id: 'ao-ba-om',
+        place_name: 'Ao Bà Om',
+        author_name: 'Lê Hoàng',
+        rating: 5,
+        comment_text: 'Hàng cây sao, dầu cổ thụ trăm năm tỏa bóng râm mát rượi, không khí trong lành tuyệt đối.',
+        created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
+        photo_url: null,
+        client_review_id: 'clrev_mock_3'
+    }
+];
+
+function getMockComments() {
+    let stored = [];
+    try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+            const raw = window.sessionStorage.getItem('vivu_mock_comments');
+            if (raw) stored = JSON.parse(raw);
+        }
+    } catch {}
+    return [...INITIAL_MOCK_COMMENTS, ...stored];
+}
+
+function saveMockComment(comment) {
+    try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+            const raw = window.sessionStorage.getItem('vivu_mock_comments');
+            const list = raw ? JSON.parse(raw) : [];
+            list.unshift(comment);
+            window.sessionStorage.setItem('vivu_mock_comments', JSON.stringify(list));
+        }
+    } catch {}
+}
+
+/**
+ * Hàm kiểm tra tính hợp lệ của bình luận dùng chung cho cả Online và Offline (G3)
+ * Chặn hoàn toàn dữ liệu sai trước khi gửi API hoặc ghi vào IndexedDB.
+ */
+export function validateCommentInput(input) {
+    if (!input || typeof input !== 'object') {
+        throw new CommentValidationError('Dữ liệu đánh giá không hợp lệ.', 'general');
+    }
+
+    const place_id = String(input.placeId || input.place_id || '').trim();
+    const place_name = String(input.placeName || input.place_name || '').trim();
+    const author_name = String(input.authorName || input.author_name || '').trim();
+    const rawRating = input.rating;
+    const parsedRating = typeof rawRating === 'number' ? rawRating : parseInt(rawRating, 10);
+    const comment_text = String(input.commentText || input.comment_text || '').trim();
+    const client_review_id = String(input.client_review_id || input.clientReviewId || input.id || '').trim() ||
+        `clrev_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    if (!place_id) {
+        throw new CommentValidationError('Thiếu mã địa điểm cần đánh giá.', 'place_id');
+    }
+
+    // Tên: 2–80 ký tự sau khi trim (loại bỏ "A", rỗng, toàn khoảng trắng)
+    if (!author_name || author_name.length < 2 || author_name.length > 80) {
+        throw new CommentValidationError('Tên người đánh giá cần từ 2 đến 80 ký tự.', 'author_name');
+    }
+
+    // Rating: Bắt buộc người dùng chủ động chọn 1–5 sao (không chấp nhận 0, rỗng, NaN)
+    if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+        throw new CommentValidationError('Vui lòng chọn số sao đánh giá (từ 1 đến 5 sao).', 'rating');
+    }
+
+    // Nội dung bình luận: 3–1000 ký tự sau khi trim
+    if (!comment_text || comment_text.length < 3 || comment_text.length > 1000) {
+        throw new CommentValidationError('Nội dung đánh giá cần từ 3 đến 1000 ký tự.', 'comment_text');
+    }
+
+    // Kiểm tra ảnh nếu có (chỉ chấp nhận Data URI ảnh hợp lệ hoặc URL http/https)
+    const photoData = input.photoData || input.photo_data || input.photo_url || null;
+    if (photoData) {
+        const isDataUrl = /^data:image\/(jpeg|png|webp|jpg);base64,[A-Za-z0-9+/=]+$/.test(photoData);
+        const isHttpUrl = /^https?:\/\/[^\s"'<>]+$/i.test(photoData);
+        if (!isDataUrl && !isHttpUrl) {
+            throw new CommentValidationError('Định dạng ảnh đính kèm không hợp lệ hoặc không an toàn.', 'photo_data');
+        }
+    }
+
+    return {
+        place_id,
+        place_name,
+        author_name,
+        rating: parsedRating,
+        comment_text,
+        photo_url: photoData,
+        photo_data: photoData,
+        client_review_id,
     };
-
-    if (!payload.place_id) throw new Error('Thiếu mã địa điểm.');
-    if (payload.author_name.length < 2 || payload.author_name.length > 80) throw new Error('Tên cần từ 2 đến 80 ký tự.');
-    if (!Number.isInteger(payload.rating) || payload.rating < 1 || payload.rating > 5) throw new Error('Vui lòng chọn số sao từ 1 đến 5.');
-    if (payload.comment_text.length < 3 || payload.comment_text.length > 1000) throw new Error('Bình luận cần từ 3 đến 1000 ký tự.');
-
-    return payload;
 }
 
 function getCooldownKey(placeId) {
     return `vivutravinh-comment-cooldown-${placeId}`;
 }
 
-function assertCooldown(placeId) {
+export function assertCooldown(placeId) {
     const key = getCooldownKey(placeId);
-    const lastSubmit = Number(localStorage.getItem(key) || 0);
+    let lastSubmit = 0;
+    try {
+        if (typeof localStorage !== 'undefined') {
+            lastSubmit = Number(localStorage.getItem(key) || 0);
+        } else if (typeof window !== 'undefined' && window.localStorage) {
+            lastSubmit = Number(window.localStorage.getItem(key) || 0);
+        }
+    } catch {}
     const remaining = COOLDOWN_MS - (Date.now() - lastSubmit);
 
     if (remaining > 0) {
-        throw new Error(`Vui lòng chờ ${Math.ceil(remaining / 1000)} giây trước khi gửi bình luận tiếp theo.`);
+        throw new CommentCooldownError(Math.ceil(remaining / 1000));
     }
+    return true;
 }
 
-function markCooldown(placeId) {
-    localStorage.setItem(getCooldownKey(placeId), Date.now().toString());
+export function markCooldown(placeId) {
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(getCooldownKey(placeId), Date.now().toString());
+        } else if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(getCooldownKey(placeId), Date.now().toString());
+        }
+    } catch {}
 }
 
 export async function loadComments(placeId) {
-    const encodedPlaceId = encodeURIComponent(String(placeId || '').trim());
-    if (!encodedPlaceId) return [];
+    const cleanId = String(placeId || '').trim();
+    if (!cleanId) return [];
 
+    if (isMockMode()) {
+        const all = getMockComments();
+        const matched = all.filter(c => c.place_id === cleanId);
+        matched.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        return matched.slice(0, COMMENT_LIMIT);
+    }
+
+    const encodedPlaceId = encodeURIComponent(cleanId);
     return requestSupabase(`${TABLE_NAME}?place_id=eq.${encodedPlaceId}&is_hidden=eq.false&select=id,place_id,place_name,author_name,rating,comment_text,created_at&order=created_at.desc&limit=${COMMENT_LIMIT}`);
 }
 
 export async function submitComment(input) {
-    const payload = normalizeCommentInput(input);
-    assertCooldown(payload.place_id);
+    const payload = validateCommentInput(input);
+    if (!input.skipCooldown) {
+        assertCooldown(payload.place_id);
+    }
 
-    const rows = await requestSupabase(TABLE_NAME, {
-        method: 'POST',
-        prefer: 'return=representation',
-        body: JSON.stringify(payload),
-    });
+    if (isMockMode()) {
+        const newComment = {
+            id: 'mock_cmt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            place_id: payload.place_id,
+            place_name: payload.place_name,
+            author_name: payload.author_name,
+            rating: payload.rating,
+            comment_text: payload.comment_text,
+            photo_url: payload.photo_url || null,
+            created_at: new Date().toISOString(),
+            client_review_id: payload.client_review_id,
+        };
+        saveMockComment(newComment);
+        if (!input.skipCooldown) {
+            markCooldown(payload.place_id);
+        }
+        return newComment;
+    }
 
-    markCooldown(payload.place_id);
+    let rows = null;
+    const postBody = {
+        place_id: payload.place_id,
+        place_name: payload.place_name,
+        author_name: payload.author_name,
+        rating: payload.rating,
+        comment_text: payload.comment_text,
+        client_review_id: payload.client_review_id,
+    };
+
+    if (payload.photo_url) {
+        try {
+            rows = await requestSupabase(TABLE_NAME, {
+                method: 'POST',
+                prefer: 'return=representation',
+                body: JSON.stringify({
+                    ...postBody,
+                    photo_url: payload.photo_url
+                }),
+            });
+        } catch (err) {
+            if (err instanceof SupabaseRequestError && err.isSchemaError) {
+                console.warn('[ViVuComments] Server không có cột photo_url (schema error), gửi lại không kèm photo_url:', err.message);
+                rows = await requestSupabase(TABLE_NAME, {
+                    method: 'POST',
+                    prefer: 'return=representation',
+                    body: JSON.stringify(postBody),
+                });
+            } else {
+                throw err;
+            }
+        }
+    } else {
+        rows = await requestSupabase(TABLE_NAME, {
+            method: 'POST',
+            prefer: 'return=representation',
+            body: JSON.stringify(postBody),
+        });
+    }
+
+    if (!input.skipCooldown) {
+        markCooldown(payload.place_id);
+    }
     return rows?.[0] || null;
 }
 
-export function summarizeComments(comments) {
+export function summarizeComments(comments, totalCount = null) {
     if (!Array.isArray(comments) || comments.length === 0) {
-        return { average: 0, count: 0 };
+        return { average: 0, count: 0, loadedCount: 0, isPartial: false };
     }
 
     const total = comments.reduce((sum, comment) => sum + Number(comment.rating || 0), 0);
+    const average = Math.round((total / comments.length) * 10) / 10;
+    const count = typeof totalCount === 'number' && totalCount > comments.length ? totalCount : comments.length;
+    const isPartial = typeof totalCount === 'number' && totalCount > comments.length;
+
     return {
-        average: Math.round((total / comments.length) * 10) / 10,
-        count: comments.length,
+        average,
+        count,
+        loadedCount: comments.length,
+        isPartial,
     };
 }

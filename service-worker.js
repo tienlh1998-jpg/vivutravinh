@@ -1,14 +1,21 @@
 // ViVuTraVinh Service Worker
-// Version 1.3.0
+// Version 2.7.0
 
-const CACHE_NAME = 'vivutravinh-v1.3.0';
+const CACHE_NAME = 'vivutravinh-v2.7.0';
 const APP_SHELL_URLS = [
   './',
   './index.html',
   './manifest.json',
   './js/config.js',
   './js/data.js',
+  './js/festivals-data.js',
+  './js/articles-data.js',
+  './js/comments.js',
+  './js/offline-sync.js',
+  './js/ui.js',
+  './js/app.js',
   './data/data-fallback.json',
+  './data/data-fixture.json',
   './ao bà om.jpg',
   './biển ba động.jpg',
   './chùa hang.jpg',
@@ -23,7 +30,7 @@ const APP_SHELL_URLS = [
 const OFFLINE_IMAGE = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#f1f5f9" width="400" height="300"/><text x="50%" y="50%" fill="#94a3b8" font-size="16" text-anchor="middle">Offline</text></svg>';
 
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing...');
+  console.log('[Service Worker] Installing version 2.7.0...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(APP_SHELL_URLS))
@@ -35,13 +42,16 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating...');
+  console.log('[Service Worker] Activating version 2.7.0...');
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => Promise.all(
         cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME)
-          .map((cacheName) => caches.delete(cacheName))
+          .filter((cacheName) => cacheName.startsWith('vivutravinh-') && cacheName !== CACHE_NAME)
+          .map((cacheName) => {
+            console.log('[Service Worker] Deleting legacy cache:', cacheName);
+            return caches.delete(cacheName);
+          })
       ))
       .then(() => self.clients.claim())
   );
@@ -55,6 +65,32 @@ self.addEventListener('fetch', (event) => {
 });
 
 async function handleRequest(request) {
+  const url = new URL(request.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const isScriptOrDoc = request.mode === 'navigate' || url.pathname.endsWith('.html') || (sameOrigin && url.pathname.endsWith('.js'));
+
+  // Network-First cho HTML và JS modules: luôn nạp mã nguồn mới nhất khi có kết nối
+  if (isScriptOrDoc) {
+    try {
+      const networkResponse = await fetch(request);
+      if (networkResponse && networkResponse.status === 200) {
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(request, networkResponse.clone());
+      }
+      return networkResponse;
+    } catch (netErr) {
+      console.warn('[Service Worker] Network-first fallback to cache for:', url.pathname);
+      const cached = await caches.match(request);
+      if (cached) return cached;
+      if (request.mode === 'navigate') {
+        const offlinePage = await caches.match('./index.html');
+        if (offlinePage) return offlinePage;
+      }
+      throw netErr;
+    }
+  }
+
+  // Cache-First cho tài nguyên tĩnh (ảnh, css, fonts, dữ liệu fallback json)
   const cachedResponse = await caches.match(request);
   if (cachedResponse) return cachedResponse;
 
@@ -106,6 +142,19 @@ self.addEventListener('message', (event) => {
 
   if (event.data && event.data.type === 'CLEAR_CACHE') {
     caches.delete(CACHE_NAME);
+  }
+});
+
+// Background Sync API Handler
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-pending-reviews') {
+    event.waitUntil(
+      self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'TRIGGER_OFFLINE_SYNC' });
+        });
+      })
+    );
   }
 });
 

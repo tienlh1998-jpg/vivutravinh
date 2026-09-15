@@ -40,10 +40,18 @@ Nên chạy qua HTTP/HTTPS, không mở trực tiếp bằng `file://`, vì ES m
 ## Scripts
 
 ```bash
+# Chạy máy chủ phát triển (tắt cache để kiểm thử UI)
 npm run dev
-```
 
-Hiện chưa có script build, lint hoặc test tự động trong `package.json`.
+# Kiểm tra cú pháp toàn bộ JavaScript modules
+npm run check
+
+# Chạy kiểm thử tự động bộ fixture và tính hợp lệ dữ liệu
+npm run test:fixtures
+
+# Chạy toàn bộ kiểm thử
+npm test
+```
 
 ## Cấu trúc dự án
 
@@ -55,35 +63,60 @@ Hiện chưa có script build, lint hoặc test tự động trong `package.json
 │   ├── admin-comments.js   # Vercel serverless API cho moderation bình luận
 │   └── admin-places.js     # Vercel serverless API quản trị địa điểm
 ├── js/
-│   ├── config.js           # Cấu hình Supabase và Google Sheets legacy
-│   ├── data.js             # Load/normalize/cache dữ liệu địa điểm
-│   └── comments.js         # Load/gửi/tổng hợp bình luận Supabase
+│   ├── config.js           # Cấu hình Supabase, nguồn dữ liệu & mô phỏng
+│   ├── data.js             # Load/normalize/cache đa nguồn (mock/fallback/supabase)
+│   ├── app.js              # State controller và điều phối sự kiện
+│   ├── ui.js               # Render Bento Grid, card, modal, stories, tabs
+│   ├── offline-sync.js     # IndexedDB offline store & Background Sync
+│   ├── festivals-data.js   # Dữ liệu lễ hội & countdown
+│   ├── articles-data.js    # Dữ liệu ký sự & chuyện xứ Trà
+│   └── comments.js         # Load/gửi/tổng hợp bình luận
 ├── data/
-│   └── data-fallback.json  # Dữ liệu fallback khi Google Sheets lỗi
+│   ├── data-fixture.json   # 10 ca thử nghiệm nghiệp vụ cho môi trường dev local
+│   └── data-fallback.json  # Snapshot dữ liệu địa điểm thực tế cho bản phát hành
+├── scripts/
+│   └── test-fixtures.js    # Script kiểm thử tự động cho fixture & data source
 ├── manifest.json           # PWA manifest
-├── service-worker.js       # Offline cache
+├── service-worker.js       # Offline cache & background sync
 ├── sitemap.xml             # Sitemap SEO
 ├── robots.txt              # Robots directives
 ├── vercel.json             # Cấu hình deploy Vercel/static fallback
 ├── supabase/
 │   └── places.sql          # SQL schema/RLS cho bảng places
-├── GOOGLE_MAPS_GUIDE.md    # Hướng dẫn nhập Google Maps link đúng
-├── GOOGLE_SHEETS_TEMPLATE.md
-└── CLAUDE.md               # Hướng dẫn cho Claude Code
+└── CLAUDE.md               # Hướng dẫn cho AI Pair Programming
 ```
 
-## Nguồn dữ liệu
+## Nguồn dữ liệu & Môi trường kiểm thử Local
 
-Luồng dữ liệu chính nằm trong `js/data.js`:
+Hệ thống hỗ trợ 3 chế độ nguồn dữ liệu được chuẩn hóa cùng một Place schema:
 
-1. Đọc cấu hình từ `js/config.js` và `window.VIVUTRAVINH_CONFIG` nếu có.
-2. Gọi Supabase REST table `places` bằng anon key.
-3. Chỉ lấy địa điểm có `status = approved` theo RLS/policy Supabase.
-4. Chuẩn hoá field snake_case trong Supabase về shape camelCase mà UI sử dụng.
-5. Cache vào `localStorage` trong 5 phút bằng key `vivutravinh-places-v2`.
-6. Nếu Supabase lỗi hoặc chưa có dữ liệu approved, dùng `data/data-fallback.json`.
+1. **`mock` (Mặc định cho Local Development)**:
+   - Nạp trực tiếp từ `data/data-fixture.json` (10 ca thử nghiệp vụ biên: bún nước lèo <50k, cafe nhiều ảnh, điểm miễn phí, lưu trú >200k, thiếu ảnh, ảnh 404, thiếu thông tin, tạm đóng, mở qua đêm, tên và địa chỉ rất dài).
+   - **Hoàn toàn KHÔNG phát bất kỳ network request nào tới Supabase**.
+   - Có badge hiển thị nhận diện `🧪 Mock Fixture (10)` trên giao diện.
 
-Schema Supabase cho bảng `places` nằm ở `supabase/places.sql`. Google Sheets hiện chỉ còn là nguồn legacy/tham khảo dữ liệu; xem thêm `GOOGLE_SHEETS_TEMPLATE.md` và `GOOGLE_MAPS_GUIDE.md` nếu cần nhập hoặc migrate dữ liệu thủ công.
+2. **`fallback` (Snapshot phát hành)**:
+   - Nạp trực tiếp từ `data/data-fallback.json` (12 địa điểm thực tế đã được xác minh).
+   - Dùng để kiểm thử giao diện với tập dữ liệu chuẩn bị cho production.
+
+3. **`supabase` (Kết nối máy chủ Backend)**:
+   - Kết nối tới Supabase REST API `places`.
+   - Nếu kết nối thất bại (mạng yếu hoặc máy chủ bảo trì), tự động fallback về `data/data-fallback.json`.
+
+### Cách chuyển đổi nguồn dữ liệu
+
+- **Qua URL Param**: `http://localhost:8000/?source=mock` hoặc `?source=fallback` hoặc `?source=supabase`.
+- **Qua UI**: Bấm trực tiếp vào badge `[Mock Fixture]` bên cạnh bộ đếm số lượng địa điểm trên trang chủ.
+- **Qua Console**: `window.ViVuData.setDataSource('mock' | 'fallback' | 'supabase')`.
+- **Xóa Cache**: `window.ViVuData.clearPlacesCache()`.
+
+### Chế độ mô phỏng mạng (Simulation Modes)
+
+Dành cho kiểm thử độ chịu tải và xử lý ngoại lệ giao diện:
+- **Mô phỏng độ trễ mạng**: `?simDelay=1500` (độ trễ 1.5 giây để quan sát hiệu ứng skeleton loading).
+- **Mô phỏng lỗi kết nối**: `?simError=true` (kiểm tra màn hình báo lỗi và nút tải lại).
+- **Mô phỏng danh sách rỗng**: `?simEmpty=true` (kiểm tra empty state khi không tìm thấy địa điểm).
+- **Hủy mô phỏng qua Console**: `window.ViVuData.resetSimulation()`.
 
 ## Bình luận và quản trị
 
