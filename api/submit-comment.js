@@ -1,10 +1,12 @@
 const TABLE_NAME = 'place_comments';
 const MAX_PAYLOAD_SIZE = 64 * 1024; // 64KB for comment submissions
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
-const MAX_REQUESTS_PER_WINDOW = 3; // Maximum 3 comments per minute per IP
-const MIN_INTERVAL_MS = 10 * 1000; // Minimum 10 seconds between consecutive comments
+const RATE_LIMIT_WINDOW_SECONDS = 60;
+const MAX_REQUESTS_PER_WINDOW = 3;
+const MIN_INTERVAL_SECONDS = 10;
 
-const ipRateLimitMap = new Map();
+// Bounded local LRU cache phòng ngừa khi backend RPC tạm thời chưa sẵn sàng hoặc môi trường mock
+const MAX_LOCAL_CACHE_ENTRIES = 500;
+const localRateLimitMap = new Map();
 
 function getClientIp(request) {
   const forwarded = request.headers['x-forwarded-for'];
@@ -14,36 +16,40 @@ function getClientIp(request) {
   return request.socket?.remoteAddress || '127.0.0.1';
 }
 
-function checkCommentRateLimit(ip) {
+function checkLocalRateLimit(ip) {
   const now = Date.now();
-  const record = ipRateLimitMap.get(ip) || { timestamps: [] };
+  const record = localRateLimitMap.get(ip) || { timestamps: [] };
 
-  // Filter timestamps within sliding window
-  record.timestamps = record.timestamps.filter(ts => now - ts < RATE_LIMIT_WINDOW_MS);
+  record.timestamps = record.timestamps.filter(ts => now - ts < RATE_LIMIT_WINDOW_SECONDS * 1000);
 
   if (record.timestamps.length > 0) {
     const lastTimestamp = record.timestamps[record.timestamps.length - 1];
     const timeSinceLast = now - lastTimestamp;
-    if (timeSinceLast < MIN_INTERVAL_MS) {
-      const waitSeconds = Math.ceil((MIN_INTERVAL_MS - timeSinceLast) / 1000);
-      return { allowed: false, waitSeconds, code: 'COOLDOWN_ACTIVE' };
+    if (timeSinceLast < MIN_INTERVAL_SECONDS * 1000) {
+      const waitSeconds = Math.ceil((MIN_INTERVAL_SECONDS * 1000 - timeSinceLast) / 1000);
+      return { allowed: false, wait_seconds: waitSeconds, code: 'COOLDOWN_ACTIVE' };
     }
   }
 
   if (record.timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
     const oldest = record.timestamps[0];
-    const waitSeconds = Math.ceil((RATE_LIMIT_WINDOW_MS - (now - oldest)) / 1000);
-    return { allowed: false, waitSeconds, code: 'RATE_LIMIT_EXCEEDED' };
+    const waitSeconds = Math.ceil((RATE_LIMIT_WINDOW_SECONDS * 1000 - (now - oldest)) / 1000);
+    return { allowed: false, wait_seconds: waitSeconds, code: 'RATE_LIMIT_EXCEEDED' };
   }
 
   return { allowed: true };
 }
 
-function recordCommentSubmission(ip) {
+function recordLocalSubmission(ip) {
   const now = Date.now();
-  const record = ipRateLimitMap.get(ip) || { timestamps: [] };
+  if (localRateLimitMap.size >= MAX_LOCAL_CACHE_ENTRIES) {
+    // Xóa bớt mục cũ nhất khi vượt ngưỡng bộ nhớ
+    const firstKey = localRateLimitMap.keys().next().value;
+    if (firstKey) localRateLimitMap.delete(firstKey);
+  }
+  const record = localRateLimitMap.get(ip) || { timestamps: [] };
   record.timestamps.push(now);
-  ipRateLimitMap.set(ip, record);
+  localRateLimitMap.set(ip, record);
 }
 
 function sendJson(response, statusCode, payload, headers = {}) {
@@ -75,6 +81,57 @@ function getSupabaseConfig() {
     baseUrl: supabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, ''),
     serviceRoleKey,
   };
+}
+
+async function supabaseRequest(path, options = {}) {
+  const { baseUrl, serviceRoleKey } = getSupabaseConfig();
+  const response = await fetch(`${baseUrl}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Supabase error: ${response.status}`);
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+/**
+ * Kiểm tra rate limit phân tán thông qua Supabase RPC check_and_record_rate_limit.
+ * Đảm bảo dữ liệu rate-limit nhất quán trên toàn bộ instance serverless.
+ */
+async function checkDistributedRateLimit(ip) {
+  try {
+    const rpcResult = await supabaseRequest('rpc/check_and_record_rate_limit', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_key: `comment_ip_${ip}`,
+        p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+        p_max_requests: MAX_REQUESTS_PER_WINDOW,
+        p_min_interval_seconds: MIN_INTERVAL_SECONDS
+      })
+    });
+
+    if (rpcResult && typeof rpcResult.allowed === 'boolean') {
+      return rpcResult;
+    }
+  } catch {
+    // Nếu RPC chưa có (môi trường dev/mock), chuyển sang kiểm tra bộ nhớ local có giới hạn
+  }
+
+  const localCheck = checkLocalRateLimit(ip);
+  if (localCheck.allowed) {
+    recordLocalSubmission(ip);
+  }
+  return localCheck;
 }
 
 async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
@@ -171,41 +228,21 @@ function validatePayload(body) {
   };
 }
 
-async function supabaseRequest(path, options = {}) {
-  const { baseUrl, serviceRoleKey } = getSupabaseConfig();
-  const response = await fetch(`${baseUrl}/rest/v1/${path}`, {
-    ...options,
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Supabase error: ${response.status}`);
-  }
-
-  if (response.status === 204) return null;
-  return response.json();
-}
-
 export default async function handler(request, response) {
   if (request.method !== 'POST') {
     return sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed. Use POST.');
   }
 
   const ip = getClientIp(request);
-  const rateLimitCheck = checkCommentRateLimit(ip);
+  const rateLimitCheck = await checkDistributedRateLimit(ip);
   if (!rateLimitCheck.allowed) {
+    const waitSeconds = rateLimitCheck.wait_seconds || 10;
     return sendError(
       response,
       429,
       'RATE_LIMITED',
-      `Bạn đang gửi bình luận quá nhanh. Vui lòng chờ ${rateLimitCheck.waitSeconds} giây trước khi gửi tiếp.`,
-      { 'Retry-After': String(rateLimitCheck.waitSeconds) }
+      `Bạn đang gửi bình luận quá nhanh. Vui lòng chờ ${waitSeconds} giây trước khi gửi tiếp.`,
+      { 'Retry-After': String(waitSeconds) }
     );
   }
 
@@ -233,7 +270,6 @@ export default async function handler(request, response) {
     );
 
     if (Array.isArray(existing) && existing.length > 0) {
-      // Record already exists -> return idempotent response without duplicating
       return sendJson(response, 200, {
         success: true,
         idempotent: true,
@@ -260,8 +296,6 @@ export default async function handler(request, response) {
       body: JSON.stringify(recordToInsert),
     });
 
-    recordCommentSubmission(ip);
-
     const saved = Array.isArray(inserted) ? inserted[0] : inserted;
     return sendJson(response, 201, {
       success: true,
@@ -270,7 +304,6 @@ export default async function handler(request, response) {
       message: 'Cảm ơn bạn! Đánh giá đã được tiếp nhận và đang chờ duyệt trước khi hiển thị công khai.'
     });
   } catch (dbErr) {
-    // Handle duplicate key error at database level
     if (/duplicate key|unique constraint|23505/i.test(dbErr.message)) {
       return sendJson(response, 200, {
         success: true,
@@ -284,4 +317,4 @@ export default async function handler(request, response) {
     console.error('[SubmitComment] Database insert error:', dbErr.message);
     return sendError(response, 500, 'DATABASE_ERROR', 'Không thể lưu bình luận vào hệ thống lúc này. Vui lòng thử lại sau.');
   }
-};
+}

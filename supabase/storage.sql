@@ -20,12 +20,14 @@ on storage.objects for select
 to anon, authenticated
 using (bucket_id in ('review-photos', 'place-photos'));
 
--- Cho phép người dùng vãng lai (anon) tải ảnh lên review-photos
--- Ràng buộc bảo mật:
+-- Cho phép người dùng tải ảnh lên review-photos
+-- Ràng buộc bảo mật đường dẫn chặt chẽ:
 -- 1. Chỉ được tải vào bucket 'review-photos'
--- 2. Bắt buộc cấu trúc đường dẫn: reviews/{place_id}/{client_review_id}_{filename}
--- 3. Ngăn chặn triệt để path traversal ('..')
--- 4. Chỉ chấp nhận phần mở rộng hợp lệ: jpg, jpeg, png, webp
+-- 2. Bắt buộc đúng cấu trúc 2 cấp thư mục: reviews/{place_id}/{client_review_id}_{filename}
+-- 3. place_id hợp lệ (chữ, số, gạch nối/dưới)
+-- 4. Tên tệp bắt buộc có tiền tố client_review_id hợp lệ
+-- 5. Ngăn chặn triệt để path traversal ('..')
+-- 6. Chỉ chấp nhận phần mở rộng hợp lệ: jpg, jpeg, png, webp
 drop policy if exists "Anon upload review photos" on storage.objects;
 create policy "Anon upload review photos"
 on storage.objects for insert
@@ -33,6 +35,9 @@ to anon, authenticated
 with check (
   bucket_id = 'review-photos'
   and (storage.foldername(name))[1] = 'reviews'
+  and array_length(storage.foldername(name), 1) = 2
+  and (storage.foldername(name))[2] ~ '^[a-zA-Z0-9_-]{2,100}$'
+  and storage.filename(name) ~ '^[a-zA-Z0-9_-]{5,128}_[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp)$'
   and name not like '%..%'
   and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
 );
@@ -51,6 +56,7 @@ create or replace function public.cleanup_orphan_review_photos()
 returns table(deleted_name text)
 language plpgsql
 security definer
+set search_path = public, storage
 as $$
 declare
   obj record;
@@ -71,3 +77,7 @@ begin
   end loop;
 end;
 $$;
+
+revoke all on function public.cleanup_orphan_review_photos() from public;
+revoke all on function public.cleanup_orphan_review_photos() from anon, authenticated;
+grant execute on function public.cleanup_orphan_review_photos() to service_role;

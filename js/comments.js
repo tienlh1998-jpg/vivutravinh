@@ -313,11 +313,12 @@ export async function submitComment(input) {
         return newComment;
     }
 
-    // 1. Thử gửi qua serverless API endpoint (/api/submit-comment) có rate-limiting & kiểm duyệt
+    // Gửi độc quyền qua serverless API endpoint (/api/submit-comment) có rate-limiting & kiểm duyệt
+    const origin = (typeof window !== 'undefined' && window.location ? window.location.origin : '');
+    const apiUrl = origin ? `${origin}/api/submit-comment` : '/api/submit-comment';
+    let apiRes;
     try {
-        const origin = (typeof window !== 'undefined' && window.location ? window.location.origin : '');
-        const apiUrl = origin ? `${origin}/api/submit-comment` : '/api/submit-comment';
-        const apiRes = await fetch(apiUrl, {
+        apiRes = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -331,96 +332,37 @@ export async function submitComment(input) {
                 photo_metadata: payload.photo_metadata || {},
             }),
         });
-
-        if (apiRes.status === 429) {
-            const errData = await apiRes.json().catch(() => ({}));
-            const msg = errData?.error?.message || 'Bạn đang gửi bình luận quá nhanh. Vui lòng chờ trước khi thử lại.';
-            throw new SupabaseRequestError(msg, 429, errData?.error);
-        }
-
-        if (apiRes.status === 413) {
-            throw new SupabaseRequestError('Nội dung đánh giá vượt quá kích thước cho phép.', 413);
-        }
-
-        if (apiRes.ok) {
-            const result = await apiRes.json();
-            if (!input.skipCooldown) {
-                markCooldown(payload.place_id);
-            }
-            return result.data || result;
-        }
-
-        if (apiRes.status !== 404 && apiRes.status !== 502 && apiRes.status !== 504) {
-            const errData = await apiRes.json().catch(() => ({}));
-            throw new SupabaseRequestError(errData?.error?.message || `Lỗi máy chủ (${apiRes.status})`, apiRes.status, errData?.error);
-        }
-    } catch (apiErr) {
-        if (apiErr instanceof SupabaseRequestError && (apiErr.isRateLimitError || apiErr.status === 429 || apiErr.status === 413 || apiErr.status === 400)) {
-            throw apiErr;
-        }
-        // Tiếp tục fallback sang gửi Supabase REST trực tiếp nếu API không khả dụng (static hosting)
+    } catch (networkErr) {
+        // Lỗi mạng thực sự: ném lỗi để app.js lưu vào IndexedDB offline queue và đồng bộ có kiểm soát
+        throw new SupabaseRequestError(networkErr.message || 'Không thể kết nối đến máy chủ gửi đánh giá.', 0);
     }
 
-    // 2. Gửi trực tiếp Supabase REST (chính sách Pre-moderation: status = 'pending')
-    let rows = null;
-    const postBody = {
-        place_id: payload.place_id,
-        place_name: payload.place_name,
-        author_name: payload.author_name,
-        rating: payload.rating,
-        comment_text: payload.comment_text,
-        client_review_id: payload.client_review_id,
-        status: 'pending',
-        is_hidden: false,
-    };
-
-    try {
-        if (payload.photo_url) {
-            try {
-                rows = await requestSupabase(TABLE_NAME, {
-                    method: 'POST',
-                    prefer: 'return=representation',
-                    body: JSON.stringify({
-                        ...postBody,
-                        photo_url: payload.photo_url,
-                        photo_metadata: payload.photo_metadata || {}
-                    }),
-                });
-            } catch (err) {
-                if (err instanceof SupabaseRequestError && err.isConflictError) {
-                    console.info('[ViVuComments] Bản ghi đã tồn tại (idempotent duplicate):', payload.client_review_id);
-                    return { id: 'existing_' + payload.client_review_id, ...payload, is_existing: true };
-                }
-                if (err instanceof SupabaseRequestError && err.isSchemaError) {
-                    console.warn('[ViVuComments] Server không có cột photo_url (schema error), gửi lại không kèm photo_url:', err.message);
-                    rows = await requestSupabase(TABLE_NAME, {
-                        method: 'POST',
-                        prefer: 'return=representation',
-                        body: JSON.stringify(postBody),
-                    });
-                } else {
-                    throw err;
-                }
-            }
-        } else {
-            rows = await requestSupabase(TABLE_NAME, {
-                method: 'POST',
-                prefer: 'return=representation',
-                body: JSON.stringify(postBody),
-            });
-        }
-    } catch (err) {
-        if (err instanceof SupabaseRequestError && err.isConflictError) {
-            console.info('[ViVuComments] Bản ghi đã tồn tại (idempotent duplicate):', payload.client_review_id);
-            return { id: 'existing_' + payload.client_review_id, ...payload, is_existing: true };
-        }
-        throw err;
+    if (apiRes.status === 429) {
+        const errData = await apiRes.json().catch(() => ({}));
+        const msg = errData?.error?.message || 'Bạn đang gửi bình luận quá nhanh. Vui lòng chờ trước khi thử lại.';
+        const rateErr = new SupabaseRequestError(msg, 429, errData?.error);
+        rateErr.isRateLimitError = true;
+        throw rateErr;
     }
 
+    if (apiRes.status === 413) {
+        throw new SupabaseRequestError('Nội dung đánh giá vượt quá kích thước cho phép (tối đa 64KB).', 413);
+    }
+
+    if (!apiRes.ok) {
+        const errData = await apiRes.json().catch(() => ({}));
+        throw new SupabaseRequestError(
+            errData?.error?.message || `Lỗi máy chủ (${apiRes.status})`,
+            apiRes.status,
+            errData?.error
+        );
+    }
+
+    const result = await apiRes.json();
     if (!input.skipCooldown) {
         markCooldown(payload.place_id);
     }
-    return rows?.[0] || null;
+    return result.data || result;
 }
 
 export function summarizeComments(comments, totalCount = null) {

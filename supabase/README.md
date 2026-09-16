@@ -9,10 +9,11 @@ Tài liệu này hướng dẫn cách thiết lập, sao lưu, chạy migration,
 ```text
 G0–G4:                      ✅ Đã nghiệm thu và đóng
 G5 schema/client/API code:  ✅ Sẵn sàng thử nghiệm (Code readiness đạt)
-G5 mock integration:        ✅ PASS (10/10 bài test tự động)
+G5 mock integration:        ✅ PASS (8/8 ca kiểm thử mô phỏng contract & bảo mật)
 G5 Supabase migration thật: ⏸️ Đang chờ máy chủ trực tuyến (Live connection pending)
 G5 RLS thật trên DB:        ⏸️ Đang chờ máy chủ trực tuyến
-G5 server rate limit & API: ✅ Đã hoàn thiện (/api/submit-comment.js)
+G5 server rate limit & API: ✅ Đã hoàn thiện (Distributed Rate-Limiting qua DB RPC & /api/submit-comment.js)
+G5 bypass prevention:       ✅ Đã đóng (Chặn 100% anon INSERT trực tiếp vào DB)
 G5 tổng thể:                🟡 Chưa đóng (Code Readiness đạt, chờ Live Verification)
 ```
 
@@ -22,55 +23,72 @@ G5 tổng thể:                🟡 Chưa đóng (Code Readiness đạt, chờ 
 
 ### 1. `supabase/places.sql`
 - **Bảng `public.places`**: Lưu trữ thông tin chi tiết địa điểm du lịch, ẩm thực, check-in theo contract G2 (`isFree`, `hasValidGps`, `hours`, `images`).
-- **RLS**: Khách vãng lai (`anon`) chỉ được phép `SELECT` các địa điểm có `status = 'approved'`. Mọi quyền `INSERT`, `UPDATE`, `DELETE` của `anon` bị chặn 103/403.
+- **RLS**: Khách vãng lai (`anon`) chỉ được phép `SELECT` các địa điểm có `status = 'approved'`. Mọi quyền `INSERT`, `UPDATE`, `DELETE` của `anon` bị chặn 403 Forbidden.
 
 ### 2. `supabase/place_comments.sql`
 - **Bảng `public.place_comments`**: Lưu trữ bình luận, đánh giá sao (1–5), và metadata ảnh đính kèm (`photo_url`, `photo_metadata`).
-- **Khóa Idempotency**: `UNIQUE(client_review_id)` đảm bảo mỗi lần gửi từ client chỉ tạo tối đa 1 bản ghi duy nhất, ngăn spam click hoặc gửi lặp khi mạng chập chờn.
-- **Chính sách kiểm duyệt (Pre-moderation)**:
-  - *Lựa chọn thiết kế*: Áp dụng **Pre-moderation** (Duyệt trước khi hiển thị). Khách vãng lai (`anon`) chỉ được phép chèn bản ghi ở trạng thái `status = 'pending'`.
-  - *Lý do*: ViVuTraVinh là cẩm nang cộng đồng mở, không có đội ngũ trực kiểm duyệt 24/7. Việc cho phép hiển thị ngay (post-moderation) tiềm ẩn rủi ro bot spam, link độc hại, hoặc ngôn từ phản cảm xuất hiện trên trang công cộng.
-  - *RLS SELECT*: Chỉ cho phép đọc `status = 'approved' AND is_hidden = false`. Bình luận `pending` chỉ hiển thị với admin trong trang kiểm duyệt (`admin.html`) cho đến khi được duyệt.
-  - *Chặn bypass*: Nếu kẻ tấn công cố tình gửi trực tiếp `status = 'approved'` tới Supabase REST, Postgres RLS policy `WITH CHECK (status = 'pending')` sẽ từ chối với mã lỗi 403.
+- **Trạng thái mặc định**: Cột `status text not null default 'pending'` đảm bảo an toàn ngay cả khi payload thiếu trường `status`.
+- **Khóa Idempotency**: `UNIQUE(client_review_id)` ngăn spam click hoặc gửi lặp khi mạng chập chờn.
+- **Bảo Vệ Rate Limit & Chống Bypass**:
+  - **Không cấp quyền `anon INSERT`**: Toàn bộ policy INSERT cho `anon` đã bị gỡ bỏ khỏi bảng `place_comments`.
+  - Mọi request gửi bình luận bắt buộc phải đi qua endpoint `/api/submit-comment`.
+  - Endpoint sử dụng `SUPABASE_SERVICE_ROLE_KEY` để ghi vào DB với trạng thái `pending`.
+  - Nếu kẻ tấn công gọi trực tiếp Supabase REST endpoint bằng anon key, PostgreSQL RLS sẽ từ chối ngay lập tức với mã lỗi **403 Forbidden**.
+- **Bảng & Hàm Rate Limit Chia Sẻ (Distributed Rate Limiting)**:
+  - Bảng `public.rate_limits` lưu trữ mảng timestamps theo key (`comment_ip_{IP}`).
+  - Hàm RPC `public.check_and_record_rate_limit()` chạy nguyên tử (atomic transaction) với `security definer` và `set search_path = public`.
+  - Quyền thực thi RPC bị thu hồi khỏi `public, anon, authenticated` và chỉ cấp cho `service_role`.
+  - Hoạt động nhất quán trên toàn bộ serverless instances và sau các đợt cold start.
 
 ### 3. `supabase/storage.sql`
 - **Buckets**: `review-photos` (tối đa 5MB) và `place-photos` (tối đa 10MB).
 - **Ràng buộc RLS Storage**:
-  - Bắt buộc cấu trúc đường dẫn: `reviews/{place_id}/{client_review_id}_{filename}`.
+  - Bắt buộc đúng cấu trúc 2 cấp thư mục: `reviews/{place_id}/{client_review_id}_{filename}`.
+  - Kiểm tra regex: `(storage.foldername(name))[2] ~ '^[a-zA-Z0-9_-]{2,100}$'` và `storage.filename(name) ~ '^[a-zA-Z0-9_-]{5,128}_[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp)$'`.
   - Chặn triệt để path traversal (`..`).
-  - Giới hạn đuôi tệp: `jpg`, `jpeg`, `png`, `webp`.
-- **Dọn dẹp ảnh mồ côi (Orphan Cleanup)**: Cung cấp hàm `public.cleanup_orphan_review_photos()` để định kỳ xóa các ảnh trong bucket `review-photos` tải lên quá 48h mà không gắn với bình luận nào trong bảng `place_comments`.
+- **Dọn dẹp ảnh mồ côi (Orphan Cleanup)**:
+  - Hàm `public.cleanup_orphan_review_photos()` có `security definer` và `set search_path = public, storage`.
+  - Quyền thực thi bị thu hồi khỏi `public, anon, authenticated` và chỉ cấp riêng cho `service_role`.
 
 ---
 
-## 3. Tầng API Backend & Chống Spam Phía Server (`api/`)
+## 3. Tầng API Backend & Client Offline Queue (`api/` & `js/`)
 
 1. **`api/submit-comment.js`**:
-   - **Rate Limiting theo IP**: Giới hạn tối đa 3 bình luận/phút và khoảng cách tối thiểu 10 giây giữa 2 bình luận liên tiếp từ cùng một IP. Khi vượt ngưỡng, trả về HTTP 429 `RATE_LIMITED` kèm header `Retry-After`.
-   - **Giới hạn Payload**: Đo kích thước thực tế bằng `Buffer.byteLength(JSON.stringify(body), 'utf8') <= 64KB`. Từ chối 413 `PAYLOAD_TOO_LARGE` nếu vượt quá.
-   - **Validation Server-side**: Xác thực nghiêm ngặt độ dài tên tác giả (2–80 ký tự), rating (1–5 sao), nội dung (3–1000 ký tự), URL ảnh và metadata.
-   - **Xử lý Bất Biến (Idempotency)**: Kiểm tra `client_review_id` trước khi chèn. Nếu đã tồn tại, trả về bản ghi hiện tại với mã 200 OK mà không tạo thêm dòng mới.
-   - **Thực thi Pre-moderation**: Ghi nhận bình luận với trạng thái `pending` thông qua `SUPABASE_SERVICE_ROLE_KEY`.
+   - **Distributed Rate Limiting**: Gọi RPC `check_and_record_rate_limit` ở backend. Giới hạn 3 bình luận/phút, khoảng cách tối thiểu 10s. Vượt ngưỡng trả về **HTTP 429 `RATE_LIMITED`** kèm `Retry-After`.
+   - **Local LRU Cache Bounded**: Giới hạn tối đa 500 mục làm cơ chế dự phòng nếu DB RPC chưa sẵn sàng.
+   - **Đo kích thước Payload**: Đo `Buffer.byteLength(JSON.stringify(body), 'utf8') <= 64KB`, trả về **HTTP 413 `PAYLOAD_TOO_LARGE`**.
+   - **Server Validation**: Kiểm tra tên tác giả (2–80 ký tự), rating (1–5), nội dung (3–1000 ký tự), định dạng ảnh.
+   - **Idempotency**: Trả về 200 OK bản ghi hiện có nếu `client_review_id` đã tồn tại.
 
-2. **`api/admin-places.js`, `api/admin-comments.js`, `api/import-place.js`**:
-   - **Đo kích thước object body**: Hỗ trợ đo chính xác payload object đã được runtime parse sẵn bằng `Buffer.byteLength(JSON.stringify(request.body), 'utf8') <= MAX_PAYLOAD_SIZE` (1MB - 2MB).
-   - **Chống Brute-force Secret**: Khóa tạm thời 15 phút (HTTP 429 `AUTH_RATE_LIMITED`) nếu một IP thử sai secret quá 5 lần.
-   - **Audit Logging**: Ghi nhận nhật ký cảnh báo cho mọi nỗ lực xác thực thất bại.
-   - **Cấu trúc lỗi chuẩn**: Luôn trả về `{ success: false, error: { code, message } }`, che giấu stack trace và bí mật nội bộ khi gặp lỗi 500.
+2. **`js/comments.js` & `js/offline-sync.js`**:
+   - Gỡ bỏ hoàn toàn fallback gửi Supabase REST trực tiếp.
+   - Khi API không khả dụng hoặc mất mạng, lưu bản nháp vào IndexedDB offline queue.
+   - Khi đồng bộ nếu gặp HTTP 429, tiến trình đồng bộ tạm dừng duyên dáng, giữ các bản ghi trong hàng đợi thay vì spam máy chủ.
+
+3. **`api/admin-places.js`, `api/admin-comments.js`, `api/import-place.js`**:
+   - Đo kích thước object body bằng `Buffer.byteLength(JSON.stringify(body))`.
+   - Chống brute-force secret: Khóa 15 phút (HTTP 429) khi thử sai quá 5 lần.
 
 ---
 
-## 4. Danh Mục Kiểm Tra Khi Supabase Hoạt Động Lại (10-Step Checklist)
+## 4. Công Cụ Kiểm Toán Trực Tiếp (`scripts/verify-g5-live.js`)
 
-Khi máy chủ Supabase staging/production sẵn sàng:
+- Chạy: `npm run test:g5:live`
+- Thoát mã 1 khi không kết nối được máy chủ Supabase để CI nhận diện chính xác live audit chưa hoàn thành.
+- Hỗ trợ cờ `--allow-offline` để chủ động đánh dấu trạng thái SKIPPED (thoát mã 0) trong môi trường thử nghiệm cô lập.
+
+---
+
+## 5. Danh Mục Kiểm Tra Khi Supabase Hoạt Động Lại (10-Step Checklist)
 
 1. [ ] **Sao lưu (Backup)**: Tạo snapshot database staging hiện có.
 2. [ ] **Chạy Migration**: Thực thi lần lượt `places.sql`, `place_comments.sql`, `storage.sql`.
-3. [ ] **Xác nhận Pre-moderation**: Xác nhận policy `status = 'pending'` được áp dụng cho vai trò `anon`.
-4. [ ] **Kiểm tra Rate Limit Server**: Gửi 2 request liên tiếp qua `/api/submit-comment` và xác nhận nhận HTTP 429.
-5. [ ] **Chạy Test Trực Tiếp**: Chạy lệnh `npm run test:g5:live` để kiểm toán kết nối thật.
-6. [ ] **Xác thực Đọc Public**: Xác nhận `anon` chỉ đọc được địa điểm/bình luận `approved`, không đọc được `draft` hoặc `hidden`.
-7. [ ] **Xác thực Chặn Ghi Public**: Xác nhận `anon` không thể sửa hoặc xóa bất kỳ địa điểm hay bình luận nào.
-8. [ ] **Kiểm tra Idempotency Thật**: Gửi cùng 1 `client_review_id` 2 lần và xác nhận DB chỉ có 1 dòng.
-9. [ ] **Kiểm tra Storage Upload**: Tải lên thử file sai đuôi hoặc vượt 5MB và xác nhận bị chặn.
+3. [ ] **Xác nhận Pre-moderation & Default Status**: Kiểm tra bảng `place_comments` có `default 'pending'`.
+4. [ ] **Xác nhận Anon Insert Bị Chặn**: Thử gửi POST trực tiếp tới `/rest/v1/place_comments` bằng anon key -> Phải nhận HTTP 403 Forbidden.
+5. [ ] **Kiểm tra Rate Limit Server**: Gửi 2 request liên tiếp qua `/api/submit-comment` và xác nhận nhận HTTP 429.
+6. [ ] **Chạy Test Trực Tiếp**: Chạy lệnh `npm run test:g5:live` để kiểm toán toàn bộ RLS thật.
+7. [ ] **Xác thực Đọc Public**: Xác nhận `anon` chỉ đọc được địa điểm/bình luận `approved`, không đọc được `draft` hoặc `hidden`.
+8. [ ] **Xác thực Chặn Ghi Public**: Xác nhận `anon` không thể sửa hoặc xóa bất kỳ địa điểm hay bình luận nào.
+9. [ ] **Kiểm tra Idempotency Thật**: Gửi cùng 1 `client_review_id` 2 lần qua API và xác nhận DB chỉ có 1 dòng.
 10. [ ] **Nghiệm Thu Đóng Cổng G5**: Sau khi hoàn thành 9 bước trên, chuyển trạng thái từ "Readiness" sang "Hoàn Thành G5".

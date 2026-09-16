@@ -6,8 +6,13 @@
  * Kiểm toán kết nối và chính sách Row Level Security (RLS) trên môi trường Supabase THỰC TẾ.
  * Lưu ý: Bộ kiểm thử này chỉ chạy thành công khi dự án Supabase đang hoạt động trực tuyến
  * và đã hoàn tất chạy migration SQL (supabase/place_comments.sql, supabase/storage.sql).
+ *
+ * Tùy chọn cờ:
+ *   --allow-offline : Cho phép thoát mã 0 (đánh dấu SKIPPED) nếu máy chủ chưa kết nối được.
+ *   (Mặc định không có cờ: Thoát mã 1 khi không kết nối được để CI không nhận nhầm là PASS).
  */
 
+const allowOffline = process.argv.includes('--allow-offline');
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZveXJhb2ltaGtzZnZseG5kd3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjkwNzAsImV4cCI6MjA5NTMwNTA3MH0.ARJ173UkVNCichCiJmVrbp2aTByVoXnSEAIsIvbnYJ8';
 
@@ -42,8 +47,13 @@ async function checkLiveConnection() {
     console.warn('  2. Chạy file SQL migration: supabase/place_comments.sql và supabase/storage.sql.');
     console.warn('  3. Chạy lại lệnh: npm run test:g5:live để hoàn tất nghiệm thu trực tiếp.\n');
 
-    // Exit cleanly with diagnostic notice so CI/CD or developer knows live server is waiting
-    process.exit(0);
+    if (allowOffline) {
+      console.warn('⚠️ [SKIPPED] Chạy ở chế độ --allow-offline: Thoát mã 0 (bỏ qua kiểm thử live).');
+      process.exit(0);
+    } else {
+      console.error('❌ [FAILED] Live audit không thể hoàn thành vì máy chủ offline. Thoát mã 1 (yêu cầu server hoạt động).');
+      process.exit(1);
+    }
   }
 
   // --- NẾU KẾT NỐI THÀNH CÔNG, TIẾN HÀNH KIỂM TOÁN RLS THỰC TẾ ---
@@ -79,34 +89,42 @@ async function checkLiveConnection() {
     if (data.length > 0) throw new Error(`RLS bị hở: Anon đọc được ${data.length} địa điểm draft`);
   });
 
-  // Case 3: Anon bị chặn khi cố tạo địa điểm
+  // Case 3: Anon bị chặn khi cố tạo địa điểm (payload hợp lệ nhưng bị RLS chặn)
   await assertCase('Anon bị chặn 403 khi cố tạo địa điểm mới', async () => {
     const res = await fetch(`${baseUrl}/rest/v1/places`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ name: 'Hacker Place', status: 'approved' }),
+      body: JSON.stringify({
+        name: 'Hacker Place',
+        slug: 'hacker-place-' + Date.now(),
+        category: 'Điểm Check-in / Sống Ảo',
+        area: 'TP. Trà Vinh',
+        address: '123 Đường Test, TP. Trà Vinh',
+        status: 'approved'
+      }),
     });
     if (res.ok) throw new Error('Anon tạo được địa điểm thành công (RLS chưa bật hoặc policy sai)!');
     if (res.status !== 401 && res.status !== 403) throw new Error(`Mã trạng thái trả về không phải 401/403: ${res.status}`);
   });
 
-  // Case 4: Anon không thể chèn bình luận với status = 'approved' (Pre-moderation policy)
-  await assertCase('RLS chặn Anon tự đặt status = approved (Pre-moderation)', async () => {
+  // Case 4: Chặn tuyệt đối Anon gửi bình luận trực tiếp qua REST (phải qua /api/submit-comment)
+  await assertCase('Anon bị RLS chặn 403 khi cố gửi bình luận trực tiếp qua REST (Bảo vệ Rate Limit)', async () => {
     const res = await fetch(`${baseUrl}/rest/v1/place_comments`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
         place_id: 'ao-ba-om',
         place_name: 'Ao Bà Om',
-        author_name: 'Hacker',
+        author_name: 'Hacker Anon',
         rating: 5,
-        comment_text: 'Bình luận thử nghiệm RLS',
-        client_review_id: 'test_audit_approved_' + Date.now(),
-        status: 'approved',
+        comment_text: 'Bình luận thử nghiệm bypass rate limit',
+        client_review_id: 'test_audit_direct_' + Date.now(),
+        status: 'pending',
         is_hidden: false,
       }),
     });
-    if (res.ok) throw new Error('Anon có thể chèn bình luận status approved (Vi phạm chính sách Pre-moderation)!');
+    if (res.ok) throw new Error('Anon gửi được bình luận trực tiếp qua REST (Hở lỗ hổng bypass rate limit)!');
+    if (res.status !== 401 && res.status !== 403) throw new Error(`Mã trạng thái không phải 401/403: ${res.status}`);
   });
 
   // Case 5: Anon chỉ đọc được bình luận approved và is_hidden = false

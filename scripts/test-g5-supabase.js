@@ -132,6 +132,44 @@ function createMockSupabaseServer() {
             return send(200, JSON.parse(content));
         }
 
+        // Tuyến RPC rate-limiting chia sẻ cho service_role
+        if (url.pathname === '/rest/v1/rpc/check_and_record_rate_limit' && req.method === 'POST') {
+            if (!isServiceRole) {
+                return send(403, { message: 'permission denied for function "check_and_record_rate_limit"', code: '42501' });
+            }
+            let bodyStr = '';
+            for await (const chunk of req) bodyStr += chunk;
+            const rpcBody = JSON.parse(bodyStr || '{}');
+            const key = rpcBody.p_key || 'default';
+            const windowSec = rpcBody.p_window_seconds || 60;
+            const maxReq = rpcBody.p_max_requests || 3;
+            const minIntervalSec = rpcBody.p_min_interval_seconds || 10;
+
+            if (!mockDb.rate_limits) mockDb.rate_limits = {};
+            const now = Date.now();
+            const record = mockDb.rate_limits[key] || { timestamps: [] };
+            record.timestamps = record.timestamps.filter(ts => now - ts < windowSec * 1000);
+
+            if (record.timestamps.length > 0) {
+                const lastTs = record.timestamps[record.timestamps.length - 1];
+                const sinceLast = (now - lastTs) / 1000;
+                if (sinceLast < minIntervalSec) {
+                    const waitSec = Math.ceil(minIntervalSec - sinceLast);
+                    return send(200, { allowed: false, code: 'COOLDOWN_ACTIVE', wait_seconds: waitSec });
+                }
+            }
+
+            if (record.timestamps.length >= maxReq) {
+                const oldest = record.timestamps[0];
+                const waitSec = Math.ceil((windowSec * 1000 - (now - oldest)) / 1000);
+                return send(200, { allowed: false, code: 'RATE_LIMIT_EXCEEDED', wait_seconds: waitSec });
+            }
+
+            record.timestamps.push(now);
+            mockDb.rate_limits[key] = record;
+            return send(200, { allowed: true, remaining: maxReq - record.timestamps.length });
+        }
+
         // Tuyến API submit-comment (hỗ trợ gọi từ client qua cùng port)
         if (url.pathname === '/api/submit-comment') {
             return submitCommentHandler(req, res);
@@ -247,12 +285,10 @@ function createMockSupabaseServer() {
                 for await (const chunk of req) bodyStr += chunk;
                 const newComment = JSON.parse(bodyStr);
 
-                // RLS CHECK CHO ANON INSERT (CHÍNH SÁCH PRE-MODERATION):
-                // Anon chỉ được tạo bản ghi status = 'pending' và is_hidden = false
+                // RLS CHECK CHO ANON INSERT:
+                // KHÔNG CHO PHÉP ANON INSERT TRỰC TIẾP QUA REST ĐỂ CHỐNG BYPASS RATE LIMIT!
                 if (!isServiceRole) {
-                    if (newComment.is_hidden === true || (newComment.status && newComment.status !== 'pending')) {
-                        return send(403, { message: 'new row violates row-level security policy for table "place_comments" (anon can only insert pending status)', code: '42501' });
-                    }
+                    return send(403, { message: 'permission denied for table "place_comments" (direct insert disabled, use /api/submit-comment)', code: '42501' });
                 }
 
                 // IDEMPOTENCY / UNIQUE CLIENT_REVIEW_ID CHECK:
@@ -570,8 +606,8 @@ async function runTests() {
         assert.ok(adminComments.some(c => c.is_hidden === true), 'Admin phải nhìn thấy cả bình luận bị ẩn');
         console.log('  ✓ Admin API đọc được toàn bộ bình luận (kể cả bình luận bị ẩn để kiểm duyệt)');
 
-        // 6.3. Kiểm toán RLS Pre-moderation: Anon tự chèn status='approved' trực tiếp vào REST
-        const hackCommentRes = await fetch(`${SUPABASE_BASE_URL}/rest/v1/place_comments`, {
+        // 6.3. Kiểm toán RLS: Chặn tuyệt đối Anon gửi trực tiếp qua REST API (Bảo vệ Rate Limit)
+        const directAnonCommentRes = await fetch(`${SUPABASE_BASE_URL}/rest/v1/place_comments`, {
             method: 'POST',
             headers: { apikey: VALID_ANON_KEY, Authorization: `Bearer ${VALID_ANON_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -579,14 +615,14 @@ async function runTests() {
                 place_name: 'Ao Bà Om',
                 author_name: 'Hacker Anon',
                 rating: 5,
-                comment_text: 'Spam bypass moderation',
-                client_review_id: 'hack_premod_' + Date.now(),
-                status: 'approved',
+                comment_text: 'Spam bypass moderation and rate limit',
+                client_review_id: 'hack_direct_' + Date.now(),
+                status: 'pending',
                 is_hidden: false
             })
         });
-        assert.strictEqual(hackCommentRes.status, 403, 'Anon cố tình chèn status=approved phải bị RLS từ chối 403');
-        console.log('  ✓ RLS: Anon bị chặn 403 khi cố tự đặt status = approved (Bảo vệ Pre-moderation)');
+        assert.strictEqual(directAnonCommentRes.status, 403, 'Anon gửi trực tiếp REST phải bị RLS từ chối 403 để chặn bypass rate-limit');
+        console.log('  ✓ RLS: Anon bị chặn 403 khi cố gửi trực tiếp qua REST (Bảo vệ tuyệt đối Rate Limit)');
 
         // ==========================================
         // CA 7: SERVER RATE LIMITING, VALIDATION VÀ CHỐNG TRÙNG LẶP ĐÁNH GIÁ (G5)
@@ -694,6 +730,22 @@ async function runTests() {
         assert.strictEqual(send2.data.idempotent, true);
         assert.strictEqual(mockDb.place_comments.length, initialCount + 1, 'Không được tạo thêm bản ghi thứ hai trong DB!');
         console.log('  ✓ Gửi cùng một client_review_id 2 lần được server nhận diện idempotent (200 OK, 0 duplicate)');
+
+        // 7.5. Tích hợp Hàm Client submitComment: Gửi qua API backend an toàn (0 direct REST)
+        const clientTestId = `clrev_client_${Date.now()}`;
+        const clientPayload = {
+            placeId: 'ao-ba-om',
+            placeName: 'Ao Bà Om',
+            authorName: 'Khách Sử Dụng App',
+            rating: 5,
+            commentText: 'Đánh giá gửi từ hàm submitComment của client',
+            client_review_id: clientTestId,
+            skipCooldown: true
+        };
+        const clientRes = await submitComment(clientPayload);
+        assert.ok(clientRes && clientRes.client_review_id === clientTestId, 'Client submitComment phải hoàn thành qua API');
+        assert.strictEqual(clientRes.status, 'pending', 'Bản ghi phải mang trạng thái pending mặc định');
+        console.log('  ✓ Client submitComment hoàn tất qua API backend thành công (0 cuộc gọi REST trực tiếp)');
 
         // ==========================================
         // CA 8: PHÂN LOẠI LỖI & KHÔNG DÙNG FALLBACK CHE LỖI CẤU HÌNH

@@ -290,6 +290,13 @@ export async function syncAllPendingReviews(submitFunction, onProgress) {
                 console.warn(`[OfflineSync] Lỗi đồng bộ đánh giá ${rev.id}:`, err);
                 failedCount++;
 
+                // Nếu lỗi do server rate limiting (429), tạm dừng đợt đồng bộ này để không spam server
+                if (err?.isRateLimitError || err?.status === 429 || err?.code === 'RATE_LIMITED') {
+                    console.warn('[OfflineSync] Server đang giới hạn tần suất (429). Giữ lại các bản ghi trong queue và tạm dừng đợt đồng bộ này.');
+                    if (onProgress) onProgress(rev, 'error', err);
+                    break;
+                }
+
                 // Nếu lỗi là validation, cooldown hoặc lỗi quyền (401/403), loại bỏ để không retry vô hạn
                 if (err?.code === 'VALIDATION_ERROR' || err?.code === 'COOLDOWN_ERROR' || err?.status === 401 || err?.status === 403) {
                     await deleteOfflineReview(rev.id);

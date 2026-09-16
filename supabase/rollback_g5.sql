@@ -20,8 +20,13 @@ for select
 to anon
 using (status = 'approved');
 
--- 3. Hoàn nguyên chính sách Storage
+-- 3. Hoàn nguyên chính sách Storage & Hàm dọn dẹp ảnh
 drop policy if exists "Anon upload review photos" on storage.objects;
 drop policy if exists "Public Access for Review Photos" on storage.objects;
+drop function if exists public.cleanup_orphan_review_photos();
+
+-- 4. Hoàn nguyên bảng và hàm distributed rate limits
+drop function if exists public.check_and_record_rate_limit(text, int, int, int);
+drop table if exists public.rate_limits cascade;
 
 -- Kết thúc rollback G5
