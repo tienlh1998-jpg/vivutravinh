@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-16T09:11:46.054Z",
+  "timestamp": "2026-09-16T09:48:29.916Z",
   "version": "2.9.0",
   "environment": {
     "server": "localhost",
@@ -8,7 +8,7 @@
     "browser": "Chrome Headless"
   },
   "desktop": {
-    "lcp": 84,
+    "lcp": 100,
     "cls": 0.0466,
     "shifts": [
       {
@@ -85,7 +85,7 @@
     ]
   },
   "mobile": {
-    "lcp": 124,
+    "lcp": 116,
     "cls": 0,
     "shifts": []
   },
