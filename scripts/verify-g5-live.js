@@ -270,26 +270,33 @@ async function checkLiveConnection() {
 
   // Case 8: Kiểm toán Storage Bucket & Upload Policy (Bucket review-photos & RLS upload ràng buộc)
   await assertCase('Kiểm toán Storage Policy: Bucket review-photos tồn tại, RLS chặn upload sai định dạng/đường dẫn', async () => {
-    // 1. Kiểm tra bucket review-photos tồn tại và công khai
-    const bucketRes = await fetch(`${baseUrl}/storage/v1/bucket/review-photos`, { headers });
-    if (!bucketRes.ok) {
-      const errBody = await bucketRes.text().catch(() => '');
-      if (bucketRes.status === 404 || errBody.includes('NoSuchBucket')) {
-        throw new Error('Bucket review-photos chưa được tạo (Migration storage.sql chưa chạy)!');
-      }
-      throw new Error(`Không thể kiểm tra bucket review-photos: HTTP ${bucketRes.status} - ${errBody}`);
-    }
-    const bucketData = await bucketRes.json();
-    if (!bucketData.public) throw new Error('Bucket review-photos phải là public');
-
-    // 2. Kiểm tra Storage RLS chặn upload sai định dạng hoặc đường dẫn ngoài reviews/{place_id}/
-    const badUploadRes = await fetch(`${baseUrl}/storage/v1/object/review-photos/bad_folder_test/hack.exe`, {
+    // Endpoint metadata bucket là endpoint quản trị và có thể che bucket tồn tại khỏi anon.
+    // Kiểm tra trực tiếp hai lớp bảo vệ trên object API thay vì suy luận từ endpoint đó.
+    const badMimeRes = await fetch(`${baseUrl}/storage/v1/object/review-photos/reviews/audit-place/audit_fixture.exe`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/octet-stream' },
       body: 'fake binary content'
     });
-    if (badUploadRes.ok) {
-      throw new Error('Anon upload được tệp tin sai đường dẫn/định dạng (.exe)! Storage RLS bị hở!');
+    const badMimeBody = await badMimeRes.text().catch(() => '');
+    if (badMimeBody.includes('NoSuchBucket')) {
+      throw new Error('Bucket review-photos chưa được tạo (Migration storage.sql chưa chạy)!');
+    }
+    if (badMimeRes.ok) {
+      throw new Error('Anon upload được tệp tin sai định dạng (.exe)! Giới hạn MIME/extension bị hở!');
+    }
+
+    const tinyJpeg = Buffer.from('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=', 'base64');
+    const badPathRes = await fetch(`${baseUrl}/storage/v1/object/review-photos/bad_folder_test/audit_fixture.jpg`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'image/jpeg' },
+      body: tinyJpeg
+    });
+    const badPathBody = await badPathRes.text().catch(() => '');
+    if (badPathBody.includes('NoSuchBucket')) {
+      throw new Error('Bucket review-photos chưa được tạo (Migration storage.sql chưa chạy)!');
+    }
+    if (badPathRes.ok) {
+      throw new Error('Anon upload được ảnh ngoài đường dẫn reviews/{place_id}/! Storage RLS bị hở!');
     }
   });
 

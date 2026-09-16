@@ -151,6 +151,8 @@ alter table public.place_comments enable row level security;
 
 -- 1. Quyền đọc công khai (Public / Anon Read):
 -- Chỉ được đọc các bình luận đã duyệt (status = 'approved') và không bị ẩn (is_hidden = false)
+-- Dọn policy legacy từng cho role public đọc toàn bộ bình luận.
+drop policy if exists "Public can read comments" on public.place_comments;
 drop policy if exists "Public can read approved non-hidden comments" on public.place_comments;
 create policy "Public can read approved non-hidden comments"
 on public.place_comments
@@ -164,6 +166,8 @@ using (is_hidden = false and status = 'approved');
 -- API này kiểm tra IP rate limit (dùng chung trong DB), giới hạn payload 64KB, validate máy chủ,
 -- và sử dụng service_role để ghi vào DB với trạng thái mặc định 'pending'.
 -- Việc không cấp policy INSERT cho anon đảm bảo kẻ tấn công KHÔNG THỂ bypass rate limit bằng cách gọi REST trực tiếp.
+-- Dọn cả tên policy legacy từng cấp INSERT cho role public.
+drop policy if exists "Public can insert comments" on public.place_comments;
 drop policy if exists "Public can insert valid comments" on public.place_comments;
 
 -- 3. Quyền sửa / xóa bình luận:
