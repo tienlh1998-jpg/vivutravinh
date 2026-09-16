@@ -28,16 +28,59 @@ create table if not exists public.places (
   constraint places_rating_check check (rating is null or (rating >= 0 and rating <= 5))
 );
 
--- Đảm bảo tương thích ngược và bổ sung cột/ràng buộc cho bảng places đã tồn tại:
+-- Đảm bảo tương thích ngược và bổ sung cột cho bảng places đã tồn tại từ trước:
 alter table public.places add column if not exists slug text;
 alter table public.places add column if not exists operating_status text default 'Normal';
 alter table public.places add column if not exists status text not null default 'draft';
 alter table public.places add column if not exists images jsonb not null default '[]'::jsonb;
 alter table public.places add column if not exists sort_order integer default 0;
 alter table public.places add column if not exists is_featured boolean default false;
-alter table public.places alter column status set default 'draft';
 
--- Bổ sung check constraint cho status nếu chưa có:
+-- Cập nhật giá trị mặc định cho bảng đã tồn tại:
+alter table public.places alter column status set default 'draft';
+alter table public.places alter column images set default '[]'::jsonb;
+
+-- 1. Chuẩn hóa và backfill dữ liệu cũ trước khi áp đặt ràng buộc:
+update public.places
+set slug = 'place-' || id
+where slug is null or trim(slug) = '';
+
+update public.places
+set status = 'draft'
+where status is null or status not in ('approved', 'draft', 'hidden', 'archived');
+
+update public.places
+set images = '[]'::jsonb
+where images is null;
+
+-- 2. Xử lý trùng lặp slug trong dữ liệu cũ trước khi tạo unique constraint:
+with duplicates as (
+  select id, row_number() over (partition by slug order by id asc) as rn
+  from public.places
+)
+update public.places p
+set slug = p.slug || '-' || p.id
+from duplicates d
+where p.id = d.id and d.rn > 1;
+
+-- 3. Tái lập đầy đủ thuộc tính NOT NULL cho các cột của bảng đã tồn tại:
+alter table public.places alter column slug set not null;
+alter table public.places alter column status set not null;
+alter table public.places alter column images set not null;
+
+-- 4. Bổ sung unique constraint cho slug nếu chưa có:
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'places_slug_unique' or conname = 'places_slug_key'
+  ) then
+    alter table public.places
+      add constraint places_slug_unique unique (slug);
+  end if;
+end $$;
+
+-- 5. Bổ sung check constraint cho status nếu chưa có:
 do $$
 begin
   if not exists (
@@ -49,7 +92,7 @@ begin
   end if;
 end $$;
 
--- Bổ sung check constraint cho rating nếu chưa có:
+-- 6. Bổ sung check constraint cho rating nếu chưa có:
 do $$
 begin
   if not exists (

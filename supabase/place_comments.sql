@@ -24,23 +24,51 @@ create table if not exists public.place_comments (
   constraint place_comments_client_review_id_unique unique (client_review_id)
 );
 
--- Đảm bảo tương thích ngược và bổ sung cột/ràng buộc cho cơ sở dữ liệu đã tồn tại từ trước:
+-- Đảm bảo tương thích ngược và bổ sung cột cho cơ sở dữ liệu đã tồn tại từ trước:
 alter table public.place_comments add column if not exists photo_metadata jsonb not null default '{}'::jsonb;
 alter table public.place_comments add column if not exists client_review_id text;
 alter table public.place_comments add column if not exists is_hidden boolean not null default false;
 alter table public.place_comments add column if not exists status text not null default 'pending';
 
--- Cập nhật default của status về 'pending' cho bảng đã tồn tại:
+-- Cập nhật giá trị mặc định cho bảng đã tồn tại:
 alter table public.place_comments alter column status set default 'pending';
 alter table public.place_comments alter column photo_metadata set default '{}'::jsonb;
 alter table public.place_comments alter column is_hidden set default false;
 
--- Chuẩn hóa dữ liệu cũ nếu có dòng null:
-update public.place_comments set status = 'pending' where status is null;
-update public.place_comments set photo_metadata = '{}'::jsonb where photo_metadata is null;
-update public.place_comments set is_hidden = false where is_hidden is null;
+-- 1. Chuẩn hóa và backfill dữ liệu cũ trước khi áp đặt ràng buộc:
+update public.place_comments
+set client_review_id = 'legacy_comment_' || id
+where client_review_id is null or trim(client_review_id) = '';
 
--- Bổ sung unique constraint cho client_review_id nếu chưa có:
+update public.place_comments
+set status = 'pending'
+where status is null or status not in ('approved', 'pending', 'hidden', 'rejected');
+
+update public.place_comments
+set photo_metadata = '{}'::jsonb
+where photo_metadata is null;
+
+update public.place_comments
+set is_hidden = false
+where is_hidden is null;
+
+-- 2. Xử lý trùng lặp client_review_id trong dữ liệu cũ trước khi tạo unique constraint:
+with duplicates as (
+  select id, row_number() over (partition by client_review_id order by id asc) as rn
+  from public.place_comments
+)
+update public.place_comments c
+set client_review_id = c.client_review_id || '_dup_' || c.id
+from duplicates d
+where c.id = d.id and d.rn > 1;
+
+-- 3. Tái lập đầy đủ thuộc tính NOT NULL cho các cột của bảng đã tồn tại:
+alter table public.place_comments alter column client_review_id set not null;
+alter table public.place_comments alter column status set not null;
+alter table public.place_comments alter column photo_metadata set not null;
+alter table public.place_comments alter column is_hidden set not null;
+
+-- 4. Bổ sung unique constraint cho client_review_id nếu chưa có:
 do $$
 begin
   if not exists (
@@ -52,7 +80,7 @@ begin
   end if;
 end $$;
 
--- Bổ sung check constraint cho status nếu chưa có:
+-- 5. Bổ sung check constraint cho status nếu chưa có:
 do $$
 begin
   if not exists (
