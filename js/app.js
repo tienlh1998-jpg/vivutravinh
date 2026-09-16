@@ -57,6 +57,63 @@ function getStoredFavorites() {
     return [];
 }
 
+export function isPlaceSaved(placeOrId) {
+    if (!placeOrId) return false;
+    const favs = state?.favorites || [];
+    if (!favs.length) return false;
+
+    if (typeof placeOrId === 'string') {
+        const cleanId = placeOrId.trim();
+        if (favs.includes(cleanId)) return true;
+        const place = (state.allPlaces || []).find(p => p.id === cleanId || p.slug === cleanId || (p.dbId && String(p.dbId) === cleanId));
+        if (place) {
+            return favs.some(favId =>
+                favId === place.id || (place.slug && favId === place.slug) || (place.dbId && favId === String(place.dbId))
+            );
+        }
+        return false;
+    }
+    const place = placeOrId;
+    return favs.some(favId =>
+        favId === place.id || (place.slug && favId === place.slug) || (place.dbId && favId === String(place.dbId))
+    );
+}
+
+export function isPlaceRecent(placeOrId) {
+    if (!placeOrId) return false;
+    const recs = state?.recent || [];
+    if (!recs.length) return false;
+
+    if (typeof placeOrId === 'string') {
+        const cleanId = placeOrId.trim();
+        if (recs.includes(cleanId)) return true;
+        const place = (state.allPlaces || []).find(p => p.id === cleanId || p.slug === cleanId || (p.dbId && String(p.dbId) === cleanId));
+        if (place) {
+            return recs.some(recId =>
+                recId === place.id || (place.slug && recId === place.slug) || (place.dbId && recId === String(place.dbId))
+            );
+        }
+        return false;
+    }
+    const place = placeOrId;
+    return recs.some(recId =>
+        recId === place.id || (place.slug && recId === place.slug) || (place.dbId && recId === String(place.dbId))
+    );
+}
+
+export function showNoticeToast(titleText, msgText) {
+    const toast = document.getElementById('offlineSyncToast');
+    const title = document.getElementById('syncToastTitle');
+    const msg = document.getElementById('syncToastMsg');
+    if (!toast) return;
+    if (title) title.textContent = titleText;
+    if (msg) msg.textContent = msgText;
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+        if (toast) toast.classList.add('hidden');
+    }, 4500);
+}
+
 // An toàn đọc danh sách vừa xem từ localStorage (Recently Viewed - Issue M11 & G2)
 function getStoredRecent() {
     try {
@@ -797,9 +854,9 @@ function applyFilters() {
     state.filteredPlaces = state.allPlaces.filter(place => {
         // 0. Lọc theo mục Đã Lưu hoặc Vừa Xem
         if (cat === 'saved') {
-            if (!state.favorites.includes(place.id)) return false;
+            if (!isPlaceSaved(place)) return false;
         } else if (cat === 'recent') {
-            if (!state.recent.includes(place.id)) return false;
+            if (!isPlaceRecent(place)) return false;
         }
 
         // 1. Lọc theo từ khóa (hỗ trợ cả tiếng Việt có dấu và KHÔNG DẤU)
@@ -1136,8 +1193,19 @@ async function loadCommentsForModal(place, requestId) {
  * Modal Chi Tiết Địa Điểm (Mở tức thì không trễ - Zero Latency)
  */
 export function openDetailModal(placeId) {
-    const place = state.allPlaces.find(p => p.id === placeId || p.slug === placeId);
-    if (!place) return;
+    const place = state.allPlaces.find(p => p.id === placeId || p.slug === placeId || (p.dbId && String(p.dbId) === String(placeId)));
+    if (!place) {
+        console.warn(`[ViVuTraVinh] Địa điểm không tồn tại hoặc đã tạm dừng hiển thị: ${placeId}`);
+        if (typeof window !== 'undefined' && window.location) {
+            const url = new URL(window.location);
+            if (url.searchParams.has('place')) {
+                url.searchParams.delete('place');
+                window.history.replaceState({}, '', url);
+            }
+        }
+        showNoticeToast('Địa điểm tạm dừng', 'Địa điểm này hiện không khả dụng hoặc đã được gỡ khỏi danh sách.');
+        return;
+    }
 
     // Lưu vào lịch sử vừa xem (Recently Viewed)
     saveRecentPlace(place.id);
@@ -1145,7 +1213,7 @@ export function openDetailModal(placeId) {
     // Lưu lại phần tử kích hoạt trước đó để trả focus sau khi đóng (Accessibility)
     state.lastActiveElement = document.activeElement;
     state.currentDetailPlace = place;
-    const isSaved = state.favorites.includes(place.id);
+    const isSaved = isPlaceSaved(place);
     clearCommentPhoto();
 
     // Thông báo trạng thái mạng trong form
@@ -1175,10 +1243,12 @@ export function openDetailModal(placeId) {
         document.getElementById('modalCloseBtn')?.focus();
     }, 50);
 
-    // Cập nhật URL (hỗ trợ deep link)
+    // Cập nhật URL và đẩy lịch sử trình duyệt (hỗ trợ deep link và nút Back trên mobile)
     const url = new URL(window.location);
     url.searchParams.set('place', place.id);
-    window.history.replaceState({}, '', url);
+    if (!window.history.state || window.history.state.placeId !== place.id) {
+        window.history.pushState({ modal: 'place', placeId: place.id }, '', url);
+    }
 
     // Bắt đầu tải bình luận ngầm trong nền với Request ID chống race condition
     state.currentCommentRequestId = (state.currentCommentRequestId || 0) + 1;
@@ -1186,7 +1256,7 @@ export function openDetailModal(placeId) {
     loadCommentsForModal(place, thisRequestId);
 }
 
-export function closeDetailModal() {
+export function closeDetailModal(fromPopstate = false) {
     const modal = document.getElementById('detailModal');
     if (modal) modal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
@@ -1199,10 +1269,15 @@ export function closeDetailModal() {
         video.pause();
     }
 
-    // Xóa param ?place khỏi URL
+    // Xóa param ?place khỏi URL và đồng bộ lịch sử
     const url = new URL(window.location);
     url.searchParams.delete('place');
-    window.history.replaceState({}, '', url);
+
+    if (!fromPopstate && window.history.state && window.history.state.modal === 'place') {
+        window.history.back();
+    } else {
+        window.history.replaceState({}, '', url);
+    }
 
     // Hoàn trả focus về phần tử kích hoạt trước đó (Accessibility)
     if (state.lastActiveElement && typeof state.lastActiveElement.focus === 'function') {
@@ -2255,6 +2330,34 @@ function initEventListeners() {
                     }
                 }
             }
+        }
+    });
+
+    // Lắng nghe nút Back trình duyệt di động hoặc thao tác vuốt Back (Ca kiểm thử E09)
+    window.addEventListener('popstate', () => {
+        const detailModal = document.getElementById('detailModal');
+        if (detailModal && !detailModal.classList.contains('hidden')) {
+            closeDetailModal(true);
+            return;
+        }
+        const contributeModal = document.getElementById('contributeModal');
+        if (contributeModal && !contributeModal.classList.contains('hidden')) {
+            closeContributeModal();
+            return;
+        }
+        const fullMapModal = document.getElementById('fullMapModal');
+        if (fullMapModal && !fullMapModal.classList.contains('hidden')) {
+            closeFullMapModal();
+            return;
+        }
+        const festModal = document.getElementById('festivalDetailModal');
+        if (festModal && !festModal.classList.contains('hidden')) {
+            closeFestivalModal();
+            return;
+        }
+        const articleModal = document.getElementById('articleDetailModal');
+        if (articleModal && !articleModal.classList.contains('hidden')) {
+            closeArticleModal();
         }
     });
 

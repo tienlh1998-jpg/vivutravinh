@@ -404,11 +404,13 @@ export function normalizePlace(row, index, source = 'fallback') {
     const rawRating = findValue(row, ['Chấm Điểm?', 'Chấm Điểm', 'Đánh Giá', 'Rating', 'Sao', 'Star', 'Điểm', 'Review']);
     const rating = rawRating ? (Number.parseFloat(rawRating) || 0) : 0;
     const id = findValue(row, ['Slug', 'ID', 'Id']) || createSlug(name, `location-${index}`);
+    const dbId = findValue(row, ['DB_ID', 'db_id', 'ID', 'Id']) || (row.id !== undefined && row.id !== null ? String(row.id) : null);
 
     return {
         ...row,
         id,
         slug: id,
+        dbId,
         name,
         category,
         area: findValue(row, ['Khu vực', 'Thuộc Huyện / Thị xã nào?', 'Địa chỉ Chi Tiết (Số nhà, đường, khóm/ấp)', 'Area', 'Location']),
@@ -550,6 +552,7 @@ function normalizeImagesFromSupabase(row) {
 function normalizeSupabasePlace(row, index) {
     const images = normalizeImagesFromSupabase(row);
     const id = normalizeText(row.slug) || normalizeText(row.id) || createSlug(row.name, `location-${index}`);
+    const dbId = row.id !== undefined && row.id !== null ? String(row.id) : null;
     const rawStatus = normalizeText(row.operating_status) || 'Normal';
     const rawHours = normalizeText(row.display_hours) || `${normalizeText(row.opening_time)} - ${normalizeText(row.closing_time)}`;
     const hours = parseOperatingHours(rawHours, rawStatus);
@@ -561,6 +564,7 @@ function normalizeSupabasePlace(row, index) {
     return {
         id,
         slug: id,
+        dbId,
         name: normalizeText(row.name),
         category: normalizeText(row.category),
         area: normalizeText(row.area),

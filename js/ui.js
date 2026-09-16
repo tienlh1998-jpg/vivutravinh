@@ -576,7 +576,11 @@ export function renderPlacesGrid(containerId, places, favorites = [], onOpenModa
     }
 
     container.innerHTML = places.map(place => {
-        const isSaved = favorites.includes(place.id);
+        const isSaved = Array.isArray(favorites) && (
+            favorites.includes(place.id) ||
+            (place.slug && favorites.includes(place.slug)) ||
+            (place.dbId && favorites.includes(String(place.dbId)))
+        );
         return createPlaceCardHtml(place, isSaved);
     }).join('');
 
@@ -712,6 +716,10 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
     function updateGalleryView(idx) {
         currentGalleryIdx = (idx + galleryImages.length) % galleryImages.length;
         if (mainImg) {
+            mainImg.onerror = () => {
+                mainImg.onerror = null;
+                mainImg.src = NEUTRAL_PLACEHOLDER_IMAGE;
+            };
             mainImg.src = galleryImages[currentGalleryIdx];
             mainImg.alt = `${place.name} - Ảnh ${currentGalleryIdx + 1}`;
         }
