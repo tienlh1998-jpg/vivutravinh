@@ -1,11 +1,32 @@
 // ViVuTraVinh Service Worker
-// Version 2.7.0
+// Version 2.9.0 - Partitioned Caches & Atomic Precache
 
-const CACHE_NAME = 'vivutravinh-v2.7.0';
+const VERSION = '2.9.0';
+const CACHE_SHELL = `vivutravinh-shell-v${VERSION}`;
+const CACHE_DATA = `vivutravinh-data-v${VERSION}`;
+const CACHE_IMAGES = `vivutravinh-images-v${VERSION}`;
+const CURRENT_CACHES = [CACHE_SHELL, CACHE_DATA, CACHE_IMAGES];
+
+const MAX_IMAGE_ENTRIES = 30;
+
 const APP_SHELL_URLS = [
   './',
   './index.html',
   './manifest.json',
+  './css/tailwind.css',
+  './vendor/leaflet/leaflet.css',
+  './vendor/leaflet/leaflet.js',
+  './vendor/leaflet/images/marker-icon.png',
+  './vendor/leaflet/images/marker-shadow.png',
+  './vendor/fonts/material-symbols.css',
+  './vendor/fonts/material-symbols-outlined.woff2',
+  './icons/icon.svg',
+  './icons/favicon-32x32.png',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png',
   './js/config.js',
   './js/data.js',
   './js/festivals-data.js',
@@ -13,44 +34,39 @@ const APP_SHELL_URLS = [
   './js/comments.js',
   './js/offline-sync.js',
   './js/ui.js',
-  './js/app.js',
+  './js/app.js'
+];
+
+const DATA_URLS = [
   './data/data-fallback.json',
-  './data/data-fixture.json',
-  './ao bà om.jpg',
-  './biển ba động.jpg',
-  './chùa hang.jpg',
-  './chùa vamray.jpg',
-  './chùa âng.jpg',
-  './cù lao tân qui.jpg',
-  './cồn chim.jpg',
-  './nhà cổ huỳnh kỳ.jpg',
-  './đền thờ Bác.jpg'
+  './data/data-fixture.json'
 ];
 
 const OFFLINE_IMAGE = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="#f1f5f9" width="400" height="300"/><text x="50%" y="50%" fill="#94a3b8" font-size="16" text-anchor="middle">Offline</text></svg>';
 
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing version 2.7.0...');
+  console.log(`[Service Worker] Installing version ${VERSION} (Atomic Precache)...`);
+  // PRECACHE NGUYÊN TỬ: KHÔNG nuốt lỗi.
+  // Nếu bất kỳ URL nào trả về 404 hoặc lỗi mạng, Promise bị reject,
+  // worker mới KHÔNG activate, worker cũ và cache cũ tiếp tục chạy an toàn.
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL_URLS))
-      .then(() => self.skipWaiting())
-      .catch((error) => {
-        console.error('[Service Worker] Installation failed:', error);
-      })
+    Promise.all([
+      caches.open(CACHE_SHELL).then((cache) => cache.addAll(APP_SHELL_URLS)),
+      caches.open(DATA_CACHE).then((cache) => cache.addAll(DATA_URLS))
+    ])
   );
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating version 2.7.0...');
+  console.log(`[Service Worker] Activating version ${VERSION}...`);
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => Promise.all(
         cacheNames
-          .filter((cacheName) => cacheName.startsWith('vivutravinh-') && cacheName !== CACHE_NAME)
-          .map((cacheName) => {
-            console.log('[Service Worker] Deleting legacy cache:', cacheName);
-            return caches.delete(cacheName);
+          .filter((name) => name.startsWith('vivutravinh-') && !CURRENT_CACHES.includes(name))
+          .map((name) => {
+            console.log('[Service Worker] Deleting legacy cache:', name);
+            return caches.delete(name);
           })
       ))
       .then(() => self.clients.claim())
@@ -61,26 +77,38 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith('http')) return;
 
-  event.respondWith(handleRequest(event.request));
+  const url = new URL(event.request.url);
+
+  // 1. TUYỆT ĐỐI KHÔNG CACHE CÁC ENDPOINT API: comments, admin, import, Supabase REST
+  const isApiRequest = url.pathname.startsWith('/api/') || 
+                       url.pathname.includes('/rest/v1/') || 
+                       url.hostname.includes('supabase.co');
+  if (isApiRequest) {
+    return; // Pass through trực tiếp, không can thiệp cache
+  }
+
+  event.respondWith(handlePartitionedRequest(event.request));
 });
 
-async function handleRequest(request) {
+async function handlePartitionedRequest(request) {
   const url = new URL(request.url);
   const sameOrigin = url.origin === self.location.origin;
   const isScriptOrDoc = request.mode === 'navigate' || url.pathname.endsWith('.html') || (sameOrigin && url.pathname.endsWith('.js'));
+  const isDataRequest = url.pathname.endsWith('.json');
+  const isImageRequest = request.destination === 'image' || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url.pathname);
 
-  // Network-First cho HTML và JS modules: luôn nạp mã nguồn mới nhất khi có kết nối
+  // A. Phân vùng App Shell (HTML & JS modules): Network-First
   if (isScriptOrDoc) {
     try {
       const networkResponse = await fetch(request);
       if (networkResponse && networkResponse.status === 200) {
-        const cache = await caches.open(CACHE_NAME);
+        const cache = await caches.open(CACHE_SHELL);
         cache.put(request, networkResponse.clone());
       }
       return networkResponse;
     } catch (netErr) {
-      console.warn('[Service Worker] Network-first fallback to cache for:', url.pathname);
-      const cached = await caches.match(request);
+      console.warn('[Service Worker] Shell fallback to cache for:', url.pathname);
+      const cached = await caches.match(request, { ignoreSearch: true });
       if (cached) return cached;
       if (request.mode === 'navigate') {
         const offlinePage = await caches.match('./index.html');
@@ -90,33 +118,56 @@ async function handleRequest(request) {
     }
   }
 
-  // Cache-First cho tài nguyên tĩnh (ảnh, css, fonts, dữ liệu fallback json)
-  const cachedResponse = await caches.match(request);
-  if (cachedResponse) return cachedResponse;
+  // B. Phân vùng Public Data (JSON): Cache-First có kiểm tra freshness
+  if (isDataRequest) {
+    const dataCache = await caches.open(CACHE_DATA);
+    const cached = await dataCache.match(request, { ignoreSearch: true });
+    if (cached) return cached;
 
-  try {
-    const networkResponse = await fetch(request);
-
-    if (shouldCache(request, networkResponse)) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, networkResponse.clone());
+    try {
+      const networkResponse = await fetch(request);
+      if (networkResponse && networkResponse.status === 200) {
+        dataCache.put(request, networkResponse.clone());
+      }
+      return networkResponse;
+    } catch (err) {
+      if (cached) return cached;
+      throw err;
     }
+  }
 
-    return networkResponse;
-  } catch (error) {
-    console.error('[Service Worker] Fetch failed:', error);
+  // C. Phân vùng Images (Ảnh chụp JPG/PNG): Runtime Cache có giới hạn max entries
+  if (isImageRequest) {
+    const imgCache = await caches.open(CACHE_IMAGES);
+    const cached = await imgCache.match(request);
+    if (cached) return cached;
 
-    if (request.destination === 'image') {
+    try {
+      const networkResponse = await fetch(request);
+      if (networkResponse && networkResponse.status === 200) {
+        imgCache.put(request, networkResponse.clone());
+        limitCacheEntries(CACHE_IMAGES, MAX_IMAGE_ENTRIES);
+      }
+      return networkResponse;
+    } catch (err) {
       return new Response(OFFLINE_IMAGE, {
         headers: { 'Content-Type': 'image/svg+xml' }
       });
     }
+  }
 
-    const offlinePage = await caches.match('./index.html');
-    if (request.mode === 'navigate' && offlinePage) {
-      return offlinePage;
+  // D. Tài nguyên tĩnh khác (CSS, font, vendor): Cache-First trong SHELL_CACHE
+  const shellCache = await caches.open(CACHE_SHELL);
+  const cached = await shellCache.match(request, { ignoreSearch: true });
+  if (cached) return cached;
+
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse && networkResponse.status === 200 && sameOrigin) {
+      shellCache.put(request, networkResponse.clone());
     }
-
+    return networkResponse;
+  } catch (err) {
     return new Response('Offline', {
       status: 503,
       statusText: 'Service Unavailable',
@@ -125,23 +176,29 @@ async function handleRequest(request) {
   }
 }
 
-function shouldCache(request, response) {
-  if (!response || response.status !== 200) return false;
-
-  const url = new URL(request.url);
-  const sameOrigin = url.origin === self.location.origin;
-  const cacheableExtension = /\.(jpg|jpeg|png|gif|webp|svg|css|js|json)$/i.test(url.pathname);
-
-  return sameOrigin && cacheableExtension;
+async function limitCacheEntries(cacheName, maxEntries) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxEntries) {
+      const toDelete = keys.slice(0, keys.length - maxEntries);
+      await Promise.all(toDelete.map((k) => cache.delete(k)));
+    }
+  } catch (e) {
+    console.warn('[Service Worker] Lỗi giới hạn cache entries:', e);
+  }
 }
 
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[Service Worker] Nhận lệnh SKIP_WAITING an toàn từ người dùng.');
     self.skipWaiting();
   }
 
   if (event.data && event.data.type === 'CLEAR_CACHE') {
-    caches.delete(CACHE_NAME);
+    caches.delete(CACHE_SHELL);
+    caches.delete(CACHE_DATA);
+    caches.delete(CACHE_IMAGES);
   }
 });
 
@@ -158,4 +215,4 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-console.log('[Service Worker] Loaded and ready');
+console.log(`[Service Worker] Loaded and ready (v${VERSION})`);

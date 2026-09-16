@@ -153,12 +153,22 @@ const state = {
 };
 
 // Khởi chạy khi DOM tải xong
-document.addEventListener('DOMContentLoaded', () => {
+function onAppStart() {
     initTheme();
     initEventListeners();
     initPwaInstall();
+    initServiceWorkerUpdateFlow();
+    restorePendingDraft();
     initApp();
-});
+}
+
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', onAppStart);
+    } else {
+        onAppStart();
+    }
+}
 
 /**
  * Khởi tạo theme Dark/Light
@@ -1141,6 +1151,9 @@ export function openDetailModal(placeId) {
     // Khởi tạo mini map trong modal nếu có tọa độ
     initModalMap(place);
 
+    // Phục hồi bản nháp đánh giá nếu có
+    restorePendingDraft();
+
     // Focus vào nút đóng modal để đảm bảo trợ năng bàn phím
     setTimeout(() => {
         document.getElementById('modalCloseBtn')?.focus();
@@ -1285,6 +1298,7 @@ async function handleCommentSubmit(e) {
             if (textInput) textInput.value = '';
             if (ratingInput) ratingInput.value = '';
             clearCommentPhoto();
+            try { localStorage.removeItem('vivu_comment_draft'); } catch (e) {}
 
             await reloadModalComments(state.currentDetailPlace.id);
             return;
@@ -1308,6 +1322,7 @@ async function handleCommentSubmit(e) {
                 if (textInput) textInput.value = '';
                 if (ratingInput) ratingInput.value = '';
                 clearCommentPhoto();
+                try { localStorage.removeItem('vivu_comment_draft'); } catch (e) {}
                 await reloadModalComments(state.currentDetailPlace.id);
                 return;
             }
@@ -1325,6 +1340,7 @@ async function handleCommentSubmit(e) {
             if (textInput) textInput.value = '';
             if (ratingInput) ratingInput.value = '';
             clearCommentPhoto();
+            try { localStorage.removeItem('vivu_comment_draft'); } catch (e) {}
 
             await reloadModalComments(state.currentDetailPlace.id);
         } else if (apiError) {
@@ -1467,9 +1483,16 @@ function initModalMap(place) {
             attributionControl: false
         }).setView(coords, 14);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 18
         }).addTo(state.modalMap);
+
+        tileLayer.on('tileerror', () => {
+            showOfflineMapOverlay(modalMapEl);
+        });
+        if (!navigator.onLine) {
+            showOfflineMapOverlay(modalMapEl);
+        }
 
         L.marker(coords).addTo(state.modalMap).bindPopup(`<b>${place.name}</b><br>${place.area || 'Trà Vinh'}`).openPopup();
     } else {
@@ -1479,9 +1502,16 @@ function initModalMap(place) {
             attributionControl: false
         }).setView([9.9347, 106.3449], 11);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 18
         }).addTo(state.modalMap);
+
+        tileLayer.on('tileerror', () => {
+            showOfflineMapOverlay(modalMapEl);
+        });
+        if (!navigator.onLine) {
+            showOfflineMapOverlay(modalMapEl);
+        }
 
         L.popup()
             .setLatLng([9.9347, 106.3449])
@@ -1507,9 +1537,17 @@ export function openFullMapModal() {
                 attributionControl: false
             }).setView([9.9347, 106.3449], 11);
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 maxZoom: 18
             }).addTo(state.fullMap);
+
+            const fullScreenMapEl = document.getElementById('fullScreenMap');
+            tileLayer.on('tileerror', () => {
+                showOfflineMapOverlay(fullScreenMapEl);
+            });
+            if (!navigator.onLine) {
+                showOfflineMapOverlay(fullScreenMapEl);
+            }
 
             // Ghim toàn bộ địa điểm
             state.allPlaces.forEach(p => {
@@ -2233,6 +2271,9 @@ function initEventListeners() {
 
     // Form comment submit
     document.getElementById('commentFormEl')?.addEventListener('submit', handleCommentSubmit);
+    document.getElementById('commentTextInput')?.addEventListener('input', savePendingDraft);
+    document.getElementById('commentAuthorInput')?.addEventListener('input', savePendingDraft);
+    document.getElementById('commentRatingInput')?.addEventListener('change', savePendingDraft);
 
     // Chọn ảnh thực tế khi đánh giá
     document.getElementById('commentChoosePhotoBtn')?.addEventListener('click', () => {
@@ -2260,16 +2301,27 @@ function initEventListeners() {
         clearCommentPhoto();
     });
 
-    // Cập nhật notice trạng thái mạng khi online/offline
-    window.addEventListener('online', () => {
-        const notice = document.getElementById('commentNetworkNotice');
-        if (notice) notice.classList.add('hidden');
-    });
+    function updateNetworkStatusUI(isOnline) {
+        const offlineBar = document.getElementById('offlineStatusBar');
+        if (offlineBar) {
+            if (isOnline) offlineBar.classList.add('hidden');
+            else offlineBar.classList.remove('hidden');
+        }
+        const commentNotice = document.getElementById('commentNetworkNotice');
+        if (commentNotice) {
+            if (isOnline) commentNotice.classList.add('hidden');
+            else commentNotice.classList.remove('hidden');
+        }
+    }
 
-    window.addEventListener('offline', () => {
-        const notice = document.getElementById('commentNetworkNotice');
-        if (notice) notice.classList.remove('hidden');
-    });
+    // Cập nhật notice trạng thái mạng khi online/offline
+    window.addEventListener('online', () => updateNetworkStatusUI(true));
+    window.addEventListener('offline', () => updateNetworkStatusUI(false));
+
+    // Khởi tạo kiểm tra trạng thái mạng ban đầu
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        updateNetworkStatusUI(false);
+    }
 }
 
 /**
@@ -2426,6 +2478,106 @@ export function viewPhotoModal(src) {
         img.src = src;
         modal.classList.remove('hidden');
     }
+}
+
+/**
+ * Kiểm tra xem người dùng có đang nhập dở nội dung đánh giá/đóng góp (Active Draft)
+ */
+export function hasActiveDraft() {
+    const text = document.getElementById('commentTextInput')?.value?.trim();
+    const author = document.getElementById('commentAuthorInput')?.value?.trim();
+    const contribName = document.getElementById('contributePlaceName')?.value?.trim();
+    return Boolean((text && text.length > 0) || (author && author.length > 2) || (contribName && contribName.length > 0));
+}
+
+/**
+ * Lưu trữ bản nháp đánh giá vào localStorage trước khi cập nhật
+ */
+export function savePendingDraft() {
+    try {
+        const text = document.getElementById('commentTextInput')?.value || '';
+        const author = document.getElementById('commentAuthorInput')?.value || '';
+        const rating = document.getElementById('commentRatingInput')?.value || '';
+        if (text || author) {
+            localStorage.setItem('vivu_comment_draft', JSON.stringify({
+                text, author, rating,
+                placeId: state.currentDetailPlace?.id || '',
+                timestamp: Date.now()
+            }));
+        }
+    } catch (e) {
+        console.warn('[Draft] Không thể lưu draft:', e);
+    }
+}
+
+/**
+ * Tự động phục hồi bản nháp đánh giá sau khi trang tải lại
+ */
+export function restorePendingDraft() {
+    try {
+        const raw = localStorage.getItem('vivu_comment_draft');
+        if (!raw) return;
+        const draft = JSON.parse(raw);
+        if (draft && typeof draft === 'object' && Date.now() - (draft.timestamp || 0) < 3600000) {
+            state.pendingCommentDraft = draft;
+            const authorInput = document.getElementById('commentAuthorInput');
+            const textInput = document.getElementById('commentTextInput');
+            const ratingInput = document.getElementById('commentRatingInput');
+            if (authorInput && draft.author && !authorInput.value) authorInput.value = draft.author;
+            if (textInput && draft.text && !textInput.value) textInput.value = draft.text;
+            if (ratingInput && draft.rating && !ratingInput.value) ratingInput.value = draft.rating;
+        }
+    } catch (e) {
+        console.warn('[Draft] Không thể phục hồi draft:', e);
+    }
+}
+
+/**
+ * Quản lý luồng cập nhật Service Worker an toàn (Safe Update Flow)
+ */
+let pendingWorkerToSkip = null;
+export function initServiceWorkerUpdateFlow() {
+    window.addEventListener('vivu:sw-update-ready', (event) => {
+        const worker = event.detail?.worker;
+        if (!worker) return;
+        pendingWorkerToSkip = worker;
+
+        const updateToast = document.getElementById('appUpdateToast');
+        if (!updateToast) return;
+
+        updateToast.classList.remove('hidden');
+
+        document.getElementById('applyUpdateBtn')?.addEventListener('click', () => {
+            savePendingDraft();
+            if (pendingWorkerToSkip) {
+                pendingWorkerToSkip.postMessage({ type: 'SKIP_WAITING' });
+            }
+            updateToast.classList.add('hidden');
+        }, { once: true });
+
+        document.getElementById('dismissUpdateBtn')?.addEventListener('click', () => {
+            updateToast.classList.add('hidden');
+        });
+        document.getElementById('dismissUpdateBtn2')?.addEventListener('click', () => {
+            updateToast.classList.add('hidden');
+        });
+    });
+}
+
+/**
+ * Hiển thị thông báo khi bản đồ vệ tinh không tải được do mất mạng (Offline Map)
+ */
+export function showOfflineMapOverlay(container) {
+    if (!container || container.querySelector('.offline-map-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'offline-map-overlay absolute inset-0 bg-stone-900/85 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center text-white z-[1000] pointer-events-auto rounded-xl select-none';
+    overlay.innerHTML = `
+        <span class="material-symbols-outlined text-amber-400 text-2xl mb-1">wifi_off</span>
+        <p class="text-xs font-bold text-amber-200">Bản đồ ngoại tuyến: Không thể tải bản đồ vệ tinh/đường đi khi không có kết nối internet.</p>
+        <p class="text-[10px] text-stone-300 mt-0.5">Địa chỉ và tọa độ GPS vẫn được lưu trữ đầy đủ. Nhấn nút "Chỉ đường" để mở Google Maps khi có mạng.</p>
+    `;
+    container.style.position = 'relative';
+    container.appendChild(overlay);
 }
 
 // Expose ra window để hỗ trợ inline HTML event handlers

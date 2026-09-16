@@ -18,7 +18,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="ViVuTraVinh">
-    <link rel="apple-touch-icon" href="https://api.dicebear.com/7.x/shapes/svg?seed=ViVuTraVinh&backgroundColor=064e3b">
+    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
@@ -189,13 +191,38 @@
     <!-- Main Controller Module -->
     <script type="module" src="./js/app.js"></script>
 
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration & Safe Update Controller -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./service-worker.js')
-                    .then(reg => console.log('[ViVuTraVinh PWA] Service worker registered:', reg.scope))
+                    .then(reg => {
+                        console.log('[ViVuTraVinh PWA] Service worker registered:', reg.scope);
+                        window._swRegistration = reg;
+
+                        if (reg.waiting && navigator.serviceWorker.controller) {
+                            window.dispatchEvent(new CustomEvent('vivu:sw-update-ready', { detail: { worker: reg.waiting } }));
+                        }
+
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            if (!newWorker) return;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    window.dispatchEvent(new CustomEvent('vivu:sw-update-ready', { detail: { worker: newWorker } }));
+                                }
+                            });
+                        });
+                    })
                     .catch(err => console.warn('[ViVuTraVinh PWA] Registration failed:', err));
+
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!refreshing) {
+                        refreshing = true;
+                        window.location.reload();
+                    }
+                });
             });
         }
     </script>
@@ -208,6 +235,12 @@
         <span class="material-symbols-outlined text-sm text-secondary-container" style="font-variation-settings: 'FILL' 1;">eco</span>
         <span>Khám phá Trà Vinh chính thức • Hơn 140 ngôi chùa Khmer cổ & Ẩm thực trứ danh miền Tây Nam Bộ</span>
         <span class="hidden md:inline-block text-primary-fixed-dim">• Cập nhật 2026</span>
+    </div>
+
+    <!-- THANH TRẠNG THÁI NGOẠI TUYẾN (GLOBAL OFFLINE BANNER) -->
+    <div id="offlineStatusBar" class="hidden bg-amber-500 text-stone-950 py-1.5 px-4 text-center text-xs font-semibold border-b border-amber-600 flex items-center justify-center gap-2 z-50 transition-all" role="status" aria-live="polite">
+        <span class="material-symbols-outlined text-sm">cloud_off</span>
+        <span>Bạn đang ở chế độ ngoại tuyến. Dữ liệu và hình ảnh được phục vụ từ bộ nhớ đệm thiết bị.</span>
     </div>
 
     <!-- 2. THANH ĐIỀU HƯỚNG CHÍNH (TOP NAV & SEARCH PILL) -->
@@ -303,7 +336,7 @@
     </header>
 
     <!-- KHU VỰC LOADING SKELETON (Khi đang tải dữ liệu ban đầu) -->
-    <div id="pageLoadingSkeleton" class="max-w-7xl mx-auto px-4 py-12 w-full">
+    <div id="pageLoadingSkeleton" class="max-w-7xl mx-auto px-4 py-12 w-full min-h-[85vh] flex items-center justify-center">
         <div class="flex flex-col items-center justify-center py-12 text-center">
             <div class="w-12 h-12 border-4 border-emerald-200 border-t-primary dark:border-zinc-700 dark:border-t-emerald-400 rounded-full animate-spin mb-4"></div>
             <p class="text-sm font-semibold text-primary dark:text-emerald-400 animate-pulse">Đang tải cẩm nang khám phá Trà Vinh...</p>
@@ -535,7 +568,7 @@
 
         <!-- 6. LƯỚI THẺ ĐỊA ĐIỂM (DISCOVERY GRID) -->
         <section class="w-full pb-10">
-            <div id="placesDiscoveryGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div id="placesDiscoveryGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 min-h-[500px]">
                 <!-- Injected via ui.js -->
             </div>
         </section>
@@ -1349,9 +1382,29 @@
             <div class="font-bold text-emerald-200" id="syncToastTitle">Đã đồng bộ đánh giá</div>
             <div class="text-[11px] text-emerald-100" id="syncToastMsg">Tự động gửi đánh giá ngoại tuyến lên máy chủ.</div>
         </div>
-        <button onclick="document.getElementById('offlineSyncToast').classList.add('hidden')" class="text-emerald-300 hover:text-white">
+        <button onclick="document.getElementById('offlineSyncToast').classList.add('hidden')" class="text-emerald-300 hover:text-white" aria-label="Đóng thông báo">
             <span class="material-symbols-outlined text-sm">close</span>
         </button>
+    </div>
+
+    <!-- 16. THÔNG BÁO BẢN CẬP NHẬT MỚI (APP UPDATE TOAST) -->
+    <div id="appUpdateToast" class="fixed bottom-20 md:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 hidden max-w-sm p-4 rounded-2xl bg-emerald-950/95 text-white shadow-2xl backdrop-blur-md border border-emerald-500/40 transition-all flex flex-col gap-3">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-amber-500 text-stone-900 flex items-center justify-center shrink-0 shadow-xs font-bold">
+                <span class="material-symbols-outlined text-lg">system_update</span>
+            </div>
+            <div class="flex-1 text-xs">
+                <div class="font-bold text-amber-200">Đã có phiên bản mới</div>
+                <div class="text-[11px] text-emerald-100">Bản cập nhật ViVuTraVinh đã sẵn sàng.</div>
+            </div>
+            <button id="dismissUpdateBtn" class="text-emerald-300 hover:text-white" aria-label="Đóng thông báo">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-1 border-t border-emerald-800">
+            <button id="dismissUpdateBtn2" type="button" class="px-3 py-1.5 rounded-xl text-xs text-emerald-200 hover:text-white">Để sau</button>
+            <button id="applyUpdateBtn" type="button" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition-all shadow-xs active:scale-95">Cập nhật ngay</button>
+        </div>
     </div>
 
 </body>

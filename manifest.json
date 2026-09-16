@@ -5,24 +5,42 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#f97316",
+  "background_color": "#faf9f7",
+  "theme_color": "#064e3b",
   "orientation": "portrait-primary",
   "categories": ["travel", "food", "lifestyle"],
   "lang": "vi",
   "dir": "ltr",
   "icons": [
     {
-      "src": "https://api.dicebear.com/7.x/shapes/svg?seed=ViVuTraVinh&backgroundColor=f97316",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "https://api.dicebear.com/7.x/shapes/svg?seed=ViVuTraVinh&backgroundColor=f97316",
+      "src": "./icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -33,7 +51,7 @@
       "url": "./index.html#section-food",
       "icons": [
         {
-          "src": "https://api.dicebear.com/7.x/shapes/svg?seed=food&backgroundColor=fb923c",
+          "src": "./icons/icon-192.png",
           "sizes": "192x192"
         }
       ]
@@ -45,7 +63,7 @@
       "url": "./index.html#section-cafe",
       "icons": [
         {
-          "src": "https://api.dicebear.com/7.x/shapes/svg?seed=cafe&backgroundColor=d97706",
+          "src": "./icons/icon-192.png",
           "sizes": "192x192"
         }
       ]
@@ -57,24 +75,10 @@
       "url": "./index.html#section-travel",
       "icons": [
         {
-          "src": "https://api.dicebear.com/7.x/shapes/svg?seed=travel&backgroundColor=3b82f6",
+          "src": "./icons/icon-192.png",
           "sizes": "192x192"
         }
       ]
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "https://placehold.co/1080x1920/f97316/ffffff?text=ViVuTraVinh",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "https://placehold.co/1920x1080/f97316/ffffff?text=ViVuTraVinh",
-      "sizes": "1920x1080",
-      "type": "image/png",
-      "form_factor": "wide"
     }
   ]
 }

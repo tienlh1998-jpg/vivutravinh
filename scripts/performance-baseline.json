@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-09-16T01:06:58.017Z",
+  "version": "2.9.0",
+  "desktop": {
+    "lcp": 88,
+    "cls": 0.0466,
+    "shifts": [
+      {
+        "value": 0.0075,
+        "sources": [
+          {
+            "tag": "FOOTER",
+            "id": "",
+            "class": "mt-auto pb-20 md:pb-0 bg-surface-container-low dark:bg-dark-card border-t border-outline-variant/40 dark:border-dark-border text-on-surface dark:text-zinc-300",
+            "prev": {},
+            "curr": {}
+          }
+        ]
+      },
+      {
+        "value": 0.03560235750538987,
+        "sources": [
+          {
+            "tag": "DIV",
+            "id": "",
+            "class": "relative z-10 p-6 sm:p-8 space-y-4 text-white",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "DIV",
+            "id": "smartSuggestionsContainer",
+            "class": "flex-1",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "DIV",
+            "id": "bentoMiniMap",
+            "class": "w-full h-36 rounded-2xl overflow-hidden shadow-inner border border-outline-variant/30 dark:border-zinc-700 z-0 leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "DIV",
+            "id": "",
+            "class": "relative flex items-center w-full",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "DIV",
+            "id": "",
+            "class": "flex items-center gap-1.5 sm:gap-3 shrink-0",
+            "prev": {},
+            "curr": {}
+          }
+        ]
+      },
+      {
+        "value": 0.003459216672655408,
+        "sources": [
+          {
+            "tag": "DIV",
+            "id": "",
+            "class": "relative flex items-center w-full",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "DIV",
+            "id": "",
+            "class": "flex items-center gap-1.5 sm:gap-3 shrink-0",
+            "prev": {},
+            "curr": {}
+          }
+        ]
+      }
+    ]
+  },
+  "mobile": {
+    "lcp": 108,
+    "cls": 0,
+    "shifts": []
+  },
+  "bundle": {
+    "htmlBytes": 110975,
+    "htmlKb": 108.4,
+    "cssBytes": 81733,
+    "cssKb": 79.8,
+    "jsBytes": 371356,
+    "jsKb": 362.7,
+    "totalMb": 6.28
+  }
+}

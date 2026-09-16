@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "http-server -p 8000 -c-1",
+    "build": "node scripts/build.cjs",
+    "preview": "node scripts/preview.cjs",
     "check": "node --check js/config.js js/data.js js/app.js js/ui.js js/comments.js js/offline-sync.js service-worker.js",
     "test:fixtures": "node scripts/test-fixtures.js",
     "test:g2": "node scripts/test-g2.js",
@@ -14,10 +16,15 @@
     "test:g3:browser": "node --experimental-websocket scripts/verify-g3-browser.cjs",
     "test:ui": "node --experimental-websocket scripts/verify-ui.cjs",
     "test:sw": "node scripts/test-sw-upgrade.js",
-    "check:gate": "npm run check && npm run test:fixtures && npm run test:g2 && npm run test:g3 && npm run test:sw && npm run test:ui && npm run test:g2:browser && npm run test:g3:browser",
+    "test:g4:browser": "node --experimental-websocket scripts/verify-g4-offline.cjs",
+    "check:gate": "npm run check && npm run test:fixtures && npm run test:g2 && npm run test:g3 && npm run test:sw && npm run test:ui && npm run test:g2:browser && npm run test:g3:browser && npm run test:g4:browser",
     "test": "npm run check:gate"
   },
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.11",
+    "http-server": "^14.1.1",
+    "leaflet": "^1.9.4",
+    "tailwindcss": "^3.4.19"
   }
 }
