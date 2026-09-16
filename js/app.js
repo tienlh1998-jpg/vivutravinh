@@ -1324,9 +1324,10 @@ async function handleCommentSubmit(e) {
         let success = false;
         let apiError = null;
 
+        let submittedComment = null;
         try {
             if (window.ViVuComments) {
-                await window.ViVuComments.submitComment(validatedPayload);
+                submittedComment = await window.ViVuComments.submitComment(validatedPayload);
                 success = true;
             } else {
                 // Mock dev mode khi chưa khởi tạo service Supabase trực tiếp: lưu an toàn vào IndexedDB
@@ -1348,10 +1349,14 @@ async function handleCommentSubmit(e) {
         }
 
         if (success) {
-            // G3 State: submitted
+            // G3 State: submitted (hiển thị thông báo phù hợp theo chính sách kiểm duyệt)
             if (msgEl) {
                 msgEl.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-bold';
-                msgEl.textContent = 'Cảm ơn bạn! Đánh giá & ảnh đã được gửi thành công.';
+                if (submittedComment?.status === 'pending') {
+                    msgEl.textContent = 'Cảm ơn bạn! Đánh giá & ảnh đã được tiếp nhận và đang chờ duyệt trước khi hiển thị công khai.';
+                } else {
+                    msgEl.textContent = 'Cảm ơn bạn! Đánh giá & ảnh đã được gửi thành công.';
+                }
             }
             if (textInput) textInput.value = '';
             if (ratingInput) ratingInput.value = '';
@@ -1360,10 +1365,10 @@ async function handleCommentSubmit(e) {
 
             await reloadModalComments(state.currentDetailPlace.id);
         } else if (apiError) {
-            // PHÂN LOẠI LỖI (G3):
-            // Không bao giờ queue các lỗi validation, cooldown, hoặc auth/permission như lỗi mạng!
+            // PHÂN LOẠI LỖI (G3/G5):
+            // Không bao giờ queue các lỗi validation, cooldown, rate-limit hoặc auth/permission như lỗi mạng!
             const isValidationError = apiError instanceof CommentValidationError || apiError.code === 'VALIDATION_ERROR';
-            const isCooldownError = apiError instanceof CommentCooldownError || apiError.code === 'COOLDOWN_ERROR';
+            const isCooldownOrRateLimit = apiError instanceof CommentCooldownError || apiError.code === 'COOLDOWN_ERROR' || apiError.isRateLimitError || apiError.status === 429 || apiError.code === 'RATE_LIMITED';
             const isAuthError = apiError.isAuthError || apiError.status === 401 || apiError.status === 403 || /permission|unauthorized|forbidden/i.test(apiError.message);
             const isSchemaError = apiError.isSchemaError || (apiError.status === 400 && !/failed to fetch/i.test(apiError.message));
 
@@ -1372,10 +1377,10 @@ async function handleCommentSubmit(e) {
                     msgEl.className = 'text-xs text-rose-600 dark:text-rose-400 font-bold';
                     msgEl.textContent = apiError.message;
                 }
-            } else if (isCooldownError) {
+            } else if (isCooldownOrRateLimit) {
                 if (msgEl) {
                     msgEl.className = 'text-xs text-amber-600 dark:text-amber-400 font-bold';
-                    msgEl.textContent = apiError.message;
+                    msgEl.textContent = apiError.message || 'Bạn đang gửi đánh giá quá nhanh. Vui lòng chờ trước khi thử lại.';
                 }
             } else if (isAuthError) {
                 if (msgEl) {

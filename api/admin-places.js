@@ -40,7 +40,52 @@ function sendError(response, statusCode, code, message) {
   });
 }
 
+const FAILED_ATTEMPTS_LIMIT = 5;
+const LOCKOUT_PERIOD_MS = 15 * 60 * 1000;
+const failedAttemptsMap = new Map();
+
+function getClientIp(request) {
+  const forwarded = request.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return request.socket?.remoteAddress || '127.0.0.1';
+}
+
+function checkAuthRateLimit(ip) {
+  const now = Date.now();
+  const record = failedAttemptsMap.get(ip);
+  if (record && record.count >= FAILED_ATTEMPTS_LIMIT) {
+    if (now - record.lastAttempt < LOCKOUT_PERIOD_MS) {
+      const remainingMinutes = Math.ceil((LOCKOUT_PERIOD_MS - (now - record.lastAttempt)) / 60000);
+      return { allowed: false, remainingMinutes };
+    }
+    failedAttemptsMap.delete(ip);
+  }
+  return { allowed: true };
+}
+
+function recordFailedAuth(ip, path) {
+  const now = Date.now();
+  const record = failedAttemptsMap.get(ip) || { count: 0, lastAttempt: now };
+  record.count += 1;
+  record.lastAttempt = now;
+  failedAttemptsMap.set(ip, record);
+  console.warn(`[AUDIT] Failed admin auth from IP ${ip} at ${new Date(now).toISOString()} on ${path} (${record.count}/${FAILED_ATTEMPTS_LIMIT})`);
+}
+
+function recordSuccessfulAuth(ip) {
+  failedAttemptsMap.delete(ip);
+}
+
 function requireAdmin(request, response) {
+  const ip = getClientIp(request);
+  const rateCheck = checkAuthRateLimit(ip);
+  if (!rateCheck.allowed) {
+    sendError(response, 429, 'AUTH_RATE_LIMITED', `Quá nhiều lần thử xác thực thất bại. Vui lòng thử lại sau ${rateCheck.remainingMinutes} phút.`);
+    return false;
+  }
+
   const configuredSecret = process.env.ADMIN_SECRET;
   const providedSecret = request.headers['x-admin-secret'];
 
@@ -50,10 +95,12 @@ function requireAdmin(request, response) {
   }
 
   if (!providedSecret || providedSecret !== configuredSecret) {
+    recordFailedAuth(ip, request.url || '/api/admin-places');
     sendError(response, 401, 'UNAUTHORIZED', 'Unauthorized: Invalid or missing x-admin-secret.');
     return false;
   }
 
+  recordSuccessfulAuth(ip);
   return true;
 }
 
@@ -73,7 +120,7 @@ function getSupabaseConfig() {
 
 async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
   if (typeof request.body === 'string') {
-    if (Buffer.byteLength(request.body) > limit) {
+    if (Buffer.byteLength(request.body, 'utf8') > limit) {
       throw new Error('PAYLOAD_TOO_LARGE');
     }
     return request.body ? JSON.parse(request.body) : {};
@@ -87,6 +134,10 @@ async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
   }
 
   if (request.body && typeof request.body === 'object' && typeof request.body[Symbol.asyncIterator] !== 'function') {
+    const rawLen = Buffer.byteLength(JSON.stringify(request.body), 'utf8');
+    if (rawLen > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     return request.body;
   }
 

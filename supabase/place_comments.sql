@@ -51,8 +51,13 @@ to anon, authenticated
 using (is_hidden = false and status = 'approved');
 
 -- 2. Quyền gửi bình luận công khai (Public / Anon Insert):
--- Người dùng vãng lai được tạo bình luận mới với các ràng buộc bảo mật:
--- Không được tự ý đặt is_hidden = true hoặc status khác 'approved'
+-- CHÍNH SÁCH KIỂM DUYỆT: PRE-MODERATION (Duyệt trước khi hiển thị)
+-- Lựa chọn thiết kế:
+-- ViVuTraVinh áp dụng chính sách Pre-moderation để ngăn chặn hoàn toàn rủi ro spam bot,
+-- nội dung vi phạm pháp luật/văn hóa hoặc link lừa đảo xuất hiện công khai.
+-- Khách vãng lai (anon) chỉ được phép tạo bình luận ở trạng thái 'pending'.
+-- Nếu client hoặc kẻ tấn công cố tình gửi status = 'approved', RLS sẽ chặn với mã lỗi 403 / Check violation.
+-- Chỉ quản trị viên qua /api/admin-comments (hoặc service_role) mới có quyền duyệt thành 'approved'.
 drop policy if exists "Public can insert valid comments" on public.place_comments;
 create policy "Public can insert valid comments"
 on public.place_comments
@@ -60,7 +65,7 @@ for insert
 to anon, authenticated
 with check (
   is_hidden = false
-  and status = 'approved'
+  and status = 'pending'
   and length(trim(author_name)) >= 2
   and length(trim(author_name)) <= 80
   and rating >= 1
@@ -73,4 +78,6 @@ with check (
 
 -- 3. Quyền sửa / xóa bình luận:
 -- Khách vãng lai (anon) KHÔNG ĐƯỢC PHÉP sửa hoặc xóa bất kỳ bình luận nào.
--- Toàn bộ thao tác kiểm duyệt, ẩn, xóa thuộc về service_role (thông qua /api/admin-comments).
+-- Toàn bộ thao tác kiểm duyệt, đổi trạng thái sang 'approved', ẩn, xóa thuộc về service_role (thông qua /api/admin-comments).
+drop policy if exists "Public cannot update comments" on public.place_comments;
+drop policy if exists "Public cannot delete comments" on public.place_comments;

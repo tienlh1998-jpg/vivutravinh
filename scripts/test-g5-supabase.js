@@ -9,6 +9,7 @@ import { loadComments, submitComment, SupabaseRequestError } from '../js/comment
 import adminCommentsHandler from '../api/admin-comments.js';
 import adminPlacesHandler from '../api/admin-places.js';
 import importPlaceHandler from '../api/import-place.js';
+import submitCommentHandler from '../api/submit-comment.js';
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -131,6 +132,11 @@ function createMockSupabaseServer() {
             return send(200, JSON.parse(content));
         }
 
+        // Tuyến API submit-comment (hỗ trợ gọi từ client qua cùng port)
+        if (url.pathname === '/api/submit-comment') {
+            return submitCommentHandler(req, res);
+        }
+
         // 1. Kiểm tra xác thực Supabase cơ bản
         if (!isServiceRole && !isAnon) {
             return send(401, { message: 'Invalid API key or unauthorized', code: '401' });
@@ -226,6 +232,12 @@ function createMockSupabaseServer() {
                     result = result.filter(c => c.place_id === placeId);
                 }
 
+                const clientRevMatch = url.search.match(/client_review_id=eq\.([^&]+)/);
+                if (clientRevMatch) {
+                    const revId = decodeURIComponent(clientRevMatch[1]);
+                    result = result.filter(c => c.client_review_id === revId);
+                }
+
                 return send(200, result);
             }
 
@@ -235,10 +247,11 @@ function createMockSupabaseServer() {
                 for await (const chunk of req) bodyStr += chunk;
                 const newComment = JSON.parse(bodyStr);
 
-                // RLS CHECK CHO ANON INSERT:
+                // RLS CHECK CHO ANON INSERT (CHÍNH SÁCH PRE-MODERATION):
+                // Anon chỉ được tạo bản ghi status = 'pending' và is_hidden = false
                 if (!isServiceRole) {
-                    if (newComment.is_hidden === true || (newComment.status && newComment.status !== 'approved')) {
-                        return send(403, { message: 'new row violates row-level security policy for table "place_comments"', code: '42501' });
+                    if (newComment.is_hidden === true || (newComment.status && newComment.status !== 'pending')) {
+                        return send(403, { message: 'new row violates row-level security policy for table "place_comments" (anon can only insert pending status)', code: '42501' });
                     }
                 }
 
@@ -258,7 +271,7 @@ function createMockSupabaseServer() {
                 const record = {
                     id: mockDb.place_comments.length + 1,
                     is_hidden: false,
-                    status: 'approved',
+                    status: isServiceRole ? (newComment.status || 'approved') : 'pending',
                     photo_metadata: {},
                     ...newComment,
                     created_at: new Date().toISOString(),
@@ -458,6 +471,33 @@ async function runTests() {
         assert.strictEqual(unauthImport.data.success, false);
         console.log('  ✓ import-place chặn secret sai với HTTP 401');
 
+        // 4.4. Thử brute-force admin secret: 5 lần sai -> lần thứ 6 bị khóa 429
+        const testBruteIp = '192.168.1.99';
+        for (let i = 0; i < 5; i++) {
+            await callServerlessHandler(adminPlacesHandler, {
+                method: 'GET',
+                headers: { 'x-admin-secret': 'wrong-pwd-' + i, 'x-forwarded-for': testBruteIp }
+            });
+        }
+        const lockedRes = await callServerlessHandler(adminPlacesHandler, {
+            method: 'GET',
+            headers: { 'x-admin-secret': 'wrong-pwd-final', 'x-forwarded-for': testBruteIp }
+        });
+        assert.strictEqual(lockedRes.statusCode, 429, 'Quá 5 lần thử sai secret phải bị khóa 429');
+        assert.strictEqual(lockedRes.data.error.code, 'AUTH_RATE_LIMITED');
+        console.log('  ✓ API quản trị kích hoạt khóa 429 chống brute-force khi thử sai secret liên tục');
+
+        // 4.5. Đo kích thước body dạng object: gửi object vượt quá 2MB
+        const hugeString = 'x'.repeat(2.1 * 1024 * 1024);
+        const hugePayloadRes = await callServerlessHandler(adminPlacesHandler, {
+            method: 'POST',
+            headers: { 'x-admin-secret': VALID_ADMIN_SECRET },
+            body: { name: 'Too Big', huge: hugeString }
+        });
+        assert.strictEqual(hugePayloadRes.statusCode, 413, 'Payload object > 2MB phải bị từ chối 413');
+        assert.strictEqual(hugePayloadRes.data.error.code, 'PAYLOAD_TOO_LARGE');
+        console.log('  ✓ Đo chính xác dung lượng object body và từ chối 413 khi vượt quá giới hạn 2MB');
+
         // ==========================================
         // CA 5: VÒNG ĐỜI QUẢN TRỊ ĐỊA ĐIỂM (TẠO, SỬA, ẨN, PHẢN ÁNH RA PUBLIC)
         // ==========================================
@@ -505,7 +545,7 @@ async function runTests() {
         // 6.1. Public đọc comments: chỉ lấy comment không bị ẩn, kèm theo photo_url và photo_metadata
         // Set window config tạm để comments.js dùng test server
         globalThis.window = {
-            location: { search: '' },
+            location: { search: '', origin: SUPABASE_BASE_URL },
             VIVUTRAVINH_CONFIG: baseConfig,
             localStorage: {
                 getItem: () => null,
@@ -530,32 +570,130 @@ async function runTests() {
         assert.ok(adminComments.some(c => c.is_hidden === true), 'Admin phải nhìn thấy cả bình luận bị ẩn');
         console.log('  ✓ Admin API đọc được toàn bộ bình luận (kể cả bình luận bị ẩn để kiểm duyệt)');
 
+        // 6.3. Kiểm toán RLS Pre-moderation: Anon tự chèn status='approved' trực tiếp vào REST
+        const hackCommentRes = await fetch(`${SUPABASE_BASE_URL}/rest/v1/place_comments`, {
+            method: 'POST',
+            headers: { apikey: VALID_ANON_KEY, Authorization: `Bearer ${VALID_ANON_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                place_id: 'ao-ba-om',
+                place_name: 'Ao Bà Om',
+                author_name: 'Hacker Anon',
+                rating: 5,
+                comment_text: 'Spam bypass moderation',
+                client_review_id: 'hack_premod_' + Date.now(),
+                status: 'approved',
+                is_hidden: false
+            })
+        });
+        assert.strictEqual(hackCommentRes.status, 403, 'Anon cố tình chèn status=approved phải bị RLS từ chối 403');
+        console.log('  ✓ RLS: Anon bị chặn 403 khi cố tự đặt status = approved (Bảo vệ Pre-moderation)');
+
         // ==========================================
-        // CA 7: CHỐNG TRÙNG LẶP ĐÁNH GIÁ (IDEMPOTENCY / DEDUPLICATION)
+        // CA 7: SERVER RATE LIMITING, VALIDATION VÀ CHỐNG TRÙNG LẶP ĐÁNH GIÁ (G5)
         // ==========================================
-        console.log('\n[7] Kiểm thử Chống Trùng Lặp (Idempotency Key):');
+        console.log('\n[7] Kiểm thử API Gửi Đánh Giá: Rate Limit, Validation & Idempotency:');
+
+        // 7.1. Validation phía server
+        const invalidRatingRes = await callServerlessHandler(submitCommentHandler, {
+            method: 'POST',
+            headers: { 'x-forwarded-for': '10.0.0.1' },
+            body: {
+                place_id: 'ao-ba-om',
+                place_name: 'Ao Bà Om',
+                author_name: 'Test User',
+                rating: 10,
+                comment_text: 'Nội dung hợp lệ',
+                client_review_id: 'val_test_1'
+            }
+        });
+        assert.strictEqual(invalidRatingRes.statusCode, 400);
+        assert.strictEqual(invalidRatingRes.data.error.code, 'INVALID_RATING');
+        console.log('  ✓ API submit-comment xác thực chặt chẽ đầu vào (rating sai bị từ chối 400)');
+
+        // 7.2. Giới hạn payload size phía server (64KB)
+        const bigCommentText = 'a'.repeat(65 * 1024);
+        const bigCommentRes = await callServerlessHandler(submitCommentHandler, {
+            method: 'POST',
+            headers: { 'x-forwarded-for': '10.0.0.2' },
+            body: {
+                place_id: 'ao-ba-om',
+                place_name: 'Ao Bà Om',
+                author_name: 'Spammer',
+                rating: 5,
+                comment_text: bigCommentText,
+                client_review_id: 'big_test_1'
+            }
+        });
+        assert.strictEqual(bigCommentRes.statusCode, 413);
+        assert.strictEqual(bigCommentRes.data.error.code, 'PAYLOAD_TOO_LARGE');
+        console.log('  ✓ API submit-comment chặn payload vượt quá 64KB với mã 413');
+
+        // 7.3. Server-side Rate Limiting theo IP (chống spam)
+        const spammerIp = '10.0.0.42';
+        const review1 = await callServerlessHandler(submitCommentHandler, {
+            method: 'POST',
+            headers: { 'x-forwarded-for': spammerIp },
+            body: {
+                place_id: 'ao-ba-om',
+                place_name: 'Ao Bà Om',
+                author_name: 'Khách Đánh Giá',
+                rating: 5,
+                comment_text: 'Đánh giá đầu tiên rất vui!',
+                client_review_id: 'clrev_rate_1_' + Date.now()
+            }
+        });
+        assert.strictEqual(review1.statusCode, 201);
+        assert.strictEqual(review1.data.status, 'pending', 'Bình luận mới phải ở trạng thái pending (Pre-moderation)');
+
+        // Gửi tiếp tức thì từ cùng IP -> phải bị chặn 429
+        const review2 = await callServerlessHandler(submitCommentHandler, {
+            method: 'POST',
+            headers: { 'x-forwarded-for': spammerIp },
+            body: {
+                place_id: 'ao-ba-om',
+                place_name: 'Ao Bà Om',
+                author_name: 'Khách Đánh Giá',
+                rating: 4,
+                comment_text: 'Đánh giá thứ hai liên tiếp!',
+                client_review_id: 'clrev_rate_2_' + Date.now()
+            }
+        });
+        assert.strictEqual(review2.statusCode, 429, 'Gửi liên tiếp phải bị server chặn 429');
+        assert.strictEqual(review2.data.error.code, 'RATE_LIMITED');
+        assert.ok(review2.headers['retry-after'], 'Phải trả về Retry-After header');
+        console.log('  ✓ Server-side Rate Limiting chặn gửi bình luận liên tiếp với mã 429 và Retry-After');
+
+        // 7.4. Idempotency Key qua API
+        const idemIp = '10.0.0.99';
         const testReviewId = `clrev_test_idem_${Date.now()}`;
-        const reviewPayload = {
-            placeId: 'ao-ba-om',
-            placeName: 'Ao Bà Om',
-            authorName: 'Du Khách Trà Vinh',
+        const idemPayload = {
+            place_id: 'ao-ba-om',
+            place_name: 'Ao Bà Om',
+            author_name: 'Du Khách Trà Vinh',
             rating: 5,
-            commentText: 'Không gian Ao Bà Om buổi sớm mai rất trong lành!',
-            photoUrl: 'https://example.com/test-photo.jpg',
-            client_review_id: testReviewId,
-            skipCooldown: true
+            comment_text: 'Không gian Ao Bà Om buổi sớm mai rất trong lành!',
+            photo_url: 'https://example.com/test-photo.jpg',
+            client_review_id: testReviewId
         };
+        const initialCount = mockDb.place_comments.length;
+        const send1 = await callServerlessHandler(submitCommentHandler, {
+            method: 'POST',
+            headers: { 'x-forwarded-for': idemIp },
+            body: idemPayload
+        });
+        assert.strictEqual(send1.statusCode, 201);
+        assert.strictEqual(mockDb.place_comments.length, initialCount + 1);
 
-        // Gửi lần 1: thành công tạo mới
-        const res1 = await submitComment(reviewPayload);
-        assert.ok(res1 && res1.id, 'Gửi lần 1 phải thành công');
-        const initialCommentCount = mockDb.place_comments.length;
-
-        // Gửi lần 2 với cùng client_review_id: server chặn trùng lặp, client xử lý idempotent an toàn
-        const res2 = await submitComment(reviewPayload);
-        assert.ok(res2, 'Lần 2 phải được xử lý an toàn (idempotent success)');
-        assert.strictEqual(mockDb.place_comments.length, initialCommentCount, 'Không được tạo thêm bản ghi thứ hai trong DB!');
-        console.log('  ✓ Gửi cùng một client_review_id 2 lần không tạo ra 2 bản ghi, server và client chặn trùng lặp 100%');
+        // Gửi lại chính xác client_review_id đó
+        const send2 = await callServerlessHandler(submitCommentHandler, {
+            method: 'POST',
+            headers: { 'x-forwarded-for': '10.0.0.100' },
+            body: idemPayload
+        });
+        assert.strictEqual(send2.statusCode, 200);
+        assert.strictEqual(send2.data.idempotent, true);
+        assert.strictEqual(mockDb.place_comments.length, initialCount + 1, 'Không được tạo thêm bản ghi thứ hai trong DB!');
+        console.log('  ✓ Gửi cùng một client_review_id 2 lần được server nhận diện idempotent (200 OK, 0 duplicate)');
 
         // ==========================================
         // CA 8: PHÂN LOẠI LỖI & KHÔNG DÙNG FALLBACK CHE LỖI CẤU HÌNH
