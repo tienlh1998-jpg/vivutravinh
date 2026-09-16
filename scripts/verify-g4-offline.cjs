@@ -105,7 +105,12 @@ class CDPClient {
     send(method, params = {}) {
         return new Promise((resolve, reject) => {
             const id = ++this.reqId;
+            const timer = setTimeout(() => {
+                this.callbacks.delete(id);
+                reject(new Error(`CDP method ${method} timed out after 10000ms`));
+            }, 10000);
             this.callbacks.set(id, (res) => {
+                clearTimeout(timer);
                 if (res.error) reject(new Error(JSON.stringify(res.error)));
                 else resolve(res.result);
             });
@@ -126,7 +131,7 @@ class CDPClient {
     }
 
     async screenshot(filePath) {
-        const res = await this.send('Page.captureScreenshot', { format: 'png' });
+        const res = await this.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
         fs.writeFileSync(filePath, Buffer.from(res.data, 'base64'));
     }
 
@@ -227,6 +232,7 @@ async function runOfflineVerification() {
         '--headless=new',
         '--no-sandbox',
         '--disable-gpu',
+        '--disable-dev-shm-usage',
         `--user-data-dir=${tmpProfile}`,
         `--remote-debugging-port=${cdpPort}`,
         `http://localhost:${PREVIEW_PORT}/index.html?source=mock`
@@ -593,6 +599,12 @@ async function runOfflineVerification() {
         const baseline = {
             timestamp: new Date().toISOString(),
             version: '2.9.0',
+            environment: {
+                server: 'localhost',
+                network: 'unthrottled',
+                cpuThrottlingRate: 1,
+                browser: 'Chrome Headless'
+            },
             desktop: desktopMetrics,
             mobile: mobileMetrics,
             bundle: {

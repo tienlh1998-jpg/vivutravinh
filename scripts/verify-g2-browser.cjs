@@ -58,7 +58,12 @@ class CDPClient {
     send(method, params = {}) {
         return new Promise((resolve, reject) => {
             const id = ++this.reqId;
+            const timer = setTimeout(() => {
+                this.callbacks.delete(id);
+                reject(new Error(`CDP method ${method} timed out after 15000ms`));
+            }, 15000);
             this.callbacks.set(id, (res) => {
+                clearTimeout(timer);
                 if (res.error) reject(new Error(JSON.stringify(res.error)));
                 else resolve(res.result);
             });
@@ -89,7 +94,7 @@ class CDPClient {
     }
 
     async screenshot(filePath) {
-        const res = await this.send('Page.captureScreenshot', { format: 'png' });
+        const res = await this.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
         fs.writeFileSync(filePath, Buffer.from(res.data, 'base64'));
     }
 
@@ -118,12 +123,13 @@ async function waitForAppReady(cdp, timeoutMs = 12000) {
 async function runG2BrowserTests() {
     console.log('--- BẮT ĐẦU KIỂM THỬ TRÌNH DUYỆT G2 (CHROME CDP) ---');
 
-    const port = 9226;
+    const port = 9224;
     const tmpProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'chrome_g2_'));
     const chrome = spawn('google-chrome', [
         '--headless=new',
         '--no-sandbox',
         '--disable-gpu',
+        '--disable-dev-shm-usage',
         `--user-data-dir=${tmpProfile}`,
         `--remote-debugging-port=${port}`,
         'http://localhost:8000/?source=mock'

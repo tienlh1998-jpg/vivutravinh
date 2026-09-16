@@ -66,7 +66,12 @@ class CDPClient {
     send(method, params = {}) {
         return new Promise((resolve, reject) => {
             const id = ++this.reqId;
+            const timer = setTimeout(() => {
+                this.callbacks.delete(id);
+                reject(new Error(`CDP method ${method} timed out after 15000ms`));
+            }, 15000);
             this.callbacks.set(id, (res) => {
+                clearTimeout(timer);
                 if (res.error) reject(new Error(JSON.stringify(res.error)));
                 else resolve(res.result);
             });
@@ -97,7 +102,7 @@ class CDPClient {
     }
 
     async screenshot(filePath) {
-        const res = await this.send('Page.captureScreenshot', { format: 'png' });
+        const res = await this.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
         fs.writeFileSync(filePath, Buffer.from(res.data, 'base64'));
     }
 
@@ -123,15 +128,28 @@ async function waitForAppReady(cdp, timeoutMs = 12000) {
     throw new Error('Hết thời gian chờ: Ứng dụng ViVuTraVinh chưa sẵn sàng (places chưa render).');
 }
 
+async function waitForCondition(fn, timeoutMs = 12000, intervalMs = 250) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        try {
+            const res = await fn();
+            if (res) return res;
+        } catch {}
+        await sleep(intervalMs);
+    }
+    throw new Error(`Timeout vượt quá ${timeoutMs}ms khi chờ điều kiện.`);
+}
+
 async function runTests() {
     console.log('--- BẮT ĐẦU KIỂM THỬ G1: UI/MOBILE, MODAL, DARK MODE, ACCESSIBILITY ---');
 
-    const port = 9225;
+    const port = 9223;
     const tmpProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'chrome_g1_'));
     const chrome = spawn('google-chrome', [
         '--headless=new',
         '--no-sandbox',
         '--disable-gpu',
+        '--disable-dev-shm-usage',
         `--user-data-dir=${tmpProfile}`,
         `--remote-debugging-port=${port}`,
         'http://localhost:8000/?source=mock'
@@ -196,8 +214,11 @@ async function runTests() {
         // 3. Kiểm tra Search Mode & Thu gọn khối khám phá (Issue M9)
         console.log('\n[3] KIỂM TRA CHẾ ĐỘ TÌM KIẾM (SEARCH MODE & ISSUE M9):');
         await cdp.setViewport(390, 844);
+        const curUrl = await cdp.eval(`window.location.href`);
+        console.log(`  Current URL: ${curUrl}`);
         await cdp.eval(`(() => {
             const input = document.getElementById('discoverySearchInput');
+            if (!input) throw new Error('Không tìm thấy #discoverySearchInput trên URL: ' + window.location.href);
             input.value = 'bún nước lèo';
             input.dispatchEvent(new Event('input', { bubbles: true }));
         })()`);
@@ -234,15 +255,19 @@ async function runTests() {
             const clearBtn = document.getElementById('clearSearchBannerBtn') || document.getElementById('searchActiveClearBtn');
             if (clearBtn) clearBtn.click();
         })()`);
-        await sleep(400);
+        await waitForCondition(async () => {
+            return await cdp.eval(`document.querySelectorAll('.place-card').length >= 10`);
+        }, 8000);
 
         // 4. Kiểm tra Mở Modal tức thì (Zero Latency - Issue M6) & Gallery & Vùng cuộn đơn
         console.log('\n[4] KIỂM TRA MODAL, GALLERY & ĐƠN VÙNG CUỘN (ISSUES M6, M7):');
         const openTime = await cdp.eval(`(() => {
             const cards = Array.from(document.querySelectorAll('.place-card'));
             const multiPhotoCard = cards.find(c => c.textContent.includes('Cafe') || c.textContent.includes('Chùa')) || cards[0];
+            if (!multiPhotoCard) throw new Error('Không tìm thấy thẻ địa điểm để click');
+            const openBtn = multiPhotoCard.querySelector('[data-action="open-detail"]') || multiPhotoCard;
             const t0 = performance.now();
-            multiPhotoCard.click();
+            openBtn.click();
             const t1 = performance.now();
             return {
                 placeName: document.getElementById('modalTitle')?.textContent,

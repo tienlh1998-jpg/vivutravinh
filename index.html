@@ -217,8 +217,9 @@
                     .catch(err => console.warn('[ViVuTraVinh PWA] Registration failed:', err));
 
                 let refreshing = false;
+                const hadController = Boolean(navigator.serviceWorker.controller);
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    if (!refreshing) {
+                    if (hadController && !refreshing) {
                         refreshing = true;
                         window.location.reload();
                     }

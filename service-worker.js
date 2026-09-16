@@ -52,7 +52,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     Promise.all([
       caches.open(CACHE_SHELL).then((cache) => cache.addAll(APP_SHELL_URLS)),
-      caches.open(DATA_CACHE).then((cache) => cache.addAll(DATA_URLS))
+      caches.open(CACHE_DATA).then((cache) => cache.addAll(DATA_URLS))
     ])
   );
 });
@@ -118,7 +118,7 @@ async function handlePartitionedRequest(request) {
     }
   }
 
-  // B. Phân vùng Public Data (JSON): Cache-First có kiểm tra freshness
+  // B. Phân vùng Public Data (JSON): Versioned Snapshot Cache (Cache-First, làm mới khi nâng phiên bản Service Worker)
   if (isDataRequest) {
     const dataCache = await caches.open(CACHE_DATA);
     const cached = await dataCache.match(request, { ignoreSearch: true });
@@ -136,7 +136,7 @@ async function handlePartitionedRequest(request) {
     }
   }
 
-  // C. Phân vùng Images (Ảnh chụp JPG/PNG): Runtime Cache có giới hạn max entries
+  // C. Phân vùng Images (Ảnh chụp JPG/PNG): Runtime Cache có giới hạn FIFO tối đa 30 entries
   if (isImageRequest) {
     const imgCache = await caches.open(CACHE_IMAGES);
     const cached = await imgCache.match(request);
