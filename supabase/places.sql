@@ -50,18 +50,37 @@ set status = 'draft'
 where status is null or status not in ('approved', 'draft', 'hidden', 'archived');
 
 update public.places
+set rating = 0
+where rating is not null and (rating < 0 or rating > 5);
+
+update public.places
 set images = '[]'::jsonb
 where images is null;
 
--- 2. Xử lý trùng lặp slug trong dữ liệu cũ trước khi tạo unique constraint:
-with duplicates as (
-  select id, row_number() over (partition by slug order by id asc) as rn
-  from public.places
-)
-update public.places p
-set slug = p.slug || '-' || p.id
-from duplicates d
-where p.id = d.id and d.rn > 1;
+-- 2. Xử lý triệt để trùng lặp slug trong dữ liệu cũ trước khi tạo unique constraint:
+-- Dùng vòng lặp kiểm tra dứt điểm, gán hậu tố ngẫu nhiên kết hợp ID duy nhất để không bao giờ tạo khóa trùng mới
+do $$
+declare
+  v_dup_count int;
+begin
+  loop
+    with dups as (
+      select id, row_number() over (partition by slug order by id asc) as rn
+      from public.places
+    )
+    update public.places p
+    set slug = p.slug || '-dedup-' || p.id || '-' || substr(md5(random()::text || clock_timestamp()::text || p.id::text), 1, 6)
+    from dups d
+    where p.id = d.id and d.rn > 1;
+
+    select count(*) into v_dup_count
+    from (
+      select slug from public.places group by slug having count(*) > 1
+    ) t;
+
+    exit when v_dup_count = 0;
+  end loop;
+end $$;
 
 -- 3. Tái lập đầy đủ thuộc tính NOT NULL cho các cột của bảng đã tồn tại:
 alter table public.places alter column slug set not null;

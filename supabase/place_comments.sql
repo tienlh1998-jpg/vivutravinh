@@ -45,6 +45,10 @@ set status = 'pending'
 where status is null or status not in ('approved', 'pending', 'hidden', 'rejected');
 
 update public.place_comments
+set rating = 1
+where rating is null or rating < 1 or rating > 5;
+
+update public.place_comments
 set photo_metadata = '{}'::jsonb
 where photo_metadata is null;
 
@@ -52,15 +56,30 @@ update public.place_comments
 set is_hidden = false
 where is_hidden is null;
 
--- 2. Xử lý trùng lặp client_review_id trong dữ liệu cũ trước khi tạo unique constraint:
-with duplicates as (
-  select id, row_number() over (partition by client_review_id order by id asc) as rn
-  from public.place_comments
-)
-update public.place_comments c
-set client_review_id = c.client_review_id || '_dup_' || c.id
-from duplicates d
-where c.id = d.id and d.rn > 1;
+-- 2. Xử lý triệt để trùng lặp client_review_id trong dữ liệu cũ trước khi tạo unique constraint:
+-- Dùng vòng lặp kiểm tra dứt điểm, gán hậu tố ngẫu nhiên kết hợp ID duy nhất để không bao giờ tạo khóa trùng mới
+do $$
+declare
+  v_dup_count int;
+begin
+  loop
+    with dups as (
+      select id, row_number() over (partition by client_review_id order by id asc) as rn
+      from public.place_comments
+    )
+    update public.place_comments c
+    set client_review_id = 'dedup_rev_' || c.id || '_' || substr(md5(random()::text || clock_timestamp()::text || c.id::text), 1, 10)
+    from dups d
+    where c.id = d.id and d.rn > 1;
+
+    select count(*) into v_dup_count
+    from (
+      select client_review_id from public.place_comments group by client_review_id having count(*) > 1
+    ) t;
+
+    exit when v_dup_count = 0;
+  end loop;
+end $$;
 
 -- 3. Tái lập đầy đủ thuộc tính NOT NULL cho các cột của bảng đã tồn tại:
 alter table public.place_comments alter column client_review_id set not null;
