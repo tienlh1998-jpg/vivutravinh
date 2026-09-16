@@ -67,7 +67,12 @@ async function checkLiveConnection() {
       console.log(`  ✓ [PASS] ${name}`);
       passCount++;
     } catch (err) {
-      console.error(`  ❌ [FAIL] ${name}: ${err.message}`);
+      if (err.message && err.message.includes('[SKIPPED / NOT VERIFIED]')) {
+        const cleanMsg = err.message.replace(/\[SKIPPED \/ NOT VERIFIED\]:?/g, '').trim();
+        console.warn(`  ⏸️ [SKIPPED / NOT VERIFIED] ${name}: ${cleanMsg}`);
+      } else {
+        console.error(`  ❌ [FAIL] ${name}: ${err.message}`);
+      }
     }
   }
 
@@ -263,13 +268,16 @@ async function checkLiveConnection() {
     }
   });
 
-  // Case 8: Kiểm toán Storage Policy (Bucket review-photos & RLS upload/delete)
+  // Case 8: Kiểm toán Storage Bucket & Upload Policy (Bucket review-photos & RLS upload ràng buộc)
   await assertCase('Kiểm toán Storage Policy: Bucket review-photos tồn tại, RLS chặn upload sai định dạng/đường dẫn', async () => {
     // 1. Kiểm tra bucket review-photos tồn tại và công khai
     const bucketRes = await fetch(`${baseUrl}/storage/v1/bucket/review-photos`, { headers });
     if (!bucketRes.ok) {
-      if (bucketRes.status === 404) throw new Error('Bucket review-photos chưa được tạo (Migration storage.sql chưa chạy)!');
-      throw new Error(`Không thể kiểm tra bucket review-photos: HTTP ${bucketRes.status}`);
+      const errBody = await bucketRes.text().catch(() => '');
+      if (bucketRes.status === 404 || errBody.includes('NoSuchBucket')) {
+        throw new Error('Bucket review-photos chưa được tạo (Migration storage.sql chưa chạy)!');
+      }
+      throw new Error(`Không thể kiểm tra bucket review-photos: HTTP ${bucketRes.status} - ${errBody}`);
     }
     const bucketData = await bucketRes.json();
     if (!bucketData.public) throw new Error('Bucket review-photos phải là public');
@@ -283,14 +291,86 @@ async function checkLiveConnection() {
     if (badUploadRes.ok) {
       throw new Error('Anon upload được tệp tin sai đường dẫn/định dạng (.exe)! Storage RLS bị hở!');
     }
+  });
 
-    // 3. Kiểm tra Storage RLS chặn anon DELETE ảnh
-    const delPhotoRes = await fetch(`${baseUrl}/storage/v1/object/review-photos/reviews/ao-ba-om/test_del.jpg`, {
+  // Case 9: Kiểm toán Storage DELETE (Kiểm chứng trên object fixture thực tế, không chấp nhận false-positive 404)
+  await assertCase('Kiểm toán Storage Policy: Anon bị RLS chặn xóa ảnh khỏi review-photos (Kiểm chứng trên fixture thực tế)', async () => {
+    // 1. Tìm hoặc tạo object fixture thực tế
+    let fixturePath = null;
+
+    // Thử 1.1: Tìm ảnh sẵn có trong thư mục reviews/
+    try {
+      const listRes = await fetch(`${baseUrl}/storage/v1/object/list/review-photos`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefix: 'reviews/ao-ba-om', limit: 1 }),
+      });
+      if (listRes.ok) {
+        const items = await listRes.json();
+        if (Array.isArray(items) && items.length > 0 && items[0].name) {
+          fixturePath = `reviews/ao-ba-om/${items[0].name}`;
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi list
+    }
+
+    // Thử 1.2: Nếu chưa có fixture, tải lên 1 fixture hợp lệ theo policy "Anon upload review photos"
+    if (!fixturePath) {
+      const testFileName = `audit_${Date.now()}_fixture.jpg`;
+      const candidatePath = `reviews/ao-ba-om/${testFileName}`;
+      const tinyJpeg = Buffer.from('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=', 'base64');
+
+      const uploadRes = await fetch(`${baseUrl}/storage/v1/object/review-photos/${candidatePath}`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'image/jpeg',
+        },
+        body: tinyJpeg,
+      });
+
+      if (uploadRes.ok) {
+        fixturePath = candidatePath;
+      }
+    }
+
+    // 2. Xác minh object fixture thực sự tồn tại (HEAD request)
+    let fixtureConfirmed = false;
+    if (fixturePath) {
+      const headRes = await fetch(`${baseUrl}/storage/v1/object/public/review-photos/${fixturePath}`, {
+        method: 'HEAD',
+        headers,
+      });
+      if (headRes.ok) {
+        fixtureConfirmed = true;
+      }
+    }
+
+    // Nếu không có fixture tồn tại và không thể tạo fixture -> SKIPPED / NOT VERIFIED (Không tính PASS)
+    if (!fixtureConfirmed) {
+      throw new Error('[SKIPPED / NOT VERIFIED] Không có object fixture tồn tại trong bucket review-photos để kiểm thử DELETE');
+    }
+
+    // 3. Thực hiện hành vi tấn công DELETE của Anon trên fixture đã xác nhận tồn tại
+    const delRes = await fetch(`${baseUrl}/storage/v1/object/review-photos/${fixturePath}`, {
       method: 'DELETE',
-      headers
+      headers,
     });
-    if (delPhotoRes.ok) {
-      throw new Error('Anon xóa được ảnh khỏi Storage! RLS DELETE trên storage.objects bị hở!');
+
+    // 4. Kiểm tra lại sự tồn tại của fixture: Phải VẪN CÒN NGUYÊN VẸN (HTTP 200)
+    const verifyRes = await fetch(`${baseUrl}/storage/v1/object/public/review-photos/${fixturePath}`, {
+      method: 'HEAD',
+      headers,
+    });
+
+    if (!verifyRes.ok) {
+      throw new Error(`Anon đã xóa thành công object fixture '${fixturePath}'! RLS DELETE trên storage.objects bị hở!`);
+    }
+
+    if (delRes.ok) {
+      // Nếu API trả ok nhưng file vẫn còn (ví dụ storage delete API trả 200 nhưng rls filter loại 0 rows)
+      // Tiếp tục kiểm tra kỹ lưỡng
     }
   });
 
