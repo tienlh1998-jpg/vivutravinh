@@ -1,5 +1,6 @@
 const TABLE_NAME = 'places';
 const VALID_STATUSES = new Set(['approved', 'draft', 'hidden', 'archived']);
+const MAX_PAYLOAD_SIZE = 2 * 1024 * 1024; // 2MB
 const PATCH_FIELDS = new Set([
   'name',
   'slug',
@@ -32,17 +33,24 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
+function sendError(response, statusCode, code, message) {
+  sendJson(response, statusCode, {
+    success: false,
+    error: { code, message }
+  });
+}
+
 function requireAdmin(request, response) {
   const configuredSecret = process.env.ADMIN_SECRET;
   const providedSecret = request.headers['x-admin-secret'];
 
   if (!configuredSecret) {
-    sendJson(response, 500, { error: 'ADMIN_SECRET is not configured.' });
+    sendError(response, 500, 'CONFIG_ERROR', 'ADMIN_SECRET is not configured on server.');
     return false;
   }
 
   if (!providedSecret || providedSecret !== configuredSecret) {
-    sendJson(response, 401, { error: 'Unauthorized.' });
+    sendError(response, 401, 'UNAUTHORIZED', 'Unauthorized: Invalid or missing x-admin-secret.');
     return false;
   }
 
@@ -63,12 +71,18 @@ function getSupabaseConfig() {
   };
 }
 
-async function readBody(request) {
+async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
   if (typeof request.body === 'string') {
+    if (Buffer.byteLength(request.body) > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     return request.body ? JSON.parse(request.body) : {};
   }
 
   if (Buffer.isBuffer(request.body)) {
+    if (request.body.length > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     return request.body.length ? JSON.parse(request.body.toString('utf8')) : {};
   }
 
@@ -76,8 +90,13 @@ async function readBody(request) {
     return request.body;
   }
 
+  let size = 0;
   const chunks = [];
   for await (const chunk of request) {
+    size += chunk.length;
+    if (size > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     chunks.push(chunk);
   }
 
@@ -182,7 +201,7 @@ async function listPlaces(request, response) {
   const q = normalizeText(url.searchParams.get('q'));
 
   if (status !== 'all' && !VALID_STATUSES.has(status)) {
-    sendJson(response, 400, { error: 'Invalid status filter.' });
+    sendError(response, 400, 'INVALID_INPUT', 'Invalid status filter.');
     return;
   }
 
@@ -193,7 +212,7 @@ async function listPlaces(request, response) {
 
   const query = `${TABLE_NAME}?select=id,slug,name,category,area,address,map_link,price_raw,description,note,contact,coordinates,contributor,rating,opening_time,closing_time,display_hours,operating_status,status,images,image_link,sort_order,is_featured,created_at,updated_at${filters.length ? `&${filters.join('&')}` : ''}&order=sort_order.asc,updated_at.desc&limit=${limit}`;
   const places = await supabaseRequest(query);
-  sendJson(response, 200, { places });
+  sendJson(response, 200, { success: true, places: places || [] });
 }
 
 async function updatePlace(request, response) {
@@ -201,15 +220,22 @@ async function updatePlace(request, response) {
   const id = Number.parseInt(body.id, 10);
 
   if (!Number.isInteger(id) || id <= 0) {
-    sendJson(response, 400, { error: 'Invalid place id.' });
+    sendError(response, 400, 'INVALID_INPUT', 'Invalid place id.');
     return;
   }
 
-  const patch = sanitizePatch(body);
+  let patch;
+  try {
+    patch = sanitizePatch(body);
+  } catch (err) {
+    sendError(response, 400, 'VALIDATION_ERROR', err.message);
+    return;
+  }
+
   delete patch.id;
 
   if (Object.keys(patch).length === 0) {
-    sendJson(response, 400, { error: 'No valid fields to update.' });
+    sendError(response, 400, 'INVALID_INPUT', 'No valid fields to update.');
     return;
   }
 
@@ -219,7 +245,7 @@ async function updatePlace(request, response) {
     body: JSON.stringify(patch),
   });
 
-  sendJson(response, 200, { place: rows?.[0] || null });
+  sendJson(response, 200, { success: true, place: rows?.[0] || null });
 }
 
 async function deletePlace(request, response) {
@@ -227,7 +253,7 @@ async function deletePlace(request, response) {
   const id = Number.parseInt(url.searchParams.get('id'), 10);
 
   if (!Number.isInteger(id) || id <= 0) {
-    sendJson(response, 400, { error: 'Invalid place id.' });
+    sendError(response, 400, 'INVALID_INPUT', 'Invalid place id.');
     return;
   }
 
@@ -236,7 +262,7 @@ async function deletePlace(request, response) {
     headers: { Prefer: 'return=minimal' },
   });
 
-  sendJson(response, 200, { ok: true });
+  sendJson(response, 200, { success: true, ok: true });
 }
 
 function createSlug(text) {
@@ -264,15 +290,21 @@ async function ensureUniqueSlug(preferredSlug, name) {
 
 async function createPlace(request, response) {
   const body = await readBody(request);
-  const patch = sanitizePatch(body);
+  let patch;
+  try {
+    patch = sanitizePatch(body);
+  } catch (err) {
+    sendError(response, 400, 'VALIDATION_ERROR', err.message);
+    return;
+  }
 
   if (!patch.name) {
-    sendJson(response, 400, { error: 'name is required.' });
+    sendError(response, 400, 'INVALID_INPUT', 'name is required.');
     return;
   }
 
   if (!patch.category) {
-    sendJson(response, 400, { error: 'category is required.' });
+    sendError(response, 400, 'INVALID_INPUT', 'category is required.');
     return;
   }
 
@@ -287,7 +319,7 @@ async function createPlace(request, response) {
     body: JSON.stringify(patch),
   });
 
-  sendJson(response, 201, { place: rows?.[0] || null });
+  sendJson(response, 201, { success: true, place: rows?.[0] || null });
 }
 
 export default async function handler(request, response) {
@@ -314,8 +346,12 @@ export default async function handler(request, response) {
       return;
     }
 
-    sendJson(response, 405, { error: 'Method not allowed.' });
+    sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
   } catch (error) {
-    sendJson(response, 500, { error: error.message || 'Unexpected admin places API error.' });
+    if (error.message === 'PAYLOAD_TOO_LARGE') {
+      sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Payload exceeds maximum limit of 2MB.');
+      return;
+    }
+    sendError(response, 500, 'INTERNAL_ERROR', 'An error occurred while processing the admin places request.');
   }
 }

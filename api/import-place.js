@@ -1,4 +1,5 @@
 const TABLE_NAME = 'places';
+const MAX_PAYLOAD_SIZE = 2 * 1024 * 1024; // 2MB
 
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -7,17 +8,24 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
+function sendError(response, statusCode, code, message) {
+  sendJson(response, statusCode, {
+    success: false,
+    error: { code, message }
+  });
+}
+
 function requireImportSecret(request, response) {
   const configuredSecret = process.env.IMPORT_SECRET;
   const providedSecret = request.headers['x-import-secret'];
 
   if (!configuredSecret) {
-    sendJson(response, 500, { error: 'IMPORT_SECRET is not configured.' });
+    sendError(response, 500, 'CONFIG_ERROR', 'IMPORT_SECRET is not configured on server.');
     return false;
   }
 
   if (!providedSecret || providedSecret !== configuredSecret) {
-    sendJson(response, 401, { error: 'Unauthorized.' });
+    sendError(response, 401, 'UNAUTHORIZED', 'Unauthorized: Invalid or missing x-import-secret.');
     return false;
   }
 
@@ -38,12 +46,18 @@ function getSupabaseConfig() {
   };
 }
 
-async function readBody(request) {
+async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
   if (typeof request.body === 'string') {
+    if (Buffer.byteLength(request.body) > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     return request.body ? JSON.parse(request.body) : {};
   }
 
   if (Buffer.isBuffer(request.body)) {
+    if (request.body.length > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     return request.body.length ? JSON.parse(request.body.toString('utf8')) : {};
   }
 
@@ -51,8 +65,13 @@ async function readBody(request) {
     return request.body;
   }
 
+  let size = 0;
   const chunks = [];
   for await (const chunk of request) {
+    size += chunk.length;
+    if (size > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     chunks.push(chunk);
   }
 
@@ -180,14 +199,21 @@ async function mapPlacePayload(input) {
 
 async function importPlace(request, response) {
   const body = await readBody(request);
-  const place = await mapPlacePayload(body);
+  let place;
+  try {
+    place = await mapPlacePayload(body);
+  } catch (err) {
+    sendError(response, 400, 'VALIDATION_ERROR', err.message);
+    return;
+  }
+
   const rows = await supabaseRequest(TABLE_NAME, {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify(place),
   });
 
-  sendJson(response, 201, { place: rows?.[0] || null });
+  sendJson(response, 201, { success: true, place: rows?.[0] || null });
 }
 
 export default async function handler(request, response) {
@@ -195,12 +221,16 @@ export default async function handler(request, response) {
 
   try {
     if (request.method !== 'POST') {
-      sendJson(response, 405, { error: 'Method not allowed.' });
+      sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
       return;
     }
 
     await importPlace(request, response);
   } catch (error) {
-    sendJson(response, 500, { error: error.message || 'Unexpected import API error.' });
+    if (error.message === 'PAYLOAD_TOO_LARGE') {
+      sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Payload exceeds maximum limit of 2MB.');
+      return;
+    }
+    sendError(response, 500, 'INTERNAL_ERROR', 'An error occurred while importing place.');
   }
 }

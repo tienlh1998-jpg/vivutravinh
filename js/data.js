@@ -53,6 +53,7 @@ function getCacheKey(dataSource) {
 
 function readCache(dataSource) {
     try {
+        if (typeof localStorage === 'undefined') return null;
         const key = getCacheKey(dataSource);
         const rawCache = localStorage.getItem(key);
         if (!rawCache) return null;
@@ -77,6 +78,7 @@ function readCache(dataSource) {
 
 function writeCache(dataSource, places) {
     try {
+        if (typeof localStorage === 'undefined') return;
         const key = getCacheKey(dataSource);
         localStorage.setItem(key, JSON.stringify({
             timestamp: Date.now(),
@@ -458,28 +460,79 @@ export function normalizePlaces(rows, source = 'fallback') {
         .map((row, index) => normalizePlace(row, index, source));
 }
 
-async function fetchWithRetry(url, options = {}, maxRetries = MAX_RETRIES) {
+export class SupabaseConfigError extends Error {
+    constructor(message, status = 401) {
+        super(message);
+        this.name = 'SupabaseConfigError';
+        this.status = status;
+        this.isAuthError = status === 401 || status === 403;
+    }
+}
+
+let lastFetchMetadata = {
+    source: null,
+    timestamp: null
+};
+
+function recordLastUpdated(source) {
+    lastFetchMetadata = {
+        source,
+        timestamp: new Date().toISOString()
+    };
+}
+
+export function getLastFetchMetadata() {
+    return { ...lastFetchMetadata };
+}
+
+function resolveFetchUrl(url) {
+    if (typeof url !== 'string') return url;
+    if ((url.startsWith('./') || url.startsWith('/') || url.startsWith('../')) && typeof window !== 'undefined' && window.location) {
+        try {
+            const base = window.location.href || window.location.origin || `http://localhost:${window.location.port || 8000}`;
+            return new URL(url, base).toString();
+        } catch {}
+    }
+    return url;
+}
+
+async function fetchWithRetry(url, options = {}, maxRetries = MAX_RETRIES, timeoutMs = 8000) {
     let lastError;
+    const resolvedUrl = resolveFetchUrl(url);
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
         try {
-            const response = await fetch(url, {
+            const response = await fetch(resolvedUrl, {
                 method: 'GET',
+                signal: options.signal || controller.signal,
                 ...options,
             });
 
             if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    throw new SupabaseConfigError(`HTTP ${response.status}: Lỗi xác thực/phân quyền Supabase (${response.statusText})`, response.status);
+                }
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             return response;
         } catch (error) {
             lastError = error;
+            // Nếu là lỗi cấu hình/xác thực, không retry mà thoát ngay
+            if (error instanceof SupabaseConfigError) {
+                throw error;
+            }
+
             console.warn(`[ViVuTraVinh Data] Lần tải ${attempt}/${maxRetries} thất bại:`, error);
 
             if (attempt < maxRetries) {
                 await sleep(RETRY_DELAY * attempt);
             }
+        } finally {
+            clearTimeout(timer);
         }
     }
 
@@ -636,6 +689,7 @@ export async function loadPlaces(configOverrides = {}) {
     if (config.dataSource === 'mock') {
         console.info('[ViVuTraVinh Data] 🧪 Chế độ DEV MOCK: Đang nạp fixture kiểm thử local (không gọi mạng Supabase).');
         const places = await loadPlacesFromFixture();
+        recordLastUpdated('mock');
         writeCache(config.dataSource, places);
         return places;
     }
@@ -644,6 +698,7 @@ export async function loadPlaces(configOverrides = {}) {
     if (config.dataSource === 'fallback') {
         console.info('[ViVuTraVinh Data] 📦 Chế độ FALLBACK: Đang nạp dữ liệu snapshot phát hành.');
         const places = await loadPlacesFromFallback();
+        recordLastUpdated('fallback');
         writeCache(config.dataSource, places);
         return places;
     }
@@ -655,25 +710,36 @@ export async function loadPlaces(configOverrides = {}) {
         if (places.length === 0) {
             throw new Error('Supabase places chưa có địa điểm approved để hiển thị.');
         }
+        recordLastUpdated('supabase');
         writeCache(config.dataSource, places);
         return places;
     } catch (apiError) {
-        console.warn('[ViVuTraVinh Data] Không kết nối được Supabase, tự động kích hoạt fallback phát hành:', apiError.message);
+        if (apiError instanceof SupabaseConfigError || apiError?.isAuthError || apiError?.status === 401 || apiError?.status === 403) {
+            console.error('[ViVuTraVinh Data] ❌ Lỗi cấu hình/xác thực Supabase nghiêm trọng. Không kích hoạt fallback:', apiError.message);
+            throw apiError;
+        }
+
+        console.warn('[ViVuTraVinh Data] Không kết nối được Supabase do lỗi mạng, tự động kích hoạt fallback phát hành:', apiError.message);
         const fallbackPlaces = await loadPlacesFromFallback();
+        recordLastUpdated('fallback');
         writeCache(config.dataSource, fallbackPlaces);
         return fallbackPlaces;
     }
 }
 
 export function clearPlacesCache(dataSource) {
-    if (dataSource) {
-        localStorage.removeItem(getCacheKey(dataSource));
-    } else {
-        localStorage.removeItem(getCacheKey('mock'));
-        localStorage.removeItem(getCacheKey('supabase'));
-        localStorage.removeItem(getCacheKey('fallback'));
-        localStorage.removeItem('vivutravinh-places-v2');
-    }
+    try {
+        if (typeof localStorage !== 'undefined') {
+            if (dataSource) {
+                localStorage.removeItem(getCacheKey(dataSource));
+            } else {
+                localStorage.removeItem(getCacheKey('mock'));
+                localStorage.removeItem(getCacheKey('supabase'));
+                localStorage.removeItem(getCacheKey('fallback'));
+                localStorage.removeItem('vivutravinh-places-v2');
+            }
+        }
+    } catch {}
 }
 
 export function getDataSource() {

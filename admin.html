@@ -220,7 +220,10 @@
       });
 
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Request failed: ${response.status}`);
+      if (!response.ok) {
+        const errMsg = (payload.error && typeof payload.error === 'object' ? payload.error.message : payload.error) || `Request failed: ${response.status}`;
+        throw new Error(errMsg);
+      }
       return payload;
     }
 
@@ -599,6 +602,13 @@
                 #${comment.id} · ${escapeHtml(comment.place_name || comment.place_id)} · ${formatDate(comment.created_at)}
               </div>
               <p class="text-slate-700 leading-relaxed break-words">${escapeHtml(comment.comment_text)}</p>
+              ${comment.photo_url ? `
+                <div class="mt-2">
+                  <a href="${escapeHtml(comment.photo_url)}" target="_blank" rel="noopener noreferrer" class="inline-block group">
+                    <img src="${escapeHtml(comment.photo_url)}" alt="Ảnh đính kèm" class="w-16 h-16 object-cover rounded-lg border border-slate-200 group-hover:opacity-80 transition-opacity">
+                  </a>
+                </div>
+              ` : ''}
             </div>
             <div class="flex flex-wrap gap-2 shrink-0">
               <button onclick="toggleHidden(${comment.id}, ${!comment.is_hidden})" class="px-4 py-2 rounded-xl ${comment.is_hidden ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-600 hover:bg-amber-700'} text-white font-bold">

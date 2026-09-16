@@ -1,4 +1,5 @@
 const TABLE_NAME = 'place_comments';
+const MAX_PAYLOAD_SIZE = 1024 * 1024; // 1MB
 
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -7,17 +8,24 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
+function sendError(response, statusCode, code, message) {
+  sendJson(response, statusCode, {
+    success: false,
+    error: { code, message }
+  });
+}
+
 function requireAdmin(request, response) {
   const configuredSecret = process.env.ADMIN_SECRET;
   const providedSecret = request.headers['x-admin-secret'];
 
   if (!configuredSecret) {
-    sendJson(response, 500, { error: 'ADMIN_SECRET is not configured.' });
+    sendError(response, 500, 'CONFIG_ERROR', 'ADMIN_SECRET is not configured on server.');
     return false;
   }
 
   if (!providedSecret || providedSecret !== configuredSecret) {
-    sendJson(response, 401, { error: 'Unauthorized.' });
+    sendError(response, 401, 'UNAUTHORIZED', 'Unauthorized: Invalid or missing x-admin-secret.');
     return false;
   }
 
@@ -38,12 +46,18 @@ function getSupabaseConfig() {
   };
 }
 
-async function readBody(request) {
+async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
   if (typeof request.body === 'string') {
+    if (Buffer.byteLength(request.body) > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     return request.body ? JSON.parse(request.body) : {};
   }
 
   if (Buffer.isBuffer(request.body)) {
+    if (request.body.length > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     return request.body.length ? JSON.parse(request.body.toString('utf8')) : {};
   }
 
@@ -51,8 +65,13 @@ async function readBody(request) {
     return request.body;
   }
 
+  let size = 0;
   const chunks = [];
   for await (const chunk of request) {
+    size += chunk.length;
+    if (size > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
     chunks.push(chunk);
   }
 
@@ -86,9 +105,9 @@ async function listComments(request, response) {
   const limit = Math.min(Number.parseInt(url.searchParams.get('limit') || '100', 10), 200);
   const hidden = url.searchParams.get('hidden');
   const hiddenFilter = hidden === 'true' || hidden === 'false' ? `&is_hidden=eq.${hidden}` : '';
-  const query = `${TABLE_NAME}?select=id,place_id,place_name,author_name,rating,comment_text,created_at,is_hidden${hiddenFilter}&order=created_at.desc&limit=${limit}`;
+  const query = `${TABLE_NAME}?select=id,place_id,place_name,author_name,rating,comment_text,photo_url,photo_metadata,client_review_id,is_hidden,status,created_at${hiddenFilter}&order=created_at.desc&limit=${limit}`;
   const comments = await supabaseRequest(query);
-  sendJson(response, 200, { comments });
+  sendJson(response, 200, { success: true, comments: comments || [] });
 }
 
 async function updateComment(request, response) {
@@ -96,22 +115,30 @@ async function updateComment(request, response) {
   const id = Number.parseInt(body.id, 10);
 
   if (!Number.isInteger(id) || id <= 0) {
-    sendJson(response, 400, { error: 'Invalid comment id.' });
+    sendError(response, 400, 'INVALID_INPUT', 'Invalid comment id.');
     return;
   }
 
-  if (typeof body.is_hidden !== 'boolean') {
-    sendJson(response, 400, { error: 'is_hidden must be boolean.' });
+  const patch = {};
+  if (typeof body.is_hidden === 'boolean') {
+    patch.is_hidden = body.is_hidden;
+  }
+  if (body.status && ['approved', 'pending', 'hidden', 'rejected'].includes(body.status)) {
+    patch.status = body.status;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    sendError(response, 400, 'INVALID_INPUT', 'No valid fields to update (is_hidden or status required).');
     return;
   }
 
   const rows = await supabaseRequest(`${TABLE_NAME}?id=eq.${id}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ is_hidden: body.is_hidden }),
+    body: JSON.stringify(patch),
   });
 
-  sendJson(response, 200, { comment: rows?.[0] || null });
+  sendJson(response, 200, { success: true, comment: rows?.[0] || null });
 }
 
 async function deleteComment(request, response) {
@@ -119,7 +146,7 @@ async function deleteComment(request, response) {
   const id = Number.parseInt(url.searchParams.get('id'), 10);
 
   if (!Number.isInteger(id) || id <= 0) {
-    sendJson(response, 400, { error: 'Invalid comment id.' });
+    sendError(response, 400, 'INVALID_INPUT', 'Invalid comment id.');
     return;
   }
 
@@ -128,7 +155,7 @@ async function deleteComment(request, response) {
     headers: { Prefer: 'return=minimal' },
   });
 
-  sendJson(response, 200, { ok: true });
+  sendJson(response, 200, { success: true, ok: true });
 }
 
 export default async function handler(request, response) {
@@ -150,8 +177,12 @@ export default async function handler(request, response) {
       return;
     }
 
-    sendJson(response, 405, { error: 'Method not allowed.' });
+    sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
   } catch (error) {
-    sendJson(response, 500, { error: error.message || 'Unexpected admin API error.' });
+    if (error.message === 'PAYLOAD_TOO_LARGE') {
+      sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Payload exceeds maximum limit of 1MB.');
+      return;
+    }
+    sendError(response, 500, 'INTERNAL_ERROR', 'An error occurred while processing the admin request.');
   }
 }

@@ -44,7 +44,7 @@ fs.cpSync(path.join(ROOT_DIR, 'icons'), path.join(DIST_DIR, 'icons'), { recursiv
 // Sao chép các file ảnh JPG gốc
 const files = fs.readdirSync(ROOT_DIR);
 for (const file of files) {
-    if (file.toLowerCase().endsWith('.jpg') || file.toLowerCase().endsWith('.png') || file === 'manifest.json' || file === 'robots.txt' || file === 'sitemap.xml' || file === 'CNAME') {
+    if (file.toLowerCase().endsWith('.jpg') || file.toLowerCase().endsWith('.png') || file === 'manifest.json' || file === 'robots.txt' || file === 'sitemap.xml' || file === 'CNAME' || file === 'admin.html') {
         fs.copyFileSync(path.join(ROOT_DIR, file), path.join(DIST_DIR, file));
     }
 }

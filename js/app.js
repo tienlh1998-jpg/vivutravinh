@@ -920,18 +920,34 @@ function updateDataSourceBadge(places) {
     const badgeEl = document.getElementById('dataSourceBadge');
     if (!badgeEl) return;
 
-    const source = places?.[0]?._source || (window.ViVuData?.getDataSource ? window.ViVuData.getDataSource() : 'mock');
+    const isDev = typeof window !== 'undefined' && (
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        new URLSearchParams(window.location.search).get('debug') === '1'
+    );
+
+    // Production: Chỉ hiển thị thông tin hữu ích cho khách, ẩn badge kỹ thuật nội bộ
+    if (!isDev) {
+        badgeEl.classList.add('hidden');
+        return;
+    }
+
+    const meta = window.ViVuData?.getLastFetchMetadata ? window.ViVuData.getLastFetchMetadata() : {};
+    const source = meta.source || places?.[0]?._source || (window.ViVuData?.getDataSource ? window.ViVuData.getDataSource() : 'mock');
+    const timeStr = meta.timestamp ? new Date(meta.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+    const timeDisplay = timeStr ? ` · ${timeStr}` : '';
+
     badgeEl.classList.remove('hidden');
 
     if (source === 'mock') {
         badgeEl.className = 'inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 cursor-pointer select-none transition-all active:scale-95';
-        badgeEl.innerHTML = `<span class="material-symbols-outlined text-xs text-amber-600 dark:text-amber-400">science</span> <span>Mock Fixture (${places?.length || 0})</span>`;
+        badgeEl.innerHTML = `<span class="material-symbols-outlined text-xs text-amber-600 dark:text-amber-400">science</span> <span>DEV: Mock (${places?.length || 0}${timeDisplay})</span>`;
     } else if (source === 'fallback') {
         badgeEl.className = 'inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-blue-100 dark:bg-blue-950/80 text-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-700 cursor-pointer select-none transition-all active:scale-95';
-        badgeEl.innerHTML = `<span class="material-symbols-outlined text-xs text-blue-600 dark:text-blue-400">inventory_2</span> <span>Fallback Snapshot (${places?.length || 0})</span>`;
+        badgeEl.innerHTML = `<span class="material-symbols-outlined text-xs text-blue-600 dark:text-blue-400">inventory_2</span> <span>DEV: Fallback (${places?.length || 0}${timeDisplay})</span>`;
     } else {
         badgeEl.className = 'inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 cursor-pointer select-none transition-all active:scale-95';
-        badgeEl.innerHTML = `<span class="material-symbols-outlined text-xs text-emerald-600 dark:text-emerald-400">cloud_done</span> <span>Supabase Live (${places?.length || 0})</span>`;
+        badgeEl.innerHTML = `<span class="material-symbols-outlined text-xs text-emerald-600 dark:text-emerald-400">cloud_done</span> <span>DEV: Supabase (${places?.length || 0}${timeDisplay})</span>`;
     }
 
     badgeEl.onclick = () => {

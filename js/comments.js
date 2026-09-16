@@ -40,37 +40,52 @@ export class SupabaseRequestError extends Error {
             msg.includes('column') || msg.includes('schema') || msg.includes('photo_url') ||
             code === 'PGRST204' || code === 'PGRST200' || code === '42703'
         );
+        this.isConflictError = status === 409 || msg.includes('duplicate key') || code === '23505' || msg.includes('unique constraint');
+        this.isRateLimitError = status === 429;
     }
 }
 
-async function requestSupabase(path, options = {}) {
+async function requestSupabase(path, options = {}, timeoutMs = 8000) {
     const { url, anonKey } = getSupabaseConfig();
-    const response = await fetch(`${url}/rest/v1/${path}`, {
-        ...options,
-        headers: {
-            ...buildHeaders(anonKey, options.prefer),
-            ...(options.headers || {}),
-        },
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-        let errorBody = null;
-        let errorMessage = '';
-        try {
-            errorBody = await response.json();
-            errorMessage = errorBody.message || errorBody.error || errorBody.hint || JSON.stringify(errorBody);
-        } catch {
-            errorMessage = await response.text();
+    try {
+        const response = await fetch(`${url}/rest/v1/${path}`, {
+            ...options,
+            signal: options.signal || controller.signal,
+            headers: {
+                ...buildHeaders(anonKey, options.prefer),
+                ...(options.headers || {}),
+            },
+        });
+
+        if (!response.ok) {
+            let errorBody = null;
+            let errorMessage = '';
+            try {
+                errorBody = await response.json();
+                errorMessage = errorBody.message || errorBody.error || errorBody.hint || JSON.stringify(errorBody);
+            } catch {
+                errorMessage = await response.text();
+            }
+            throw new SupabaseRequestError(
+                errorMessage || `Supabase request failed: ${response.status}`,
+                response.status,
+                errorBody
+            );
         }
-        throw new SupabaseRequestError(
-            errorMessage || `Supabase request failed: ${response.status}`,
-            response.status,
-            errorBody
-        );
-    }
 
-    if (response.status === 204) return null;
-    return response.json();
+        if (response.status === 204) return null;
+        return response.json();
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            throw new SupabaseRequestError(`Yêu cầu Supabase bị timeout sau ${timeoutMs}ms`, 408);
+        }
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 export class CommentValidationError extends Error {
@@ -268,7 +283,7 @@ export async function loadComments(placeId) {
     }
 
     const encodedPlaceId = encodeURIComponent(cleanId);
-    return requestSupabase(`${TABLE_NAME}?place_id=eq.${encodedPlaceId}&is_hidden=eq.false&select=id,place_id,place_name,author_name,rating,comment_text,created_at&order=created_at.desc&limit=${COMMENT_LIMIT}`);
+    return requestSupabase(`${TABLE_NAME}?place_id=eq.${encodedPlaceId}&is_hidden=eq.false&select=id,place_id,place_name,author_name,rating,comment_text,photo_url,photo_metadata,created_at&order=created_at.desc&limit=${COMMENT_LIMIT}`);
 }
 
 export async function submitComment(input) {
@@ -286,6 +301,7 @@ export async function submitComment(input) {
             rating: payload.rating,
             comment_text: payload.comment_text,
             photo_url: payload.photo_url || null,
+            photo_metadata: payload.photo_metadata || {},
             created_at: new Date().toISOString(),
             client_review_id: payload.client_review_id,
         };
@@ -306,34 +322,47 @@ export async function submitComment(input) {
         client_review_id: payload.client_review_id,
     };
 
-    if (payload.photo_url) {
-        try {
-            rows = await requestSupabase(TABLE_NAME, {
-                method: 'POST',
-                prefer: 'return=representation',
-                body: JSON.stringify({
-                    ...postBody,
-                    photo_url: payload.photo_url
-                }),
-            });
-        } catch (err) {
-            if (err instanceof SupabaseRequestError && err.isSchemaError) {
-                console.warn('[ViVuComments] Server không có cột photo_url (schema error), gửi lại không kèm photo_url:', err.message);
+    try {
+        if (payload.photo_url) {
+            try {
                 rows = await requestSupabase(TABLE_NAME, {
                     method: 'POST',
                     prefer: 'return=representation',
-                    body: JSON.stringify(postBody),
+                    body: JSON.stringify({
+                        ...postBody,
+                        photo_url: payload.photo_url,
+                        photo_metadata: payload.photo_metadata || {}
+                    }),
                 });
-            } else {
-                throw err;
+            } catch (err) {
+                if (err instanceof SupabaseRequestError && err.isConflictError) {
+                    console.info('[ViVuComments] Bản ghi đã tồn tại (idempotent duplicate):', payload.client_review_id);
+                    return { id: 'existing_' + payload.client_review_id, ...payload, is_existing: true };
+                }
+                if (err instanceof SupabaseRequestError && err.isSchemaError) {
+                    console.warn('[ViVuComments] Server không có cột photo_url (schema error), gửi lại không kèm photo_url:', err.message);
+                    rows = await requestSupabase(TABLE_NAME, {
+                        method: 'POST',
+                        prefer: 'return=representation',
+                        body: JSON.stringify(postBody),
+                    });
+                } else {
+                    throw err;
+                }
             }
+        } else {
+            rows = await requestSupabase(TABLE_NAME, {
+                method: 'POST',
+                prefer: 'return=representation',
+                body: JSON.stringify(postBody),
+            });
         }
-    } else {
-        rows = await requestSupabase(TABLE_NAME, {
-            method: 'POST',
-            prefer: 'return=representation',
-            body: JSON.stringify(postBody),
-        });
+    } catch (err) {
+        if (err instanceof SupabaseRequestError && err.isConflictError) {
+            console.info('[ViVuComments] Bản ghi đã tồn tại (idempotent duplicate):', payload.client_review_id);
+            return { id: 'existing_' + payload.client_review_id, ...payload, is_existing: true };
+        }
+        throw err;
     }
 
     if (!input.skipCooldown) {
