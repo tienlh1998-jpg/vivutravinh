@@ -128,6 +128,15 @@ create index if not exists place_comments_place_idx on public.place_comments(pla
 create index if not exists place_comments_client_review_idx on public.place_comments(client_review_id);
 create index if not exists place_comments_status_idx on public.place_comments(status, is_hidden);
 
+-- Hàm trigger cập nhật updated_at tự động
+create or replace function public.set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
 -- Trigger cập nhật updated_at tự động
 drop trigger if exists place_comments_set_updated_at on public.place_comments;
 create trigger place_comments_set_updated_at

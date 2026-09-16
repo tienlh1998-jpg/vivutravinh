@@ -138,11 +138,18 @@ async function checkLiveConnection() {
 
   // Case 6: Anon bị chặn sửa/xóa bình luận (RLS UPDATE & DELETE)
   await assertCase('Anon bị chặn sửa/xóa bình luận (chứng minh bản ghi không bị thay đổi hoặc xóa)', async () => {
-    // 1. Tìm một bản ghi approved hiện có để thử nghiệm
-    const checkRes = await fetch(`${baseUrl}/rest/v1/place_comments?select=id,comment_text&status=eq.approved&limit=1`, { headers });
-    const existing = checkRes.ok ? await checkRes.json() : [];
+    // 1. Kiểm tra bảng place_comments: Truy vấn chuẩn bị PHẢI thành công (HTTP ok).
+    // Nếu bảng chưa có hoặc schema lỗi (HTTP 400, 404, 500) -> THẤT BẠI NGAY LẬP TỨC (Không nuốt lỗi).
+    const checkRes = await fetch(`${baseUrl}/rest/v1/place_comments?select=id,comment_text,status&limit=1`, { headers });
+    if (!checkRes.ok) {
+      throw new Error(`Truy vấn chuẩn bị bảng place_comments thất bại: HTTP ${checkRes.status} (Bảng chưa sẵn sàng hoặc migration lỗi)`);
+    }
+    const existing = await checkRes.json();
+    if (!Array.isArray(existing)) {
+      throw new Error('Dữ liệu trả về từ place_comments không phải là mảng hợp lệ');
+    }
 
-    if (Array.isArray(existing) && existing.length > 0) {
+    if (existing.length > 0) {
       const target = existing[0];
       const targetId = target.id;
       const originalText = target.comment_text;
@@ -153,17 +160,24 @@ async function checkLiveConnection() {
         headers: { ...headers, Prefer: 'return=representation' },
       });
 
-      // Nếu HTTP status là 200 hoặc 204: Kiểm tra representation
-      if (delRes.ok) {
+      // PostgREST: nếu RLS chặn DELETE, có thể trả 401/403 hoặc 200/204 với representation []
+      if (delRes.status === 401 || delRes.status === 403) {
+        // Chặn quyền trực tiếp
+      } else if (delRes.ok) {
         const deletedRows = await delRes.json().catch(() => []);
         if (Array.isArray(deletedRows) && deletedRows.length > 0) {
           throw new Error(`Anon đã xóa thành công bản ghi id=${targetId}! RLS DELETE bị hở!`);
         }
+      } else {
+        throw new Error(`Truy vấn DELETE thất bại với mã trạng thái không mong muốn: HTTP ${delRes.status}`);
       }
 
       // 3. Đọc lại để chứng minh bản ghi vẫn còn nguyên vẹn trong DB
       const verifyDelRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=eq.${targetId}&select=id`, { headers });
-      const verifyDelRows = verifyDelRes.ok ? await verifyDelRes.json() : [];
+      if (!verifyDelRes.ok) {
+        throw new Error(`Truy vấn đọc lại bản ghi sau DELETE thất bại: HTTP ${verifyDelRes.status}`);
+      }
+      const verifyDelRows = await verifyDelRes.json();
       if (!Array.isArray(verifyDelRows) || verifyDelRows.length === 0) {
         throw new Error(`Bản ghi id=${targetId} đã bị xóa sau yêu cầu DELETE của anon!`);
       }
@@ -175,35 +189,112 @@ async function checkLiveConnection() {
         body: JSON.stringify({ comment_text: 'Bị sửa trái phép bởi Anon Hacker' }),
       });
 
-      if (patchRes.ok) {
+      if (patchRes.status === 401 || patchRes.status === 403) {
+        // Chặn quyền trực tiếp
+      } else if (patchRes.ok) {
         const patchedRows = await patchRes.json().catch(() => []);
         if (Array.isArray(patchedRows) && patchedRows.length > 0) {
           throw new Error(`Anon đã sửa thành công bản ghi id=${targetId}! RLS UPDATE bị hở!`);
         }
+      } else {
+        throw new Error(`Truy vấn PATCH thất bại với mã trạng thái không mong muốn: HTTP ${patchRes.status}`);
       }
 
       // 5. Đọc lại để chứng minh comment_text không bị biến dạng
       const verifyPatchRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=eq.${targetId}&select=comment_text`, { headers });
-      const verifyPatchRows = verifyPatchRes.ok ? await verifyPatchRes.json() : [];
-      if (verifyPatchRows.length > 0 && verifyPatchRows[0].comment_text !== originalText) {
+      if (!verifyPatchRes.ok) {
+        throw new Error(`Truy vấn đọc lại bản ghi sau PATCH thất bại: HTTP ${verifyPatchRes.status}`);
+      }
+      const verifyPatchRows = await verifyPatchRes.json();
+      if (verifyPatchRows.length === 0 || verifyPatchRows[0].comment_text !== originalText) {
         throw new Error(`Nội dung bản ghi id=${targetId} đã bị sửa đổi trái phép bởi anon!`);
       }
     } else {
-      // Khi DB chưa có bình luận approved nào: Thử DELETE với filter bất kỳ kèm Prefer: return=representation
+      // Khi DB chưa có bình luận nào: Thử DELETE & PATCH với filter bất kỳ kèm Prefer: return=representation
       const delRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=gt.0`, {
         method: 'DELETE',
         headers: { ...headers, Prefer: 'return=representation' },
       });
-      if (delRes.ok) {
+      if (delRes.status === 401 || delRes.status === 403) {
+        // Chặn quyền chuẩn xác
+      } else if (delRes.ok) {
         const deletedRows = await delRes.json().catch(() => []);
         if (Array.isArray(deletedRows) && deletedRows.length > 0) {
           throw new Error('Anon đã xóa được dữ liệu qua REST! RLS DELETE bị hở!');
         }
+      } else {
+        throw new Error(`Truy vấn DELETE kiểm thử thất bại: HTTP ${delRes.status} (Bảng chưa sẵn sàng)`);
+      }
+
+      const patchRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=gt.0`, {
+        method: 'PATCH',
+        headers: { ...headers, Prefer: 'return=representation' },
+        body: JSON.stringify({ comment_text: 'Test patch' }),
+      });
+      if (patchRes.status === 401 || patchRes.status === 403) {
+        // Chặn quyền chuẩn xác
+      } else if (patchRes.ok) {
+        const patchedRows = await patchRes.json().catch(() => []);
+        if (Array.isArray(patchedRows) && patchedRows.length > 0) {
+          throw new Error('Anon đã sửa được dữ liệu qua REST! RLS UPDATE bị hở!');
+        }
+      } else {
+        throw new Error(`Truy vấn PATCH kiểm thử thất bại: HTTP ${patchRes.status} (Bảng chưa sẵn sàng)`);
       }
     }
   });
 
-  console.log(`\n=== KẾT QUẢ KIỂM TOÁN RLS THỰC TẾ: ${passCount}/${totalCount} ĐẠT ===\n`);
+  // Case 7: Kiểm toán bảo mật RPC Rate-Limit (Chỉ service_role được gọi, Anon bị chặn 401/403)
+  await assertCase('Bảo mật RPC Rate-Limit: Anon bị chặn 401/403 khi gọi trực tiếp check_and_record_rate_limit', async () => {
+    const res = await fetch(`${baseUrl}/rest/v1/rpc/check_and_record_rate_limit`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        p_key: 'test_audit_rpc_anon',
+        p_window_seconds: 60,
+        p_max_requests: 3,
+        p_min_interval_seconds: 10
+      })
+    });
+    if (res.ok) throw new Error('Anon gọi được trực tiếp hàm RPC check_and_record_rate_limit (Chưa revoke quyền anon)!');
+    if (res.status === 404) throw new Error('Hàm RPC check_and_record_rate_limit chưa tồn tại trên database (Migration thiếu)!');
+    if (res.status !== 401 && res.status !== 403) {
+      throw new Error(`Mã trạng thái trả về không mong muốn: HTTP ${res.status}`);
+    }
+  });
+
+  // Case 8: Kiểm toán Storage Policy (Bucket review-photos & RLS upload/delete)
+  await assertCase('Kiểm toán Storage Policy: Bucket review-photos tồn tại, RLS chặn upload sai định dạng/đường dẫn', async () => {
+    // 1. Kiểm tra bucket review-photos tồn tại và công khai
+    const bucketRes = await fetch(`${baseUrl}/storage/v1/bucket/review-photos`, { headers });
+    if (!bucketRes.ok) {
+      if (bucketRes.status === 404) throw new Error('Bucket review-photos chưa được tạo (Migration storage.sql chưa chạy)!');
+      throw new Error(`Không thể kiểm tra bucket review-photos: HTTP ${bucketRes.status}`);
+    }
+    const bucketData = await bucketRes.json();
+    if (!bucketData.public) throw new Error('Bucket review-photos phải là public');
+
+    // 2. Kiểm tra Storage RLS chặn upload sai định dạng hoặc đường dẫn ngoài reviews/{place_id}/
+    const badUploadRes = await fetch(`${baseUrl}/storage/v1/object/review-photos/bad_folder_test/hack.exe`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/octet-stream' },
+      body: 'fake binary content'
+    });
+    if (badUploadRes.ok) {
+      throw new Error('Anon upload được tệp tin sai đường dẫn/định dạng (.exe)! Storage RLS bị hở!');
+    }
+
+    // 3. Kiểm tra Storage RLS chặn anon DELETE ảnh
+    const delPhotoRes = await fetch(`${baseUrl}/storage/v1/object/review-photos/reviews/ao-ba-om/test_del.jpg`, {
+      method: 'DELETE',
+      headers
+    });
+    if (delPhotoRes.ok) {
+      throw new Error('Anon xóa được ảnh khỏi Storage! RLS DELETE trên storage.objects bị hở!');
+    }
+  });
+
+  console.log(`\n=== KẾT QUẢ KIỂM TOÁN RLS & STORAGE THỰC TẾ: ${passCount}/${totalCount} ĐẠT ===\n`);
   if (passCount < totalCount) {
     process.exit(1);
   }
