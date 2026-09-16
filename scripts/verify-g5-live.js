@@ -136,13 +136,71 @@ async function checkLiveConnection() {
     if (violation) throw new Error(`Phát hiện bình luận vi phạm chính sách RLS: id=${violation.id}, status=${violation.status}, hidden=${violation.is_hidden}`);
   });
 
-  // Case 6: Anon bị chặn sửa/xóa bình luận
-  await assertCase('Anon bị chặn sửa/xóa bình luận', async () => {
-    const res = await fetch(`${baseUrl}/rest/v1/place_comments?limit=1`, {
-      method: 'DELETE',
-      headers,
-    });
-    if (res.ok) throw new Error('Anon xóa được bình luận (RLS chưa chặn DELETE)!');
+  // Case 6: Anon bị chặn sửa/xóa bình luận (RLS UPDATE & DELETE)
+  await assertCase('Anon bị chặn sửa/xóa bình luận (chứng minh bản ghi không bị thay đổi hoặc xóa)', async () => {
+    // 1. Tìm một bản ghi approved hiện có để thử nghiệm
+    const checkRes = await fetch(`${baseUrl}/rest/v1/place_comments?select=id,comment_text&status=eq.approved&limit=1`, { headers });
+    const existing = checkRes.ok ? await checkRes.json() : [];
+
+    if (Array.isArray(existing) && existing.length > 0) {
+      const target = existing[0];
+      const targetId = target.id;
+      const originalText = target.comment_text;
+
+      // 2. Thử DELETE: Yêu cầu PostgREST trả về representation để đo số lượng hàng bị tác động
+      const delRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=eq.${targetId}`, {
+        method: 'DELETE',
+        headers: { ...headers, Prefer: 'return=representation' },
+      });
+
+      // Nếu HTTP status là 200 hoặc 204: Kiểm tra representation
+      if (delRes.ok) {
+        const deletedRows = await delRes.json().catch(() => []);
+        if (Array.isArray(deletedRows) && deletedRows.length > 0) {
+          throw new Error(`Anon đã xóa thành công bản ghi id=${targetId}! RLS DELETE bị hở!`);
+        }
+      }
+
+      // 3. Đọc lại để chứng minh bản ghi vẫn còn nguyên vẹn trong DB
+      const verifyDelRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=eq.${targetId}&select=id`, { headers });
+      const verifyDelRows = verifyDelRes.ok ? await verifyDelRes.json() : [];
+      if (!Array.isArray(verifyDelRows) || verifyDelRows.length === 0) {
+        throw new Error(`Bản ghi id=${targetId} đã bị xóa sau yêu cầu DELETE của anon!`);
+      }
+
+      // 4. Thử PATCH (UPDATE): Cố gắng sửa nội dung bình luận
+      const patchRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=eq.${targetId}`, {
+        method: 'PATCH',
+        headers: { ...headers, Prefer: 'return=representation' },
+        body: JSON.stringify({ comment_text: 'Bị sửa trái phép bởi Anon Hacker' }),
+      });
+
+      if (patchRes.ok) {
+        const patchedRows = await patchRes.json().catch(() => []);
+        if (Array.isArray(patchedRows) && patchedRows.length > 0) {
+          throw new Error(`Anon đã sửa thành công bản ghi id=${targetId}! RLS UPDATE bị hở!`);
+        }
+      }
+
+      // 5. Đọc lại để chứng minh comment_text không bị biến dạng
+      const verifyPatchRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=eq.${targetId}&select=comment_text`, { headers });
+      const verifyPatchRows = verifyPatchRes.ok ? await verifyPatchRes.json() : [];
+      if (verifyPatchRows.length > 0 && verifyPatchRows[0].comment_text !== originalText) {
+        throw new Error(`Nội dung bản ghi id=${targetId} đã bị sửa đổi trái phép bởi anon!`);
+      }
+    } else {
+      // Khi DB chưa có bình luận approved nào: Thử DELETE với filter bất kỳ kèm Prefer: return=representation
+      const delRes = await fetch(`${baseUrl}/rest/v1/place_comments?id=gt.0`, {
+        method: 'DELETE',
+        headers: { ...headers, Prefer: 'return=representation' },
+      });
+      if (delRes.ok) {
+        const deletedRows = await delRes.json().catch(() => []);
+        if (Array.isArray(deletedRows) && deletedRows.length > 0) {
+          throw new Error('Anon đã xóa được dữ liệu qua REST! RLS DELETE bị hở!');
+        }
+      }
+    }
   });
 
   console.log(`\n=== KẾT QUẢ KIỂM TOÁN RLS THỰC TẾ: ${passCount}/${totalCount} ĐẠT ===\n`);

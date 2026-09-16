@@ -290,9 +290,9 @@ export async function syncAllPendingReviews(submitFunction, onProgress) {
                 console.warn(`[OfflineSync] Lỗi đồng bộ đánh giá ${rev.id}:`, err);
                 failedCount++;
 
-                // Nếu lỗi do server rate limiting (429), tạm dừng đợt đồng bộ này để không spam server
-                if (err?.isRateLimitError || err?.status === 429 || err?.code === 'RATE_LIMITED') {
-                    console.warn('[OfflineSync] Server đang giới hạn tần suất (429). Giữ lại các bản ghi trong queue và tạm dừng đợt đồng bộ này.');
+                // Nếu lỗi do server rate limiting (429) hoặc tạm thời không khả dụng (503), tạm dừng đợt đồng bộ này để không spam server
+                if (err?.isRateLimitError || err?.status === 429 || err?.code === 'RATE_LIMITED' || err?.status === 503 || err?.code === 'RATE_LIMIT_UNAVAILABLE') {
+                    console.warn('[OfflineSync] Server đang giới hạn tần suất (429) hoặc dịch vụ bận (503). Giữ lại các bản ghi trong queue và tạm dừng đợt đồng bộ này.');
                     if (onProgress) onProgress(rev, 'error', err);
                     break;
                 }

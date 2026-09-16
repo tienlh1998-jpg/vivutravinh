@@ -123,8 +123,22 @@ async function checkDistributedRateLimit(ip) {
     if (rpcResult && typeof rpcResult.allowed === 'boolean') {
       return rpcResult;
     }
-  } catch {
-    // Nếu RPC chưa có (môi trường dev/mock), chuyển sang kiểm tra bộ nhớ local có giới hạn
+  } catch (err) {
+    // Chỉ cho phép fallback bộ nhớ local khi có cờ rõ ràng dành cho môi trường dev/test.
+    // Trên môi trường production, lỗi kết nối RPC sẽ bị chặn lập tức với mã 503 để tránh bypass rate-limit.
+    const isDevOrTest = process.env.NODE_ENV === 'test' ||
+                        process.env.NODE_ENV === 'development' ||
+                        process.env.ALLOW_LOCAL_RATE_LIMIT_FALLBACK === 'true';
+
+    if (!isDevOrTest) {
+      console.error('[RateLimit RPC Error]', err.message);
+      const error = new Error('Dịch vụ kiểm tra giới hạn tần suất tạm thời không khả dụng. Vui lòng thử lại sau.');
+      error.status = 503;
+      error.code = 'RATE_LIMIT_UNAVAILABLE';
+      throw error;
+    }
+
+    console.warn('[RateLimit RPC Fallback] Sử dụng local cache fallback (chế độ DEV/TEST):', err.message);
   }
 
   const localCheck = checkLocalRateLimit(ip);
@@ -234,7 +248,21 @@ export default async function handler(request, response) {
   }
 
   const ip = getClientIp(request);
-  const rateLimitCheck = await checkDistributedRateLimit(ip);
+  let rateLimitCheck;
+  try {
+    rateLimitCheck = await checkDistributedRateLimit(ip);
+  } catch (rateErr) {
+    if (rateErr.status === 503 || rateErr.code === 'RATE_LIMIT_UNAVAILABLE') {
+      return sendError(
+        response,
+        503,
+        'RATE_LIMIT_UNAVAILABLE',
+        rateErr.message || 'Dịch vụ kiểm tra giới hạn tần suất tạm thời không khả dụng. Vui lòng thử lại sau.'
+      );
+    }
+    throw rateErr;
+  }
+
   if (!rateLimitCheck.allowed) {
     const waitSeconds = rateLimitCheck.wait_seconds || 10;
     return sendError(

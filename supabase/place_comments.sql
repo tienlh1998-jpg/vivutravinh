@@ -24,6 +24,58 @@ create table if not exists public.place_comments (
   constraint place_comments_client_review_id_unique unique (client_review_id)
 );
 
+-- Đảm bảo tương thích ngược và bổ sung cột/ràng buộc cho cơ sở dữ liệu đã tồn tại từ trước:
+alter table public.place_comments add column if not exists photo_metadata jsonb not null default '{}'::jsonb;
+alter table public.place_comments add column if not exists client_review_id text;
+alter table public.place_comments add column if not exists is_hidden boolean not null default false;
+alter table public.place_comments add column if not exists status text not null default 'pending';
+
+-- Cập nhật default của status về 'pending' cho bảng đã tồn tại:
+alter table public.place_comments alter column status set default 'pending';
+alter table public.place_comments alter column photo_metadata set default '{}'::jsonb;
+alter table public.place_comments alter column is_hidden set default false;
+
+-- Chuẩn hóa dữ liệu cũ nếu có dòng null:
+update public.place_comments set status = 'pending' where status is null;
+update public.place_comments set photo_metadata = '{}'::jsonb where photo_metadata is null;
+update public.place_comments set is_hidden = false where is_hidden is null;
+
+-- Bổ sung unique constraint cho client_review_id nếu chưa có:
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'place_comments_client_review_id_unique'
+  ) then
+    alter table public.place_comments
+      add constraint place_comments_client_review_id_unique unique (client_review_id);
+  end if;
+end $$;
+
+-- Bổ sung check constraint cho status nếu chưa có:
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'place_comments_status_check'
+  ) then
+    alter table public.place_comments
+      add constraint place_comments_status_check check (status in ('approved', 'pending', 'hidden', 'rejected'));
+  end if;
+end $$;
+
+-- Bổ sung check constraint cho rating nếu chưa có:
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'place_comments_rating_check'
+  ) then
+    alter table public.place_comments
+      add constraint place_comments_rating_check check (rating >= 1 and rating <= 5);
+  end if;
+end $$;
+
 -- Chỉ mục tối ưu truy vấn nạp bình luận theo địa điểm & thứ tự thời gian
 create index if not exists place_comments_place_idx on public.place_comments(place_id, is_hidden, created_at desc);
 create index if not exists place_comments_client_review_idx on public.place_comments(client_review_id);
@@ -80,6 +132,8 @@ revoke all on public.rate_limits from public, anon, authenticated;
 grant all on public.rate_limits to service_role;
 
 -- Hàm RPC kiểm tra và ghi nhận rate limit một cách nguyên tử (Atomic Check-and-Record)
+-- Sử dụng clock_timestamp(), SELECT ... FOR UPDATE khóa dòng tránh race condition,
+-- và khởi tạo mảng rỗng để không bị nhận định nhầm request đầu tiên thành cooldown.
 create or replace function public.check_and_record_rate_limit(
   p_key text,
   p_window_seconds int default 60,
@@ -92,37 +146,48 @@ security definer
 set search_path = public
 as $$
 declare
-  v_now timestamptz := now();
-  v_cutoff timestamptz := v_now - (p_window_seconds || ' seconds')::interval;
-  v_recent_timestamps timestamptz[];
+  v_now timestamptz := clock_timestamp();
+  v_cutoff timestamptz;
+  v_existing_timestamps timestamptz[];
+  v_recent_timestamps timestamptz[] := '{}'::timestamptz[];
+  v_count int;
   v_last_ts timestamptz;
   v_seconds_since_last int;
   v_wait_seconds int;
+  v_ts timestamptz;
 begin
-  -- Khóa dòng theo key hoặc tạo mới nếu chưa có
+  v_cutoff := v_now - (p_window_seconds || ' seconds')::interval;
+
+  -- 1. Đảm bảo bản ghi tồn tại với mảng rỗng (không chứa v_now để không hiểu nhầm là đã có request trước đó)
   insert into public.rate_limits (key, timestamps, updated_at)
-  values (p_key, array[v_now], v_now)
+  values (p_key, '{}'::timestamptz[], v_now)
   on conflict (key) do nothing;
 
-  select array_agg(ts order by ts asc)
-  into v_recent_timestamps
-  from (
-    select unnest(timestamps) as ts
-    from public.rate_limits
-    where key = p_key
-  ) t
-  where ts > v_cutoff;
+  -- 2. Khóa dòng với FOR UPDATE để ngăn ngừa race condition giữa các request đồng thời
+  select timestamps
+  into v_existing_timestamps
+  from public.rate_limits
+  where key = p_key
+  for update;
 
-  if v_recent_timestamps is null then
-    v_recent_timestamps := '{}'::timestamptz[];
+  -- 3. Lọc các timestamp còn hiệu lực trong sliding window
+  if v_existing_timestamps is not null then
+    foreach v_ts in array v_existing_timestamps loop
+      if v_ts > v_cutoff then
+        v_recent_timestamps := array_append(v_recent_timestamps, v_ts);
+      end if;
+    end loop;
   end if;
 
-  -- Kiểm tra khoảng cách tối thiểu giữa 2 request (cooldown)
-  if array_length(v_recent_timestamps, 1) > 0 then
-    v_last_ts := v_recent_timestamps[array_length(v_recent_timestamps, 1)];
+  v_count := coalesce(cardinality(v_recent_timestamps), 0);
+
+  -- 4. Kiểm tra khoảng cách tối thiểu giữa 2 request (cooldown)
+  if v_count > 0 then
+    v_last_ts := v_recent_timestamps[v_count];
     v_seconds_since_last := extract(epoch from (v_now - v_last_ts))::int;
     if v_seconds_since_last < p_min_interval_seconds then
       v_wait_seconds := p_min_interval_seconds - v_seconds_since_last;
+      if v_wait_seconds < 1 then v_wait_seconds := 1; end if;
       return jsonb_build_object(
         'allowed', false,
         'code', 'COOLDOWN_ACTIVE',
@@ -131,8 +196,8 @@ begin
     end if;
   end if;
 
-  -- Kiểm tra tổng số request trong cửa sổ trượt (sliding window)
-  if array_length(v_recent_timestamps, 1) >= p_max_requests then
+  -- 5. Kiểm tra tổng số request trong sliding window
+  if v_count >= p_max_requests then
     v_wait_seconds := extract(epoch from (v_recent_timestamps[1] + (p_window_seconds || ' seconds')::interval - v_now))::int;
     if v_wait_seconds < 1 then v_wait_seconds := 1; end if;
     return jsonb_build_object(
@@ -142,7 +207,7 @@ begin
     );
   end if;
 
-  -- Hợp lệ: Thêm timestamp hiện tại và cập nhật
+  -- 6. Yêu cầu hợp lệ: Thêm v_now vào mảng và cập nhật dòng
   v_recent_timestamps := array_append(v_recent_timestamps, v_now);
   update public.rate_limits
   set timestamps = v_recent_timestamps,
@@ -151,10 +216,11 @@ begin
 
   return jsonb_build_object(
     'allowed', true,
-    'remaining', p_max_requests - array_length(v_recent_timestamps, 1)
+    'remaining', p_max_requests - coalesce(cardinality(v_recent_timestamps), 0)
   );
 end;
 $$;
 
+-- Bảo mật quyền thực thi hàm rate limit: Chỉ cho phép backend (service_role) thực thi
 revoke all on function public.check_and_record_rate_limit(text, int, int, int) from public, anon, authenticated;
 grant execute on function public.check_and_record_rate_limit(text, int, int, int) to service_role;

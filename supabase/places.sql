@@ -28,6 +28,39 @@ create table if not exists public.places (
   constraint places_rating_check check (rating is null or (rating >= 0 and rating <= 5))
 );
 
+-- Đảm bảo tương thích ngược và bổ sung cột/ràng buộc cho bảng places đã tồn tại:
+alter table public.places add column if not exists slug text;
+alter table public.places add column if not exists operating_status text default 'Normal';
+alter table public.places add column if not exists status text not null default 'draft';
+alter table public.places add column if not exists images jsonb not null default '[]'::jsonb;
+alter table public.places add column if not exists sort_order integer default 0;
+alter table public.places add column if not exists is_featured boolean default false;
+alter table public.places alter column status set default 'draft';
+
+-- Bổ sung check constraint cho status nếu chưa có:
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'places_status_check'
+  ) then
+    alter table public.places
+      add constraint places_status_check check (status in ('approved', 'draft', 'hidden', 'archived'));
+  end if;
+end $$;
+
+-- Bổ sung check constraint cho rating nếu chưa có:
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'places_rating_check'
+  ) then
+    alter table public.places
+      add constraint places_rating_check check (rating is null or (rating >= 0 and rating <= 5));
+  end if;
+end $$;
+
 create index if not exists places_status_sort_idx on public.places(status, sort_order, created_at desc);
 create index if not exists places_category_idx on public.places(category);
 create index if not exists places_slug_idx on public.places(slug);

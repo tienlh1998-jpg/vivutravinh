@@ -405,6 +405,7 @@ async function runTests() {
     const SUPABASE_BASE_URL = `http://127.0.0.1:${supabasePort}`;
 
     // Cấu hình môi trường cho serverless API backend
+    process.env.NODE_ENV = 'test';
     process.env.SUPABASE_URL = SUPABASE_BASE_URL;
     process.env.SUPABASE_SERVICE_ROLE_KEY = VALID_SERVICE_ROLE_KEY;
     process.env.ADMIN_SECRET = VALID_ADMIN_SECRET;
@@ -624,6 +625,35 @@ async function runTests() {
         assert.strictEqual(directAnonCommentRes.status, 403, 'Anon gửi trực tiếp REST phải bị RLS từ chối 403 để chặn bypass rate-limit');
         console.log('  ✓ RLS: Anon bị chặn 403 khi cố gửi trực tiếp qua REST (Bảo vệ tuyệt đối Rate Limit)');
 
+        // 6.4. Kiểm toán RLS: Chặn tuyệt đối Anon sửa hoặc xóa bình luận trực tiếp qua REST
+        const anonDeleteRes = await fetch(`${SUPABASE_BASE_URL}/rest/v1/place_comments?id=eq.1`, {
+            method: 'DELETE',
+            headers: { apikey: VALID_ANON_KEY, Authorization: `Bearer ${VALID_ANON_KEY}`, Prefer: 'return=representation' }
+        });
+        if (anonDeleteRes.ok) {
+            const data = await anonDeleteRes.json().catch(() => []);
+            assert.strictEqual(data.length, 0, 'Anon không được xóa bất kỳ dòng nào');
+        } else {
+            assert.strictEqual(anonDeleteRes.status, 403, 'Anon phải bị chặn 403 khi DELETE');
+        }
+        const commentStillExists = mockDb.place_comments.some(c => c.id === 1);
+        assert.ok(commentStillExists, 'Bản ghi id=1 phải còn nguyên vẹn sau nỗ lực DELETE của anon');
+
+        const anonPatchRes = await fetch(`${SUPABASE_BASE_URL}/rest/v1/place_comments?id=eq.1`, {
+            method: 'PATCH',
+            headers: { apikey: VALID_ANON_KEY, Authorization: `Bearer ${VALID_ANON_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+            body: JSON.stringify({ comment_text: 'Hacked by anon' })
+        });
+        if (anonPatchRes.ok) {
+            const patchData = await anonPatchRes.json().catch(() => []);
+            assert.strictEqual(patchData.length, 0, 'Anon không được sửa bất kỳ dòng nào');
+        } else {
+            assert.strictEqual(anonPatchRes.status, 403, 'Anon phải bị chặn 403 khi PATCH');
+        }
+        const targetComment = mockDb.place_comments.find(c => c.id === 1);
+        assert.notStrictEqual(targetComment?.comment_text, 'Hacked by anon', 'Nội dung bình luận không được bị thay đổi');
+        console.log('  ✓ RLS: Anon bị chặn sửa/xóa bình luận, bản ghi gốc được bảo toàn 100%');
+
         // ==========================================
         // CA 7: SERVER RATE LIMITING, VALIDATION VÀ CHỐNG TRÙNG LẶP ĐÁNH GIÁ (G5)
         // ==========================================
@@ -746,6 +776,37 @@ async function runTests() {
         assert.ok(clientRes && clientRes.client_review_id === clientTestId, 'Client submitComment phải hoàn thành qua API');
         assert.strictEqual(clientRes.status, 'pending', 'Bản ghi phải mang trạng thái pending mặc định');
         console.log('  ✓ Client submitComment hoàn tất qua API backend thành công (0 cuộc gọi REST trực tiếp)');
+
+        // 7.6. Kiểm thử Production Mode: Trả về HTTP 503 khi RPC Rate Limit không khả dụng (Chặn hoàn toàn bypass)
+        const oldEnv = process.env.NODE_ENV;
+        const oldFallback = process.env.ALLOW_LOCAL_RATE_LIMIT_FALLBACK;
+        const oldUrl = process.env.SUPABASE_URL;
+
+        process.env.NODE_ENV = 'production';
+        delete process.env.ALLOW_LOCAL_RATE_LIMIT_FALLBACK;
+        process.env.SUPABASE_URL = 'http://127.0.0.1:1'; // URL không kết nối được để mô phỏng sự cố RPC
+
+        const prodFailureRes = await callServerlessHandler(submitCommentHandler, {
+            method: 'POST',
+            headers: { 'x-forwarded-for': '10.0.0.254' },
+            body: {
+                place_id: 'ao-ba-om',
+                place_name: 'Ao Bà Om',
+                author_name: 'Test Prod Fail',
+                rating: 5,
+                comment_text: 'Đánh giá thử nghiệm fail-closed',
+                client_review_id: 'clrev_failclosed_' + Date.now()
+            }
+        });
+
+        // Khôi phục môi trường ngay lập tức
+        process.env.NODE_ENV = oldEnv;
+        if (oldFallback) process.env.ALLOW_LOCAL_RATE_LIMIT_FALLBACK = oldFallback;
+        process.env.SUPABASE_URL = oldUrl;
+
+        assert.strictEqual(prodFailureRes.statusCode, 503, 'Trong production, RPC lỗi phải trả về 503');
+        assert.strictEqual(prodFailureRes.data.error.code, 'RATE_LIMIT_UNAVAILABLE');
+        console.log('  ✓ Production Mode trả về 503 RATE_LIMIT_UNAVAILABLE khi RPC lỗi (chặn hoàn toàn bypass)');
 
         // ==========================================
         // CA 8: PHÂN LOẠI LỖI & KHÔNG DÙNG FALLBACK CHE LỖI CẤU HÌNH
