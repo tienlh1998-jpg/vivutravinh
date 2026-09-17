@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-17T04:51:58.419Z",
+  "timestamp": "2026-09-17T05:48:31.732Z",
   "version": "2.9.0",
   "environment": {
     "server": "localhost",
@@ -85,7 +85,7 @@
     ]
   },
   "mobile": {
-    "lcp": 104,
+    "lcp": 116,
     "cls": 0,
     "shifts": []
   },
@@ -94,8 +94,8 @@
     "htmlKb": 117.8,
     "cssBytes": 82684,
     "cssKb": 80.7,
-    "jsBytes": 422888,
-    "jsKb": 413,
-    "totalMb": 6.37
+    "jsBytes": 423598,
+    "jsKb": 413.7,
+    "totalMb": 6.38
   }
 }

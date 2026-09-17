@@ -192,8 +192,8 @@ async function runG7BrowserTests() {
             if (!seoData.ogTitle.includes('Ao Bà Om')) {
                 throw new Error(`og:title không chứa tên địa điểm: ${seoData.ogTitle}`);
             }
-            if (!seoData.canonical.includes('?place=') || !seoData.canonical.includes('ao-ba-om')) {
-                throw new Error(`Canonical URL không chứa deep link: ${seoData.canonical}`);
+            if (!seoData.canonical.includes('/place/') || !seoData.canonical.includes('ao-ba-om')) {
+                throw new Error(`Canonical URL không chứa deep link /place/: ${seoData.canonical}`);
             }
 
             // Đóng modal và kiểm tra hoàn trả meta tags

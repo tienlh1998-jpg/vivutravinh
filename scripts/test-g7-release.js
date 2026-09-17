@@ -60,10 +60,13 @@ runTest('Sitemap.xml exists, valid XML, 0 hash fragments, correct canonical doma
     assert.ok(url.startsWith('https://vivutravinh.vercel.app'), `URL must use production domain: ${url}`);
   }
 
-  // Must contain canonical homepage and places deep links
+  // Must contain canonical homepage and places canonical path links
   assert.ok(content.includes('<loc>https://vivutravinh.vercel.app/</loc>'), 'Homepage missing');
-  assert.ok(content.includes('?place=ao-ba-om'), 'Ao Ba Om canonical missing');
-  assert.ok(content.includes('?place=chua-hang'), 'Chua Hang canonical missing');
+  assert.ok(content.includes('<loc>https://vivutravinh.vercel.app/place/ao-ba-om</loc>'), 'Ao Ba Om canonical /place/ missing');
+  assert.ok(content.includes('<loc>https://vivutravinh.vercel.app/place/chua-hang</loc>'), 'Chua Hang canonical /place/ missing');
+
+  // Must NOT contain query param URLs (?place=) in sitemap
+  assert.ok(!content.includes('?place='), 'Sitemap contains forbidden ?place= query URLs');
 });
 
 runTest('Robots.txt points to canonical sitemap on production domain', () => {
@@ -332,7 +335,9 @@ await runAsyncTest('api/og-place renders dynamic <title>, OG tags, Twitter cards
   const htmlAoBaOm = renderPlaceHtml('ao-ba-om');
   assert.ok(htmlAoBaOm.includes('<title>Ao Bà Om - ViVu Trà Vinh</title>'), 'Place title missing in raw HTML');
   assert.ok(htmlAoBaOm.includes('<meta property="og:title" content="Ao Bà Om - ViVu Trà Vinh">'), 'OG title missing');
-  assert.ok(htmlAoBaOm.includes('<meta property="og:url" content="https://vivutravinh.vercel.app/?place=ao-ba-om">'), 'OG url missing');
+  assert.ok(htmlAoBaOm.includes('<meta property="og:url" content="https://vivutravinh.vercel.app/place/ao-ba-om">'), 'OG url missing');
+  assert.ok(htmlAoBaOm.includes('<link rel="canonical" id="canonicalLink" href="https://vivutravinh.vercel.app/place/ao-ba-om">'), 'Canonical link missing');
+  assert.ok(!htmlAoBaOm.includes('https://vivutravinh.vercel.app/?place='), 'Raw HTML must not use ?place= as canonical or OG URL');
   assert.ok(htmlAoBaOm.includes('<meta name="twitter:title" content="Ao Bà Om - ViVu Trà Vinh">'), 'Twitter title missing');
   assert.ok(htmlAoBaOm.includes('Ao Bà Om'), 'Place name missing in rendered HTML');
   assert.ok(htmlAoBaOm.includes('Danh thắng nổi tiếng'), 'Place description missing');
@@ -352,7 +357,7 @@ await runAsyncTest('api/og-place renders dynamic <title>, OG tags, Twitter cards
     end(data) { this.body = data; }
   };
   await ogHandler({
-    url: '/?place=chua-hang',
+    url: '/place/chua-hang',
     query: { place: 'chua-hang' },
     headers: { 'user-agent': 'facebookexternalhit/1.1' }
   }, ogRes);
@@ -360,7 +365,8 @@ await runAsyncTest('api/og-place renders dynamic <title>, OG tags, Twitter cards
   assert.equal(ogRes.statusCode, 200);
   assert.ok(ogRes.headers['Content-Type'].includes('text/html'));
   assert.ok(ogRes.body.includes('Chùa Hang - ViVu Trà Vinh'));
-  assert.ok(ogRes.body.includes('https://vivutravinh.vercel.app/?place=chua-hang'));
+  assert.ok(ogRes.body.includes('https://vivutravinh.vercel.app/place/chua-hang'));
+  assert.ok(!ogRes.body.includes('https://vivutravinh.vercel.app/?place=chua-hang'));
 });
 
 // 8. CLIENT-SIDE IDEMPOTENCY RETRY PRESERVATION AUDIT
@@ -373,6 +379,21 @@ runTest('js/app.js binds and preserves client_report_id in localStorage across r
 
   const indexContent = fs.readFileSync(path.join(ROOT_DIR, 'index.html'), 'utf8');
   assert.ok(indexContent.includes('id="reportClientReportId"'), 'index.html missing hidden input reportClientReportId');
+});
+
+// 9. CANONICAL ROUTE AUDIT (CONFIRM /place/{slug} IS USED, NOT /?place=...)
+console.log('\n--- 9. Canonical Route Audit (Confirm /place/{slug}, Reject /?place=...) ---');
+await runAsyncTest('Raw HTML generation enforces /place/{slug} canonical and rejects /?place=...', async () => {
+  const { renderPlaceHtml } = await import('../api/og-place.js');
+  const rendered = renderPlaceHtml('ao-ba-om');
+
+  // Must have /place/ao-ba-om
+  assert.ok(rendered.includes('href="https://vivutravinh.vercel.app/place/ao-ba-om"'), 'Canonical href must be /place/ao-ba-om');
+  assert.ok(rendered.includes('content="https://vivutravinh.vercel.app/place/ao-ba-om"'), 'og:url must be /place/ao-ba-om');
+
+  // Must NOT have ?place= in canonical or og:url
+  assert.ok(!rendered.includes('href="https://vivutravinh.vercel.app/?place='), 'Canonical link must not contain ?place=');
+  assert.ok(!rendered.includes('content="https://vivutravinh.vercel.app/?place='), 'og:url must not contain ?place=');
 });
 
 console.log(`\n========================================`);

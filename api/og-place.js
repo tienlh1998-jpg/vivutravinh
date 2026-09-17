@@ -111,7 +111,7 @@ export function renderPlaceHtml(rawHtmlOrSlug, maybePlace) {
   }
 
   const title = `${escapeHtml(name)} - ViVu Trà Vinh`;
-  const canonicalUrl = `https://vivutravinh.vercel.app/?place=${encodeURIComponent(slug)}`;
+  const canonicalUrl = `https://vivutravinh.vercel.app/place/${encodeURIComponent(slug)}`;
   const escapedDesc = escapeHtml(desc);
   const escapedImage = escapeHtml(image);
 
@@ -169,7 +169,9 @@ export function renderPlaceHtml(rawHtmlOrSlug, maybePlace) {
 
 export default async function handler(request, response) {
   const url = new URL(request.url || '/', `http://${request.headers?.host || 'localhost'}`);
-  const placeParam = url.searchParams.get('place') || url.searchParams.get('slug') || request.query?.place || request.query?.slug;
+  const pathnameMatch = url.pathname.match(/^\/places?\/([^/?#]+)/i);
+  const pathSlug = pathnameMatch ? decodeURIComponent(pathnameMatch[1]) : null;
+  const placeParam = url.searchParams.get('place') || url.searchParams.get('slug') || pathSlug || request.query?.place || request.query?.slug;
 
   const baseHtml = loadHtmlTemplate();
   const places = loadPlacesData();

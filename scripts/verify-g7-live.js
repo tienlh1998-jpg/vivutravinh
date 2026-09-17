@@ -11,7 +11,7 @@
  *     3. Retry NGAY LẬP TỨC từ cùng IP với cùng client_report_id:
  *        Chứng minh Idempotency được xử lý TRƯỚC rate-limit, phản hồi ngay HTTP 200 Idempotent (không bị 429).
  * - Kiểm tra Dynamic SEO / Open Graph thô cho bot (api/og-place):
- *     4. Gửi raw HTTP GET tới /?place=ao-ba-om hoặc /api/og-place?place=ao-ba-om (giả lập bot mạng xã hội không chạy JS):
+ *     4. Gửi raw HTTP GET tới /place/ao-ba-om (giả lập bot mạng xã hội không chạy JS):
  *        Xác nhận thẻ <title> và <meta property="og:title"> chứa "Ao Bà Om - ViVu Trà Vinh".
  * - Kiểm tra cơ sở dữ liệu Supabase (public.place_reports):
  *     5. Xác nhận bản ghi tồn tại duy nhất 1 dòng trong bảng public.place_reports.
@@ -167,10 +167,10 @@ async function runLiveAudit() {
     }
   });
 
-  // Case 4: Server-side Dynamic SEO & Open Graph cho crawler (Raw HTTP, 0 JavaScript)
-  await assertCase("Crawler raw HTTP GET nhận HTML chứa tiêu đề & OG tags địa điểm Ao Bà Om", async () => {
-    const ogUrl = `${VERCEL_BASE}/api/og-place?place=ao-ba-om`;
-    const res = await fetch(ogUrl, {
+  // Case 4: Server-side Dynamic SEO & Open Graph cho crawler (Kiểm tra public URL /place/ao-ba-om, 0 JavaScript)
+  await assertCase("Crawler raw HTTP GET /place/ao-ba-om nhận HTML chứa tiêu đề & canonical /place/", async () => {
+    const publicPlaceUrl = `${VERCEL_BASE}/place/ao-ba-om`;
+    const res = await fetch(publicPlaceUrl, {
       method: "GET",
       headers: {
         "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
@@ -188,8 +188,11 @@ async function runLiveAudit() {
     if (!rawHtml.includes("property=\"og:title\" content=\"Ao Bà Om - ViVu Trà Vinh\"")) {
       throw new Error("Raw HTML không chứa thẻ meta og:title chính xác");
     }
-    if (!rawHtml.includes("https://vivutravinh.vercel.app/?place=ao-ba-om")) {
-      throw new Error("Raw HTML không chứa canonical / og:url chính xác");
+    if (!rawHtml.includes("https://vivutravinh.vercel.app/place/ao-ba-om")) {
+      throw new Error("Raw HTML không chứa canonical / og:url dạng /place/ao-ba-om");
+    }
+    if (rawHtml.includes("https://vivutravinh.vercel.app/?place=ao-ba-om")) {
+      throw new Error("Raw HTML vẫn chứa URL cũ ?place=ao-ba-om làm canonical / og:url");
     }
   });
 

@@ -1364,10 +1364,13 @@ export function openDetailModal(placeOrId) {
         console.warn(`[ViVuTraVinh] Địa điểm không tồn tại hoặc đã tạm dừng hiển thị: ${placeId}`);
         if (typeof window !== 'undefined' && window.location) {
             const url = new URL(window.location);
+            if (url.pathname.startsWith('/place/') || url.pathname.startsWith('/places/')) {
+                url.pathname = '/';
+            }
             if (url.searchParams.has('place')) {
                 url.searchParams.delete('place');
-                window.history.replaceState({}, '', url);
             }
+            window.history.replaceState({}, '', url);
         }
         showNoticeToast('Địa điểm tạm dừng', 'Địa điểm này hiện không khả dụng hoặc đã được gỡ khỏi danh sách.');
         return;
@@ -1437,8 +1440,11 @@ export function closeDetailModal(fromPopstate = false) {
         video.pause();
     }
 
-    // Xóa param ?place khỏi URL và đồng bộ lịch sử
+    // Xóa path /place/ hoặc param ?place khỏi URL và đồng bộ lịch sử
     const url = new URL(window.location);
+    if (url.pathname.startsWith('/place/') || url.pathname.startsWith('/places/')) {
+        url.pathname = '/';
+    }
     url.searchParams.delete('place');
 
     if (!fromPopstate && window.history.state && window.history.state.modal === 'place') {
@@ -1467,7 +1473,7 @@ export function updatePlaceMetaTags(place) {
     const desc = place.description
         ? (place.description.slice(0, 160) + (place.description.length > 160 ? '...' : ''))
         : DEFAULT_PAGE_DESC;
-    const canonicalUrl = `https://vivutravinh.vercel.app/?place=${encodeURIComponent(place.slug || place.id)}`;
+    const canonicalUrl = `https://vivutravinh.vercel.app/place/${encodeURIComponent(place.slug || place.id)}`;
 
     document.title = title;
 
@@ -2719,6 +2725,16 @@ function populateAreaDropdown() {
  * Deep Link check
  */
 function handleDeepLink() {
+    // 1. Đọc slug từ đường dẫn pathname: /place/{slug} hoặc /places/{slug}
+    const path = window.location.pathname || '';
+    const match = path.match(/^\/places?\/([^/?#]+)/i);
+    if (match && match[1]) {
+        const placeSlug = decodeURIComponent(match[1]);
+        setTimeout(() => openDetailModal(placeSlug), 300);
+        return;
+    }
+
+    // 2. Tương thích ngược: Hỗ trợ query param ?place={slug}
     const params = new URLSearchParams(window.location.search);
     const placeId = params.get('place');
     if (placeId) {
