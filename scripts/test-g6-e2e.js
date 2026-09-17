@@ -23,6 +23,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import submitPlaceHandler from '../api/submit-place.js';
+import adminPlacesHandler from '../api/admin-places.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
 
 import {
@@ -266,8 +267,23 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
           const found = mockDbRecords.filter(r => r.slug === slugParam);
           return { ok: true, status: 200, json: async () => found };
         }
+        if (u.includes('status=eq.')) {
+          const statusParam = decodeURIComponent(u.split('status=eq.')[1].split('&')[0]);
+          const found = mockDbRecords.filter(r => r.status === statusParam);
+          return { ok: true, status: 200, json: async () => found };
+        }
       }
       return originalFetch(url, opts);
+    };
+
+    let lastSupabasePlacesQuery = '';
+    const trackingFetch = globalThis.fetch;
+    globalThis.fetch = async (url, opts = {}) => {
+      const u = String(url);
+      if (u.includes('/rest/v1/places')) {
+        lastSupabasePlacesQuery = u;
+      }
+      return trackingFetch(url, opts);
     };
 
     // Chặn 429: Rate-limiting khi cùng 1 IP gửi submission MỚI quá nhanh (cooldown 10s)
@@ -333,6 +349,42 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
     assert.strictEqual(res2DifferentName.body.idempotent, true, 'idempotent flag phải là true');
     assert.strictEqual(res2DifferentName.body.data.name, 'Quán Bún Nước Lèo Cô Ba', 'Trả về bản ghi gốc đã lưu');
     assert.strictEqual(mockDbRecords.length, 1, 'Database đúng 1 dòng, tuyệt đối không bị nhân đôi khi đổi tên');
+
+    // Kiểm thử xác nhận GET /api/admin-places?status=draft trả về trường client_submission_id
+    process.env.ADMIN_SECRET = process.env.ADMIN_SECRET || 'mock-admin-secret';
+    let adminStatusCode = 200;
+    let adminResData = null;
+    const adminReq = {
+      method: 'GET',
+      url: '/api/admin-places?status=draft',
+      headers: {
+        host: 'localhost:8000',
+        'x-admin-secret': process.env.ADMIN_SECRET
+      }
+    };
+    const adminRes = {
+      statusCode: 200,
+      setHeader() {},
+      end(d) {
+        adminStatusCode = this.statusCode;
+        try { adminResData = JSON.parse(d); } catch { adminResData = d; }
+      }
+    };
+    await adminPlacesHandler(adminReq, adminRes);
+    assert.strictEqual(adminStatusCode, 200, 'GET /api/admin-places?status=draft trả về HTTP 200');
+    assert.strictEqual(adminResData.success, true);
+    assert.ok(Array.isArray(adminResData.places), 'places phải là mảng');
+    const draftFound = adminResData.places.find(p => p.client_submission_id === validSubmission.client_submission_id);
+    assert.ok(draftFound, 'Phải tìm thấy bản ghi draft có client_submission_id');
+    assert.strictEqual(
+      draftFound.client_submission_id,
+      validSubmission.client_submission_id,
+      'GET /api/admin-places?status=draft phải trả về trường client_submission_id'
+    );
+    assert.ok(
+      lastSupabasePlacesQuery.includes('client_submission_id'),
+      'listPlaces() trong api/admin-places.js phải chứa client_submission_id trong danh sách select'
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

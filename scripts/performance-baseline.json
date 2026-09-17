@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-17T02:17:49.256Z",
+  "timestamp": "2026-09-17T02:26:47.032Z",
   "version": "2.9.0",
   "environment": {
     "server": "localhost",
@@ -8,9 +8,21 @@
     "browser": "Chrome Headless"
   },
   "desktop": {
-    "lcp": 108,
-    "cls": 0.0391,
+    "lcp": 96,
+    "cls": 0.0466,
     "shifts": [
+      {
+        "value": 0.0075,
+        "sources": [
+          {
+            "tag": "FOOTER",
+            "id": "",
+            "class": "mt-auto pb-20 md:pb-0 bg-surface-container-low dark:bg-dark-card border-t border-outline-variant/40 dark:border-dark-border text-on-surface dark:text-zinc-300",
+            "prev": {},
+            "curr": {}
+          }
+        ]
+      },
       {
         "value": 0.03560341130007109,
         "sources": [
@@ -73,7 +85,7 @@
     ]
   },
   "mobile": {
-    "lcp": 124,
+    "lcp": 128,
     "cls": 0,
     "shifts": []
   },

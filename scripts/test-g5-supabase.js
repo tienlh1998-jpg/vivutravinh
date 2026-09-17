@@ -52,6 +52,7 @@ const mockDb = {
             category: 'Ẩm Thực',
             status: 'draft',
             sort_order: 2,
+            client_submission_id: 'sub_g5_draft_01',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         },
@@ -554,6 +555,20 @@ async function runTests() {
         const newPlaceId = createRes.data.place.id;
         const newPlaceSlug = createRes.data.place.slug;
         assert.strictEqual(createRes.data.place.status, 'draft');
+
+        // Kiểm tra GET /api/admin-places?status=draft trả về trường client_submission_id
+        const listDrafts = await callServerlessHandler(adminPlacesHandler, {
+            method: 'GET',
+            url: '/api/admin-places?status=draft',
+            headers: { 'x-admin-secret': VALID_ADMIN_SECRET }
+        });
+        assert.strictEqual(listDrafts.statusCode, 200);
+        assert.strictEqual(listDrafts.data.success, true);
+        assert.ok(Array.isArray(listDrafts.data.places));
+        const draftPlace = listDrafts.data.places.find(p => p.id === 2);
+        assert.ok(draftPlace, 'Phải tìm thấy địa điểm draft ID 2');
+        assert.strictEqual(draftPlace.client_submission_id, 'sub_g5_draft_01', 'GET /api/admin-places?status=draft phải trả về trường client_submission_id');
+        console.log('  ✓ GET /api/admin-places?status=draft trả về đầy đủ trường client_submission_id');
 
         // Public check: địa điểm mới chưa approved, không được hiện
         clearPlacesCache('supabase');

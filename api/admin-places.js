@@ -261,7 +261,7 @@ async function listPlaces(request, response) {
   if (category) filters.push(`category=eq.${encodeURIComponent(category)}`);
   if (q) filters.push(`or=(name.ilike.${encodeLike(q)},slug.ilike.${encodeLike(q)},address.ilike.${encodeLike(q)})`);
 
-  const query = `${TABLE_NAME}?select=id,slug,name,category,area,address,map_link,price_raw,description,note,contact,coordinates,contributor,rating,opening_time,closing_time,display_hours,operating_status,status,images,image_link,sort_order,is_featured,created_at,updated_at${filters.length ? `&${filters.join('&')}` : ''}&order=sort_order.asc,updated_at.desc&limit=${limit}`;
+  const query = `${TABLE_NAME}?select=id,slug,name,category,area,address,map_link,price_raw,description,note,contact,coordinates,contributor,rating,opening_time,closing_time,display_hours,operating_status,status,images,image_link,sort_order,is_featured,client_submission_id,created_at,updated_at${filters.length ? `&${filters.join('&')}` : ''}&order=sort_order.asc,updated_at.desc&limit=${limit}`;
   const places = await supabaseRequest(query);
   sendJson(response, 200, { success: true, places: places || [] });
 }
