@@ -8,7 +8,7 @@
     "dev": "http-server -p 8000 -c-1",
     "build": "node scripts/build.cjs",
     "preview": "node scripts/preview.cjs",
-    "check": "node --check js/config.js js/data.js js/app.js js/ui.js js/comments.js js/offline-sync.js js/telemetry.js service-worker.js api/_admin-auth.js api/admin-profile.js api/admin-comments.js api/admin-places.js api/import-place.js api/submit-comment.js api/submit-place.js api/report-place.js api/og-place.js",
+    "check": "node --check js/config.js js/data.js js/app.js js/ui.js js/comments.js js/offline-sync.js js/telemetry.js service-worker.js api/_admin-auth.js api/admin-profile.js api/admin-reports.js api/admin-comments.js api/admin-places.js api/import-place.js api/submit-comment.js api/submit-place.js api/report-place.js api/og-place.js",
     "test:fixtures": "node scripts/test-fixtures.js",
     "test:g2": "node scripts/test-g2.js",
     "test:g2:browser": "node --experimental-websocket scripts/verify-g2-browser.cjs",

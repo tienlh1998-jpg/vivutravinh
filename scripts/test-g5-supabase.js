@@ -351,6 +351,87 @@ function createMockSupabaseServer() {
             }
         }
 
+        // 4. Mô phỏng route /rest/v1/admin_audit_logs (G8)
+        if (url.pathname.startsWith('/rest/v1/admin_audit_logs')) {
+            if (req.method === 'POST') {
+                let bodyStr = '';
+                for await (const chunk of req) bodyStr += chunk;
+                const log = bodyStr ? JSON.parse(bodyStr) : {};
+                mockDb.admin_audit_logs = mockDb.admin_audit_logs || [];
+                mockDb.admin_audit_logs.push(log);
+                res.writeHead(201, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify([{ id: `audit-${mockDb.admin_audit_logs.length}`, ...log }]));
+            }
+            if (req.method === 'GET') {
+                return send(200, mockDb.admin_audit_logs || []);
+            }
+        }
+
+        // 5. Mô phỏng route /rest/v1/rpc/* (G8 PostgreSQL Atomic Transactions)
+        if (url.pathname.startsWith('/rest/v1/rpc/')) {
+            const rpcName = url.pathname.replace('/rest/v1/rpc/', '');
+            let bodyStr = '';
+            for await (const chunk of req) bodyStr += chunk;
+            const rpcBody = bodyStr ? JSON.parse(bodyStr) : {};
+
+            if (rpcName === 'admin_create_place_atomic') {
+                const { p_place_data } = rpcBody;
+                const newPlace = {
+                    id: mockDb.places.length + 1,
+                    ...p_place_data,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                mockDb.places.push(newPlace);
+                return send(200, newPlace);
+            }
+
+            if (rpcName === 'admin_update_place_atomic') {
+                const { p_place_id, p_patch } = rpcBody;
+                const target = mockDb.places.find(p => p.id === p_place_id);
+                if (target) {
+                    Object.assign(target, p_patch, { updated_at: new Date().toISOString() });
+                    return send(200, target);
+                }
+                return send(400, { message: `NOT_FOUND: Không tìm thấy địa điểm ${p_place_id}` });
+            }
+
+            if (rpcName === 'admin_delete_place_atomic') {
+                const { p_place_id, p_permanent } = rpcBody;
+                const idx = mockDb.places.findIndex(p => p.id === p_place_id);
+                if (idx > -1) {
+                    if (p_permanent) {
+                        mockDb.places.splice(idx, 1);
+                        return send(200, { id: p_place_id, deleted: true, permanent: true });
+                    } else {
+                        mockDb.places[idx].status = 'archived';
+                        return send(200, { id: p_place_id, archived: true, status: 'archived', place: mockDb.places[idx] });
+                    }
+                }
+                return send(400, { message: `NOT_FOUND: Không tìm thấy địa điểm ${p_place_id}` });
+            }
+
+            if (rpcName === 'admin_update_comment_atomic') {
+                const { p_comment_id, p_patch } = rpcBody;
+                const target = mockDb.place_comments.find(c => c.id === p_comment_id);
+                if (target) {
+                    Object.assign(target, p_patch, { updated_at: new Date().toISOString() });
+                    return send(200, target);
+                }
+                return send(400, { message: `NOT_FOUND: Không tìm thấy bình luận ${p_comment_id}` });
+            }
+
+            if (rpcName === 'admin_delete_comment_atomic') {
+                const { p_comment_id } = rpcBody;
+                const idx = mockDb.place_comments.findIndex(c => c.id === p_comment_id);
+                if (idx > -1) {
+                    mockDb.place_comments.splice(idx, 1);
+                    return send(200, { id: p_comment_id, deleted: true });
+                }
+                return send(400, { message: `NOT_FOUND: Không tìm thấy bình luận ${p_comment_id}` });
+            }
+        }
+
         send(404, { message: 'Not found' });
     });
 }

@@ -69,15 +69,44 @@ export function sendError(response, statusCode, code, message) {
   });
 }
 
+const CORRELATION_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/;
+
+export function generateCorrelationId() {
+  return `corr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function validateCorrelationId(rawId) {
+  if (typeof rawId !== 'string') return null;
+  const trimmed = rawId.trim();
+  if (trimmed.length === 0 || trimmed.length > 128) return null;
+  if (!CORRELATION_ID_REGEX.test(trimmed)) return null;
+  return trimmed;
+}
+
+export function getCorrelationId(request) {
+  const raw = request?.headers?.['x-correlation-id'] ||
+    request?.headers?.['x-request-id'] ||
+    request?.headers?.['X-Correlation-ID'] ||
+    request?.headers?.['X-Request-ID'];
+  const valid = validateCorrelationId(raw);
+  if (valid) return valid;
+  return generateCorrelationId();
+}
+
 /**
  * Xác thực quản trị viên qua Supabase Auth Bearer Token hoặc legacy secret (chỉ test mode)
- * @param {object} request 
- * @param {object} response 
+ * @param {object} request
+ * @param {object} response
  * @returns {Promise<object|null>} Trả về adminContext nếu hợp lệ, ngược lại trả về null (đã tự gửi response lỗi)
  */
 export async function authenticateAdmin(request, response) {
   const ip = getClientIp(request);
   const path = request.url || '/api/admin';
+  const correlationId = getCorrelationId(request);
+
+  if (response && typeof response.setHeader === 'function') {
+    response.setHeader('X-Correlation-ID', correlationId);
+  }
 
   // 1. Kiểm tra rate-limit chống brute-force
   const rateCheck = checkAuthRateLimit(ip);
@@ -106,15 +135,15 @@ export async function authenticateAdmin(request, response) {
     if (!isProduction && bearerToken.startsWith('mock-')) {
       if (bearerToken === 'mock-admin-token') {
         recordSuccessfulAuth(ip);
-        return { user: { id: 'mock-admin-uuid', email: 'admin@vivutravinh.test', role: 'admin' }, ip };
+        return { user: { id: 'mock-admin-uuid', email: 'admin@vivutravinh.test', role: 'admin' }, ip, correlationId };
       }
       if (bearerToken === 'mock-editor-token') {
         recordSuccessfulAuth(ip);
-        return { user: { id: 'mock-editor-uuid', email: 'editor@vivutravinh.test', role: 'editor' }, ip };
+        return { user: { id: 'mock-editor-uuid', email: 'editor@vivutravinh.test', role: 'editor' }, ip, correlationId };
       }
       if (bearerToken === 'mock-moderator-token') {
         recordSuccessfulAuth(ip);
-        return { user: { id: 'mock-moderator-uuid', email: 'moderator@vivutravinh.test', role: 'moderator' }, ip };
+        return { user: { id: 'mock-moderator-uuid', email: 'moderator@vivutravinh.test', role: 'moderator' }, ip, correlationId };
       }
       if (bearerToken === 'mock-inactive-token') {
         recordFailedAuth(ip, path);
@@ -202,7 +231,8 @@ export async function authenticateAdmin(request, response) {
           email: adminProfile.email || authUser.email,
           role: adminProfile.role
         },
-        ip
+        ip,
+        correlationId
       };
     } catch (networkErr) {
       console.error('[AdminAuth] Lỗi kết nối Supabase Auth:', networkErr.message);
@@ -236,6 +266,7 @@ export async function authenticateAdmin(request, response) {
         role: 'admin' // Legacy secret có toàn quyền admin để test G5/G6 không lỗi
       },
       ip,
+      correlationId,
       isLegacy: true
     };
   }
@@ -248,9 +279,9 @@ export async function authenticateAdmin(request, response) {
 
 /**
  * Kiểm tra phân quyền RBAC
- * @param {object} adminContext 
+ * @param {object} adminContext
  * @param {string[]} allowedRoles Danh sách các role được phép thao tác
- * @param {object} response 
+ * @param {object} response
  * @returns {boolean} true nếu được phép, false nếu bị chặn (đã tự gửi response 403)
  */
 export function requireRole(adminContext, allowedRoles, response) {
@@ -266,4 +297,355 @@ export function requireRole(adminContext, allowedRoles, response) {
   }
 
   return true;
+}
+
+/**
+ * Đọc body request an toàn hỗ trợ object, string, Buffer và stream, kèm giới hạn dung lượng
+ * @param {object|string|Buffer} request
+ * @param {number} limit Giới hạn bytes (mặc định 1MB = 1048576)
+ * @returns {Promise<object>}
+ */
+export async function readBody(request, limit = 1048576) {
+  if (!request) return {};
+
+  // Trường hợp 1: request là Buffer trực tiếp
+  if (Buffer.isBuffer(request)) {
+    if (request.length > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
+    const raw = request.toString('utf8').trim();
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw new Error('INVALID_JSON');
+    }
+  }
+
+  // Trường hợp 2: request là string trực tiếp
+  if (typeof request === 'string') {
+    const byteLen = Buffer.byteLength(request, 'utf8');
+    if (byteLen > limit) {
+      throw new Error('PAYLOAD_TOO_LARGE');
+    }
+    const raw = request.trim();
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw new Error('INVALID_JSON');
+    }
+  }
+
+  // Trường hợp 3: request.body đã được phân tích trước (object, Buffer hoặc string)
+  if (request.body !== undefined && request.body !== null) {
+    if (Buffer.isBuffer(request.body)) {
+      if (request.body.length > limit) {
+        throw new Error('PAYLOAD_TOO_LARGE');
+      }
+      const raw = request.body.toString('utf8').trim();
+      if (!raw) return {};
+      try {
+        return JSON.parse(raw);
+      } catch {
+        throw new Error('INVALID_JSON');
+      }
+    }
+
+    if (typeof request.body === 'string') {
+      const byteLen = Buffer.byteLength(request.body, 'utf8');
+      if (byteLen > limit) {
+        throw new Error('PAYLOAD_TOO_LARGE');
+      }
+      const raw = request.body.trim();
+      if (!raw) return {};
+      try {
+        return JSON.parse(raw);
+      } catch {
+        throw new Error('INVALID_JSON');
+      }
+    }
+
+    if (typeof request.body === 'object' && typeof request.body[Symbol.asyncIterator] !== 'function') {
+      const rawLen = Buffer.byteLength(JSON.stringify(request.body), 'utf8');
+      if (rawLen > limit) {
+        throw new Error('PAYLOAD_TOO_LARGE');
+      }
+      return request.body;
+    }
+  }
+
+  // Trường hợp 4: request là async iterable / stream (IncomingMessage tiêu chuẩn)
+  if (typeof request[Symbol.asyncIterator] === 'function') {
+    let size = 0;
+    const chunks = [];
+    for await (const chunk of request) {
+      const chunkBuf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += chunkBuf.length;
+      if (size > limit) {
+        throw new Error('PAYLOAD_TOO_LARGE');
+      }
+      chunks.push(chunkBuf);
+    }
+
+    if (chunks.length === 0) return {};
+    const rawString = Buffer.concat(chunks).toString('utf8').trim();
+    if (!rawString) return {};
+    try {
+      return JSON.parse(rawString);
+    } catch {
+      throw new Error('INVALID_JSON');
+    }
+  }
+
+  return {};
+}
+
+/**
+ * Thực hiện yêu cầu HTTP tới Supabase REST API dùng service role key
+ * @param {string} path
+ * @param {object} options
+ */
+export async function supabaseRequest(path, options = {}) {
+  const { baseUrl, serviceRoleKey } = getSupabaseConfig();
+  const headers = {
+    apikey: serviceRoleKey,
+    Authorization: `Bearer ${serviceRoleKey}`,
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  if (options.count) {
+    headers['Prefer'] = headers['Prefer'] ? `${headers['Prefer']},count=exact` : 'count=exact';
+  }
+
+  const response = await fetch(`${baseUrl}/rest/v1/${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let parsed;
+    try {
+      parsed = JSON.parse(errorText);
+    } catch {
+      parsed = null;
+    }
+    const message = parsed?.message || errorText || `Supabase request failed: ${response.status}`;
+    const err = new Error(message);
+    err.status = response.status;
+    err.code = parsed?.code;
+    err.details = parsed?.details;
+    err.hint = parsed?.hint;
+    throw err;
+  }
+
+  if (response.status === 204) return null;
+
+  const data = await response.json();
+  if (options.count) {
+    let contentRange = null;
+    if (response.headers) {
+      contentRange = typeof response.headers.get === 'function'
+        ? response.headers.get('content-range')
+        : response.headers['content-range'];
+    }
+    let total = null;
+    if (contentRange) {
+      const match = String(contentRange).match(/\/(\d+)/);
+      if (match) total = parseInt(match[1], 10);
+    }
+    return { data, total };
+  }
+
+  return data;
+}
+
+/**
+ * Gọi PostgreSQL Function (RPC) thông qua Supabase REST API
+ * @param {string} rpcName Tên hàm RPC trong public schema
+ * @param {object} params Các tham số truyền vào hàm
+ * @returns {Promise<any>}
+ */
+export async function supabaseRpc(rpcName, params = {}) {
+  return await supabaseRequest(`rpc/${rpcName}`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+/**
+ * Trích xuất UUID an toàn cho actor_id, trả về null nếu không phải định dạng UUID hợp lệ
+ * @param {object} adminContext
+ * @returns {string|null}
+ */
+export function getSafeActorId(adminContext) {
+  const id = adminContext?.user?.id;
+  if (!id || typeof id !== 'string') return null;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  return isUuid ? id : null;
+}
+
+
+/**
+ * Phân tích pagination an toàn từ URL
+ * @param {string} url
+ * @param {number} defaultLimit
+ * @param {number} maxLimit
+ */
+export function parsePagination(url, defaultLimit = 20, maxLimit = 100) {
+  const parsedUrl = new URL(url, 'http://localhost');
+  let page = parseInt(parsedUrl.searchParams.get('page') || '1', 10);
+  let limit = parseInt(parsedUrl.searchParams.get('limit') || String(defaultLimit), 10);
+
+  if (isNaN(page) || page < 1) page = 1;
+  if (isNaN(limit) || limit < 1) limit = defaultLimit;
+  if (limit > maxLimit) limit = maxLimit;
+
+  const offset = (page - 1) * limit;
+  return { page, limit, offset, searchParams: parsedUrl.searchParams };
+}
+
+// Allowlist các trường an toàn cho từng đối tượng trong Audit Log
+export const AUDIT_ALLOWLIST = {
+  place: [
+    'id', 'slug', 'name', 'category', 'area', 'status',
+    'operating_status', 'rating', 'opening_time', 'closing_time',
+    'display_hours', 'sort_order', 'is_featured', 'updated_at'
+  ],
+  comment: [
+    'id', 'place_id', 'place_name', 'status', 'is_hidden', 'rating', 'updated_at'
+  ],
+  report: [
+    'id', 'place_id', 'place_name', 'issue_type', 'status', 'admin_notes', 'reviewed_at'
+  ]
+};
+
+const PII_AND_SENSITIVE_KEYS = new Set([
+  'password', 'token', 'access_token', 'refresh_token',
+  'secret', 'admin_secret', 'service_role_key', 'apikey',
+  'authorization',
+  'contact', 'reporter_contact', 'author_name', 'comment_text', 'details',
+  'photo_url', 'photo_metadata', 'ip', 'email', 'contributor', 'address', 'map_link',
+  'client_review_id', 'client_report_id'
+]);
+
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+const IP_REGEX = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+
+function scrubSensitiveFields(data) {
+  if (data === null || data === undefined) return null;
+  if (typeof data !== 'object') {
+    if (typeof data === 'string') {
+      if (data.startsWith('ey') && data.length > 50) return '[REDACTED_JWT]';
+      let s = data.replace(EMAIL_REGEX, '[REDACTED_EMAIL]');
+      s = s.replace(IP_REGEX, '[REDACTED_IP]');
+      return s;
+    }
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => scrubSensitiveFields(item));
+  }
+
+  const sanitized = {};
+  for (const [key, val] of Object.entries(data)) {
+    const lowerKey = key.toLowerCase();
+    if (PII_AND_SENSITIVE_KEYS.has(lowerKey) ||
+        lowerKey.includes('secret') ||
+        lowerKey.includes('token') ||
+        lowerKey.includes('password') ||
+        lowerKey.includes('contact') ||
+        lowerKey.includes('email') ||
+        lowerKey.includes('photo')) {
+      // Loại bỏ hoàn toàn trường nhạy cảm / PII khỏi audit payload
+      continue;
+    } else if (typeof val === 'object' && val !== null) {
+      sanitized[key] = scrubSensitiveFields(val);
+    } else if (typeof val === 'string') {
+      if (val.startsWith('ey') && val.length > 50) {
+        sanitized[key] = '[REDACTED_JWT]';
+      } else {
+        let s = val.replace(EMAIL_REGEX, '[REDACTED_EMAIL]');
+        s = s.replace(IP_REGEX, '[REDACTED_IP]');
+        sanitized[key] = s;
+      }
+    } else {
+      sanitized[key] = val;
+    }
+  }
+  return sanitized;
+}
+
+/**
+ * Lọc bỏ thông tin nhạy cảm và PII theo allowlist chặt chẽ trước khi lưu audit log
+ * @param {any} data
+ * @param {string|null} entityType 'place' | 'comment' | 'report' | null
+ */
+export function sanitizeAuditPayload(data, entityType = null) {
+  if (data === null || data === undefined) return null;
+  if (typeof data !== 'object') return scrubSensitiveFields(data);
+
+  // Nếu có entityType trong AUDIT_ALLOWLIST, lọc theo allowlist của entity đó
+  if (entityType && AUDIT_ALLOWLIST[entityType] && !Array.isArray(data)) {
+    const allowedKeys = new Set(AUDIT_ALLOWLIST[entityType]);
+    const filtered = {};
+    for (const key of Object.keys(data)) {
+      if (allowedKeys.has(key)) {
+        filtered[key] = data[key];
+      }
+    }
+    return scrubSensitiveFields(filtered);
+  }
+
+  return scrubSensitiveFields(data);
+}
+
+/**
+ * Ghi nhật ký kiểm toán quản trị viên vào bảng public.admin_audit_logs.
+ * NÉM LỖI (THROW) nếu thất bại để đảm bảo tính nguyên tử, không nuốt lỗi!
+ */
+export async function recordAuditLog({
+  adminContext,
+  action,
+  entityType,
+  entityId,
+  payloadBefore = null,
+  payloadAfter = null,
+  correlationId = null,
+  ip = null
+}) {
+  const cid = correlationId || adminContext?.correlationId || generateCorrelationId();
+  const clientIp = ip || adminContext?.ip || '127.0.0.1';
+
+  const auditEntry = {
+    actor_id: adminContext?.user?.id || null,
+    actor_email: adminContext?.user?.email || null,
+    actor_role: adminContext?.user?.role || 'unknown',
+    action,
+    entity_type: entityType,
+    entity_id: String(entityId || ''),
+    payload_before: payloadBefore ? sanitizeAuditPayload(payloadBefore, entityType) : null,
+    payload_after: payloadAfter ? sanitizeAuditPayload(payloadAfter, entityType) : null,
+    ip: clientIp,
+    correlation_id: cid,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    await supabaseRequest('admin_audit_logs', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify(auditEntry)
+    });
+  } catch (err) {
+    console.error(`[AUDIT_LOG_ERROR] Không thể ghi audit log (${action} trên ${entityType}/${entityId}):`, err.message);
+    const auditErr = new Error(`AUDIT_LOG_FAILED: ${err.message}`);
+    auditErr.code = 'AUDIT_LOG_FAILED';
+    throw auditErr;
+  }
+
+  return auditEntry;
 }

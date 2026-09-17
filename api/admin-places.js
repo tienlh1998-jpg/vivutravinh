@@ -1,9 +1,17 @@
+// api/admin-places.js
+// Endpoint quản trị địa điểm (places) - G8.2
+
 import {
   authenticateAdmin,
   requireRole,
   sendJson,
   sendError,
-  getSupabaseConfig
+  readBody,
+  supabaseRequest,
+  supabaseRpc,
+  getSafeActorId,
+  getCorrelationId,
+  parsePagination
 } from './_admin-auth.js';
 
 const TABLE_NAME = 'places';
@@ -33,64 +41,6 @@ const PATCH_FIELDS = new Set([
   'sort_order',
   'is_featured',
 ]);
-
-async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
-  if (typeof request.body === 'string') {
-    if (Buffer.byteLength(request.body, 'utf8') > limit) {
-      throw new Error('PAYLOAD_TOO_LARGE');
-    }
-    return request.body ? JSON.parse(request.body) : {};
-  }
-
-  if (Buffer.isBuffer(request.body)) {
-    if (request.body.length > limit) {
-      throw new Error('PAYLOAD_TOO_LARGE');
-    }
-    return request.body.length ? JSON.parse(request.body.toString('utf8')) : {};
-  }
-
-  if (request.body && typeof request.body === 'object' && typeof request.body[Symbol.asyncIterator] !== 'function') {
-    const rawLen = Buffer.byteLength(JSON.stringify(request.body), 'utf8');
-    if (rawLen > limit) {
-      throw new Error('PAYLOAD_TOO_LARGE');
-    }
-    return request.body;
-  }
-
-  let size = 0;
-  const chunks = [];
-  for await (const chunk of request) {
-    size += chunk.length;
-    if (size > limit) {
-      throw new Error('PAYLOAD_TOO_LARGE');
-    }
-    chunks.push(chunk);
-  }
-
-  if (chunks.length === 0) return {};
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-}
-
-async function supabaseRequest(path, options = {}) {
-  const { baseUrl, serviceRoleKey } = getSupabaseConfig();
-  const response = await fetch(`${baseUrl}/rest/v1/${path}`, {
-    ...options,
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Supabase request failed: ${response.status}`);
-  }
-
-  if (response.status === 204) return null;
-  return response.json();
-}
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -161,11 +111,10 @@ function encodeLike(value) {
 }
 
 async function listPlaces(request, response) {
-  const url = new URL(request.url, `https://${request.headers.host || 'localhost'}`);
-  const limit = Math.min(Number.parseInt(url.searchParams.get('limit') || '100', 10), 200);
-  const status = url.searchParams.get('status') || 'all';
-  const category = normalizeText(url.searchParams.get('category'));
-  const q = normalizeText(url.searchParams.get('q'));
+  const { page, limit, offset, searchParams } = parsePagination(request.url, 100, 200);
+  const status = searchParams.get('status') || 'all';
+  const category = normalizeText(searchParams.get('category'));
+  const q = normalizeText(searchParams.get('q') || searchParams.get('search'));
 
   if (status !== 'all' && !VALID_STATUSES.has(status)) {
     sendError(response, 400, 'INVALID_INPUT', 'Invalid status filter.');
@@ -177,15 +126,39 @@ async function listPlaces(request, response) {
   if (category) filters.push(`category=eq.${encodeURIComponent(category)}`);
   if (q) filters.push(`or=(name.ilike.${encodeLike(q)},slug.ilike.${encodeLike(q)},address.ilike.${encodeLike(q)})`);
 
-  const query = `${TABLE_NAME}?select=id,slug,name,category,area,address,map_link,price_raw,description,note,contact,coordinates,contributor,rating,opening_time,closing_time,display_hours,operating_status,status,images,image_link,sort_order,is_featured,client_submission_id,created_at,updated_at${filters.length ? `&${filters.join('&')}` : ''}&order=sort_order.asc,updated_at.desc&limit=${limit}`;
-  const places = await supabaseRequest(query);
-  sendJson(response, 200, { success: true, places: places || [] });
+  const query = `${TABLE_NAME}?select=id,slug,name,category,area,address,map_link,price_raw,description,note,contact,coordinates,contributor,rating,opening_time,closing_time,display_hours,operating_status,status,images,image_link,sort_order,is_featured,client_submission_id,created_at,updated_at${filters.length ? `&${filters.join('&')}` : ''}&order=sort_order.asc,updated_at.desc&limit=${limit}&offset=${offset}`;
+
+  const result = await supabaseRequest(query, { count: true });
+  const places = Array.isArray(result) ? result : (result.data || []);
+  const total = typeof result.total === 'number' ? result.total : places.length;
+  const totalPages = Math.ceil(total / limit) || 1;
+
+  sendJson(response, 200, {
+    success: true,
+    places: places || [],
+    pagination: {
+      page,
+      limit,
+      total,
+      total_pages: totalPages
+    }
+  });
 }
 
-async function updatePlace(request, response) {
-  const body = await readBody(request);
-  const id = Number.parseInt(body.id, 10);
+async function updatePlace(request, response, adminContext) {
+  let body;
+  try {
+    body = await readBody(request, MAX_PAYLOAD_SIZE);
+  } catch (err) {
+    if (err.message === 'PAYLOAD_TOO_LARGE') {
+      sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Payload exceeds maximum limit of 2MB.');
+      return;
+    }
+    sendError(response, 400, 'INVALID_JSON', 'Invalid JSON body.');
+    return;
+  }
 
+  const id = Number.parseInt(body.id, 10);
   if (!Number.isInteger(id) || id <= 0) {
     sendError(response, 400, 'INVALID_INPUT', 'Invalid place id.');
     return;
@@ -206,30 +179,92 @@ async function updatePlace(request, response) {
     return;
   }
 
-  const rows = await supabaseRequest(`${TABLE_NAME}?id=eq.${id}`, {
-    method: 'PATCH',
-    headers: { Prefer: 'return=representation' },
-    body: JSON.stringify(patch),
-  });
+  const actorId = getSafeActorId(adminContext);
+  const actorEmail = adminContext?.user?.email || null;
+  const actorRole = adminContext?.user?.role || 'editor';
+  const correlationId = adminContext?.correlationId || getCorrelationId(request);
+  const clientIp = adminContext?.ip || '127.0.0.1';
 
-  sendJson(response, 200, { success: true, place: rows?.[0] || null });
+  try {
+    const updatedPlace = await supabaseRpc('admin_update_place_atomic', {
+      p_actor_id: actorId,
+      p_actor_email: actorEmail,
+      p_actor_role: actorRole,
+      p_place_id: id,
+      p_patch: patch,
+      p_ip: clientIp,
+      p_correlation_id: correlationId
+    });
+
+    sendJson(response, 200, { success: true, place: updatedPlace });
+  } catch (error) {
+    const msg = error.message || '';
+    if (msg.includes('NOT_FOUND')) {
+      sendError(response, 404, 'NOT_FOUND', `Không tìm thấy địa điểm với ID ${id}.`);
+      return;
+    }
+    if (msg.includes('FORBIDDEN')) {
+      sendError(response, 403, 'FORBIDDEN', msg);
+      return;
+    }
+    if (msg.includes('AUDIT_LOG_FAILED') || msg.includes('audit')) {
+      sendError(response, 500, 'AUDIT_LOG_FAILED', 'Ghi nhật ký kiểm toán thất bại. Thao tác đã tự động rollback.');
+      return;
+    }
+    console.error('[AdminPlaces] Lỗi cập nhật địa điểm:', error);
+    sendError(response, 500, 'INTERNAL_ERROR', 'Đã xảy ra lỗi khi cập nhật địa điểm.');
+  }
 }
 
-async function deletePlace(request, response) {
+async function deletePlace(request, response, adminContext) {
   const url = new URL(request.url, `https://${request.headers.host || 'localhost'}`);
   const id = Number.parseInt(url.searchParams.get('id'), 10);
+  const permanent = url.searchParams.get('permanent') === 'true';
 
   if (!Number.isInteger(id) || id <= 0) {
     sendError(response, 400, 'INVALID_INPUT', 'Invalid place id.');
     return;
   }
 
-  await supabaseRequest(`${TABLE_NAME}?id=eq.${id}`, {
-    method: 'DELETE',
-    headers: { Prefer: 'return=minimal' },
-  });
+  const actorId = getSafeActorId(adminContext);
+  const actorEmail = adminContext?.user?.email || null;
+  const actorRole = adminContext?.user?.role || 'admin';
+  const correlationId = adminContext?.correlationId || getCorrelationId(request);
+  const clientIp = adminContext?.ip || '127.0.0.1';
 
-  sendJson(response, 200, { success: true, ok: true });
+  try {
+    const result = await supabaseRpc('admin_delete_place_atomic', {
+      p_actor_id: actorId,
+      p_actor_email: actorEmail,
+      p_actor_role: actorRole,
+      p_place_id: id,
+      p_permanent: permanent,
+      p_ip: clientIp,
+      p_correlation_id: correlationId
+    });
+
+    if (permanent) {
+      sendJson(response, 200, { success: true, ok: true, deleted: true, permanent: true });
+    } else {
+      sendJson(response, 200, { success: true, ok: true, archived: true, place: result?.place || result });
+    }
+  } catch (error) {
+    const msg = error.message || '';
+    if (msg.includes('NOT_FOUND')) {
+      sendError(response, 404, 'NOT_FOUND', `Không tìm thấy địa điểm với ID ${id}.`);
+      return;
+    }
+    if (msg.includes('FORBIDDEN')) {
+      sendError(response, 403, 'FORBIDDEN', msg);
+      return;
+    }
+    if (msg.includes('AUDIT_LOG_FAILED') || msg.includes('audit')) {
+      sendError(response, 500, 'AUDIT_LOG_FAILED', 'Ghi nhật ký kiểm toán thất bại. Thao tác đã tự động rollback.');
+      return;
+    }
+    console.error('[AdminPlaces] Lỗi xóa/lưu trữ địa điểm:', error);
+    sendError(response, 500, 'INTERNAL_ERROR', 'Đã xảy ra lỗi khi xóa địa điểm.');
+  }
 }
 
 function createSlug(text) {
@@ -255,8 +290,19 @@ async function ensureUniqueSlug(preferredSlug, name) {
   return `${baseSlug}-${Date.now().toString(36)}`;
 }
 
-async function createPlace(request, response) {
-  const body = await readBody(request);
+async function createPlace(request, response, adminContext) {
+  let body;
+  try {
+    body = await readBody(request, MAX_PAYLOAD_SIZE);
+  } catch (err) {
+    if (err.message === 'PAYLOAD_TOO_LARGE') {
+      sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Payload exceeds maximum limit of 2MB.');
+      return;
+    }
+    sendError(response, 400, 'INVALID_JSON', 'Invalid JSON body.');
+    return;
+  }
+
   let patch;
   try {
     patch = sanitizePatch(body);
@@ -280,13 +326,40 @@ async function createPlace(request, response) {
   patch.operating_status = patch.operating_status || 'Normal';
   patch.contributor = patch.contributor || 'Admin';
 
-  const rows = await supabaseRequest(TABLE_NAME, {
-    method: 'POST',
-    headers: { Prefer: 'return=representation' },
-    body: JSON.stringify(patch),
-  });
+  const actorId = getSafeActorId(adminContext);
+  const actorEmail = adminContext?.user?.email || null;
+  const actorRole = adminContext?.user?.role || 'editor';
+  const correlationId = adminContext?.correlationId || getCorrelationId(request);
+  const clientIp = adminContext?.ip || '127.0.0.1';
 
-  sendJson(response, 201, { success: true, place: rows?.[0] || null });
+  try {
+    const createdPlace = await supabaseRpc('admin_create_place_atomic', {
+      p_actor_id: actorId,
+      p_actor_email: actorEmail,
+      p_actor_role: actorRole,
+      p_place_data: patch,
+      p_ip: clientIp,
+      p_correlation_id: correlationId
+    });
+
+    sendJson(response, 201, { success: true, place: createdPlace });
+  } catch (error) {
+    const msg = error.message || '';
+    if (msg.includes('FORBIDDEN')) {
+      sendError(response, 403, 'FORBIDDEN', msg);
+      return;
+    }
+    if (msg.includes('INVALID_INPUT')) {
+      sendError(response, 400, 'INVALID_INPUT', msg);
+      return;
+    }
+    if (msg.includes('AUDIT_LOG_FAILED') || msg.includes('audit')) {
+      sendError(response, 500, 'AUDIT_LOG_FAILED', 'Ghi nhật ký kiểm toán thất bại. Thao tác đã tự động rollback.');
+      return;
+    }
+    console.error('[AdminPlaces] Lỗi tạo địa điểm:', error);
+    sendError(response, 500, 'INTERNAL_ERROR', 'Đã xảy ra lỗi khi tạo địa điểm.');
+  }
 }
 
 export default async function handler(request, response) {
@@ -301,23 +374,23 @@ export default async function handler(request, response) {
     }
 
     if (request.method === 'POST') {
-      // Chỉ admin và editor được phép tạo địa điểm mới. Moderator bị chặn.
+      // Chỉ admin và editor mới được tạo địa điểm. Moderator bị chặn 403.
       if (!requireRole(adminContext, ['admin', 'editor'], response)) return;
-      await createPlace(request, response);
+      await createPlace(request, response, adminContext);
       return;
     }
 
     if (request.method === 'PATCH') {
-      // Chỉ admin và editor được phép chỉnh sửa / duyệt địa điểm. Moderator bị chặn.
+      // Chỉ admin và editor mới được sửa địa điểm. Moderator bị chặn 403.
       if (!requireRole(adminContext, ['admin', 'editor'], response)) return;
-      await updatePlace(request, response);
+      await updatePlace(request, response, adminContext);
       return;
     }
 
     if (request.method === 'DELETE') {
-      // Chỉ admin mới có quyền xóa địa điểm. Editor và Moderator bị chặn.
+      // Chỉ admin mới có quyền xóa/lưu trữ địa điểm. Editor và Moderator bị chặn 403.
       if (!requireRole(adminContext, ['admin'], response)) return;
-      await deletePlace(request, response);
+      await deletePlace(request, response, adminContext);
       return;
     }
 
@@ -327,6 +400,7 @@ export default async function handler(request, response) {
       sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Payload exceeds maximum limit of 2MB.');
       return;
     }
-    sendError(response, 500, 'INTERNAL_ERROR', 'An error occurred while processing the admin places request.');
+    console.error('[AdminPlaces] Lỗi xử lý:', error);
+    sendError(response, 500, 'INTERNAL_ERROR', 'An error occurred while processing the admin request.');
   }
 }
