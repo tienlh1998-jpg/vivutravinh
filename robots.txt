@@ -1,15 +1,16 @@
 # Robots.txt for ViVuTraVinh
-# https://tienlh1998-jpg.github.io/vivu-travinh-v2/
+# https://vivutravinh.vercel.app/
 
 User-agent: *
 Allow: /
 
 # Sitemaps
-Sitemap: https://tienlh1998-jpg.github.io/vivu-travinh-v2/sitemap.xml
+Sitemap: https://vivutravinh.vercel.app/sitemap.xml
 
-# Disallow hidden files and directories
+# Disallow internal directories and admin
 Disallow: /.git/
 Disallow: /.agent/
+Disallow: /api/admin-
 
 # Allow all images
 Allow: /*.jpg$
@@ -22,32 +23,21 @@ Allow: /*.svg$
 Allow: /*.css$
 Allow: /*.js$
 
-# Allow important files
+# Allow PWA files
 Allow: /manifest.json
 Allow: /service-worker.js
 
-# Crawl delay (polite crawling)
-Crawl-delay: 1
-
-# Specific bot instructions
+# Specific search engine bots
 User-agent: Googlebot
 Allow: /
-Crawl-delay: 0
 
 User-agent: Googlebot-Image
 Allow: /
 
 User-agent: Bingbot
 Allow: /
-Crawl-delay: 1
 
-User-agent: GPTBot
-Disallow: /
-
-User-agent: ChatGPT-User
-Disallow: /
-
-# Social media bots
+# Social media bots for rich previews
 User-agent: facebookexternalhit
 Allow: /
 
@@ -55,4 +45,7 @@ User-agent: Twitterbot
 Allow: /
 
 User-agent: LinkedInBot
+Allow: /
+
+User-agent: TelegramBot
 Allow: /

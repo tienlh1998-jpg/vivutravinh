@@ -425,6 +425,9 @@ export function renderWeatherAndSmartSuggestions(containerId, places, onOpenModa
                             </div>
                         </div>
                     `).join('')}
+                <div class="pt-2 border-t border-outline-variant/30 dark:border-zinc-800 text-[10px] text-on-surface-variant/80 dark:text-zinc-500 flex items-center justify-between">
+                    <span>Nguồn dữ liệu: Open-Meteo & Khí tượng Trà Vinh</span>
+                    <span>Cập nhật định kỳ</span>
                 </div>
             </div>
         </div>
@@ -986,6 +989,9 @@ export const SAMPLE_TOURS = [
         duration: '1 Ngày (07:00 - 17:30)',
         vehicle: 'Xe máy / Ô tô',
         distance: '~25 km',
+        budget: '150.000đ - 250.000đ/người',
+        travelTime: '~45 phút di chuyển',
+        familyFriendly: true,
         desc: 'Hành trình trọn vẹn khám phá quần thể di sản chùa tháp Khmer cổ kính hàng trăm năm tuổi, tản bộ dưới rặng cây sao dầu đại thụ và chiêm ngưỡng nghệ thuật điêu khắc gỗ tinh xảo.',
         stops: [
             {
@@ -1039,6 +1045,9 @@ export const SAMPLE_TOURS = [
         duration: '1 Ngày (07:00 - 20:30)',
         vehicle: 'Xe máy / Foodie dạo phố',
         distance: '~18 km',
+        budget: '200.000đ - 350.000đ/người',
+        travelTime: '~30 phút di chuyển',
+        familyFriendly: true,
         desc: 'Hành trình đánh thức mọi giác quan với những món ngon nức tiếng giao thoa văn hóa Kinh - Khmer - Hoa, từ đĩa bánh canh ngọt thanh đến ngụm cà phê dừa sáp Cầu Kè béo ngọt độc bản.',
         stops: [
             {
@@ -1092,6 +1101,9 @@ export const SAMPLE_TOURS = [
         duration: '1 Ngày (07:30 - 18:30)',
         vehicle: 'Xe máy / Ô tô & Tàu đò',
         distance: '~65 km',
+        budget: '350.000đ - 550.000đ/người',
+        travelTime: '~1h45 di chuyển & đi phà',
+        familyFriendly: true,
         desc: 'Hành trình về với thiên nhiên sông nước Cửu Long: trải nghiệm lối sống thuận thiên "người quê đón khách" tại Cồn Chim, rồi xuôi về biển Ba Động ngắm cánh đồng điện gió khổng lồ giữa biển khơi.',
         stops: [
             {
@@ -1317,7 +1329,10 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
         duration: '1 Ngày (07:30 - 21:00)',
         vehicle: chosenCluster.vehicle,
         distance: chosenCluster.distance,
-        desc: `${chosenCluster.desc} Lịch trình được tạo thông minh từ kho dữ liệu thời gian thực theo cụm di chuyển tối ưu.`,
+        budget: '~150.000đ - 300.000đ/người',
+        travelTime: '~30-45 phút di chuyển',
+        familyFriendly: true,
+        desc: `${chosenCluster.desc} Lịch trình được gợi ý từ kho dữ liệu tổng hợp theo cụm di chuyển tối ưu.`,
         stops
     };
 
@@ -1396,7 +1411,7 @@ export function renderTourItineraries(containerId, activeTourId = 'khmer-culture
             </div>
 
             <!-- Tour Metrics Strip -->
-            <div class="flex flex-wrap items-center gap-3 text-xs font-semibold text-on-surface dark:text-zinc-200">
+            <div class="flex flex-wrap items-center gap-2.5 text-xs font-semibold text-on-surface dark:text-zinc-200">
                 <span class="px-3 py-1.5 rounded-full bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 flex items-center gap-1.5">
                     <span class="material-symbols-outlined text-sm text-secondary dark:text-emerald-400">schedule</span>
                     ${tour.duration}
@@ -1413,6 +1428,21 @@ export function renderTourItineraries(containerId, activeTourId = 'khmer-culture
                     <span class="material-symbols-outlined text-sm text-secondary dark:text-emerald-400">flag</span>
                     ${tour.stops.length} Điểm dừng
                 </span>
+                ${tour.budget ? `
+                <span class="px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60 flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                    <span class="material-symbols-outlined text-sm text-amber-600 dark:text-amber-400">payments</span>
+                    ${tour.budget}
+                </span>` : ''}
+                ${tour.travelTime ? `
+                <span class="px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 flex items-center gap-1.5 text-blue-800 dark:text-blue-300">
+                    <span class="material-symbols-outlined text-sm text-blue-600 dark:text-blue-400">timelapse</span>
+                    ${tour.travelTime}
+                </span>` : ''}
+                ${tour.familyFriendly ? `
+                <span class="px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                    <span class="material-symbols-outlined text-sm text-emerald-600 dark:text-emerald-400">family_restroom</span>
+                    Phù hợp gia đình
+                </span>` : ''}
             </div>
 
             <!-- Timeline Các Điểm Dừng -->
@@ -2069,7 +2099,7 @@ export function renderCheckinAndTikTokTab(place) {
 }
 
 /**
- * Quản lý đồng hồ đếm ngược thời gian thực cho sự kiện lễ hội
+ * Quản lý đồng hồ đếm ngược cho sự kiện lễ hội
  */
 export function startFestivalCountdown(targetDateStr) {
     if (window._festivalCountdownInterval) {
@@ -2166,8 +2196,8 @@ export function renderFestivalsSection(containerId, festivals = [], activeSeason
                 <!-- Live Status Tag -->
                 <div class="hidden sm:flex items-center gap-2">
                     <span class="px-3 py-1.5 rounded-full text-xs font-bold bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 border border-outline-variant/40 dark:border-zinc-700 flex items-center gap-1.5 shadow-xs">
-                        <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                        Cập nhật thời gian thực 2026
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        Thông tin mùa lễ hội 2026
                     </span>
                 </div>
             </div>
@@ -2340,6 +2370,11 @@ export function renderFestivalsSection(containerId, festivals = [], activeSeason
                     </div>
                 `).join('')}
             </div>
+
+            <!-- Nguồn dữ liệu lễ hội minh bạch -->
+            <div class="pt-4 border-t border-outline-variant/30 dark:border-zinc-800 text-center text-xs text-on-surface-variant/80 dark:text-zinc-500">
+                <span>Nguồn dữ liệu lễ hội: Tổng hợp từ Trung tâm Thông tin Xúc tiến Du lịch & Sở VHTT&DL tỉnh Trà Vinh (Mùa lễ hội 2026).</span>
+            </div>
         </div>
     `;
 
@@ -2454,7 +2489,7 @@ export function renderFestivalDetailModal(festival, allFestivals = [], onSelectP
                     </p>
                 </div>
 
-                <!-- DIỄN BIẾN LỄ HỘI THEO THỜI GIAN THỰC (TIMELINE) -->
+                <!-- DIỄN BIẾN LỄ HỘI DỰ KIẾN (TIMELINE) -->
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400 flex items-center gap-1.5">

@@ -1,6 +1,6 @@
 {
   "name": "vivu-travinh-v2",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Cẩm nang du lịch tự túc Trà Vinh",
   "main": "index.html",
   "type": "module",
@@ -8,7 +8,7 @@
     "dev": "http-server -p 8000 -c-1",
     "build": "node scripts/build.cjs",
     "preview": "node scripts/preview.cjs",
-    "check": "node --check js/config.js js/data.js js/app.js js/ui.js js/comments.js js/offline-sync.js service-worker.js api/admin-comments.js api/admin-places.js api/import-place.js api/submit-comment.js api/submit-place.js",
+    "check": "node --check js/config.js js/data.js js/app.js js/ui.js js/comments.js js/offline-sync.js js/telemetry.js service-worker.js api/admin-comments.js api/admin-places.js api/import-place.js api/submit-comment.js api/submit-place.js api/report-place.js",
     "test:fixtures": "node scripts/test-fixtures.js",
     "test:g2": "node scripts/test-g2.js",
     "test:g2:browser": "node --experimental-websocket scripts/verify-g2-browser.cjs",
@@ -22,7 +22,9 @@
     "test:g6": "node scripts/test-g6-e2e.js",
     "test:g6:browser": "node --experimental-websocket scripts/verify-g6-browser.cjs",
     "test:g6:live": "node scripts/verify-g6-live.js",
-    "check:gate": "npm run check && npm run test:fixtures && npm run test:g2 && npm run test:g3 && npm run test:sw && npm run test:ui && npm run test:g2:browser && npm run test:g3:browser && npm run test:g4:browser && npm run test:g5 && npm run test:g6 && npm run test:g6:browser",
+    "test:g7": "node scripts/test-g7-release.js",
+    "test:g7:browser": "node --experimental-websocket scripts/verify-g7-browser.cjs",
+    "check:gate": "npm run check && npm run test:fixtures && npm run test:g2 && npm run test:g3 && npm run test:sw && npm run test:ui && npm run test:g2:browser && npm run test:g3:browser && npm run test:g4:browser && npm run test:g5 && npm run test:g6 && npm run test:g6:browser && npm run test:g7 && npm run test:g7:browser",
     "test": "npm run check:gate"
   },
   "devDependencies": {

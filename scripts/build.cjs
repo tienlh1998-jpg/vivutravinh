@@ -81,9 +81,17 @@ fs.writeFileSync(path.join(DIST_DIR, 'index.html'), indexHtml, 'utf8');
 console.log('  ✓ Đã tạo dist/index.html độc lập hoàn toàn');
 
 // 6. Sao chép service-worker.js vào dist/
-console.log('\n5. Sao chép Service Worker vào dist/:');
+console.log('\n5. Sao chép Service Worker và tạo metadata version:');
 fs.copyFileSync(path.join(ROOT_DIR, 'service-worker.js'), path.join(DIST_DIR, 'service-worker.js'));
-console.log('  ✓ Đã sao chép dist/service-worker.js');
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8'));
+const versionInfo = {
+    version: pkg.version,
+    name: pkg.name,
+    buildTime: new Date().toISOString(),
+    environment: 'production'
+};
+fs.writeFileSync(path.join(DIST_DIR, 'version.json'), JSON.stringify(versionInfo, null, 2), 'utf8');
+console.log(`  ✓ Đã sinh dist/version.json (v${pkg.version})`);
 
 // 7. Thống kê kích thước bundle
 console.log('\n6. Thống kê kích thước bản build dist/:');

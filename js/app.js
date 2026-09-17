@@ -40,6 +40,12 @@ import {
 import { TRA_VINH_FESTIVALS } from './festivals-data.js';
 import { TRA_VINH_ARTICLES } from './articles-data.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
+import {
+    initTelemetry,
+    recordJsError,
+    recordNetworkError,
+    recordSyncError
+} from './telemetry.js';
 
 // An toàn đọc favorites từ localStorage (Issue M10 & G2 Recovery)
 function getStoredFavorites() {
@@ -312,6 +318,7 @@ export const state = {
 
 // Khởi chạy khi DOM tải xong
 function onAppStart() {
+    initTelemetry();
     initTheme();
     initEventListeners();
     initPwaInstall();
@@ -1080,6 +1087,18 @@ function updateResultsCount(count) {
     if (countEl) {
         countEl.textContent = `${count} địa điểm`;
     }
+    const shareTripBtn = document.getElementById('shareTripBtn');
+    if (shareTripBtn) {
+        const isSavedTab = state.activeCategory === 'saved';
+        const hasSaved = (state.favorites || []).length > 0;
+        if (isSavedTab && hasSaved) {
+            shareTripBtn.classList.remove('hidden');
+            shareTripBtn.classList.add('inline-flex');
+        } else {
+            shareTripBtn.classList.add('hidden');
+            shareTripBtn.classList.remove('inline-flex');
+        }
+    }
 }
 
 function updateDataSourceBadge(places) {
@@ -1326,8 +1345,21 @@ async function loadCommentsForModal(place, requestId) {
 /**
  * Modal Chi Tiết Địa Điểm (Mở tức thì không trễ - Zero Latency)
  */
-export function openDetailModal(placeId) {
-    const place = state.allPlaces.find(p => p.id === placeId || p.slug === placeId || (p.dbId && String(p.dbId) === String(placeId)));
+export function openDetailModal(placeOrId) {
+    let place = null;
+    if (placeOrId && typeof placeOrId === 'object' && placeOrId.id) {
+        place = placeOrId;
+    } else {
+        const query = String(placeOrId || '').trim().toLowerCase();
+        place = state.allPlaces.find(p =>
+            p.id === query ||
+            (p.slug && p.slug.toLowerCase() === query) ||
+            (p.dbId && String(p.dbId) === query) ||
+            (query === 'ao-ba-om' && (p.slug || p.id || '').includes('ao-ba-om')) ||
+            (query === 'chua-hang' && (p.slug || p.id || '').includes('chua-hang'))
+        );
+    }
+    const placeId = place?.id || placeOrId;
     if (!place) {
         console.warn(`[ViVuTraVinh] Địa điểm không tồn tại hoặc đã tạm dừng hiển thị: ${placeId}`);
         if (typeof window !== 'undefined' && window.location) {
@@ -1347,6 +1379,7 @@ export function openDetailModal(placeId) {
     // Lưu lại phần tử kích hoạt trước đó để trả focus sau khi đóng (Accessibility)
     state.lastActiveElement = document.activeElement;
     state.currentDetailPlace = place;
+    updatePlaceMetaTags(place);
     const isSaved = isPlaceSaved(place);
     clearCommentPhoto();
 
@@ -1396,6 +1429,7 @@ export function closeDetailModal(fromPopstate = false) {
     document.body.classList.remove('overflow-hidden');
     state.currentDetailPlace = null;
     clearCommentPhoto();
+    restoreDefaultMetaTags();
 
     // Tạm dừng video TikTok/Reels nếu đang chạy
     const video = document.getElementById('tiktokVideoEl');
@@ -1417,6 +1451,268 @@ export function closeDetailModal(fromPopstate = false) {
     if (state.lastActiveElement && typeof state.lastActiveElement.focus === 'function') {
         state.lastActiveElement.focus();
         state.lastActiveElement = null;
+    }
+}
+
+/**
+ * Quản lý Dynamic SEO & Open Graph Meta Tags (G7 Release Feature)
+ */
+const DEFAULT_PAGE_TITLE = 'ViVu Trà Vinh - Cẩm Nang Khám Phá & Bản Đồ Số Trà Vinh';
+const DEFAULT_PAGE_DESC = 'Khám phá văn hóa Khmer, ẩm thực trứ danh, chùa cổ và các điểm du lịch sinh thái độc đáo tại Trà Vinh với bản đồ số.';
+const DEFAULT_CANONICAL = 'https://vivutravinh.vercel.app/';
+
+export function updatePlaceMetaTags(place) {
+    if (!place || typeof document === 'undefined') return;
+    const title = `${place.name} - ViVu Trà Vinh`;
+    const desc = place.description
+        ? (place.description.slice(0, 160) + (place.description.length > 160 ? '...' : ''))
+        : DEFAULT_PAGE_DESC;
+    const canonicalUrl = `https://vivutravinh.vercel.app/?place=${encodeURIComponent(place.slug || place.id)}`;
+
+    document.title = title;
+
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', desc);
+
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', title);
+
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute('content', desc);
+
+    const ogUrl = document.querySelector('meta[property="og:url"]');
+    if (ogUrl) ogUrl.setAttribute('content', canonicalUrl);
+
+    if (place.imageLink) {
+        const ogImage = document.querySelector('meta[property="og:image"]');
+        if (ogImage) ogImage.setAttribute('content', place.imageLink);
+    }
+
+    const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+    if (twitterTitle) twitterTitle.setAttribute('content', title);
+
+    const twitterDesc = document.querySelector('meta[name="twitter:description"]');
+    if (twitterDesc) twitterDesc.setAttribute('content', desc);
+
+    const canonicalEl = document.getElementById('canonicalLink') || document.querySelector('link[rel="canonical"]');
+    if (canonicalEl) canonicalEl.setAttribute('href', canonicalUrl);
+}
+
+export function restoreDefaultMetaTags() {
+    if (typeof document === 'undefined') return;
+    document.title = DEFAULT_PAGE_TITLE;
+
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', DEFAULT_PAGE_DESC);
+
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', DEFAULT_PAGE_TITLE);
+
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute('content', DEFAULT_PAGE_DESC);
+
+    const ogUrl = document.querySelector('meta[property="og:url"]');
+    if (ogUrl) ogUrl.setAttribute('content', DEFAULT_CANONICAL);
+
+    const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+    if (twitterTitle) twitterTitle.setAttribute('content', DEFAULT_PAGE_TITLE);
+
+    const twitterDesc = document.querySelector('meta[name="twitter:description"]');
+    if (twitterDesc) twitterDesc.setAttribute('content', DEFAULT_PAGE_DESC);
+
+    const canonicalEl = document.getElementById('canonicalLink') || document.querySelector('link[rel="canonical"]');
+    if (canonicalEl) canonicalEl.setAttribute('href', DEFAULT_CANONICAL);
+}
+
+/**
+ * Modal Báo Sai Thông Tin Địa Điểm (G7 Feedback Feature)
+ */
+export function openReportModal(place = null) {
+    const targetPlace = place || state.currentDetailPlace;
+    if (!targetPlace) {
+        showNoticeToast('Chưa chọn địa điểm', 'Vui lòng mở chi tiết địa điểm trước khi báo sai thông tin.');
+        return;
+    }
+
+    const modal = document.getElementById('reportPlaceModal');
+    const nameEl = document.getElementById('reportPlaceTargetName');
+    const idInput = document.getElementById('reportPlaceId');
+    const nameInput = document.getElementById('reportPlaceNameInput');
+    const detailsInput = document.getElementById('reportDetails');
+    const statusEl = document.getElementById('reportPlaceStatus');
+
+    if (nameEl) nameEl.textContent = targetPlace.name;
+    if (idInput) idInput.value = targetPlace.slug || targetPlace.id;
+    if (nameInput) nameInput.value = targetPlace.name;
+    if (detailsInput) detailsInput.value = '';
+    if (statusEl) {
+        statusEl.textContent = '';
+        statusEl.className = 'hidden';
+    }
+
+    if (modal) modal.classList.remove('hidden');
+}
+
+export function closeReportModal() {
+    const modal = document.getElementById('reportPlaceModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export async function submitReportPlace(event) {
+    if (event) event.preventDefault();
+
+    const form = document.getElementById('reportPlaceForm');
+    const submitBtn = document.getElementById('reportSubmitBtn');
+
+    const placeId = document.getElementById('reportPlaceId')?.value || '';
+    const placeName = document.getElementById('reportPlaceNameInput')?.value || '';
+    const issueType = document.getElementById('reportIssueType')?.value || 'other';
+    const details = document.getElementById('reportDetails')?.value?.trim() || '';
+
+    if (!placeId) {
+        showReportStatus('Thiếu mã địa điểm cần phản ánh.', 'error');
+        return;
+    }
+
+    if (!details || details.length < 3) {
+        showReportStatus('Vui lòng nhập mô tả chi tiết tối thiểu 3 ký tự.', 'error');
+        return;
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> <span>Đang gửi...</span>';
+    }
+
+    try {
+        const payload = {
+            place_id: placeId,
+            place_name: placeName,
+            issue_type: issueType,
+            details: details
+        };
+
+        const res = await fetch('/api/report-place', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            const msg = data.error?.message || 'Không thể gửi phản ánh. Vui lòng thử lại sau.';
+            showReportStatus(msg, 'error');
+            recordNetworkError('/api/report-place', new Error(msg));
+            return;
+        }
+
+        showReportStatus('Cảm ơn bạn! Báo cáo đã được ghi nhận để BQT kiểm tra và cập nhật.', 'success');
+        showNoticeToast('Đã gửi phản ánh', 'Cảm ơn đóng góp của bạn để hoàn thiện dữ liệu du lịch Trà Vinh!');
+
+        setTimeout(() => {
+            closeReportModal();
+            if (form) form.reset();
+        }, 1500);
+
+    } catch (err) {
+        console.warn('[ReportPlace] Lỗi kết nối:', err);
+        recordNetworkError('/api/report-place', err);
+        showReportStatus('Không thể kết nối máy chủ. Báo cáo của bạn sẽ được hỗ trợ kiểm tra sau.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm">send</span> <span>Gửi Phản Hồi</span>';
+        }
+    }
+}
+
+function showReportStatus(message, type = 'info') {
+    const statusEl = document.getElementById('reportPlaceStatus');
+    if (!statusEl) return;
+    statusEl.classList.remove('hidden');
+    if (type === 'error') {
+        statusEl.className = 'text-xs p-3 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-800';
+    } else if (type === 'success') {
+        statusEl.className = 'text-xs p-3 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800';
+    } else {
+        statusEl.className = 'text-xs p-3 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-800';
+    }
+    statusEl.textContent = message;
+}
+
+/**
+ * Chia sẻ bộ sưu tập chuyến đi (?trip=slug1,slug2) (G7 Feature)
+ */
+export async function shareTripCollection() {
+    const saved = state.allPlaces.filter(p => isPlaceSaved(p));
+    if (saved.length === 0) {
+        showNoticeToast('Chưa có địa điểm', 'Hãy bấm lưu một vài địa điểm để tạo lịch trình chuyến đi của bạn!');
+        return;
+    }
+
+    const slugs = saved.map(p => p.slug || p.id).join(',');
+    const shareUrl = `${window.location.origin}${window.location.pathname}?trip=${encodeURIComponent(slugs)}`;
+    const shareText = `Xem bộ sưu tập ${saved.length} địa điểm Trà Vinh tôi đã chọn trên ViVu Trà Vinh:`;
+
+    if (navigator.share && /mobile|android|iphone/i.test(navigator.userAgent)) {
+        try {
+            await navigator.share({
+                title: 'Lịch trình du lịch Trà Vinh của tôi',
+                text: shareText,
+                url: shareUrl
+            });
+            return;
+        } catch {
+            // Huỷ hoặc không hỗ trợ -> fallback clipboard
+        }
+    }
+
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+            showNoticeToast('Đã sao chép liên kết!', `Đã chép link chuyến đi (${saved.length} địa điểm) vào bộ nhớ tạm.`);
+        } else {
+            prompt('Sao chép liên kết chuyến đi bên dưới:', shareUrl);
+        }
+    } catch {
+        prompt('Sao chép liên kết chuyến đi bên dưới:', shareUrl);
+    }
+}
+
+/**
+ * Xử lý tham số ?trip= từ URL khi vào app
+ */
+export function handleTripShareParam(tripParam) {
+    if (!tripParam || !state.allPlaces || state.allPlaces.length === 0) return;
+    const slugs = tripParam.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (slugs.length === 0) return;
+
+    const matched = state.allPlaces.filter(p => {
+        const pSlug = (p.slug || '').toLowerCase();
+        const pId = (p.id || '').toLowerCase();
+        const pDbId = p.dbId ? String(p.dbId).toLowerCase() : '';
+        return slugs.some(s => s === pSlug || s === pId || s === pDbId || pSlug.includes(s) || pId.includes(s));
+    });
+
+    if (matched.length > 0) {
+        for (const place of matched) {
+            const aliases = getPlaceAliases(place, state.allPlaces);
+            const isAlreadySaved = (state.favorites || []).some(favId => aliases.has(favId));
+            if (!isAlreadySaved) {
+                const canonicalKey = getPlaceCanonicalKey(place, state.allPlaces);
+                if (canonicalKey) {
+                    state.favorites.push(canonicalKey);
+                }
+            }
+        }
+        try {
+            localStorage.setItem('vivu_favorites', JSON.stringify(state.favorites));
+        } catch {}
+
+        updateFavoritesCount();
+        handleCategoryTabClick('saved');
+        showNoticeToast('Lịch trình chia sẻ', `Đang hiển thị bộ sưu tập chuyến đi gồm ${matched.length} địa điểm được chia sẻ.`);
     }
 }
 
@@ -2388,6 +2684,11 @@ function handleDeepLink() {
         setTimeout(() => openDetailModal(placeId), 300);
         return;
     }
+    const tripParam = params.get('trip');
+    if (tripParam) {
+        setTimeout(() => handleTripShareParam(tripParam), 250);
+        return;
+    }
     const festivalId = params.get('festival');
     if (festivalId) {
         setTimeout(() => openFestivalModal(festivalId), 300);
@@ -2985,6 +3286,13 @@ if (typeof window !== 'undefined') {
             closeFullMapModal();
             openDetailModal(id);
         },
+        openReportModal,
+        closeReportModal,
+        submitReportPlace,
+        shareTripCollection,
+        updatePlaceMetaTags,
+        restoreDefaultMetaTags,
+        handleTripShareParam,
         getState: () => state,
         get state() { return state; }
     };

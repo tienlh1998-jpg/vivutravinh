@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-17T02:26:47.032Z",
+  "timestamp": "2026-09-17T04:15:01.953Z",
   "version": "2.9.0",
   "environment": {
     "server": "localhost",
@@ -9,7 +9,7 @@
   },
   "desktop": {
     "lcp": 96,
-    "cls": 0.0466,
+    "cls": 0.0441,
     "shifts": [
       {
         "value": 0.0075,
@@ -24,7 +24,7 @@
         ]
       },
       {
-        "value": 0.03560341130007109,
+        "value": 0.033177480144393756,
         "sources": [
           {
             "tag": "DIV",
@@ -85,17 +85,17 @@
     ]
   },
   "mobile": {
-    "lcp": 128,
+    "lcp": 120,
     "cls": 0,
     "shifts": []
   },
   "bundle": {
-    "htmlBytes": 111180,
-    "htmlKb": 108.6,
-    "cssBytes": 81503,
-    "cssKb": 79.6,
-    "jsBytes": 399386,
-    "jsKb": 390,
-    "totalMb": 6.34
+    "htmlBytes": 120549,
+    "htmlKb": 117.7,
+    "cssBytes": 82684,
+    "cssKb": 80.7,
+    "jsBytes": 419742,
+    "jsKb": 409.9,
+    "totalMb": 6.37
   }
 }

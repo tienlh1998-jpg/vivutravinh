@@ -22,18 +22,47 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
+    <!-- Canonical URL -->
+    <link rel="canonical" id="canonicalLink" href="https://vivutravinh.vercel.app/">
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://tienlh1998-jpg.github.io/vivu-travinh-v2/">
-    <meta property="og:title" content="ViVuTraVinh - Khám Phá & Trải Nghiệm Trà Vinh">
-    <meta property="og:description" content="Khám phá di sản chùa Khmer, ẩm thực trứ danh và du lịch sinh thái Trà Vinh">
-    <meta property="og:image" content="./ao bà om.jpg">
+    <meta property="og:url" content="https://vivutravinh.vercel.app/">
+    <meta property="og:site_name" content="ViVu Trà Vinh">
+    <meta property="og:title" content="ViVuTraVinh - Cẩm Nang Khám Phá & Du Lịch Trà Vinh">
+    <meta property="og:description" content="Nền tảng cẩm nang du lịch, ẩm thực và văn hóa Trà Vinh tự túc theo phong cách Bento Grid & Eco-Khmer Lifestyle.">
+    <meta property="og:image" content="https://vivutravinh.vercel.app/icons/icon-512.png">
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:title" content="ViVuTraVinh - Khám Phá Trà Vinh">
-    <meta property="twitter:description" content="Khám phá di sản chùa Khmer, ẩm thực trứ danh và du lịch sinh thái Trà Vinh">
-    <meta property="twitter:image" content="./ao bà om.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://vivutravinh.vercel.app/">
+    <meta name="twitter:title" content="ViVuTraVinh - Cẩm Nang Khám Phá & Du Lịch Trà Vinh">
+    <meta name="twitter:description" content="Nền tảng cẩm nang du lịch, ẩm thực và văn hóa Trà Vinh tự túc theo phong cách Bento Grid & Eco-Khmer Lifestyle.">
+    <meta name="twitter:image" content="https://vivutravinh.vercel.app/icons/icon-512.png">
+
+    <!-- Structured Data (JSON-LD) for Search Engines -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://vivutravinh.vercel.app/#website",
+                "url": "https://vivutravinh.vercel.app/",
+                "name": "ViVuTraVinh",
+                "description": "Cẩm nang khám phá du lịch, ẩm thực và văn hóa Trà Vinh tự túc.",
+                "inLanguage": "vi-VN"
+            },
+            {
+                "@type": "TouristDestination",
+                "@id": "https://vivutravinh.vercel.app/#destination",
+                "name": "Trà Vinh",
+                "description": "Vùng đất giao thoa văn hóa Kinh - Khmer - Hoa với hơn 140 ngôi chùa Khmer cổ kính và nền ẩm thực miền Tây sông nước đặc sắc.",
+                "touristType": ["Văn hóa - Lịch sử", "Sinh thái sông nước", "Ẩm thực địa phương"]
+            }
+        ]
+    }
+    </script>
 
     <!-- Google Fonts & Material Symbols Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -234,7 +263,7 @@
     <!-- 1. DÒNG THÔNG BÁO / HUY HIỆU DI SẢN ĐẦU TRANG -->
     <div class="bg-primary text-primary-fixed py-2 px-4 text-center text-xs font-medium border-b border-primary-container flex items-center justify-center gap-2">
         <span class="material-symbols-outlined text-sm text-secondary-container" style="font-variation-settings: 'FILL' 1;">eco</span>
-        <span>Khám phá Trà Vinh chính thức • Hơn 140 ngôi chùa Khmer cổ & Ẩm thực trứ danh miền Tây Nam Bộ</span>
+        <span>Cẩm nang Khám phá Trà Vinh • Hơn 140 ngôi chùa Khmer cổ &amp; Ẩm thực trứ danh miền Tây Nam Bộ</span>
         <span class="hidden md:inline-block text-primary-fixed-dim">• Cập nhật 2026</span>
     </div>
 
@@ -443,6 +472,11 @@
                     </h2>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button id="shareTripBtn" type="button" onclick="window.ViVuApp.shareTripCollection()"
+                        class="hidden text-xs font-bold px-3 py-1 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 rounded-full border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-200 transition-colors items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">share</span>
+                        <span>Chia sẻ chuyến đi</span>
+                    </button>
                     <span id="resultsCountLabel" class="text-xs font-semibold text-on-surface-variant dark:text-zinc-400 px-3 py-1 bg-surface-container dark:bg-zinc-800 rounded-full">
                         Đang tải...
                     </span>
@@ -647,7 +681,7 @@
                     Tham gia Diễn đàn Du khách & Người Bản Địa Trà Vinh
                 </h2>
                 <p class="text-xs sm:text-sm text-blue-100 leading-relaxed">
-                    Chia sẻ ảnh đẹp check-in, giao lưu kinh nghiệm phượt phọt, săn voucher dừa sáp Cầu Kè và kết nối bạn đồng hành du lịch xuyên Trà Vinh qua Fanpage và Nhóm Cộng Đồng chính thức.
+                    Chia sẻ ảnh đẹp check-in, giao lưu kinh nghiệm phượt phọt, săn voucher dừa sáp Cầu Kè và kết nối bạn đồng hành du lịch xuyên Trà Vinh qua Fanpage và Nhóm Cộng Đồng ViVuTraVinh.
                 </p>
                 <div class="flex flex-wrap items-center gap-3 pt-2">
                     <a href="https://www.facebook.com/vivutravinh.official" target="_blank" rel="noopener noreferrer"
@@ -819,6 +853,13 @@
                                             class="py-2 px-3 rounded-xl bg-primary text-white font-bold text-xs flex items-center justify-center transition-colors"
                                             title="Chia sẻ nhanh">
                                             <span class="material-symbols-outlined text-sm">share</span>
+                                        </button>
+                                    </div>
+                                    <div class="pt-1 flex justify-end">
+                                        <button type="button" onclick="window.ViVuApp.openReportModal()"
+                                            class="inline-flex items-center gap-1 text-[11px] text-stone-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                                            <span class="material-symbols-outlined text-sm">flag</span>
+                                            <span>Báo sai thông tin địa điểm</span>
                                         </button>
                                     </div>
                                 </div>
@@ -1200,6 +1241,79 @@
         </div>
     </div>
 
+    <!-- 10b. MODAL BÁO SAI THÔNG TIN ĐỊA ĐIỂM (G7 REPORT MODAL) -->
+    <div id="reportPlaceModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+        <div class="fixed inset-0 bg-slate-950/70 backdrop-blur-md transition-opacity" onclick="window.ViVuApp.closeReportModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-3 sm:p-5">
+                <div class="relative w-full max-w-lg bg-surface dark:bg-dark-card rounded-3xl shadow-2xl border border-outline-variant/50 dark:border-dark-border overflow-hidden my-auto flex flex-col text-left transition-all">
+                    <!-- Close button -->
+                    <button type="button" onclick="window.ViVuApp.closeReportModal()" aria-label="Đóng cửa sổ"
+                        class="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-stone-100 dark:bg-zinc-800 text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white flex items-center justify-center transition-transform hover:scale-105">
+                        <span class="material-symbols-outlined text-lg">close</span>
+                    </button>
+
+                    <!-- Header -->
+                    <header class="px-6 pt-6 pb-3 border-b border-outline-variant/30 dark:border-zinc-800">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                            <span class="text-xs text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider">Phản Ánh Dữ Liệu</span>
+                        </div>
+                        <h2 id="reportModalTitle" class="font-serif text-xl sm:text-2xl font-black text-primary dark:text-zinc-100">
+                            Báo Sai Thông Tin
+                        </h2>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                            Địa điểm: <strong id="reportPlaceTargetName" class="text-primary dark:text-emerald-400">...</strong>
+                        </p>
+                    </header>
+
+                    <!-- Form -->
+                    <form id="reportPlaceForm" class="p-6 space-y-4" onsubmit="window.ViVuApp.submitReportPlace(event)">
+                        <input type="hidden" id="reportPlaceId" name="place_id" value="" />
+                        <input type="hidden" id="reportPlaceNameInput" name="place_name" value="" />
+
+                        <div>
+                            <label for="reportIssueType" class="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                Vấn đề cần hiệu đính <span class="text-rose-500">*</span>
+                            </label>
+                            <select id="reportIssueType" name="issue_type" required
+                                class="w-full text-xs rounded-xl border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white p-2.5 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600">
+                                <option value="wrong_hours">Sai giờ mở cửa / đóng cửa</option>
+                                <option value="wrong_price">Sai mức giá tham khảo</option>
+                                <option value="wrong_address">Sai địa chỉ / vị trí bản đồ</option>
+                                <option value="closed">Địa điểm đã đóng cửa hoặc dừng hoạt động</option>
+                                <option value="other">Vấn đề khác</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="reportDetails" class="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                Chi tiết thông tin chính xác <span class="text-rose-500">*</span>
+                            </label>
+                            <textarea id="reportDetails" name="details" required rows="3" minlength="3" maxlength="500"
+                                placeholder="Ví dụ: Quán hiện mở cửa từ 6h00 đến 14h00, giá tô đặc biệt là 35k..."
+                                class="w-full text-xs rounded-xl border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white p-3 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 placeholder:text-slate-400"></textarea>
+                        </div>
+
+                        <div id="reportPlaceStatus" class="hidden text-xs p-3 rounded-xl"></div>
+
+                        <div class="flex items-center justify-end gap-2 pt-2 border-t border-outline-variant/30 dark:border-zinc-800">
+                            <button type="button" onclick="window.ViVuApp.closeReportModal()"
+                                class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
+                                Hủy
+                            </button>
+                            <button type="submit" id="reportSubmitBtn"
+                                class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-primary hover:bg-emerald-800 active:scale-95 shadow-xs transition-all">
+                                <span class="material-symbols-outlined text-sm">send</span>
+                                <span>Gửi Phản Hồi</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 11. MODAL BẢN ĐỒ TOÀN MÀN HÌNH (FULL MAP MODAL) -->
     <div id="fullMapModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
         <div class="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity" onclick="window.ViVuApp.closeFullMapModal()"></div>
@@ -1320,10 +1434,15 @@
                 </div>
             </div>
 
-            <div class="mt-10 pt-6 border-t border-outline-variant/30 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-on-surface-variant dark:text-zinc-500">
+            <!-- Tuyên bố miễn trừ trách nhiệm & Tính trung thực dữ liệu -->
+            <div class="mt-8 pt-4 pb-2 text-[11px] text-on-surface-variant/80 dark:text-zinc-500 leading-relaxed border-t border-outline-variant/20 dark:border-zinc-800/80">
+                <p><strong>* Miễn trừ trách nhiệm:</strong> ViVu Trà Vinh là dự án cẩm nang du lịch và bản đồ số mã nguồn mở cộng đồng. Mọi thông tin về giá vé, chi phí dịch vụ, giờ hoạt động và tình trạng mở cửa được thu thập phục vụ mục đích tham khảo cộng đồng. Số liệu thực tế có thể thay đổi tùy thời điểm, mùa vụ hoặc chính sách của từng cơ sở. Du khách vui lòng liên hệ trực tiếp đơn vị trước khi khởi hành.</p>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-outline-variant/30 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-on-surface-variant dark:text-zinc-500">
                 <div>© 2026 ViVuTraVinh. Cẩm nang du lịch và văn hóa Trà Vinh.</div>
                 <div class="flex items-center gap-4">
-                    <span>Phiên bản v2.6.0 Bento & Di Sản Xứ Trà</span>
+                    <span id="appVersionDisplay">Phiên bản v2.1.0 • Gói dữ liệu ngoại tuyến ~2.5 MB, Cập nhật 09/2026</span>
                 </div>
             </div>
         </div>
