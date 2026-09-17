@@ -198,6 +198,14 @@ runTest('Version consistency across package.json, dist/version.json, and footer 
 
 // 6. REPORT PLACE API AUDIT
 console.log('\n--- 6. Report Place API (api/report-place.js) Audit ---');
+runTest('api/report-place uses the exact Supabase RPC parameter contract', () => {
+  const reportPlaceSource = fs.readFileSync(path.join(ROOT_DIR, 'api', 'report-place.js'), 'utf8');
+  assert.match(reportPlaceSource, /p_key:\s*`report_place_ip_\$\{ip\}`/);
+  assert.match(reportPlaceSource, /p_window_seconds:\s*RATE_LIMIT_WINDOW_SECONDS/);
+  assert.match(reportPlaceSource, /p_max_requests:\s*MAX_REQUESTS_PER_WINDOW/);
+  assert.match(reportPlaceSource, /p_min_interval_seconds:\s*MIN_INTERVAL_SECONDS/);
+  assert.doesNotMatch(reportPlaceSource, /\bclient_ip:\s*ip/);
+});
 await runAsyncTest('api/report-place handles validation, rate limiting, and 200 response', async () => {
   const handler = (await import('../api/report-place.js')).default;
 

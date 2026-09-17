@@ -143,10 +143,10 @@ async function checkDistributedRateLimit(ip, supabaseConfig) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          client_ip: ip,
-          window_seconds: RATE_LIMIT_WINDOW_SECONDS,
-          max_requests: MAX_REQUESTS_PER_WINDOW,
-          min_interval_seconds: MIN_INTERVAL_SECONDS,
+          p_key: `report_place_ip_${ip}`,
+          p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+          p_max_requests: MAX_REQUESTS_PER_WINDOW,
+          p_min_interval_seconds: MIN_INTERVAL_SECONDS,
         }),
       });
 
