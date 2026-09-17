@@ -183,7 +183,7 @@ runTest('Version consistency across package.json, dist/version.json, and footer 
 
   const indexContent = fs.readFileSync(path.join(ROOT_DIR, 'index.html'), 'utf8');
   assert.ok(indexContent.includes('Phiên bản v2.1.0'), 'Footer must display v2.1.0');
-  assert.ok(indexContent.includes('~2.5 MB, Cập nhật 09/2026'), 'Footer must display offline package metadata');
+  assert.ok(indexContent.includes('~4.8 MB (Precache 4.6 MiB), Cập nhật 09/2026'), 'Footer must display offline package metadata');
 
   const runbookPath = path.join(ROOT_DIR, 'docs/release-runbook.md');
   assert.ok(fs.existsSync(runbookPath), 'docs/release-runbook.md missing');
@@ -246,6 +246,95 @@ await runAsyncTest('api/report-place handles validation, rate limiting, and 200 
   assert.equal(res5.statusCode, 200);
   assert.equal(res5.body.success, true);
   assert.equal(res5.body.data.place_id, 'ao-ba-om');
+
+  // 6. Payload size limit (MAX_PAYLOAD_SIZE = 64KB)
+  const hugeRes = mockRes();
+  const hugeDetails = 'A'.repeat(65 * 1024);
+  await handler({
+    method: 'POST',
+    headers: { 'x-forwarded-for': '192.168.1.51' },
+    body: {
+      place_id: 'ao-ba-om',
+      place_name: 'Ao Bà Om',
+      issue_type: 'wrong_hours',
+      details: hugeDetails
+    }
+  }, hugeRes);
+  assert.equal(hugeRes.statusCode, 413, 'Expected 413 for payload exceeding 64KB');
+  assert.equal(hugeRes.body.error.code, 'PAYLOAD_TOO_LARGE');
+
+  // 7. Idempotency test (same client_report_id)
+  const clientReportId = `test_rep_${Date.now()}`;
+  const resFirst = mockRes();
+  await handler({
+    method: 'POST',
+    headers: { 'x-forwarded-for': '192.168.1.52' },
+    body: {
+      place_id: 'ao-ba-om',
+      place_name: 'Ao Bà Om',
+      issue_type: 'wrong_address',
+      details: 'Sai thông tin lần 1',
+      client_report_id: clientReportId
+    }
+  }, resFirst);
+  assert.equal(resFirst.statusCode, 200);
+
+  // Second request with same client_report_id should be idempotent
+  const resSecond = mockRes();
+  await handler({
+    method: 'POST',
+    headers: { 'x-forwarded-for': '192.168.1.52' },
+    body: {
+      place_id: 'ao-ba-om',
+      place_name: 'Ao Bà Om',
+      issue_type: 'wrong_address',
+      details: 'Sai thông tin lần 2 (khác text nhưng cùng client_report_id)',
+      client_report_id: clientReportId
+    }
+  }, resSecond);
+  assert.equal(resSecond.statusCode, 200);
+  assert.equal(resSecond.body.success, true);
+  assert.equal(resSecond.body.idempotent, true);
+});
+
+// 7. SERVER-SIDE DYNAMIC SEO & OPEN GRAPH (RAW HTTP CRAWLER AUDIT)
+console.log('\n--- 7. Server-Side Dynamic HTML & Open Graph Crawler Audit ---');
+await runAsyncTest('api/og-place renders dynamic <title>, OG tags, Twitter cards and JSON-LD for crawlers without JS', async () => {
+  const { renderPlaceHtml } = await import('../api/og-place.js');
+
+  // Test place: Ao Bà Om
+  const htmlAoBaOm = renderPlaceHtml('ao-ba-om');
+  assert.ok(htmlAoBaOm.includes('<title>Ao Bà Om - ViVu Trà Vinh</title>'), 'Place title missing in raw HTML');
+  assert.ok(htmlAoBaOm.includes('<meta property="og:title" content="Ao Bà Om - ViVu Trà Vinh">'), 'OG title missing');
+  assert.ok(htmlAoBaOm.includes('<meta property="og:url" content="https://vivutravinh.vercel.app/?place=ao-ba-om">'), 'OG url missing');
+  assert.ok(htmlAoBaOm.includes('<meta name="twitter:title" content="Ao Bà Om - ViVu Trà Vinh">'), 'Twitter title missing');
+  assert.ok(htmlAoBaOm.includes('Ao Bà Om'), 'Place name missing in rendered HTML');
+  assert.ok(htmlAoBaOm.includes('Danh thắng nổi tiếng'), 'Place description missing');
+
+  // Test unknown place fallback
+  const htmlFallback = renderPlaceHtml('non-existent-place');
+  assert.ok(htmlFallback.includes('<title>ViVuTraVinh'), 'Fallback title missing');
+  assert.ok(htmlFallback.includes('og:title'), 'Fallback OG title missing');
+
+  // Test HTTP Handler mock for crawler request
+  const ogHandler = (await import('../api/og-place.js')).default;
+  const ogRes = {
+    statusCode: 200,
+    headers: {},
+    body: '',
+    setHeader(k, v) { this.headers[k] = v; },
+    end(data) { this.body = data; }
+  };
+  await ogHandler({
+    url: '/?place=chua-hang',
+    query: { place: 'chua-hang' },
+    headers: { 'user-agent': 'facebookexternalhit/1.1' }
+  }, ogRes);
+
+  assert.equal(ogRes.statusCode, 200);
+  assert.ok(ogRes.headers['Content-Type'].includes('text/html'));
+  assert.ok(ogRes.body.includes('Chùa Hang - ViVu Trà Vinh'));
+  assert.ok(ogRes.body.includes('https://vivutravinh.vercel.app/?place=chua-hang'));
 });
 
 console.log(`\n========================================`);

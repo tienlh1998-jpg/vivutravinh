@@ -33,6 +33,7 @@ const APP_SHELL_URLS = [
   './js/articles-data.js',
   './js/comments.js',
   './js/offline-sync.js',
+  './js/telemetry.js',
   './js/ui.js',
   './js/app.js'
 ];

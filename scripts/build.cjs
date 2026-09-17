@@ -84,14 +84,50 @@ console.log('  ✓ Đã tạo dist/index.html độc lập hoàn toàn');
 console.log('\n5. Sao chép Service Worker và tạo metadata version:');
 fs.copyFileSync(path.join(ROOT_DIR, 'service-worker.js'), path.join(DIST_DIR, 'service-worker.js'));
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8'));
+
+// Tính toán chính xác dung lượng gói precache ngoại tuyến từ service-worker.js
+const swContent = fs.readFileSync(path.join(ROOT_DIR, 'service-worker.js'), 'utf8');
+const shellMatch = swContent.match(/const APP_SHELL_URLS = \[([\s\S]*?)\];/);
+const dataMatch = swContent.match(/const DATA_URLS = \[([\s\S]*?)\];/);
+
+let precacheUrls = [];
+if (shellMatch) {
+    const urls = shellMatch[1].match(/'([^']+)'/g)?.map(s => s.replace(/'/g, '')) || [];
+    precacheUrls.push(...urls);
+}
+if (dataMatch) {
+    const urls = dataMatch[1].match(/'([^']+)'/g)?.map(s => s.replace(/'/g, '')) || [];
+    precacheUrls.push(...urls);
+}
+
+const uniquePrecacheFiles = new Set();
+for (const relUrl of precacheUrls) {
+    let clean = relUrl.replace(/^\.\//, '');
+    if (!clean || clean === '/') clean = 'index.html';
+    uniquePrecacheFiles.add(clean);
+}
+
+let precacheSizeBytes = 0;
+for (const file of uniquePrecacheFiles) {
+    const filePath = path.join(DIST_DIR, file);
+    if (fs.existsSync(filePath)) {
+        precacheSizeBytes += fs.statSync(filePath).size;
+    }
+}
+const precacheMib = (precacheSizeBytes / (1024 * 1024)).toFixed(2);
+const precacheMb = (precacheSizeBytes / 1000000).toFixed(1);
+
 const versionInfo = {
     version: pkg.version,
     name: pkg.name,
     buildTime: new Date().toISOString(),
-    environment: 'production'
+    environment: 'production',
+    precacheSizeBytes,
+    precacheSizeMib: `${precacheMib} MiB`,
+    precacheSizeFormatted: `~${precacheMb} MB (Precache ${precacheMib} MiB)`
 };
 fs.writeFileSync(path.join(DIST_DIR, 'version.json'), JSON.stringify(versionInfo, null, 2), 'utf8');
-console.log(`  ✓ Đã sinh dist/version.json (v${pkg.version})`);
+console.log(`  ✓ Đã sinh dist/version.json (v${pkg.version}, Precache: ~${precacheMb} MB / ${precacheMib} MiB)`);
 
 // 7. Thống kê kích thước bundle
 console.log('\n6. Thống kê kích thước bản build dist/:');
@@ -117,6 +153,7 @@ const totalSize = getDirSize(DIST_DIR);
 console.log(`  - HTML chính: ${(htmlSize / 1024).toFixed(1)} KB`);
 console.log(`  - CSS tĩnh: ${(cssSize / 1024).toFixed(1)} KB`);
 console.log(`  - JS modules: ${(jsSize / 1024).toFixed(1)} KB`);
+console.log(`  - Gói dữ liệu ngoại tuyến (Precache App Shell + Data): ${precacheMib} MiB (~${precacheMb} MB)`);
 console.log(`  - Tổng dung lượng dist/ (bao gồm ảnh & font local): ${(totalSize / (1024 * 1024)).toFixed(2)} MB`);
 
 console.log('\n=== BUILD PRODUCTION THÀNH CÔNG RỰC RỠ! ===');

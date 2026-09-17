@@ -1585,11 +1585,13 @@ export async function submitReportPlace(event) {
     }
 
     try {
+        const clientReportId = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
         const payload = {
             place_id: placeId,
             place_name: placeName,
             issue_type: issueType,
-            details: details
+            details: details,
+            client_report_id: clientReportId
         };
 
         const res = await fetch('/api/report-place', {

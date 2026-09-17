@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-17T04:15:01.953Z",
+  "timestamp": "2026-09-17T04:38:38.853Z",
   "version": "2.9.0",
   "environment": {
     "server": "localhost",
@@ -8,23 +8,11 @@
     "browser": "Chrome Headless"
   },
   "desktop": {
-    "lcp": 96,
-    "cls": 0.0441,
+    "lcp": 84,
+    "cls": 0.0366,
     "shifts": [
       {
-        "value": 0.0075,
-        "sources": [
-          {
-            "tag": "FOOTER",
-            "id": "",
-            "class": "mt-auto pb-20 md:pb-0 bg-surface-container-low dark:bg-dark-card border-t border-outline-variant/40 dark:border-dark-border text-on-surface dark:text-zinc-300",
-            "prev": {},
-            "curr": {}
-          }
-        ]
-      },
-      {
-        "value": 0.033177480144393756,
+        "value": 0.033178533939074974,
         "sources": [
           {
             "tag": "DIV",
@@ -85,17 +73,17 @@
     ]
   },
   "mobile": {
-    "lcp": 120,
+    "lcp": 116,
     "cls": 0,
     "shifts": []
   },
   "bundle": {
-    "htmlBytes": 120549,
+    "htmlBytes": 120568,
     "htmlKb": 117.7,
     "cssBytes": 82684,
     "cssKb": 80.7,
-    "jsBytes": 419742,
-    "jsKb": 409.9,
+    "jsBytes": 421198,
+    "jsKb": 411.3,
     "totalMb": 6.37
   }
 }

@@ -61,8 +61,38 @@ export function sanitizeData(data, depth = 0) {
   return String(data);
 }
 
+const STORAGE_KEY = 'vivu_telemetry_events';
+
+function loadStoredEvents() {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        errorBuffer.length = 0;
+        for (const item of parsed.slice(-MAX_BUFFER_SIZE)) {
+          errorBuffer.push(item);
+        }
+      }
+    }
+  } catch {}
+}
+
+function persistEvents() {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(errorBuffer));
+  } catch {}
+}
+
+// Nạp các sự kiện lỗi đã lưu từ phiên trước
+if (typeof window !== 'undefined') {
+  loadStoredEvents();
+}
+
 /**
- * Ghi nhận một sự kiện lỗi vào bộ nhớ đệm
+ * Ghi nhận một sự kiện lỗi vào bộ nhớ đệm và lưu bền vững vào localStorage
  */
 export function recordTelemetryEvent(type, message, metadata = {}) {
   const event = {
@@ -77,6 +107,9 @@ export function recordTelemetryEvent(type, message, metadata = {}) {
     errorBuffer.shift();
   }
   errorBuffer.push(event);
+
+  // Lưu bền vững vào localStorage
+  persistEvents();
 
   // Chỉ in warning có lọc sạch ra console ở môi trường dev để hỗ trợ chẩn đoán (bỏ qua khi đang chạy automated test)
   const isTest = typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.VIVU_TEST === '1');
@@ -136,10 +169,25 @@ export function getRecentTelemetryEvents() {
 export const getTelemetryEvents = getRecentTelemetryEvents;
 
 /**
- * Xóa sạch buffer kiểm thử
+ * Xuất báo cáo chẩn đoán lỗi phục vụ người dùng / kỹ thuật viên
+ */
+export function exportTelemetryReport() {
+  return {
+    version: '2.1.0',
+    exportedAt: new Date().toISOString(),
+    eventCount: errorBuffer.length,
+    events: [...errorBuffer]
+  };
+}
+
+/**
+ * Xóa sạch buffer kiểm thử (bộ nhớ và localStorage)
  */
 export function clearTelemetryEvents() {
   errorBuffer.length = 0;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  }
 }
 
 /**
@@ -148,12 +196,13 @@ export function clearTelemetryEvents() {
 export function initTelemetry() {
   if (typeof window === 'undefined') return;
 
+  loadStoredEvents();
+
   window.addEventListener('error', (event) => {
     recordJsError(event.error || event.message, 'window.error');
   });
 
   window.addEventListener('unhandledrejection', (event) => {
-    const reason = event.reason;
-    recordJsError(reason?.message || String(reason), 'unhandledrejection');
+    recordJsError(event.reason || 'Unhandled Promise Rejection', 'unhandledrejection');
   });
 }
