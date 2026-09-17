@@ -1095,26 +1095,28 @@
                                         <span class="w-6 h-6 rounded-md bg-primary dark:bg-emerald-700 text-white flex items-center justify-center text-xs font-bold font-sans">3</span>
                                         <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-primary dark:text-emerald-400 font-sans">Hình Ảnh Thực Tế</h3>
                                     </div>
-                                    <span class="text-xs text-on-surface-variant dark:text-zinc-400">Đã chọn: <strong id="contribPhotoCount" class="text-primary dark:text-emerald-400 font-bold">0/5 ảnh</strong></span>
+                                    <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-medium border border-amber-200 dark:border-amber-800/60">
+                                        <span class="material-symbols-outlined text-xs">info</span> Đang hoàn thiện
+                                    </span>
                                 </div>
 
-                                <!-- Drag and Drop Dropzone -->
-                                <div id="contribDropzone" onclick="document.getElementById('contribPhotosInput').click()"
-                                    class="border-2 border-dashed border-emerald-300 dark:border-emerald-800/80 hover:border-primary dark:hover:border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50/70 transition-colors rounded-2xl p-5 text-center cursor-pointer flex flex-col items-center justify-center">
-                                    <div class="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-primary dark:text-emerald-300 flex items-center justify-center mb-2 shadow-inner">
-                                        <span class="material-symbols-outlined text-2xl">add_photo_alternate</span>
+                                <!-- Storage Upload In-Progress Banner -->
+                                <div class="rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/25 p-4 flex items-start gap-3.5">
+                                    <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <span class="material-symbols-outlined text-xl">cloud_sync</span>
                                     </div>
-                                    <p class="text-xs sm:text-sm font-semibold text-slate-800 dark:text-zinc-200">
-                                        Kéo thả hình ảnh hoặc <span class="text-primary dark:text-emerald-400 underline font-bold">Bấm để duyệt tải lên</span>
-                                    </p>
-                                    <p class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
-                                        Hỗ trợ định dạng JPG, PNG, WEBP (Tối đa 5 ảnh). Tự động nén ảnh tối ưu để tải lên siêu tốc.
-                                    </p>
-                                    <input type="file" id="contribPhotosInput" multiple accept="image/*" class="hidden" onchange="window.ViVuApp.handleContributePhotosSelect(this.files)" />
+                                    <div class="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed space-y-1">
+                                        <p class="font-bold text-slate-900 dark:text-zinc-100">Tính năng tải ảnh trực tiếp đang hoàn thiện</p>
+                                        <p class="text-slate-600 dark:text-zinc-400">
+                                            Hạ tầng lưu trữ đám mây (Storage) đang được cấu hình bảo mật. Bạn vui lòng gửi thông tin địa điểm trước; Ban Quản Trị sẽ liên hệ qua thông tin liên lạc để bổ sung hình ảnh thực tế đẹp nhất của bạn.
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <!-- Preview Grid Thumbnails -->
-                                <div id="contribPhotosPreview" class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1"></div>
+                                <!-- Hidden elements to maintain backwards compatibility with existing UI helpers -->
+                                <input type="file" id="contribPhotosInput" multiple accept="image/*" class="hidden" disabled />
+                                <div id="contribPhotosPreview" class="hidden"></div>
+                                <span id="contribPhotoCount" class="hidden">0/5 ảnh</span>
                             </section>
 
                             <!-- PHẦN 4: MÔ TẢ & MẸO THỔ ĐỊA -->

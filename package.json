@@ -21,6 +21,7 @@
     "test:g5:live": "node scripts/verify-g5-live.js",
     "test:g6": "node scripts/test-g6-e2e.js",
     "test:g6:browser": "node --experimental-websocket scripts/verify-g6-browser.cjs",
+    "test:g6:live": "node scripts/verify-g6-live.js",
     "check:gate": "npm run check && npm run test:fixtures && npm run test:g2 && npm run test:g3 && npm run test:sw && npm run test:ui && npm run test:g2:browser && npm run test:g3:browser && npm run test:g4:browser && npm run test:g5 && npm run test:g6 && npm run test:g6:browser",
     "test": "npm run check:gate"
   },

@@ -361,9 +361,28 @@ export async function deleteOfflineContribution(id) {
 export async function getPendingContributionCount() {
     try {
         const list = await getAllOfflineContributions();
-        return list.length;
+        return list.filter(c => c.status !== 'needs_fix').length;
     } catch {
         return 0;
+    }
+}
+
+/**
+ * Cập nhật bản ghi đóng góp ngoại tuyến trong IndexedDB
+ */
+export async function updateOfflineContribution(item) {
+    if (!item || !item.id) return;
+    try {
+        const db = await openOfflineDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(CONTRIB_STORE_NAME, 'readwrite');
+            const store = tx.objectStore(CONTRIB_STORE_NAME);
+            const req = store.put(item);
+            req.onsuccess = () => resolve(item);
+            req.onerror = () => reject(req.error);
+        });
+    } catch (e) {
+        console.warn('[OfflineSync] Lỗi cập nhật đóng góp offline:', e);
     }
 }
 
@@ -386,7 +405,9 @@ export async function syncAllPendingContributions(submitFunction, onProgress) {
     let failed = 0;
 
     try {
-        const pending = await getAllOfflineContributions();
+        const all = await getAllOfflineContributions();
+        // Chỉ đồng bộ các bản ghi pending, bỏ qua các bản ghi needs_fix
+        const pending = all.filter(c => c.status !== 'needs_fix');
         if (pending.length === 0) {
             return { total: 0, synced: 0, failed: 0 };
         }
@@ -411,16 +432,43 @@ export async function syncAllPendingContributions(submitFunction, onProgress) {
                     images: contrib.images || []
                 };
 
-                await submitFunction(payload);
-                // Xóa khỏi queue sau khi server xác nhận thành công (idempotent hoặc newly created)
-                await deleteOfflineContribution(contrib.id);
-                synced++;
-                if (onProgress) onProgress(contrib, 'success');
+                const res = await submitFunction(payload);
+
+                // CHỈ XÓA KHỎI QUEUE KHI API TRẢ VỀ success=true HOẶC idempotent=true
+                if (res && (res.success === true || res.idempotent === true || res.status === 'draft')) {
+                    await deleteOfflineContribution(contrib.id);
+                    synced++;
+                    if (onProgress) onProgress(contrib, 'success');
+                } else {
+                    console.warn(`[OfflineSync] Kết quả phản hồi không xác nhận thành công cho ${contrib.id}:`, res);
+                    failed++;
+                }
             } catch (err) {
                 failed++;
                 if (onProgress) onProgress(contrib, 'error', err);
                 console.warn(`[OfflineSync] Lỗi đồng bộ địa điểm ${contrib.id}:`, err.message);
-                if (err.status === 429 || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+
+                // 1. Phân loại lỗi vĩnh viễn (400 Bad Request / 413 Payload Too Large / Validation Error)
+                // Chuyển sang trạng thái needs_fix và ngừng retry tự động để không spam server
+                if (err.status === 400 || err.status === 413 || err.code === 'VALIDATION_ERROR' || err.code === 'PAYLOAD_TOO_LARGE') {
+                    contrib.status = 'needs_fix';
+                    contrib.last_error = err.message || `Lỗi dữ liệu vĩnh viễn (${err.status})`;
+                    contrib.failed_at = new Date().toISOString();
+                    await updateOfflineContribution(contrib);
+                    console.warn(`[OfflineSync] Đóng góp ${contrib.id} đánh dấu 'needs_fix', ngừng retry tự động.`);
+                    continue; // Tiếp tục xử lý các bản ghi khác
+                }
+
+                // 2. Phân loại lỗi giới hạn tần suất hoặc dịch vụ quá tải (429 Rate Limit / 503 Service Unavailable)
+                // Giữ nguyên trạng thái pending và dừng toàn bộ lượt sync hiện tại
+                if (err.status === 429 || err.status === 503 || err.isRateLimitError || err.code === 'RATE_LIMITED' || err.code === 'RATE_LIMIT_UNAVAILABLE') {
+                    console.warn(`[OfflineSync] Server báo ${err.status}. Giữ nguyên pending và dừng lượt sync này.`);
+                    break;
+                }
+
+                // 3. Nếu mất mạng giữa chừng, dừng lượt sync
+                if (typeof navigator !== 'undefined' && !navigator.onLine) {
+                    console.warn('[OfflineSync] Mất kết nối mạng giữa chừng, dừng lượt sync.');
                     break;
                 }
             }

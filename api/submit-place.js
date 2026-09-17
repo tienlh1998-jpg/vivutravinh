@@ -238,13 +238,28 @@ function validatePayload(body) {
     }
   }
 
-  // Images array
+  // Images array: Cấm tuyệt đối Base64 data URL trong payload 128KB
   let images = [];
   if (Array.isArray(body.images)) {
-    images = body.images
-      .filter(img => typeof img === 'string' && img.trim().length > 0)
-      .slice(0, 10)
-      .map(img => img.trim());
+    for (const rawImg of body.images) {
+      if (typeof rawImg === 'string' && rawImg.trim().length > 0) {
+        const trimmed = rawImg.trim();
+        if (trimmed.startsWith('data:')) {
+          throw {
+            code: 'INVALID_IMAGE_URL',
+            message: 'Ảnh phải là đường dẫn URL hợp lệ từ hệ thống lưu trữ, không chấp nhận dữ liệu Base64.'
+          };
+        }
+        if (!/^https?:\/\//i.test(trimmed)) {
+          throw {
+            code: 'INVALID_IMAGE_URL',
+            message: 'Ảnh phải là đường dẫn URL hợp lệ (bắt đầu bằng http:// hoặc https://).'
+          };
+        }
+        images.push(trimmed);
+      }
+    }
+    images = images.slice(0, 10);
   }
 
   const priceRaw = String(body.price_raw || 'Liên hệ').trim().slice(0, 80);
@@ -322,15 +337,11 @@ export default async function handler(request, response) {
     return sendError(response, 400, valErr.code || 'VALIDATION_ERROR', valErr.message || 'Dữ liệu không hợp lệ.');
   }
 
-  // Khóa slug duy nhất theo client_submission_id để đảm bảo tính Idempotent 100%
-  const baseSlug = createSlug(validated.name);
-  const cleanSubId = validated.client_submission_id.replace(/[^a-zA-Z0-9_-]/g, '').slice(-16);
-  const deterministicSlug = `contrib-${baseSlug}-${cleanSubId}`;
-
-  // Kiểm tra Idempotency trước khi ghi: Nếu slug này đã tồn tại
+  // 1. Kiểm tra Idempotency trực tiếp bằng client_submission_id (KHÔNG dùng name hoặc slug làm khóa)
+  // Bất kể tên địa điểm gửi lại có thay đổi hay không, cùng một client_submission_id chỉ tồn tại 1 bản ghi duy nhất
   try {
     const existing = await supabaseRequest(
-      `${TABLE_NAME}?slug=eq.${encodeURIComponent(deterministicSlug)}&select=id,name,slug,category,area,status,created_at&limit=1`
+      `${TABLE_NAME}?client_submission_id=eq.${encodeURIComponent(validated.client_submission_id)}&select=id,name,slug,category,area,status,client_submission_id,created_at&limit=1`
     );
 
     if (Array.isArray(existing) && existing.length > 0) {
@@ -343,11 +354,17 @@ export default async function handler(request, response) {
       });
     }
   } catch (checkErr) {
-    console.warn('[SubmitPlace] Không thể kiểm tra idempotency trước, tiếp tục thử ghi:', checkErr.message);
+    console.warn('[SubmitPlace] Không thể kiểm tra client_submission_id trước, tiếp tục thử ghi:', checkErr.message);
   }
 
-  // Luôn ép status: "draft"
+  // Khóa slug duy nhất kết hợp client_submission_id để không xung đột DB slug unique
+  const baseSlug = createSlug(validated.name);
+  const cleanSubId = validated.client_submission_id.replace(/[^a-zA-Z0-9_-]/g, '').slice(-16);
+  const deterministicSlug = `contrib-${baseSlug}-${cleanSubId}`;
+
+  // Luôn ép status: "draft" và ghi nhận client_submission_id trực tiếp
   const recordToInsert = {
+    client_submission_id: validated.client_submission_id,
     name: validated.name,
     slug: deterministicSlug,
     category: validated.category,
@@ -384,13 +401,30 @@ export default async function handler(request, response) {
       message: 'Cảm ơn bạn! Địa điểm đóng góp đã được tiếp nhận và lưu ở trạng thái bản nháp (draft) chờ Ban Quản Trị duyệt.'
     });
   } catch (dbErr) {
-    // Xử lý duplicate key / unique constraint (idempotency an toàn khi có race condition)
+    // Xử lý duplicate key / unique constraint (idempotency an toàn khi có race condition trên client_submission_id hoặc slug)
     if (/duplicate key|unique constraint|23505/i.test(dbErr.message)) {
+      try {
+        const existingAfterConflict = await supabaseRequest(
+          `${TABLE_NAME}?client_submission_id=eq.${encodeURIComponent(validated.client_submission_id)}&select=id,name,slug,category,area,status,client_submission_id,created_at&limit=1`
+        );
+        if (Array.isArray(existingAfterConflict) && existingAfterConflict.length > 0) {
+          return sendJson(response, 200, {
+            success: true,
+            idempotent: true,
+            status: existingAfterConflict[0].status,
+            data: existingAfterConflict[0],
+            message: 'Địa điểm đóng góp này đã được tiếp nhận trước đó.'
+          });
+        }
+      } catch (e) {
+        // Fallback response nếu query lại thất bại
+      }
+
       return sendJson(response, 200, {
         success: true,
         idempotent: true,
         status: 'draft',
-        data: { slug: deterministicSlug },
+        data: { client_submission_id: validated.client_submission_id, slug: deterministicSlug },
         message: 'Địa điểm đóng góp này đã được tiếp nhận trước đó.'
       });
     }

@@ -2174,6 +2174,7 @@ export async function submitContributedPlace(payload) {
         const err = new Error(errData?.error?.message || 'Bạn đang gửi yêu cầu quá nhanh. Vui lòng thử lại sau ít phút.');
         err.status = 429;
         err.isRateLimitError = true;
+        err.retryAfter = response.headers.get('Retry-After');
         throw err;
     }
 
@@ -2222,6 +2223,11 @@ export async function handleContributeSubmit(event) {
 
     const clientSubmissionId = 'contrib_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 
+    // Chỉ nhận URL ảnh hợp lệ (http/https), tuyệt đối không gửi Base64 trong payload 128KB
+    const validPhotoUrls = (state.contributePhotos || [])
+        .map(p => p.url || p.dataUrl)
+        .filter(u => typeof u === 'string' && /^https?:\/\//i.test(u));
+
     const payload = {
         client_submission_id: clientSubmissionId,
         name,
@@ -2235,7 +2241,7 @@ export async function handleContributeSubmit(event) {
         description,
         contributor: authorName,
         contact: authorContact,
-        images: state.contributePhotos.map(p => p.dataUrl),
+        images: validPhotoUrls,
         status: 'draft',
         created_at: new Date().toISOString()
     };
@@ -2246,25 +2252,34 @@ export async function handleContributeSubmit(event) {
     if (typeof navigator === 'undefined' || navigator.onLine) {
         try {
             const apiResult = await submitContributedPlace(payload);
-            if (apiResult && (apiResult.success || apiResult.status === 'draft')) {
+            if (apiResult && (apiResult.success || apiResult.status === 'draft' || apiResult.idempotent)) {
                 submittedSuccess = true;
             }
         } catch (err) {
             console.warn('[Contribution] Gửi API chưa thành công:', err.message);
-            // Validation 400: Dữ liệu không hợp lệ, không lưu vào IndexedDB
-            if (err.status === 400) {
-                alert(`⚠️ Không thể gửi: ${err.message || 'Dữ liệu không hợp lệ.'}`);
+            // HTTP 400 (Validation) hoặc HTTP 413 (Payload Too Large) là lỗi vĩnh viễn:
+            // Giữ nguyên form để người dùng chỉnh sửa, tuyệt đối KHÔNG đưa vào retry queue
+            if (err.status === 400 || err.status === 413) {
+                alert(`⚠️ Không thể gửi (${err.status}): ${err.message}\nVui lòng kiểm tra lại thông tin trên form.`);
                 return;
             }
-            if (err.status === 429) {
-                alert(`⏳ ${err.message || 'Bạn đang gửi quá nhanh, vui lòng thử lại sau.'}`);
+            // HTTP 429: Rate Limit -> Giữ nguyên form và hiển thị Retry-After, KHÔNG đưa vào retry queue
+            if (err.status === 429 || err.isRateLimitError) {
+                const retryMsg = err.retryAfter ? ` (vui lòng chờ ${err.retryAfter} giây)` : '';
+                alert(`⏳ Bạn đang gửi quá nhanh${retryMsg}. Vui lòng giữ nguyên form và thử lại sau.`);
                 return;
             }
-            // Lỗi mạng hoặc 5xx: fallback lưu offline queue
+            // Chỉ các lỗi tạm thời: lỗi mạng, timeout, hoặc 500/502/503/504 mới tiếp tục fallback vào IndexedDB
+            const isTransient = err.isNetworkError || err.name === 'AbortError' ||
+                                (err.status >= 500 && err.status <= 504);
+            if (!isTransient) {
+                alert(`⚠️ Không thể gửi (${err.status || 'Lỗi'}): ${err.message}`);
+                return;
+            }
         }
     }
 
-    // 2. Chỉ lưu vào IndexedDB khi thiết bị Offline hoặc gặp sự cố mạng (KHÔNG lưu trùng khi online thành công)
+    // 2. Chỉ lưu vào IndexedDB khi thiết bị Offline hoặc gặp sự cố mạng tạm thời (5xx/timeout)
     if (!submittedSuccess) {
         try {
             await saveOfflineContribution(payload);

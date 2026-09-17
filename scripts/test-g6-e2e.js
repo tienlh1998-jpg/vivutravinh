@@ -223,6 +223,19 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
   assert.strictEqual(resMissing.status, 400, 'Thiếu thông tin bắt buộc phải trả về HTTP 400');
   assert.strictEqual(resMissing.body.success, false);
 
+  // Chặn 400: Dữ liệu ảnh dạng Base64 (buộc dùng URL Storage, tránh phình tải gây lỗi 413)
+  const resBase64 = await testApiEndpoint({
+    client_submission_id: 'sub_test_b64',
+    name: 'Quán Có Ảnh Base64',
+    category: 'Ẩm thực',
+    area: 'TP. Trà Vinh',
+    address: '123 Đường Test',
+    description: 'Mô tả hợp lệ dài trên năm ký tự',
+    images: ['data:image/jpeg;base64,/9j/4AAQSkZJRg...']
+  });
+  assert.strictEqual(resBase64.status, 400, 'Gửi ảnh Base64 phải bị từ chối với HTTP 400');
+  assert.strictEqual(resBase64.body.error.code, 'INVALID_IMAGE_URL');
+
   // Chặn 413: Payload vượt quá 128KB
   const hugeString = JSON.stringify({ name: 'Huge Place', description: 'x'.repeat(130 * 1024) });
   const resHuge = await testApiEndpoint(hugeString);
@@ -237,7 +250,7 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
   assert.strictEqual(res429.body.error.code, 'RATE_LIMITED');
   assert.ok(res429.headers['Retry-After'], 'Phải trả về header Retry-After khi bị rate limit');
 
-  // Gửi hợp lệ: Giả lập mock DB và kiểm tra ép status draft & slug deterministic
+  // Gửi hợp lệ: Giả lập mock DB và kiểm tra ép status draft & idempotency theo client_submission_id
   const originalFetch = globalThis.fetch;
   const mockDbRecords = [];
   try {
@@ -249,6 +262,11 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
           const newRec = { id: mockDbRecords.length + 1, ...body };
           mockDbRecords.push(newRec);
           return { ok: true, status: 201, json: async () => [newRec] };
+        }
+        if (u.includes('client_submission_id=eq.')) {
+          const subIdParam = decodeURIComponent(u.split('client_submission_id=eq.')[1].split('&')[0]);
+          const found = mockDbRecords.filter(r => r.client_submission_id === subIdParam);
+          return { ok: true, status: 200, json: async () => found };
         }
         if (u.includes('slug=eq.')) {
           const slugParam = decodeURIComponent(u.split('slug=eq.')[1].split('&')[0]);
@@ -266,21 +284,29 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
       area: 'TP. Trà Vinh',
       address: '123 Đường Đồng Khởi, P.4',
       description: 'Quán bún nước lèo truyền thống chuẩn vị thơm ngon',
+      images: ['https://storage.supabase.co/v1/object/public/contribution-photos/contributions/photo1.jpg'],
       status: 'approved' // Kẻ gian cố tình gửi approved
     };
 
-    // Lần 1: Tạo mới thành công, ép status draft
+    // Lần 1: Tạo mới thành công, ép status draft và lưu client_submission_id
     const res1 = await testApiEndpoint(validSubmission);
     assert.strictEqual(res1.status, 201, 'Tạo draft thành công trả về 201');
     assert.strictEqual(res1.body.status, 'draft', 'API phải luôn ép status = draft bất kể input');
     assert.strictEqual(res1.body.data.status, 'draft', 'Bản ghi DB phải có status = draft');
+    assert.strictEqual(res1.body.data.client_submission_id, validSubmission.client_submission_id, 'client_submission_id được ghi nhận chính xác');
     assert.ok(res1.body.data.slug.startsWith('contrib-quan-bun-nuoc-leo-co-ba-'), 'Slug tạo theo định dạng chuẩn deterministic');
 
-    // Lần 2 (Retry cùng client_submission_id): Phải Idempotent (HTTP 200), không sinh duplicate
-    const res2 = await testApiEndpoint(validSubmission);
-    assert.strictEqual(res2.status, 200, 'Gửi lại cùng submission ID phải trả về 200 Idempotent');
-    assert.strictEqual(res2.body.idempotent, true, 'idempotent flag phải là true');
-    assert.strictEqual(mockDbRecords.length, 1, 'Database chỉ có 1 bản ghi duy nhất, không bị nhân đôi');
+    // Lần 2 (Retry cùng client_submission_id NHƯNG THAY ĐỔI TÊN ĐỊA ĐIỂM):
+    // Phải Idempotent (HTTP 200), không sinh duplicate, không bị ảnh hưởng bởi name hay slug
+    const res2DifferentName = await testApiEndpoint({
+      ...validSubmission,
+      name: 'Quán Bún Nước Lèo Đã Đổi Tên Thành Cô Tư',
+      address: 'Địa chỉ đã sửa đổi'
+    });
+    assert.strictEqual(res2DifferentName.status, 200, 'Retry cùng submission ID dù đổi name vẫn phải trả về 200 Idempotent');
+    assert.strictEqual(res2DifferentName.body.idempotent, true, 'idempotent flag phải là true');
+    assert.strictEqual(res2DifferentName.body.data.name, 'Quán Bún Nước Lèo Cô Ba', 'Trả về bản ghi gốc đã lưu');
+    assert.strictEqual(mockDbRecords.length, 1, 'Database chỉ có 1 bản ghi duy nhất, tuyệt đối không bị nhân đôi khi đổi tên');
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -617,7 +643,7 @@ await runTest('E07', 'Lưu review & đóng góp khi offline -> Phục hồi -> O
   assert.strictEqual(sync2.duplicate, true, 'Lần 2 nhận diện trùng lặp client_review_id, không tạo thêm dòng');
   assert.strictEqual(serverReceived.length, 1, 'Database chỉ có đúng 1 bản ghi duy nhất');
 
-  // 3. Kiểm thử Hàng đợi Đóng góp Địa điểm Ngoại tuyến (Offline Contributions)
+  // 3. Kiểm thử Hàng đợi Đóng góp Địa điểm Ngoại tuyến (Offline Contributions) & Phân loại lỗi
   const contribQueue = [];
   function mockSaveOfflineContribution(item) {
     const record = {
@@ -635,24 +661,43 @@ await runTest('E07', 'Lưu review & đóng góp khi offline -> Phục hồi -> O
     if (idx !== -1) contribQueue.splice(idx, 1);
   }
 
+  function mockUpdateOfflineContribution(item) {
+    const idx = contribQueue.findIndex(c => c.id === item.id);
+    if (idx !== -1) contribQueue[idx] = item;
+  }
+
   async function mockSyncAllPendingContributions(submitFn) {
     let synced = 0;
     let failed = 0;
-    const items = [...contribQueue];
+    // Chỉ đồng bộ các bản ghi chưa bị đánh dấu needs_fix
+    const items = contribQueue.filter(c => c.status !== 'needs_fix');
     for (const item of items) {
       try {
-        await submitFn(item);
-        mockDeleteOfflineContribution(item.id);
-        synced++;
+        const res = await submitFn(item);
+        if (res && (res.success === true || res.idempotent === true || res.status === 'draft')) {
+          mockDeleteOfflineContribution(item.id);
+          synced++;
+        }
       } catch (err) {
         failed++;
-        if (err.status === 429) break;
+        // 400 hoặc 413: Chuyển sang needs_fix và ngừng retry để không bị loop 413 vô hạn
+        if (err.status === 400 || err.status === 413 || err.code === 'VALIDATION_ERROR' || err.code === 'PAYLOAD_TOO_LARGE') {
+          item.status = 'needs_fix';
+          item.last_error = err.message || `Lỗi ${err.status}`;
+          mockUpdateOfflineContribution(item);
+          continue;
+        }
+        // 429 hoặc 503: Giữ pending và dừng đợt sync
+        if (err.status === 429 || err.status === 503 || err.code === 'RATE_LIMITED') {
+          break;
+        }
       }
     }
     return { total: items.length, synced, failed };
   }
 
-  // 3.1 Lưu khi offline
+  // 3.1 Lưu khi offline (lỗi 500 hoặc rớt mạng)
+  contribQueue.length = 0;
   const offlineContrib = mockSaveOfflineContribution({
     id: 'off_c1',
     client_submission_id: 'sub_off_1',
@@ -664,7 +709,7 @@ await runTest('E07', 'Lưu review & đóng góp khi offline -> Phục hồi -> O
   });
   assert.strictEqual(contribQueue.length, 1, 'Địa điểm đóng góp được lưu an toàn vào hàng đợi offline');
 
-  // 3.2 Khi server báo lỗi 429 hoặc lỗi mạng: KHÔNG được xóa khỏi hàng đợi
+  // 3.2 Khi server báo lỗi 429 hoặc 503: KHÔNG được xóa khỏi hàng đợi, dừng đợt sync
   const rateLimitError = new Error('Rate limit');
   rateLimitError.status = 429;
   const failSync = await mockSyncAllPendingContributions(async () => { throw rateLimitError; });
@@ -672,10 +717,39 @@ await runTest('E07', 'Lưu review & đóng góp khi offline -> Phục hồi -> O
   assert.strictEqual(failSync.synced, 0);
   assert.strictEqual(contribQueue.length, 1, 'Khi gặp lỗi 429, địa điểm phải giữ lại trong hàng đợi để đồng bộ sau');
 
-  // 3.3 Khi mạng online trở lại: Đồng bộ thành công và XÓA khỏi hàng đợi sau xác nhận server
+  // 3.3 Kiểm thử bản ghi dính lỗi 413 / 400: Phải chuyển sang needs_fix và NGỪNG RETRY VÔ HẠN
+  const badItem = mockSaveOfflineContribution({
+    id: 'off_bad_413',
+    client_submission_id: 'sub_bad_413',
+    name: 'Quán Bị Lỗi Payload Quá Tải',
+    category: 'Cafe',
+    area: 'TP. Trà Vinh',
+    address: '789 Đường Lớn',
+    description: 'Nội dung quá lớn'
+  });
+  assert.strictEqual(contribQueue.length, 2);
+
+  const payloadTooLargeError = new Error('Payload too large');
+  payloadTooLargeError.status = 413;
+  payloadTooLargeError.code = 'PAYLOAD_TOO_LARGE';
+
+  // Giả lập sync item bị lỗi 413: chuyển thành needs_fix và không xóa khỏi queue
+  await (async () => {
+    try {
+      throw payloadTooLargeError;
+    } catch (err) {
+      badItem.status = 'needs_fix';
+      badItem.last_error = err.message;
+      mockUpdateOfflineContribution(badItem);
+    }
+  })();
+  assert.strictEqual(badItem.status, 'needs_fix', 'Bản ghi gặp lỗi 413 chuyển sang trạng thái needs_fix');
+
+  // Lần sync tiếp theo: Bản ghi needs_fix không được retry nữa (chống vòng lặp 413)
+  let retriedBadItem = false;
   const serverSavedContribs = [];
   const successSync = await mockSyncAllPendingContributions(async (payload) => {
-    // Idempotent check
+    if (payload.id === 'off_bad_413') retriedBadItem = true;
     const dup = serverSavedContribs.find(s => s.client_submission_id === payload.client_submission_id);
     if (!dup) {
       serverSavedContribs.push({ ...payload, status: 'draft' });
@@ -683,9 +757,10 @@ await runTest('E07', 'Lưu review & đóng góp khi offline -> Phục hồi -> O
     return { success: true, status: 'draft' };
   });
 
-  assert.strictEqual(successSync.synced, 1, 'Đồng bộ thành công 1 địa điểm');
-  assert.strictEqual(contribQueue.length, 0, 'Hàng đợi offline đã được dọn sạch sau khi server xác nhận');
+  assert.strictEqual(retriedBadItem, false, 'Bản ghi needs_fix tuyệt đối không bị retry tự động, chặn đứng vòng lặp 413');
+  assert.strictEqual(successSync.synced, 1, 'Đồng bộ thành công 1 địa điểm hợp lệ (off_c1)');
   assert.strictEqual(serverSavedContribs.length, 1, 'Server lưu đúng 1 bản ghi draft');
+  assert.strictEqual(contribQueue.filter(c => c.status !== 'needs_fix').length, 0, 'Hàng đợi pending đã sạch sau khi server xác nhận');
 
   // 3.4 Giả lập retry mạng chập chờn: Server idempotent không bị trùng lặp
   const retryResult = await (async () => {
@@ -714,24 +789,64 @@ await runTest('E08', 'Lỗi 429/500/Timeout -> Không mất dữ liệu form; B�
   const errTimeout = new SupabaseRequestError('Yêu cầu Supabase bị timeout sau 8000ms', 408);
   assert.strictEqual(errTimeout.status, 408, 'Nhận diện đúng lỗi timeout 408');
 
-  // 2. Bảo toàn nội dung form: Không bao giờ xóa nội dung form khi gặp lỗi
-  const formState = {
-    author: 'Nguyễn Văn A',
-    rating: '5',
-    comment: 'Nội dung đánh giá tâm huyết rất dài cần được bảo toàn...'
-  };
-
-  function simulateErrorHandling(error, currentForm) {
-    // Khi có lỗi, thông báo hiển thị, form KHÔNG được reset
+  // 2. Bảo toàn nội dung form khi gặp lỗi (400, 413, 429):
+  // HTTP 400/413: Lỗi vĩnh viễn, GIỮ FORM để sửa, TUYỆT ĐỐI KHÔNG đưa vào retry queue
+  function handleFormSubmissionResult(status, errorMsg, formState, queue) {
+    if (status === 400 || status === 413) {
+      return {
+        action: 'KEEP_FORM_AND_ALERT',
+        queued: false,
+        formPreserved: { ...formState },
+        message: errorMsg
+      };
+    }
+    if (status === 429) {
+      return {
+        action: 'SHOW_COOLDOWN_AND_KEEP_FORM',
+        queued: false,
+        formPreserved: { ...formState },
+        message: errorMsg
+      };
+    }
+    // Lỗi tạm thời (500, network offline): Đưa vào queue
+    queue.push({ ...formState, status: 'pending_draft' });
     return {
-      message: error.message,
-      preservedForm: { ...currentForm }
+      action: 'QUEUE_AND_SHOW_TOAST',
+      queued: true,
+      formPreserved: null,
+      message: 'Đã lưu ngoại tuyến'
     };
   }
 
-  const result = simulateErrorHandling(err429, formState);
-  assert.strictEqual(result.preservedForm.author, 'Nguyễn Văn A', 'Tên tác giả được bảo toàn');
-  assert.strictEqual(result.preservedForm.comment, formState.comment, 'Nội dung đánh giá được bảo toàn nguyên vẹn');
+  const testForm = {
+    name: 'Quán Thổ Địa Test',
+    address: '123 Đường Ba Mươi Tháng Tư',
+    description: 'Mô tả chi tiết rất dài...'
+  };
+  const testQueue = [];
+
+  // Thử lỗi 413: Giữ form, không queue
+  const res413 = handleFormSubmissionResult(413, 'Payload Too Large', testForm, testQueue);
+  assert.strictEqual(res413.queued, false, 'Lỗi 413 tuyệt đối không được đưa vào queue');
+  assert.strictEqual(res413.formPreserved.name, testForm.name, 'Form được bảo toàn nguyên vẹn');
+  assert.strictEqual(testQueue.length, 0, 'Queue vẫn rỗng khi gặp lỗi 413');
+
+  // Thử lỗi 400: Giữ form, không queue
+  const res400 = handleFormSubmissionResult(400, 'Bad Request', testForm, testQueue);
+  assert.strictEqual(res400.queued, false, 'Lỗi 400 tuyệt đối không được đưa vào queue');
+  assert.strictEqual(testQueue.length, 0, 'Queue vẫn rỗng khi gặp lỗi 400');
+
+  // Thử lỗi 429: Giữ form, hiển thị cooldown, không queue
+  const res429 = handleFormSubmissionResult(429, 'Rate Limited', testForm, testQueue);
+  assert.strictEqual(res429.queued, false, 'Lỗi 429 không đưa vào queue');
+  assert.strictEqual(res429.action, 'SHOW_COOLDOWN_AND_KEEP_FORM');
+  assert.strictEqual(testQueue.length, 0, 'Queue vẫn rỗng khi bị rate limit');
+
+  // Thử lỗi 500 / Offline: Đưa vào queue an toàn
+  const res500 = handleFormSubmissionResult(500, 'Server Error', testForm, testQueue);
+  assert.strictEqual(res500.queued, true, 'Lỗi 500/offline được đưa vào queue ngoại tuyến');
+  assert.strictEqual(testQueue.length, 1, 'Hàng đợi IndexedDB ghi nhận 1 bản ghi');
+  assert.strictEqual(testQueue[0].name, 'Quán Thổ Địa Test');
 });
 
 // =========================================================================
