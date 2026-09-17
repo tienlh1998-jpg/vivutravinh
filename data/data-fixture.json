@@ -1,5 +1,6 @@
 [
   {
+    "ID": "1001",
     "Dấu thời gian": "15/09/2026 08:00:00",
     "Tên địa điểm": "Bún Nước Lèo Thổ Địa Trà Vinh",
     "Phân loại": "Món Ngon / Đặc Sản",
@@ -21,6 +22,7 @@
     "Slug": "bun-nuoc-leo-tho-dia-tra-vinh"
   },
   {
+    "ID": "1002",
     "Dấu thời gian": "15/09/2026 08:05:00",
     "Tên địa điểm": "Góc Hẹn Phố Cổ Cafe",
     "Phân loại": "Cafe & Trà Sữa",
@@ -42,6 +44,7 @@
     "Slug": "goc-hen-pho-co-cafe"
   },
   {
+    "ID": "1003",
     "Dấu thời gian": "15/09/2026 08:10:00",
     "Tên địa điểm": "Danh Thắng Ao Bà Om",
     "Phân loại": "Điểm Check-in / Sống Ảo",
@@ -63,6 +66,7 @@
     "Slug": "danh-thang-ao-ba-om"
   },
   {
+    "ID": "1004",
     "Dấu thời gian": "15/09/2026 08:15:00",
     "Tên địa điểm": "Resort Sinh Thái Dừa Xanh",
     "Phân loại": "Lưu Trú",
@@ -84,6 +88,7 @@
     "Slug": "resort-sinh-thai-dua-xanh"
   },
   {
+    "ID": "1005",
     "Dấu thời gian": "15/09/2026 08:20:00",
     "Tên địa điểm": "Quán Ăn Gia Đình Không Có Ảnh",
     "Phân loại": "Món Ngon / Đặc Sản",
@@ -105,6 +110,7 @@
     "Slug": "quan-an-gia-dinh-khong-anh"
   },
   {
+    "ID": "1006",
     "Dấu thời gian": "15/09/2026 08:25:00",
     "Tên địa điểm": "Tiệm Bánh Dân Gian Ảnh Lỗi 404",
     "Phân loại": "Món Ngon / Đặc Sản",
@@ -126,6 +132,7 @@
     "Slug": "tiem-banh-dan-gian-anh-404"
   },
   {
+    "ID": "1007",
     "Dấu thời gian": "15/09/2026 08:30:00",
     "Tên địa điểm": "Điểm Dừng Chân Thiếu Toàn Bộ Thông Tin",
     "Phân loại": "Điểm Check-in / Sống Ảo",
@@ -147,6 +154,7 @@
     "Slug": "diem-dung-chan-thieu-thong-tin"
   },
   {
+    "ID": "1008",
     "Dấu thời gian": "15/09/2026 08:35:00",
     "Tên địa điểm": "Chợ Phiên Làng Nghề Tạm Đóng Bảo Trì",
     "Phân loại": "Mua Sắm & Quà Tặng",
@@ -168,6 +176,7 @@
     "Slug": "cho-phien-tam-dong-bao-tri"
   },
   {
+    "ID": "1009",
     "Dấu thời gian": "15/09/2026 08:40:00",
     "Tên địa điểm": "Quán Ốc Phố Đêm Mở Qua Đêm",
     "Phân loại": "Nhậu & Lai Rai",
@@ -189,6 +198,7 @@
     "Slug": "quan-oc-pho-dem-mo-qua-dem"
   },
   {
+    "ID": "1010",
     "Dấu thời gian": "15/09/2026 08:45:00",
     "Tên địa điểm": "Quán Cà Phê Sinh Thái Miệt Vườn Trà Vinh Không Gian Xanh Cổ Thụ & Trải Nghiệm Đờn Ca Tài Tử Xứ Trà Cực Kỳ Dài Tên",
     "Phân loại": "Cafe & Trà Sữa",

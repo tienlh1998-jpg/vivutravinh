@@ -393,6 +393,12 @@ async function runG6BrowserTests() {
         if (!favResult.isAppSaved || !favResult.hasCanonicalKey) {
             throw new Error('Nút bookmark trên giao diện không lưu đúng khóa chuẩn');
         }
+        if (favResult.expectedCanonicalKey !== '1001') {
+            throw new Error(`expectedCanonicalKey phải là '1001' (dbId), nhận được: ${favResult.expectedCanonicalKey}`);
+        }
+        if (favResult.migratedFavs[0] !== '1001') {
+            throw new Error(`migratedFavs[0] phải là '1001', nhận được: ${favResult.migratedFavs[0]}`);
+        }
         if (favResult.isStillSaved || favResult.postUnfavoriteLength !== 0) {
             throw new Error('Thao tác bỏ thích không dọn sạch các bí danh');
         }
@@ -462,7 +468,121 @@ async function runG6BrowserTests() {
         console.log(`  ✅ Bố cục di động 390px không tràn ngang: scrollWidth = ${touchTargets.scrollWidth}px, clientWidth = ${touchTargets.clientWidth}px`);
         if (!touchTargets.noHorizontalOverflow) throw new Error('Phát hiện hiện tượng tràn ngang trên màn hình di động');
 
-        console.log('\n=== TẤT CẢ 5 NHÓM KIỂM THỬ TRÌNH DUYỆT THỰC TẾ G6 ĐẠT 100% HOÀN HẢO! ===\n');
+        // =========================================================================
+        // TEST 6: Form Đóng Góp Địa Điểm, Lưu Offline IndexedDB & Tự Động Đồng Bộ (E01, E07)
+        // =========================================================================
+        console.log('\n[6] KIỂM THỬ FORM ĐÓNG GÓP, OFFLINE INDEXEDDB & TỰ ĐỘNG ĐỒNG BỘ (E01, E07):');
+        const contribResult = await cdp.eval(`(async () => {
+            // Mở modal đóng góp
+            window.ViVuApp.openContributeModal();
+            const modal = document.getElementById('contributeModal');
+            const isModalOpen = modal && !modal.classList.contains('hidden');
+
+            // Điền dữ liệu vào form
+            const nameInput = document.getElementById('contribPlaceName');
+            const addressInput = document.getElementById('contribAddress');
+            const descInput = document.getElementById('contribDescription');
+            const authorInput = document.getElementById('contribAuthorName');
+            if (nameInput) nameInput.value = 'Quán Bún Nước Lèo Cây Đa';
+            if (addressInput) addressInput.value = '123 Đường Điện Biên Phủ, Phường 6, TP. Trà Vinh';
+            if (descInput) descInput.value = 'Quán bún nước lèo lâu đời với hương vị truyền thống chuẩn vị.';
+            if (authorInput) authorInput.value = 'Kiểm Thử Viên Browser';
+
+            // 1. Giả lập mất mạng khi gửi: Intercept fetch tới /api/submit-place
+            const origFetch = window.fetch;
+            window.fetch = async (url, opts) => {
+                if (String(url).includes('/api/submit-place')) {
+                    throw new TypeError('Failed to fetch (Simulated Offline Network Error)');
+                }
+                return origFetch(url, opts);
+            };
+
+            // Gửi form
+            await window.ViVuApp.handleContributeSubmit();
+
+            // Đợi 100ms để DOM & DB cập nhật
+            await new Promise(r => setTimeout(r, 100));
+
+            // Kiểm tra toast offline
+            const toast = document.getElementById('offlineSyncToast');
+            const toastMsg = document.getElementById('syncToastMsg')?.textContent || '';
+            const isOfflineToast = toastMsg.includes('Đã lưu an toàn ngoại tuyến') || (!toast.classList.contains('hidden') && toastMsg.includes('ngoại tuyến'));
+
+            // Đếm số bản ghi trong IndexedDB offline_contributions
+            const countOffline = await new Promise((resolve) => {
+                const req = indexedDB.open('ViVuTraVinh_DB', 3);
+                req.onsuccess = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('offline_contributions')) return resolve(0);
+                    const tx = db.transaction('offline_contributions', 'readonly');
+                    const store = tx.objectStore('offline_contributions');
+                    const cReq = store.count();
+                    cReq.onsuccess = () => resolve(cReq.result);
+                    cReq.onerror = () => resolve(0);
+                };
+                req.onerror = () => resolve(0);
+            });
+
+            // 2. Giả lập có mạng trở lại: Mock /api/submit-place trả về thành công
+            window.fetch = async (url, opts) => {
+                if (String(url).includes('/api/submit-place')) {
+                    return {
+                        ok: true,
+                        status: 201,
+                        json: async () => ({
+                            success: true,
+                            status: 'draft',
+                            data: { id: 'test_sync_id', slug: 'contrib-quan-bun-nuoc-leo-cay-da-browser' }
+                        })
+                    };
+                }
+                return origFetch(url, opts);
+            };
+
+            // Kích hoạt đồng bộ
+            const syncResult = await window.ViVuApp.syncAllPendingContributions();
+
+            // Đếm lại bản ghi sau khi đồng bộ
+            const countAfterSync = await new Promise((resolve) => {
+                const req = indexedDB.open('ViVuTraVinh_DB', 3);
+                req.onsuccess = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('offline_contributions')) return resolve(0);
+                    const tx = db.transaction('offline_contributions', 'readonly');
+                    const store = tx.objectStore('offline_contributions');
+                    const cReq = store.count();
+                    cReq.onsuccess = () => resolve(cReq.result);
+                    cReq.onerror = () => resolve(0);
+                };
+                req.onerror = () => resolve(0);
+            });
+
+            // Khôi phục fetch gốc và đóng modal
+            window.fetch = origFetch;
+            window.ViVuApp.closeContributeModal();
+
+            return {
+                isModalOpen,
+                isOfflineToast,
+                countOffline,
+                syncedCount: syncResult?.synced || 0,
+                countAfterSync
+            };
+        })()`);
+
+        if (contribResult.error) throw new Error(contribResult.error);
+        console.log(`  ✅ Modal đóng góp mở thành công: ${contribResult.isModalOpen}`);
+        console.log(`  ✅ Khi mất mạng, form tự lưu an toàn vào IndexedDB: ${contribResult.isOfflineToast} (Pending count = ${contribResult.countOffline})`);
+        console.log(`  ✅ Khi có mạng lại, Auto-Sync đồng bộ thành công: ${contribResult.syncedCount} mục`);
+        console.log(`  ✅ Hàng đợi IndexedDB được dọn sạch sau khi server xác nhận: ${contribResult.countAfterSync === 0} (Còn lại = ${contribResult.countAfterSync})`);
+
+        if (!contribResult.isModalOpen) throw new Error('Không thể mở modal đóng góp');
+        if (!contribResult.isOfflineToast) throw new Error('Toast thông báo offline không hiển thị đúng nội dung');
+        if (contribResult.countOffline !== 1) throw new Error(`IndexedDB phải có 1 bản ghi offline, thực tế: ${contribResult.countOffline}`);
+        if (contribResult.syncedCount !== 1) throw new Error(`Auto-Sync phải đồng bộ 1 bản ghi, thực tế: ${contribResult.syncedCount}`);
+        if (contribResult.countAfterSync !== 0) throw new Error(`IndexedDB chưa xóa bản ghi sau khi sync, còn lại: ${contribResult.countAfterSync}`);
+
+        console.log('\n=== TẤT CẢ 6 NHÓM KIỂM THỬ TRÌNH DUYỆT THỰC TẾ G6 ĐẠT 100% HOÀN HẢO! ===\n');
 
     } finally {
         if (cdp) cdp.close();

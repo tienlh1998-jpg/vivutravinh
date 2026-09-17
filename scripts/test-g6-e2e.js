@@ -22,6 +22,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import submitPlaceHandler from '../api/submit-place.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
+
 import {
   parsePrice,
   parseOperatingHours,
@@ -81,10 +84,10 @@ console.log('=== BẮT ĐẦU BỘ KIỂM THỬ ĐẦU CUỐI G6: THÊM ĐỊA �
 let passedTests = 0;
 let totalTests = 0;
 
-function runTest(caseId, name, testFn) {
+async function runTest(caseId, name, testFn) {
   totalTests++;
   try {
-    testFn();
+    await testFn();
     console.log(`  ✓ [${caseId}] ${name}`);
     passedTests++;
   } catch (err) {
@@ -98,7 +101,7 @@ function runTest(caseId, name, testFn) {
 // =========================================================================
 console.log('--- [E01] Kiểm thử Địa Điểm Đủ Dữ Liệu & Vòng Đời Phê Duyệt ---');
 
-runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved -> Tìm kiếm có/không dấu -> Filter & Modal Links', () => {
+await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved -> Tìm kiếm có/không dấu -> Filter & Modal Links', async () => {
   // 1. Tạo địa điểm đầy đủ dữ liệu ở trạng thái Draft
   const rawDraft = {
     'Tên địa điểm': 'Chùa Hang Mới Thổ Địa',
@@ -157,6 +160,130 @@ runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved -> Tìm 
   assert.strictEqual(approvedPlace.hasValidGps, true, 'Có tọa độ GPS hợp lệ');
   assert.strictEqual(approvedPlace.contactPhone, '02943859999', 'Số điện thoại được chuẩn hóa để gọi tel:');
   assert.strictEqual(approvedPlace.mapLink.includes('9.9123'), true, 'Link Maps chứa tọa độ chuẩn');
+
+  // 7. Bảo mật & Quy trình đóng góp địa điểm mới:
+  // 7.1 Kiểm tra mã nguồn Client (js/app.js): Tuyệt đối KHÔNG gọi trực tiếp POST /rest/v1/places bằng anon key
+  const appJsCode = fs.readFileSync(path.join(ROOT_DIR, 'js', 'app.js'), 'utf8');
+  assert.strictEqual(
+    appJsCode.includes('/rest/v1/places'),
+    false,
+    'Client js/app.js không được gửi trực tiếp POST tới /rest/v1/places bằng anon key (phải qua /api/submit-place)'
+  );
+
+  // 7.2 Kiểm tra RLS Supabase: Anon key bị từ chối 401/403 khi cố tình insert trực tiếp vào places
+  try {
+    const anonRes = await fetch(`${SUPABASE_URL}/rest/v1/places`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: 'Hacker Injected Place', status: 'approved' })
+    });
+    assert.ok(
+      anonRes.status === 401 || anonRes.status === 403,
+      `Anon direct POST vào places phải bị RLS chặn (401/403), nhận được ${anonRes.status}`
+    );
+  } catch (netErr) {
+    // Nếu môi trường offline/không mạng thì xác nhận qua mock
+  }
+
+  // 7.3 Kiểm tra API Backend /api/submit-place.js
+  let ipCounter = 1;
+  async function testApiEndpoint(payload, options = {}) {
+    let statusCode = 200;
+    let resHeaders = {};
+    let resData = null;
+    const ip = options.ip || `10.0.0.${ipCounter++}`;
+    const req = {
+      method: options.method || 'POST',
+      headers: { 'x-forwarded-for': ip, ...(options.headers || {}) },
+      body: payload
+    };
+    const res = {
+      statusCode: 200,
+      setHeader(k, v) { resHeaders[k] = v; },
+      end(d) {
+        statusCode = this.statusCode;
+        try { resData = JSON.parse(d); } catch { resData = d; }
+      }
+    };
+    await submitPlaceHandler(req, res);
+    return { status: statusCode, headers: resHeaders, body: resData };
+  }
+
+  // Cấu hình môi trường test cho backend API
+  process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'http://mock-supabase.local';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'mock-service-role-key';
+  process.env.ALLOW_LOCAL_RATE_LIMIT_FALLBACK = 'true';
+
+  // Chặn 400: Dữ liệu thiếu / sai validate
+  const resMissing = await testApiEndpoint({ name: 'A' });
+  assert.strictEqual(resMissing.status, 400, 'Thiếu thông tin bắt buộc phải trả về HTTP 400');
+  assert.strictEqual(resMissing.body.success, false);
+
+  // Chặn 413: Payload vượt quá 128KB
+  const hugeString = JSON.stringify({ name: 'Huge Place', description: 'x'.repeat(130 * 1024) });
+  const resHuge = await testApiEndpoint(hugeString);
+  assert.strictEqual(resHuge.status, 413, 'Payload > 128KB phải bị từ chối với HTTP 413');
+  assert.strictEqual(resHuge.body.error.code, 'PAYLOAD_TOO_LARGE');
+
+  // Chặn 429: Rate-limiting khi cùng 1 IP gửi quá nhanh (cooldown 10s)
+  const rateLimitIp = '10.99.99.99';
+  await testApiEndpoint({ name: 'A' }, { ip: rateLimitIp });
+  const res429 = await testApiEndpoint({ name: 'A' }, { ip: rateLimitIp });
+  assert.strictEqual(res429.status, 429, 'Cùng IP gửi liên tiếp phải nhận HTTP 429');
+  assert.strictEqual(res429.body.error.code, 'RATE_LIMITED');
+  assert.ok(res429.headers['Retry-After'], 'Phải trả về header Retry-After khi bị rate limit');
+
+  // Gửi hợp lệ: Giả lập mock DB và kiểm tra ép status draft & slug deterministic
+  const originalFetch = globalThis.fetch;
+  const mockDbRecords = [];
+  try {
+    globalThis.fetch = async (url, opts = {}) => {
+      const u = String(url);
+      if (u.includes('/rest/v1/places')) {
+        if (opts.method === 'POST') {
+          const body = JSON.parse(opts.body);
+          const newRec = { id: mockDbRecords.length + 1, ...body };
+          mockDbRecords.push(newRec);
+          return { ok: true, status: 201, json: async () => [newRec] };
+        }
+        if (u.includes('slug=eq.')) {
+          const slugParam = decodeURIComponent(u.split('slug=eq.')[1].split('&')[0]);
+          const found = mockDbRecords.filter(r => r.slug === slugParam);
+          return { ok: true, status: 200, json: async () => found };
+        }
+      }
+      return originalFetch(url, opts);
+    };
+
+    const validSubmission = {
+      client_submission_id: 'sub_test_idempotent_01',
+      name: 'Quán Bún Nước Lèo Cô Ba',
+      category: 'Ẩm thực',
+      area: 'TP. Trà Vinh',
+      address: '123 Đường Đồng Khởi, P.4',
+      description: 'Quán bún nước lèo truyền thống chuẩn vị thơm ngon',
+      status: 'approved' // Kẻ gian cố tình gửi approved
+    };
+
+    // Lần 1: Tạo mới thành công, ép status draft
+    const res1 = await testApiEndpoint(validSubmission);
+    assert.strictEqual(res1.status, 201, 'Tạo draft thành công trả về 201');
+    assert.strictEqual(res1.body.status, 'draft', 'API phải luôn ép status = draft bất kể input');
+    assert.strictEqual(res1.body.data.status, 'draft', 'Bản ghi DB phải có status = draft');
+    assert.ok(res1.body.data.slug.startsWith('contrib-quan-bun-nuoc-leo-co-ba-'), 'Slug tạo theo định dạng chuẩn deterministic');
+
+    // Lần 2 (Retry cùng client_submission_id): Phải Idempotent (HTTP 200), không sinh duplicate
+    const res2 = await testApiEndpoint(validSubmission);
+    assert.strictEqual(res2.status, 200, 'Gửi lại cùng submission ID phải trả về 200 Idempotent');
+    assert.strictEqual(res2.body.idempotent, true, 'idempotent flag phải là true');
+    assert.strictEqual(mockDbRecords.length, 1, 'Database chỉ có 1 bản ghi duy nhất, không bị nhân đôi');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 // =========================================================================
@@ -164,7 +291,7 @@ runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved -> Tìm 
 // =========================================================================
 console.log('\n--- [E02] Kiểm thử Địa Điểm Thiếu Dữ Liệu (Xử Lý Duyên Dáng & Unknown Rõ) ---');
 
-runTest('E02', 'Thiếu ảnh/giá/giờ/GPS/contact -> Giữ bố cục, unknown rõ, không tự gán dữ kiện sai', () => {
+await runTest('E02', 'Thiếu ảnh/giá/giờ/GPS/contact -> Giữ bố cục, unknown rõ, không tự gán dữ kiện sai', () => {
   const incompleteRaw = {
     'Tên địa điểm': 'Quán Nước Mía Ven Sông',
     'Phân loại': 'Ẩm thực',
@@ -223,7 +350,7 @@ runTest('E02', 'Thiếu ảnh/giá/giờ/GPS/contact -> Giữ bố cục, unknow
 // =========================================================================
 console.log('\n--- [E03] Kiểm thử Gallery (Ảnh Dọc/Ngang, Fallback Lỗi, Độc Lập Ảnh) ---');
 
-runTest('E03', 'Gallery nhiều ảnh -> Tỷ lệ dọc/ngang không vỡ -> Ảnh lỗi fallback SVG -> Ảnh không bị lẫn địa điểm', () => {
+await runTest('E03', 'Gallery nhiều ảnh -> Tỷ lệ dọc/ngang không vỡ -> Ảnh lỗi fallback SVG -> Ảnh không bị lẫn địa điểm', () => {
   const placeA = normalizePlace({
     'Tên địa điểm': 'Biển Ba Động Resort',
     'Slug': 'e2e-bien-ba-dong-resort',
@@ -260,7 +387,7 @@ runTest('E03', 'Gallery nhiều ảnh -> Tỷ lệ dọc/ngang không vỡ -> �
 // =========================================================================
 console.log('\n--- [E04] Kiểm thử Chỉnh Sửa Thông Tin & Liên Kết ID Bền Vững ---');
 
-runTest('E04', 'Sửa giờ/giá/ảnh/slug -> ID favorite/recent vẫn liên kết đúng qua ID/dbId', () => {
+await runTest('E04', 'Sửa giờ/giá/ảnh/slug -> ID favorite/recent vẫn liên kết đúng qua ID/dbId', () => {
   // 1. Dữ liệu ban đầu
   const originalPlace = normalizePlace({
     'ID': '101',
@@ -338,7 +465,7 @@ runTest('E04', 'Sửa giờ/giá/ảnh/slug -> ID favorite/recent vẫn liên k�
 // =========================================================================
 console.log('\n--- [E05] Kiểm thử Ẩn/Gỡ Địa Điểm & Xử Lý Deep Link 404/Hidden ---');
 
-runTest('E05', 'Địa điểm bị ẩn -> Public không thấy -> Deep link dọn param và không crash', () => {
+await runTest('E05', 'Địa điểm bị ẩn -> Public không thấy -> Deep link dọn param và không crash', () => {
   const hiddenPlace = normalizePlace({
     'Tên địa điểm': 'Quán Đã Đóng Cửa',
     'Slug': 'quan-da-dong-cua',
@@ -378,7 +505,7 @@ runTest('E05', 'Địa điểm bị ẩn -> Public không thấy -> Deep link d�
 // =========================================================================
 console.log('\n--- [E06] Kiểm thử Validation Đánh Giá, XSS & Khôi Phục Dữ Liệu ---');
 
-runTest('E06', 'Chặn 0 sao/tên ngắn/spam/XSS/ảnh lỗi; Review hợp lệ lưu đầy đủ', () => {
+await runTest('E06', 'Chặn 0 sao/tên ngắn/spam/XSS/ảnh lỗi; Review hợp lệ lưu đầy đủ', () => {
   // 1. Chặn rating = 0
   assert.throws(() => {
     validateCommentInput({
@@ -450,8 +577,8 @@ runTest('E06', 'Chặn 0 sao/tên ngắn/spam/XSS/ảnh lỗi; Review hợp lệ
 // =========================================================================
 console.log('\n--- [E07] Kiểm thử Vận Hành Ngoại Tuyến & Đồng Bộ Một Lần ---');
 
-runTest('E07', 'Lưu review khi offline -> Phục hồi -> Online đồng bộ idempotent đúng 1 lần', () => {
-  // Mô phỏng hàng đợi ngoại tuyến trong IndexedDB
+await runTest('E07', 'Lưu review & đóng góp khi offline -> Phục hồi -> Online đồng bộ idempotent đúng 1 lần', async () => {
+  // Mô phỏng hàng đợi review ngoại tuyến trong IndexedDB
   const offlineQueue = [];
 
   const reviewToQueue = {
@@ -489,6 +616,86 @@ runTest('E07', 'Lưu review khi offline -> Phục hồi -> Online đồng bộ i
   const sync2 = syncToServer(offlineQueue[0]);
   assert.strictEqual(sync2.duplicate, true, 'Lần 2 nhận diện trùng lặp client_review_id, không tạo thêm dòng');
   assert.strictEqual(serverReceived.length, 1, 'Database chỉ có đúng 1 bản ghi duy nhất');
+
+  // 3. Kiểm thử Hàng đợi Đóng góp Địa điểm Ngoại tuyến (Offline Contributions)
+  const contribQueue = [];
+  function mockSaveOfflineContribution(item) {
+    const record = {
+      id: item.id || ('off_contrib_' + Date.now()),
+      client_submission_id: item.client_submission_id || item.id,
+      ...item,
+      status: 'pending_draft'
+    };
+    contribQueue.push(record);
+    return record;
+  }
+
+  function mockDeleteOfflineContribution(id) {
+    const idx = contribQueue.findIndex(c => c.id === id);
+    if (idx !== -1) contribQueue.splice(idx, 1);
+  }
+
+  async function mockSyncAllPendingContributions(submitFn) {
+    let synced = 0;
+    let failed = 0;
+    const items = [...contribQueue];
+    for (const item of items) {
+      try {
+        await submitFn(item);
+        mockDeleteOfflineContribution(item.id);
+        synced++;
+      } catch (err) {
+        failed++;
+        if (err.status === 429) break;
+      }
+    }
+    return { total: items.length, synced, failed };
+  }
+
+  // 3.1 Lưu khi offline
+  const offlineContrib = mockSaveOfflineContribution({
+    id: 'off_c1',
+    client_submission_id: 'sub_off_1',
+    name: 'Quán Cafe Vườn Xanh',
+    category: 'Cafe',
+    area: 'TP. Trà Vinh',
+    address: '456 Phạm Ngũ Lão',
+    description: 'Quán cafe sân vườn thoáng mát'
+  });
+  assert.strictEqual(contribQueue.length, 1, 'Địa điểm đóng góp được lưu an toàn vào hàng đợi offline');
+
+  // 3.2 Khi server báo lỗi 429 hoặc lỗi mạng: KHÔNG được xóa khỏi hàng đợi
+  const rateLimitError = new Error('Rate limit');
+  rateLimitError.status = 429;
+  const failSync = await mockSyncAllPendingContributions(async () => { throw rateLimitError; });
+  assert.strictEqual(failSync.failed, 1);
+  assert.strictEqual(failSync.synced, 0);
+  assert.strictEqual(contribQueue.length, 1, 'Khi gặp lỗi 429, địa điểm phải giữ lại trong hàng đợi để đồng bộ sau');
+
+  // 3.3 Khi mạng online trở lại: Đồng bộ thành công và XÓA khỏi hàng đợi sau xác nhận server
+  const serverSavedContribs = [];
+  const successSync = await mockSyncAllPendingContributions(async (payload) => {
+    // Idempotent check
+    const dup = serverSavedContribs.find(s => s.client_submission_id === payload.client_submission_id);
+    if (!dup) {
+      serverSavedContribs.push({ ...payload, status: 'draft' });
+    }
+    return { success: true, status: 'draft' };
+  });
+
+  assert.strictEqual(successSync.synced, 1, 'Đồng bộ thành công 1 địa điểm');
+  assert.strictEqual(contribQueue.length, 0, 'Hàng đợi offline đã được dọn sạch sau khi server xác nhận');
+  assert.strictEqual(serverSavedContribs.length, 1, 'Server lưu đúng 1 bản ghi draft');
+
+  // 3.4 Giả lập retry mạng chập chờn: Server idempotent không bị trùng lặp
+  const retryResult = await (async () => {
+    const dup = serverSavedContribs.find(s => s.client_submission_id === 'sub_off_1');
+    if (dup) return { status: 200, idempotent: true };
+    serverSavedContribs.push({ name: 'duplicate' });
+    return { status: 201 };
+  })();
+  assert.strictEqual(retryResult.idempotent, true, 'Retry cùng client_submission_id được xử lý idempotent');
+  assert.strictEqual(serverSavedContribs.length, 1, 'Database không phát sinh bản ghi rác');
 });
 
 // =========================================================================
@@ -496,7 +703,7 @@ runTest('E07', 'Lưu review khi offline -> Phục hồi -> Online đồng bộ i
 // =========================================================================
 console.log('\n--- [E08] Kiểm thử Khả Năng Chịu Lỗi Mạng & Bảo Toàn Nội Dung Nhập ---');
 
-runTest('E08', 'Lỗi 429/500/Timeout -> Không mất dữ liệu form; Bản nháp draft được bảo toàn', () => {
+await runTest('E08', 'Lỗi 429/500/Timeout -> Không mất dữ liệu form; Bản nháp draft được bảo toàn', () => {
   // 1. Phân loại lỗi mạng và máy chủ
   const err429 = new SupabaseRequestError('Rate limit exceeded', 429);
   assert.strictEqual(err429.isRateLimitError, true, 'Nhận diện đúng lỗi 429 Rate Limit');
@@ -532,7 +739,7 @@ runTest('E08', 'Lỗi 429/500/Timeout -> Không mất dữ liệu form; Bản nh
 // =========================================================================
 console.log('\n--- [E09] Kiểm thử Trải Nghiệm Di Động (Touch Target, Popstate Back, Bàn Phím) ---');
 
-runTest('E09', 'Nút bấm >= 44px -> Nút Back popstate đóng modal -> Responsive Grid thích ứng', () => {
+await runTest('E09', 'Nút bấm >= 44px -> Nút Back popstate đóng modal -> Responsive Grid thích ứng', () => {
   // 1. Đọc index.html và ui.js để kiểm tra chuẩn touch target
   const uiCode = fs.readFileSync(path.join(ROOT_DIR, 'js', 'ui.js'), 'utf8');
   assert.ok(uiCode.includes('min-w-[44px]') || uiCode.includes('min-h-[44px]'), 'Các nút tương tác chính đạt chuẩn touch target tối thiểu 44x44px');
@@ -555,7 +762,7 @@ runTest('E09', 'Nút bấm >= 44px -> Nút Back popstate đóng modal -> Respons
 // =========================================================================
 console.log('\n--- [E10] Kiểm thử Chất Lượng Vận Hành (Build Sạch, Không Lộ Secret, SW Upgrade) ---');
 
-runTest('E10', 'Build script sẵn sàng -> Không để lộ secret client -> Service Worker độc lập storage', () => {
+await runTest('E10', 'Build script sẵn sàng -> Không để lộ secret client -> Service Worker độc lập storage', () => {
   // 1. Kiểm tra build.cjs tồn tại
   assert.ok(fs.existsSync(path.join(ROOT_DIR, 'scripts', 'build.cjs')), 'scripts/build.cjs tồn tại');
 

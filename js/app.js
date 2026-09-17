@@ -31,7 +31,10 @@ import {
     syncAllPendingReviews,
     setupAutoSync,
     saveOfflineContribution,
-    getAllOfflineContributions
+    getAllOfflineContributions,
+    deleteOfflineContribution,
+    getPendingContributionCount,
+    syncAllPendingContributions
 } from './offline-sync.js';
 
 import { TRA_VINH_FESTIVALS } from './festivals-data.js';
@@ -2121,7 +2124,78 @@ function renderContributePhotosPreview() {
 }
 
 /**
- * Xử lý Gửi Địa Điểm Mới (Supabase + Fallback IndexedDB)
+ * Gửi địa điểm đóng góp mới qua serverless API endpoint (/api/submit-place)
+ */
+export async function submitContributedPlace(payload) {
+    if (!payload || typeof payload !== 'object') {
+        throw new Error('Dữ liệu đóng góp địa điểm không hợp lệ.');
+    }
+
+    const name = String(payload.name || '').trim();
+    if (!name || name.length < 2) {
+        throw new Error('Tên địa điểm phải từ 2 ký tự trở lên.');
+    }
+
+    const clientSubmissionId = payload.client_submission_id || payload.id ||
+        ('contrib_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9));
+
+    const origin = (typeof window !== 'undefined' && window.location ? window.location.origin : '');
+    const apiUrl = origin ? `${origin}/api/submit-place` : '/api/submit-place';
+
+    let response;
+    try {
+        response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_submission_id: clientSubmissionId,
+                name: payload.name,
+                category: payload.category,
+                area: payload.area,
+                address: payload.address,
+                price_raw: payload.price_raw || 'Liên hệ',
+                display_hours: payload.display_hours || '07:00 - 18:00',
+                coordinates: payload.coordinates || null,
+                map_link: payload.map_link || null,
+                description: payload.description,
+                contributor: payload.contributor || 'Ẩn danh',
+                contact: payload.contact || '',
+                images: payload.images || []
+            })
+        });
+    } catch (networkErr) {
+        const err = new Error(networkErr.message || 'Không thể kết nối đến máy chủ đóng góp.');
+        err.isNetworkError = true;
+        throw err;
+    }
+
+    if (response.status === 429) {
+        const errData = await response.json().catch(() => ({}));
+        const err = new Error(errData?.error?.message || 'Bạn đang gửi yêu cầu quá nhanh. Vui lòng thử lại sau ít phút.');
+        err.status = 429;
+        err.isRateLimitError = true;
+        throw err;
+    }
+
+    if (response.status === 413) {
+        const err = new Error('Dung lượng thông tin đóng góp vượt quá giới hạn (tối đa 128KB).');
+        err.status = 413;
+        throw err;
+    }
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const err = new Error(errData?.error?.message || `Lỗi máy chủ (${response.status})`);
+        err.status = response.status;
+        err.code = errData?.error?.code;
+        throw err;
+    }
+
+    return await response.json();
+}
+
+/**
+ * Xử lý Gửi Địa Điểm Mới (/api/submit-place + Fallback IndexedDB khi Offline)
  */
 export async function handleContributeSubmit(event) {
     if (event) event.preventDefault();
@@ -2146,7 +2220,10 @@ export async function handleContributeSubmit(event) {
         return;
     }
 
+    const clientSubmissionId = 'contrib_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+
     const payload = {
+        client_submission_id: clientSubmissionId,
         name,
         category,
         area: district,
@@ -2163,74 +2240,50 @@ export async function handleContributeSubmit(event) {
         created_at: new Date().toISOString()
     };
 
-    let isMock = false;
-    try {
-        const config = window.ViVuConfig?.initConfig ? window.ViVuConfig.initConfig() : null;
-        if (config?.dataSource === 'mock' || (typeof window !== 'undefined' && window.location && window.location.search.includes('source=mock'))) {
-            isMock = true;
-        }
-    } catch {}
+    let submittedSuccess = false;
 
-    let submittedMode = isMock ? 'mock' : 'offline';
-
-    if (!isMock) {
+    // 1. Nếu thiết bị đang Online, gửi trực tiếp qua /api/submit-place
+    if (typeof navigator === 'undefined' || navigator.onLine) {
         try {
-            if (window.ViVuConfig) {
-                const config = window.ViVuConfig.initConfig ? window.ViVuConfig.initConfig() : null;
-                if (config && config.supabaseUrl && config.supabaseAnonKey) {
-                    const sUrl = config.supabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
-                    const res = await fetch(`${sUrl}/rest/v1/places`, {
-                        method: 'POST',
-                        headers: {
-                            apikey: config.supabaseAnonKey,
-                            Authorization: `Bearer ${config.supabaseAnonKey}`,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'return=representation'
-                        },
-                        body: JSON.stringify({
-                            name: payload.name,
-                            category: payload.category,
-                            area: payload.area,
-                            address: payload.address,
-                            price_raw: payload.price_raw,
-                            display_hours: payload.display_hours,
-                            coordinates: payload.coordinates,
-                            map_link: payload.map_link,
-                            description: payload.description,
-                            contributor: payload.contributor,
-                            contact: payload.contact,
-                            images: payload.images,
-                            image_link: payload.images[0] || '',
-                            status: 'draft'
-                        })
-                    });
-                    if (res.ok) {
-                        submittedMode = 'supabase';
-                    }
-                }
+            const apiResult = await submitContributedPlace(payload);
+            if (apiResult && (apiResult.success || apiResult.status === 'draft')) {
+                submittedSuccess = true;
             }
         } catch (err) {
-            console.warn('[Contribution] Gửi Supabase chưa thành công, chuyển sang lưu Offline:', err);
+            console.warn('[Contribution] Gửi API chưa thành công:', err.message);
+            // Validation 400: Dữ liệu không hợp lệ, không lưu vào IndexedDB
+            if (err.status === 400) {
+                alert(`⚠️ Không thể gửi: ${err.message || 'Dữ liệu không hợp lệ.'}`);
+                return;
+            }
+            if (err.status === 429) {
+                alert(`⏳ ${err.message || 'Bạn đang gửi quá nhanh, vui lòng thử lại sau.'}`);
+                return;
+            }
+            // Lỗi mạng hoặc 5xx: fallback lưu offline queue
         }
     }
 
-    try {
-        await saveOfflineContribution(payload);
-    } catch (idbErr) {
-        console.warn('[Contribution] Lưu IndexedDB cảnh báo:', idbErr);
+    // 2. Chỉ lưu vào IndexedDB khi thiết bị Offline hoặc gặp sự cố mạng (KHÔNG lưu trùng khi online thành công)
+    if (!submittedSuccess) {
+        try {
+            await saveOfflineContribution(payload);
+        } catch (idbErr) {
+            console.warn('[Contribution] Lưu IndexedDB cảnh báo:', idbErr);
+            alert('Không thể gửi và không thể lưu ngoại tuyến lúc này. Vui lòng thử lại sau.');
+            return;
+        }
     }
 
-    // Hiển thị thông báo thành công
+    // 3. Hiển thị thông báo kết quả phù hợp
     const toast = document.getElementById('offlineSyncToast');
     const toastTitle = document.getElementById('syncToastTitle');
     const toastMsg = document.getElementById('syncToastMsg');
     if (toast && toastTitle && toastMsg) {
         toastTitle.textContent = '🎉 Đóng góp địa điểm thành công!';
-        toastMsg.textContent = submittedMode === 'mock'
-            ? 'Đóng góp địa điểm thành công ở chế độ thử nghiệm (+50 Điểm Thổ Địa).'
-            : (submittedMode === 'supabase'
-                ? 'Địa điểm đã gửi lên hệ thống chờ duyệt (+50 Điểm Thổ Địa).'
-                : 'Đã lưu an toàn ngoại tuyến và sẽ tự động chuyển tới BQT khi có mạng (+50 Điểm Thổ Địa).');
+        toastMsg.textContent = submittedSuccess
+            ? 'Địa điểm đã gửi lên hệ thống chờ Ban Quản Trị duyệt (+50 Điểm Thổ Địa).'
+            : 'Đã lưu an toàn ngoại tuyến và sẽ tự động chuyển tới BQT khi có mạng (+50 Điểm Thổ Địa).';
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 6000);
     } else {
@@ -2703,6 +2756,12 @@ function initOfflineSyncManager() {
                     reloadModalComments(state.currentDetailPlace.id);
                 }
             }
+        },
+        (contrib) => submitContributedPlace(contrib),
+        (res) => {
+            if (res.synced > 0) {
+                showContribSyncToast(res.synced);
+            }
         }
     );
 }
@@ -2718,6 +2777,22 @@ function showSyncToast(syncedCount) {
 
     if (title) title.textContent = 'Đã tự động đồng bộ!';
     if (msg) msg.textContent = `Đã đồng bộ thành công ${syncedCount} đánh giá ngoại tuyến lên máy chủ.`;
+
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 5000);
+}
+
+/**
+ * Hiển thị thông báo Toast khi đồng bộ địa điểm đóng góp ngoại tuyến thành công
+ */
+function showContribSyncToast(syncedCount) {
+    const toast = document.getElementById('offlineSyncToast');
+    const title = document.getElementById('syncToastTitle');
+    const msg = document.getElementById('syncToastMsg');
+    if (!toast) return;
+
+    if (title) title.textContent = 'Đã đồng bộ địa điểm!';
+    if (msg) msg.textContent = `Đã đồng bộ thành công ${syncedCount} địa điểm đóng góp ngoại tuyến lên hệ thống.`;
 
     toast.classList.remove('hidden');
     setTimeout(() => toast.classList.add('hidden'), 5000);
@@ -2885,6 +2960,11 @@ if (typeof window !== 'undefined') {
         syncAllPendingReviews: () => syncAllPendingReviews(
             (rev) => window.ViVuComments ? window.ViVuComments.submitComment(rev) : Promise.reject(new Error('Chưa có service bình luận')),
             (rev, status) => console.log('[ManualSync]', rev.id, status)
+        ),
+        submitContributedPlace,
+        syncAllPendingContributions: () => syncAllPendingContributions(
+            submitContributedPlace,
+            (contrib, status) => console.log('[ManualContribSync]', contrib.id, status)
         ),
         openDetailFromMap: (id) => {
             closeFullMapModal();

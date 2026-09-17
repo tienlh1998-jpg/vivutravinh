@@ -3,7 +3,7 @@
 import { validateCommentInput } from './comments.js';
 
 const DB_NAME = 'ViVuTraVinh_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'offline_reviews';
 const CONTRIB_STORE_NAME = 'offline_contributions';
 
@@ -337,43 +337,153 @@ export async function registerBackgroundSync() {
 }
 
 /**
- * Thiết lập Auto-Sync lắng nghe sự kiện mạng (Online / Reconnect)
+ * Xóa địa điểm đóng góp ngoại tuyến đã đồng bộ thành công khỏi IndexedDB
  */
-export function setupAutoSync(submitFunction, onSyncSuccess) {
-    // 1. Khi mạng có lại
-    window.addEventListener('online', async () => {
-        console.log('[OfflineSync] Thiết bị đã kết nối mạng trở lại, bắt đầu đồng bộ...');
-        const result = await syncAllPendingReviews(submitFunction);
-        if (result.synced > 0 && onSyncSuccess) {
-            onSyncSuccess(result);
+export async function deleteOfflineContribution(id) {
+    if (!id) return;
+    try {
+        const db = await openOfflineDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(CONTRIB_STORE_NAME, 'readwrite');
+            const store = tx.objectStore(CONTRIB_STORE_NAME);
+            const req = store.delete(id);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    } catch (e) {
+        console.warn('[OfflineSync] Lỗi xóa đóng góp offline:', e);
+    }
+}
+
+/**
+ * Đếm số lượng địa điểm đóng góp đang chờ đồng bộ
+ */
+export async function getPendingContributionCount() {
+    try {
+        const list = await getAllOfflineContributions();
+        return list.length;
+    } catch {
+        return 0;
+    }
+}
+
+/**
+ * Đồng bộ tất cả địa điểm đóng góp ngoại tuyến đang chờ lên server
+ */
+export async function syncAllPendingContributions(submitFunction, onProgress) {
+    if (!submitFunction || typeof submitFunction !== 'function') {
+        console.warn('[OfflineSync] Chưa cung cấp hàm submitFunction để đồng bộ đóng góp.');
+        return { total: 0, synced: 0, failed: 0 };
+    }
+
+    if (isSyncInProgress) {
+        console.log('[OfflineSync] Quá trình đồng bộ đang diễn ra, bỏ qua yêu cầu trùng lặp.');
+        return { total: 0, synced: 0, failed: 0, skipped: true };
+    }
+
+    isSyncInProgress = true;
+    let synced = 0;
+    let failed = 0;
+
+    try {
+        const pending = await getAllOfflineContributions();
+        if (pending.length === 0) {
+            return { total: 0, synced: 0, failed: 0 };
         }
-    });
+
+        console.log(`[OfflineSync] Bắt đầu đồng bộ ${pending.length} địa điểm đóng góp ngoại tuyến...`);
+
+        for (const contrib of pending) {
+            try {
+                const payload = {
+                    client_submission_id: contrib.client_submission_id || contrib.id,
+                    name: contrib.name,
+                    category: contrib.category,
+                    area: contrib.area,
+                    address: contrib.address,
+                    price_raw: contrib.price_raw,
+                    display_hours: contrib.display_hours,
+                    coordinates: contrib.coordinates,
+                    map_link: contrib.map_link,
+                    description: contrib.description,
+                    contributor: contrib.contributor,
+                    contact: contrib.contact,
+                    images: contrib.images || []
+                };
+
+                await submitFunction(payload);
+                // Xóa khỏi queue sau khi server xác nhận thành công (idempotent hoặc newly created)
+                await deleteOfflineContribution(contrib.id);
+                synced++;
+                if (onProgress) onProgress(contrib, 'success');
+            } catch (err) {
+                failed++;
+                if (onProgress) onProgress(contrib, 'error', err);
+                console.warn(`[OfflineSync] Lỗi đồng bộ địa điểm ${contrib.id}:`, err.message);
+                if (err.status === 429 || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+                    break;
+                }
+            }
+        }
+
+        return { total: pending.length, synced, failed };
+    } finally {
+        isSyncInProgress = false;
+    }
+}
+
+/**
+ * Thiết lập Auto-Sync lắng nghe sự kiện mạng (Online / Reconnect) cho cả Review và Đóng Góp
+ */
+export function setupAutoSync(submitReviewFn, onSyncSuccess, submitContribFn, onContribSyncSuccess) {
+    const runSync = async () => {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+        if (submitReviewFn) {
+            const reviewResult = await syncAllPendingReviews(submitReviewFn);
+            if (reviewResult.synced > 0 && onSyncSuccess) {
+                onSyncSuccess(reviewResult);
+            }
+        }
+
+        if (submitContribFn) {
+            const contribResult = await syncAllPendingContributions(submitContribFn);
+            if (contribResult.synced > 0 && onContribSyncSuccess) {
+                onContribSyncSuccess(contribResult);
+            }
+        }
+    };
+
+    // 1. Khi mạng có lại
+    if (typeof window !== 'undefined') {
+        window.addEventListener('online', async () => {
+            console.log('[OfflineSync] Thiết bị đã kết nối mạng trở lại, bắt đầu đồng bộ...');
+            await runSync();
+        });
+    }
 
     // 2. Nhận tín hiệu từ Service Worker
-    if ('serviceWorker' in navigator) {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', async (event) => {
             if (event.data && event.data.type === 'TRIGGER_OFFLINE_SYNC') {
                 console.log('[OfflineSync] Nhận yêu cầu đồng bộ từ Service Worker sync event.');
-                const result = await syncAllPendingReviews(submitFunction);
-                if (result.synced > 0 && onSyncSuccess) {
-                    onSyncSuccess(result);
-                }
+                await runSync();
             }
         });
     }
 
     // 3. Heartbeat đồng bộ định kỳ mỗi 45 giây nếu có mạng
-    setInterval(async () => {
-        if (navigator.onLine) {
-            const pending = await getPendingOfflineCount();
-            if (pending > 0) {
-                const result = await syncAllPendingReviews(submitFunction);
-                if (result.synced > 0 && onSyncSuccess) {
-                    onSyncSuccess(result);
+    if (typeof setInterval !== 'undefined') {
+        setInterval(async () => {
+            if (typeof navigator !== 'undefined' && navigator.onLine) {
+                const pendingReviews = await getPendingOfflineCount();
+                const pendingContribs = await getPendingContributionCount();
+                if (pendingReviews > 0 || pendingContribs > 0) {
+                    await runSync();
                 }
             }
-        }
-    }, 45000);
+        }, 45000);
+    }
 }
 
 /**
@@ -381,18 +491,19 @@ export function setupAutoSync(submitFunction, onSyncSuccess) {
  */
 export async function saveOfflineContribution(data) {
     const db = await openOfflineDB();
-    const id = 'off_contrib_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    const id = data.id || ('off_contrib_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
     const item = {
-        id,
         ...data,
-        created_at: new Date().toISOString(),
+        id,
+        client_submission_id: data.client_submission_id || id,
+        created_at: data.created_at || new Date().toISOString(),
         status: 'pending_draft'
     };
 
     return new Promise((resolve, reject) => {
         const tx = db.transaction(CONTRIB_STORE_NAME, 'readwrite');
         const store = tx.objectStore(CONTRIB_STORE_NAME);
-        const req = store.add(item);
+        const req = store.put(item);
         req.onsuccess = () => resolve(item);
         req.onerror = () => reject(req.error);
     });
