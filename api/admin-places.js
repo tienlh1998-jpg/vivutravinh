@@ -1,3 +1,11 @@
+import {
+  authenticateAdmin,
+  requireRole,
+  sendJson,
+  sendError,
+  getSupabaseConfig
+} from './_admin-auth.js';
+
 const TABLE_NAME = 'places';
 const VALID_STATUSES = new Set(['approved', 'draft', 'hidden', 'archived']);
 const MAX_PAYLOAD_SIZE = 2 * 1024 * 1024; // 2MB
@@ -25,98 +33,6 @@ const PATCH_FIELDS = new Set([
   'sort_order',
   'is_featured',
 ]);
-
-function sendJson(response, statusCode, payload) {
-  response.statusCode = statusCode;
-  response.setHeader('Content-Type', 'application/json; charset=utf-8');
-  response.setHeader('Cache-Control', 'no-store');
-  response.end(JSON.stringify(payload));
-}
-
-function sendError(response, statusCode, code, message) {
-  sendJson(response, statusCode, {
-    success: false,
-    error: { code, message }
-  });
-}
-
-const FAILED_ATTEMPTS_LIMIT = 5;
-const LOCKOUT_PERIOD_MS = 15 * 60 * 1000;
-const failedAttemptsMap = new Map();
-
-function getClientIp(request) {
-  const forwarded = request.headers['x-forwarded-for'];
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  return request.socket?.remoteAddress || '127.0.0.1';
-}
-
-function checkAuthRateLimit(ip) {
-  const now = Date.now();
-  const record = failedAttemptsMap.get(ip);
-  if (record && record.count >= FAILED_ATTEMPTS_LIMIT) {
-    if (now - record.lastAttempt < LOCKOUT_PERIOD_MS) {
-      const remainingMinutes = Math.ceil((LOCKOUT_PERIOD_MS - (now - record.lastAttempt)) / 60000);
-      return { allowed: false, remainingMinutes };
-    }
-    failedAttemptsMap.delete(ip);
-  }
-  return { allowed: true };
-}
-
-function recordFailedAuth(ip, path) {
-  const now = Date.now();
-  const record = failedAttemptsMap.get(ip) || { count: 0, lastAttempt: now };
-  record.count += 1;
-  record.lastAttempt = now;
-  failedAttemptsMap.set(ip, record);
-  console.warn(`[AUDIT] Failed admin auth from IP ${ip} at ${new Date(now).toISOString()} on ${path} (${record.count}/${FAILED_ATTEMPTS_LIMIT})`);
-}
-
-function recordSuccessfulAuth(ip) {
-  failedAttemptsMap.delete(ip);
-}
-
-function requireAdmin(request, response) {
-  const ip = getClientIp(request);
-  const rateCheck = checkAuthRateLimit(ip);
-  if (!rateCheck.allowed) {
-    sendError(response, 429, 'AUTH_RATE_LIMITED', `Quá nhiều lần thử xác thực thất bại. Vui lòng thử lại sau ${rateCheck.remainingMinutes} phút.`);
-    return false;
-  }
-
-  const configuredSecret = process.env.ADMIN_SECRET;
-  const providedSecret = request.headers['x-admin-secret'];
-
-  if (!configuredSecret) {
-    sendError(response, 500, 'CONFIG_ERROR', 'ADMIN_SECRET is not configured on server.');
-    return false;
-  }
-
-  if (!providedSecret || providedSecret !== configuredSecret) {
-    recordFailedAuth(ip, request.url || '/api/admin-places');
-    sendError(response, 401, 'UNAUTHORIZED', 'Unauthorized: Invalid or missing x-admin-secret.');
-    return false;
-  }
-
-  recordSuccessfulAuth(ip);
-  return true;
-}
-
-function getSupabaseConfig() {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Supabase admin environment variables are not configured.');
-  }
-
-  return {
-    baseUrl: supabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, ''),
-    serviceRoleKey,
-  };
-}
 
 async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
   if (typeof request.body === 'string') {
@@ -374,25 +290,33 @@ async function createPlace(request, response) {
 }
 
 export default async function handler(request, response) {
-  if (!requireAdmin(request, response)) return;
+  const adminContext = await authenticateAdmin(request, response);
+  if (!adminContext) return;
 
   try {
     if (request.method === 'GET') {
+      // Cho phép tất cả các vai trò quản trị (admin, editor, moderator) xem danh sách địa điểm
       await listPlaces(request, response);
       return;
     }
 
     if (request.method === 'POST') {
+      // Chỉ admin và editor được phép tạo địa điểm mới. Moderator bị chặn.
+      if (!requireRole(adminContext, ['admin', 'editor'], response)) return;
       await createPlace(request, response);
       return;
     }
 
     if (request.method === 'PATCH') {
+      // Chỉ admin và editor được phép chỉnh sửa / duyệt địa điểm. Moderator bị chặn.
+      if (!requireRole(adminContext, ['admin', 'editor'], response)) return;
       await updatePlace(request, response);
       return;
     }
 
     if (request.method === 'DELETE') {
+      // Chỉ admin mới có quyền xóa địa điểm. Editor và Moderator bị chặn.
+      if (!requireRole(adminContext, ['admin'], response)) return;
       await deletePlace(request, response);
       return;
     }
