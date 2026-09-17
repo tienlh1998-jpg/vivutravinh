@@ -238,29 +238,14 @@ function validatePayload(body) {
     }
   }
 
-  // Images array: Cấm tuyệt đối Base64 data URL trong payload 128KB
-  let images = [];
-  if (Array.isArray(body.images)) {
-    for (const rawImg of body.images) {
-      if (typeof rawImg === 'string' && rawImg.trim().length > 0) {
-        const trimmed = rawImg.trim();
-        if (trimmed.startsWith('data:')) {
-          throw {
-            code: 'INVALID_IMAGE_URL',
-            message: 'Ảnh phải là đường dẫn URL hợp lệ từ hệ thống lưu trữ, không chấp nhận dữ liệu Base64.'
-          };
-        }
-        if (!/^https?:\/\//i.test(trimmed)) {
-          throw {
-            code: 'INVALID_IMAGE_URL',
-            message: 'Ảnh phải là đường dẫn URL hợp lệ (bắt đầu bằng http:// hoặc https://).'
-          };
-        }
-        images.push(trimmed);
-      }
-    }
-    images = images.slice(0, 10);
+  // Images array: G6 tạm khóa chức năng tải ảnh đóng góp, API chỉ chấp nhận mảng rỗng []
+  if (Array.isArray(body.images) && body.images.length > 0) {
+    throw {
+      code: 'IMAGES_DISABLED',
+      message: 'Tính năng gửi ảnh đóng góp đang tạm khóa. Vui lòng để trống hình ảnh.'
+    };
   }
+  const images = [];
 
   const priceRaw = String(body.price_raw || 'Liên hệ').trim().slice(0, 80);
   const displayHours = String(body.display_hours || '07:00 - 18:00').trim().slice(0, 100);
@@ -283,7 +268,7 @@ function validatePayload(body) {
     contributor,
     contact,
     images,
-    image_link: images[0] || null,
+    image_link: null,
     client_submission_id: clientSubmissionId
   };
 }
@@ -293,6 +278,46 @@ export default async function handler(request, response) {
     return sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed. Use POST.');
   }
 
+  // 1. Đọc body và kiểm tra giới hạn dung lượng trước
+  let body;
+  try {
+    body = await readBody(request, MAX_PAYLOAD_SIZE);
+  } catch (err) {
+    if (err.message === 'PAYLOAD_TOO_LARGE') {
+      return sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Nội dung yêu cầu vượt quá giới hạn 128KB.');
+    }
+    return sendError(response, 400, 'BAD_REQUEST', 'Định dạng JSON không hợp lệ.');
+  }
+
+  // 2. Validate dữ liệu đầu vào trước
+  let validated;
+  try {
+    validated = validatePayload(body);
+  } catch (valErr) {
+    return sendError(response, 400, valErr.code || 'VALIDATION_ERROR', valErr.message || 'Dữ liệu không hợp lệ.');
+  }
+
+  // 3. Kiểm tra Idempotency trực tiếp bằng client_submission_id TRƯỚC rate-limit
+  // Nếu đã tồn tại: trả về HTTP 200 idempotent ngay lập tức (KHÔNG kích hoạt rate limit và không bị cooldown)
+  try {
+    const existing = await supabaseRequest(
+      `${TABLE_NAME}?client_submission_id=eq.${encodeURIComponent(validated.client_submission_id)}&select=id,name,slug,category,area,status,client_submission_id,created_at&limit=1`
+    );
+
+    if (Array.isArray(existing) && existing.length > 0) {
+      return sendJson(response, 200, {
+        success: true,
+        idempotent: true,
+        status: existing[0].status,
+        data: existing[0],
+        message: 'Địa điểm đóng góp này đã được tiếp nhận trước đó và đang chờ kiểm duyệt.'
+      });
+    }
+  } catch (checkErr) {
+    console.warn('[SubmitPlace] Không thể kiểm tra client_submission_id trước, tiếp tục thử ghi:', checkErr.message);
+  }
+
+  // 4. CHỈ ÁP DỤNG RATE-LIMIT CHO SUBMISSION MỚI (chưa tồn tại trong database)
   const ip = getClientIp(request);
   let rateLimitCheck;
   try {
@@ -318,43 +343,6 @@ export default async function handler(request, response) {
       `Bạn đang gửi yêu cầu quá nhanh. Vui lòng chờ ${waitSeconds} giây trước khi gửi tiếp.`,
       { 'Retry-After': String(waitSeconds) }
     );
-  }
-
-  let body;
-  try {
-    body = await readBody(request, MAX_PAYLOAD_SIZE);
-  } catch (err) {
-    if (err.message === 'PAYLOAD_TOO_LARGE') {
-      return sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Nội dung yêu cầu vượt quá giới hạn 128KB.');
-    }
-    return sendError(response, 400, 'BAD_REQUEST', 'Định dạng JSON không hợp lệ.');
-  }
-
-  let validated;
-  try {
-    validated = validatePayload(body);
-  } catch (valErr) {
-    return sendError(response, 400, valErr.code || 'VALIDATION_ERROR', valErr.message || 'Dữ liệu không hợp lệ.');
-  }
-
-  // 1. Kiểm tra Idempotency trực tiếp bằng client_submission_id (KHÔNG dùng name hoặc slug làm khóa)
-  // Bất kể tên địa điểm gửi lại có thay đổi hay không, cùng một client_submission_id chỉ tồn tại 1 bản ghi duy nhất
-  try {
-    const existing = await supabaseRequest(
-      `${TABLE_NAME}?client_submission_id=eq.${encodeURIComponent(validated.client_submission_id)}&select=id,name,slug,category,area,status,client_submission_id,created_at&limit=1`
-    );
-
-    if (Array.isArray(existing) && existing.length > 0) {
-      return sendJson(response, 200, {
-        success: true,
-        idempotent: true,
-        status: existing[0].status,
-        data: existing[0],
-        message: 'Địa điểm đóng góp này đã được tiếp nhận trước đó và đang chờ kiểm duyệt.'
-      });
-    }
-  } catch (checkErr) {
-    console.warn('[SubmitPlace] Không thể kiểm tra client_submission_id trước, tiếp tục thử ghi:', checkErr.message);
   }
 
   // Khóa slug duy nhất kết hợp client_submission_id để không xung đột DB slug unique

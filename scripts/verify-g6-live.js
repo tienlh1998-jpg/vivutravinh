@@ -6,15 +6,16 @@
  * Kiểm toán endpoint Vercel THỰC TẾ và cơ sở dữ liệu Supabase cho Giai đoạn G6:
  * - Không mock fetch. Toàn bộ request gửi trực tiếp qua mạng Internet tới Vercel serverless API.
  * - Kiểm tra endpoint /api/submit-place:
- *     1. Tiếp nhận bản ghi hợp lệ, cưỡng chế status: draft (HTTP 201).
- *     2. Retry cùng client_submission_id nhưng thay đổi name vẫn phản hồi HTTP 200 Idempotent.
- *     3. Xác nhận trên cơ sở dữ liệu chỉ có duy nhất 1 bản ghi draft, không duplicate.
- * - Dọn dẹp bản ghi test sau kiểm toán bằng API quản trị (/api/admin-places với ADMIN_SECRET)
- *   hoặc đánh dấu rõ ràng '[TEST AUDIT - VUI LÒNG XÓA]' để admin nhận diện và dọn sạch.
+ *     1. Tiếp nhận bản ghi hợp lệ, cưỡng chế status: draft (HTTP 201), images rỗng.
+ *     2. Retry NGAY LẬP TỨC từ cùng IP với cùng client_submission_id nhưng thay đổi name:
+ *        Chứng minh Idempotency được xử lý TRƯỚC rate-limit, phản hồi ngay HTTP 200 Idempotent (không bị 429 cooldown).
+ *     3. Xác minh trực tiếp trên DB (yêu cầu SUPABASE_SERVICE_ROLE_KEY hoặc ADMIN_SECRET):
+ *        Không được PASS nếu thiếu quyền kiểm tra DB (phải FAIL và exit 1).
+ *     4. Xác nhận dọn dẹp (cleanup) bản ghi test bắt buộc phải thành công qua Admin API hoặc Service Role.
  *
  * Cờ tùy chọn:
  *   --allow-offline : Thoát mã 0 nếu Vercel chưa deploy hoặc chưa có kết nối mạng (dành cho môi trường dev local).
- *   (Mặc định: Thoát mã 1 nếu Vercel 404 hoặc live endpoint chưa sẵn sàng để đảm bảo tính trung thực).
+ *   (Mặc định: Thoát mã 1 nếu Vercel 404 hoặc thiếu quyền kiểm toán DB để đảm bảo tính trung thực).
  */
 
 const allowOffline = process.argv.includes('--allow-offline');
@@ -59,7 +60,8 @@ async function runLiveAudit() {
     console.warn('\n📋 CÁC BƯỚC CẦN THỰC HIỆN ĐỂ HOÀN TẤT LIVE AUDIT:');
     console.warn('  1. Chạy migration supabase/g6_contributions.sql trong Supabase SQL Editor.');
     console.warn('  2. Đẩy commit lên branch main (git push) để Vercel tự động build & deploy serverless endpoint.');
-    console.warn('  3. Chạy lại lệnh: npm run test:g6:live để hoàn tất nghiệm thu trực tiếp.\n');
+    console.warn('  3. Cấu hình biến môi trường SUPABASE_SERVICE_ROLE_KEY hoặc ADMIN_SECRET để kiểm toán DB.');
+    console.warn('  4. Chạy lại lệnh: npm run test:g6:live để hoàn tất nghiệm thu trực tiếp.\n');
 
     if (allowOffline) {
       console.warn('⚠️ [SKIPPED] Chạy ở chế độ --allow-offline: Thoát mã 0.');
@@ -90,8 +92,8 @@ async function runLiveAudit() {
   let createdPlaceId = null;
   let createdSlug = null;
 
-  // Case 1: Gửi địa điểm đóng góp hợp lệ lần đầu (Yêu cầu HTTP 201 Created & status: 'draft')
-  await assertCase('Vercel API tiếp nhận đóng góp hợp lệ, ép status draft (Không mock)', async () => {
+  // Case 1: Gửi địa điểm đóng góp hợp lệ lần đầu (Yêu cầu HTTP 201 Created, status: 'draft', images: [])
+  await assertCase('Vercel API tiếp nhận đóng góp hợp lệ, ép status draft (Không mock, images rỗng)', async () => {
     const res = await fetch(`${VERCEL_BASE}/api/submit-place`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -106,7 +108,7 @@ async function runLiveAudit() {
         description: 'Bản ghi tạo tự động bởi scripts/verify-g6-live.js để kiểm toán luồng đóng góp địa điểm thật.',
         contributor: '[TEST AUDIT - VUI LÒNG XÓA]',
         contact: 'audit-bot@vivutravinh.test',
-        images: ['https://foyraoimhksfvlxndwxr.supabase.co/storage/v1/object/public/contribution-photos/contributions/audit_test.jpg']
+        images: []
       })
     });
 
@@ -123,9 +125,9 @@ async function runLiveAudit() {
     createdSlug = json.data?.slug;
   });
 
-  // Case 2: Retry cùng client_submission_id nhưng THAY ĐỔI TÊN ĐỊA ĐIỂM
-  // Bắt buộc phải nhận diện idempotent (HTTP 200), không phụ thuộc vào name/slug và không tạo bản ghi mới
-  await assertCase('Retry cùng client_submission_id nhưng đổi name: Idempotent 200, không duplicate', async () => {
+  // Case 2: Retry NGAY LẬP TỨC từ CÙNG IP với cùng client_submission_id nhưng THAY ĐỔI TÊN ĐỊA ĐIỂM
+  // Bắt buộc phản hồi HTTP 200 Idempotent ngay (chứng minh kiểm tra idempotency đi trước rate-limit và không bị chặn 429)
+  await assertCase('Retry cùng client_submission_id, cùng IP chạy ngay: Idempotent 200 (đi trước rate-limit)', async () => {
     const res = await fetch(`${VERCEL_BASE}/api/submit-place`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -136,7 +138,8 @@ async function runLiveAudit() {
         area: 'TP. Trà Vinh',
         address: 'Địa chỉ đã thay đổi',
         description: 'Nội dung retry thay đổi để kiểm chứng tính độc lập của khóa client_submission_id.',
-        contributor: '[TEST AUDIT - VUI LÒNG XÓA]'
+        contributor: '[TEST AUDIT - VUI LÒNG XÓA]',
+        images: []
       })
     });
 
@@ -150,9 +153,15 @@ async function runLiveAudit() {
     if (json.status !== 'draft') throw new Error(`Trạng thái không phải draft: ${json.status}`);
   });
 
-  // Case 3: Xác minh trên Supabase Database (Chỉ tồn tại duy nhất 1 bản ghi draft)
-  await assertCase('Xác minh cơ sở dữ liệu Supabase: Duy nhất 1 bản ghi draft tồn tại', async () => {
-    // Nếu có service role key hoặc admin secret, kiểm tra số lượng bản ghi thực tế
+  // Case 3: Xác minh trên Supabase Database (YÊU CẦU BẮT BUỘC SUPABASE_SERVICE_ROLE_KEY HOẶC ADMIN_SECRET)
+  // Tuyệt đối không được PASS nếu thiếu quyền kiểm tra DB (phải FAIL/SKIPPED và thoát mã 1)
+  await assertCase('Xác minh cơ sở dữ liệu Supabase: Duy nhất 1 bản ghi draft tồn tại (Bắt buộc quyền quản trị)', async () => {
+    if (!SUPABASE_SERVICE_ROLE_KEY && !ADMIN_SECRET) {
+      throw new Error('THIẾU QUYỀN: Bắt buộc cấu hình SUPABASE_SERVICE_ROLE_KEY hoặc ADMIN_SECRET để kiểm toán bản ghi trong cơ sở dữ liệu. Không cho phép PASS giả!');
+    }
+
+    let records = [];
+
     if (SUPABASE_SERVICE_ROLE_KEY) {
       const checkRes = await fetch(
         `${SUPABASE_URL}/rest/v1/places?client_submission_id=eq.${encodeURIComponent(testSubmissionId)}&select=id,name,status,client_submission_id`,
@@ -164,63 +173,72 @@ async function runLiveAudit() {
         }
       );
       if (!checkRes.ok) throw new Error(`Không thể truy vấn Supabase REST: HTTP ${checkRes.status}`);
-      const rows = await checkRes.json();
-      if (!Array.isArray(rows) || rows.length !== 1) {
-        throw new Error(`Phát hiện bất thường số lượng bản ghi: ${rows.length} (yêu cầu đúng 1 bản ghi duy nhất)`);
-      }
-      if (rows[0].status !== 'draft') {
-        throw new Error(`Bản ghi trong database không ở trạng thái draft: ${rows[0].status}`);
-      }
+      records = await checkRes.json();
+    } else if (ADMIN_SECRET) {
+      const adminRes = await fetch(`${VERCEL_BASE}/api/admin-places?status=draft`, {
+        headers: { 'x-admin-secret': ADMIN_SECRET }
+      });
+      if (!adminRes.ok) throw new Error(`Không thể truy vấn qua Admin API: HTTP ${adminRes.status}`);
+      const adminData = await adminRes.json();
+      const allDrafts = adminData.places || [];
+      records = allDrafts.filter(p => p.client_submission_id === testSubmissionId || p.id === createdPlaceId);
+    }
+
+    if (!Array.isArray(records) || records.length !== 1) {
+      throw new Error(`Phát hiện số lượng bản ghi không hợp lệ trong DB: ${records.length} (yêu cầu đúng 1 bản ghi duy nhất, không duplicate)`);
+    }
+
+    if (records[0].status !== 'draft') {
+      throw new Error(`Bản ghi trong database không ở trạng thái draft: ${records[0].status}`);
     }
   });
 
-  // Case 4: Dọn dẹp bản ghi test sau kiểm toán (Clean up Audit Record)
-  console.log('\n--- DỌN DẸP BẢN GHI TEST SAU KIỂM TOÁN ---');
-  let cleanedUp = false;
+  // Case 4: Xác nhận dọn dẹp bản ghi test bắt buộc phải thành công (Cleanup Verified)
+  await assertCase('Xác nhận dọn dẹp bản ghi audit sau kiểm toán (Cleanup Verified)', async () => {
+    let deleted = false;
 
-  if (ADMIN_SECRET && createdPlaceId) {
-    try {
-      const delRes = await fetch(`${VERCEL_BASE}/api/admin-places?id=${encodeURIComponent(createdPlaceId)}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-secret': ADMIN_SECRET }
-      });
-      if (delRes.ok) {
-        console.log(`  ✓ [CLEANUP] Đã xóa bản ghi test ID ${createdPlaceId} thành công qua /api/admin-places`);
-        cleanedUp = true;
-      }
-    } catch (cleanErr) {
-      console.warn(`  ⚠️ Không thể xóa qua /api/admin-places: ${cleanErr.message}`);
-    }
-  }
-
-  if (!cleanedUp && SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      const delDb = await fetch(
-        `${SUPABASE_URL}/rest/v1/places?client_submission_id=eq.${encodeURIComponent(testSubmissionId)}`,
-        {
+    // 1. Thử xóa qua Admin API nếu có ADMIN_SECRET
+    if (ADMIN_SECRET && createdPlaceId) {
+      try {
+        const delRes = await fetch(`${VERCEL_BASE}/api/admin-places?id=${encodeURIComponent(createdPlaceId)}`, {
           method: 'DELETE',
-          headers: {
-            apikey: SUPABASE_SERVICE_ROLE_KEY,
-            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
-          }
+          headers: { 'x-admin-secret': ADMIN_SECRET }
+        });
+        if (delRes.ok) {
+          deleted = true;
+          console.log(`    [CLEANUP] Đã xóa bản ghi test ID ${createdPlaceId} qua Admin API.`);
         }
-      );
-      if (delDb.ok) {
-        console.log(`  ✓ [CLEANUP] Đã xóa bản ghi test client_submission_id=${testSubmissionId} qua Service Role`);
-        cleanedUp = true;
+      } catch (cleanErr) {
+        console.warn(`    ⚠️ Lỗi khi gọi DELETE /api/admin-places: ${cleanErr.message}`);
       }
-    } catch (e) {
-      console.warn(`  ⚠️ Không thể dọn qua Service Role: ${e.message}`);
     }
-  }
 
-  if (!cleanedUp) {
-    console.log(`  📌 [LƯU Ý DỌN DẸP THỦ CÔNG CHO BQT]:`);
-    console.log(`     - Bản ghi test đã được tạo với client_submission_id: "${testSubmissionId}"`);
-    console.log(`     - Tên tác giả: "[TEST AUDIT - VUI LÒNG XÓA]"`);
-    console.log(`     - Slug: "${createdSlug || 'contrib-...'}"`);
-    console.log(`     - Vui lòng xóa bản ghi này trong Supabase Dashboard > Table Editor > places.`);
-  }
+    // 2. Thử xóa qua Supabase Service Role nếu có SUPABASE_SERVICE_ROLE_KEY
+    if (!deleted && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const delDb = await fetch(
+          `${SUPABASE_URL}/rest/v1/places?client_submission_id=eq.${encodeURIComponent(testSubmissionId)}`,
+          {
+            method: 'DELETE',
+            headers: {
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+            }
+          }
+        );
+        if (delDb.ok) {
+          deleted = true;
+          console.log(`    [CLEANUP] Đã xóa bản ghi test client_submission_id=${testSubmissionId} qua Service Role.`);
+        }
+      } catch (e) {
+        console.warn(`    ⚠️ Lỗi khi xóa qua Service Role: ${e.message}`);
+      }
+    }
+
+    if (!deleted) {
+      throw new Error(`KHÔNG THỂ XÁC NHẬN DỌN DẸP: Thiếu quyền quản trị (ADMIN_SECRET hoặc SUPABASE_SERVICE_ROLE_KEY) để xóa bản ghi test "${testSubmissionId}". Bắt buộc phải cleanup thành công!`);
+    }
+  });
 
   console.log(`\n=== KẾT QUẢ KIỂM TOÁN VERCEL & SUPABASE LIVE: ${passCount}/${totalCount} ĐẠT ===\n`);
   if (passCount === totalCount && totalCount > 0) {

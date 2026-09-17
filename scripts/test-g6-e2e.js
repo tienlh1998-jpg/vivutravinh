@@ -223,18 +223,18 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
   assert.strictEqual(resMissing.status, 400, 'Thiếu thông tin bắt buộc phải trả về HTTP 400');
   assert.strictEqual(resMissing.body.success, false);
 
-  // Chặn 400: Dữ liệu ảnh dạng Base64 (buộc dùng URL Storage, tránh phình tải gây lỗi 413)
-  const resBase64 = await testApiEndpoint({
-    client_submission_id: 'sub_test_b64',
-    name: 'Quán Có Ảnh Base64',
+  // Chặn 400: Gửi mảng ảnh không rỗng khi tính năng ảnh đang tạm khóa (IMAGES_DISABLED)
+  const resImagesDisabled = await testApiEndpoint({
+    client_submission_id: 'sub_test_img_disabled',
+    name: 'Quán Có Ảnh Khi Đang Khóa',
     category: 'Ẩm thực',
     area: 'TP. Trà Vinh',
     address: '123 Đường Test',
     description: 'Mô tả hợp lệ dài trên năm ký tự',
-    images: ['data:image/jpeg;base64,/9j/4AAQSkZJRg...']
+    images: ['https://storage.supabase.co/v1/object/public/contribution-photos/contributions/photo1.jpg']
   });
-  assert.strictEqual(resBase64.status, 400, 'Gửi ảnh Base64 phải bị từ chối với HTTP 400');
-  assert.strictEqual(resBase64.body.error.code, 'INVALID_IMAGE_URL');
+  assert.strictEqual(resImagesDisabled.status, 400, 'Gửi ảnh khi tính năng tạm khóa phải bị từ chối với HTTP 400');
+  assert.strictEqual(resImagesDisabled.body.error.code, 'IMAGES_DISABLED');
 
   // Chặn 413: Payload vượt quá 128KB
   const hugeString = JSON.stringify({ name: 'Huge Place', description: 'x'.repeat(130 * 1024) });
@@ -242,13 +242,6 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
   assert.strictEqual(resHuge.status, 413, 'Payload > 128KB phải bị từ chối với HTTP 413');
   assert.strictEqual(resHuge.body.error.code, 'PAYLOAD_TOO_LARGE');
 
-  // Chặn 429: Rate-limiting khi cùng 1 IP gửi quá nhanh (cooldown 10s)
-  const rateLimitIp = '10.99.99.99';
-  await testApiEndpoint({ name: 'A' }, { ip: rateLimitIp });
-  const res429 = await testApiEndpoint({ name: 'A' }, { ip: rateLimitIp });
-  assert.strictEqual(res429.status, 429, 'Cùng IP gửi liên tiếp phải nhận HTTP 429');
-  assert.strictEqual(res429.body.error.code, 'RATE_LIMITED');
-  assert.ok(res429.headers['Retry-After'], 'Phải trả về header Retry-After khi bị rate limit');
 
   // Gửi hợp lệ: Giả lập mock DB và kiểm tra ép status draft & idempotency theo client_submission_id
   const originalFetch = globalThis.fetch;
@@ -277,6 +270,37 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
       return originalFetch(url, opts);
     };
 
+    // Chặn 429: Rate-limiting khi cùng 1 IP gửi submission MỚI quá nhanh (cooldown 10s)
+    const rateLimitIp = '10.99.99.99';
+    const firstSub = {
+      client_submission_id: 'sub_rl_test_01',
+      name: 'Địa Điểm Rate Limit Một',
+      category: 'Ẩm thực',
+      area: 'TP. Trà Vinh',
+      address: '123 Đường Rate Limit',
+      description: 'Mô tả hợp lệ cho kiểm tra rate limit 1',
+      images: []
+    };
+    const secondSub = {
+      client_submission_id: 'sub_rl_test_02',
+      name: 'Địa Điểm Rate Limit Hai',
+      category: 'Ẩm thực',
+      area: 'TP. Trà Vinh',
+      address: '124 Đường Rate Limit',
+      description: 'Mô tả hợp lệ cho kiểm tra rate limit 2',
+      images: []
+    };
+    const resRL1 = await testApiEndpoint(firstSub, { ip: rateLimitIp });
+    assert.strictEqual(resRL1.status, 201, 'Submission mới lần 1 thành công trả về 201');
+    const res429 = await testApiEndpoint(secondSub, { ip: rateLimitIp });
+    assert.strictEqual(res429.status, 429, 'Cùng IP gửi submission MỚI liên tiếp phải nhận HTTP 429');
+    assert.strictEqual(res429.body.error.code, 'RATE_LIMITED');
+    assert.ok(res429.headers['Retry-After'], 'Phải trả về header Retry-After khi bị rate limit');
+
+    // Bổ sung test hai request cùng client_submission_id, cùng IP, name khác nhau:
+    // lần đầu 201, lần hai 200 idempotent, DB đúng 1 dòng.
+    mockDbRecords.length = 0;
+
     const validSubmission = {
       client_submission_id: 'sub_test_idempotent_01',
       name: 'Quán Bún Nước Lèo Cô Ba',
@@ -284,29 +308,31 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
       area: 'TP. Trà Vinh',
       address: '123 Đường Đồng Khởi, P.4',
       description: 'Quán bún nước lèo truyền thống chuẩn vị thơm ngon',
-      images: ['https://storage.supabase.co/v1/object/public/contribution-photos/contributions/photo1.jpg'],
+      images: [],
       status: 'approved' // Kẻ gian cố tình gửi approved
     };
 
+    const sharedIp = '10.88.88.88';
+
     // Lần 1: Tạo mới thành công, ép status draft và lưu client_submission_id
-    const res1 = await testApiEndpoint(validSubmission);
+    const res1 = await testApiEndpoint(validSubmission, { ip: sharedIp });
     assert.strictEqual(res1.status, 201, 'Tạo draft thành công trả về 201');
     assert.strictEqual(res1.body.status, 'draft', 'API phải luôn ép status = draft bất kể input');
     assert.strictEqual(res1.body.data.status, 'draft', 'Bản ghi DB phải có status = draft');
     assert.strictEqual(res1.body.data.client_submission_id, validSubmission.client_submission_id, 'client_submission_id được ghi nhận chính xác');
     assert.ok(res1.body.data.slug.startsWith('contrib-quan-bun-nuoc-leo-co-ba-'), 'Slug tạo theo định dạng chuẩn deterministic');
 
-    // Lần 2 (Retry cùng client_submission_id NHƯNG THAY ĐỔI TÊN ĐỊA ĐIỂM):
-    // Phải Idempotent (HTTP 200), không sinh duplicate, không bị ảnh hưởng bởi name hay slug
+    // Lần 2: Retry CÙNG client_submission_id, CÙNG IP NGAY LẬP TỨC (chưa hết cooldown 10s), NHƯNG THAY ĐỔI TÊN ĐỊA ĐIỂM
+    // Phải Idempotent (HTTP 200) vì kiểm tra idempotency chạy TRƯỚC rate-limit, không bị 429, DB giữ nguyên đúng 1 dòng
     const res2DifferentName = await testApiEndpoint({
       ...validSubmission,
       name: 'Quán Bún Nước Lèo Đã Đổi Tên Thành Cô Tư',
       address: 'Địa chỉ đã sửa đổi'
-    });
-    assert.strictEqual(res2DifferentName.status, 200, 'Retry cùng submission ID dù đổi name vẫn phải trả về 200 Idempotent');
+    }, { ip: sharedIp });
+    assert.strictEqual(res2DifferentName.status, 200, 'Retry cùng submission ID cùng IP ngay lập tức vẫn trả về 200 Idempotent (không bị 429)');
     assert.strictEqual(res2DifferentName.body.idempotent, true, 'idempotent flag phải là true');
     assert.strictEqual(res2DifferentName.body.data.name, 'Quán Bún Nước Lèo Cô Ba', 'Trả về bản ghi gốc đã lưu');
-    assert.strictEqual(mockDbRecords.length, 1, 'Database chỉ có 1 bản ghi duy nhất, tuyệt đối không bị nhân đôi khi đổi tên');
+    assert.strictEqual(mockDbRecords.length, 1, 'Database đúng 1 dòng, tuyệt đối không bị nhân đôi khi đổi tên');
   } finally {
     globalThis.fetch = originalFetch;
   }
