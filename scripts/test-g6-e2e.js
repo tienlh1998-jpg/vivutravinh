@@ -45,6 +45,33 @@ import {
   SupabaseRequestError
 } from '../js/comments.js';
 
+import {
+  state as appState,
+  toggleBookmark,
+  saveRecentPlace,
+  isPlaceSaved,
+  isPlaceRecent,
+  canonicalizePreferences,
+  getPlaceAliases,
+  getPlaceCanonicalKey
+} from '../js/app.js';
+
+// Setup minimal localStorage mock for Node test environment
+const inMemoryStorage = new Map();
+globalThis.localStorage = {
+  getItem: (key) => inMemoryStorage.has(key) ? inMemoryStorage.get(key) : null,
+  setItem: (key, val) => inMemoryStorage.set(key, String(val)),
+  removeItem: (key) => inMemoryStorage.delete(key),
+  clear: () => inMemoryStorage.clear()
+};
+if (typeof globalThis.window === 'undefined') {
+  globalThis.window = {
+    localStorage: globalThis.localStorage,
+    location: new URL('http://localhost:8000/'),
+    history: { pushState: () => {}, replaceState: () => {} }
+  };
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -234,7 +261,7 @@ runTest('E03', 'Gallery nhiều ảnh -> Tỷ lệ dọc/ngang không vỡ -> �
 console.log('\n--- [E04] Kiểm thử Chỉnh Sửa Thông Tin & Liên Kết ID Bền Vững ---');
 
 runTest('E04', 'Sửa giờ/giá/ảnh/slug -> ID favorite/recent vẫn liên kết đúng qua ID/dbId', () => {
-  // Giả lập trạng thái ứng dụng với dữ liệu ban đầu
+  // 1. Dữ liệu ban đầu
   const originalPlace = normalizePlace({
     'ID': '101',
     'Slug': 'quan-an-co-ba',
@@ -245,14 +272,36 @@ runTest('E04', 'Sửa giờ/giá/ảnh/slug -> ID favorite/recent vẫn liên k�
     'Trạng Thái': 'approved'
   }, 5);
 
-  // Người dùng thêm địa điểm này vào Yêu thích và Lịch sử vừa xem
-  const userFavorites = [originalPlace.id]; // 'quan-an-co-ba'
-  const userRecent = [originalPlace.id];
+  assert.strictEqual(originalPlace.dbId, '101', 'dbId của địa điểm ban đầu phải là 101');
+  assert.strictEqual(originalPlace.slug, 'quan-an-co-ba', 'Slug ban đầu là quan-an-co-ba');
 
-  // Giả lập Admin chỉnh sửa: Cập nhật giờ, giá, ảnh mới và ĐỔI SLUG
+  // Khởi tạo state của app.js
+  appState.allPlaces = [originalPlace];
+  appState.favorites = [];
+  appState.recent = [];
+  inMemoryStorage.clear();
+
+  // 2. Lưu favorite bằng logic THẬT của app.js: toggleBookmark
+  toggleBookmark(null, originalPlace);
+  assert.strictEqual(appState.favorites.includes('101'), true, 'toggleBookmark thật phải lưu khóa chuẩn dbId khi có');
+  assert.strictEqual(isPlaceSaved(originalPlace), true, 'isPlaceSaved thật trả về true cho originalPlace');
+
+  // 3. Lưu recent bằng logic THẬT của app.js: saveRecentPlace
+  saveRecentPlace(originalPlace);
+  assert.strictEqual(appState.recent.includes('101'), true, 'saveRecentPlace thật phải lưu khóa chuẩn dbId vào recent');
+  assert.strictEqual(isPlaceRecent(originalPlace), true, 'isPlaceRecent thật trả về true cho originalPlace');
+
+  // 4. Kiểm thử migration: Người dùng cũ từng lưu bằng slug 'quan-an-co-ba'
+  appState.favorites = ['quan-an-co-ba'];
+  appState.recent = ['quan-an-co-ba'];
+  canonicalizePreferences([originalPlace]);
+  assert.deepStrictEqual(appState.favorites, ['101'], 'canonicalizePreferences phải tự động chuyển slug cũ sang dbId');
+  assert.deepStrictEqual(appState.recent, ['101'], 'canonicalizePreferences phải tự động chuyển recent cũ sang dbId');
+
+  // 5. Admin chỉnh sửa: Cập nhật giờ, giá, ảnh mới và ĐỔI SLUG
   const editedPlace = normalizePlace({
-    'ID': '101', // dbId hoặc permanent ID giữ nguyên
-    'Slug': 'quan-an-co-ba-vip-moi', // Slug mới
+    'ID': '101', // dbId giữ nguyên
+    'Slug': 'quan-an-co-ba-vip-moi', // Slug mới thay đổi
     'Tên địa điểm': 'Quán Ăn Cô Ba (Mới)',
     'Mức Giá': '45.000đ - 70.000đ',
     'Giờ Mở Cửa': '08:00 - 22:00',
@@ -260,24 +309,28 @@ runTest('E04', 'Sửa giờ/giá/ảnh/slug -> ID favorite/recent vẫn liên k�
     'Trạng Thái': 'approved'
   }, 5);
 
-  // Kiểm tra thông tin đã cập nhật
+  appState.allPlaces = [editedPlace];
+
+  // Kiểm tra thông tin cập nhật
   assert.strictEqual(editedPlace.slug, 'quan-an-co-ba-vip-moi', 'Slug đã được cập nhật');
   assert.strictEqual(editedPlace.priceFormatted, '45.000đ - 70.000đ', 'Giá đã được cập nhật');
   assert.strictEqual(editedPlace.displayHours, '08:00 - 22:00', 'Giờ mở cửa đã được cập nhật');
   assert.strictEqual(editedPlace.imageLink, 'https://example.com/coba-new.jpg', 'Ảnh đã cập nhật');
 
-  // Hàm kiểm tra liên kết bền vững (kiểm tra id, slug hoặc dbId)
-  function isPlaceSavedRobust(place, favorites) {
-    return favorites.some(favId =>
-      favId === place.id ||
-      (place.slug && favId === place.slug) ||
-      (place.dbId && favId === String(place.dbId)) ||
-      (favId === 'quan-an-co-ba' && place.dbId === '101') // Liên kết qua dbId ổn định
-    );
-  }
+  // 6. Kiểm thử hàm THẬT isPlaceSaved & isPlaceRecent:
+  // Dù đổi slug, favorite & recent vẫn liên kết chính xác nhờ khóa chuẩn dbId
+  assert.strictEqual(isPlaceSaved(editedPlace), true, 'Dù đổi slug, isPlaceSaved thật vẫn liên kết chính xác qua dbId');
+  assert.strictEqual(isPlaceRecent(editedPlace), true, 'Dù đổi slug, isPlaceRecent thật vẫn liên kết chính xác qua dbId');
 
-  assert.strictEqual(isPlaceSavedRobust(editedPlace, userFavorites), true, 'Dù đổi slug, ID Yêu thích cũ vẫn liên kết chính xác');
-  assert.strictEqual(isPlaceSavedRobust(editedPlace, userRecent), true, 'Dù đổi slug, Lịch sử vừa xem vẫn liên kết chính xác');
+  // 7. Kiểm thử BỎ THÍCH (Unfavorite) bằng hàm THẬT toggleBookmark:
+  // Phải xóa sạch tất cả bí danh (dbId '101', slug cũ 'quan-an-co-ba', slug mới 'quan-an-co-ba-vip-moi')
+  toggleBookmark(null, editedPlace);
+  assert.strictEqual(isPlaceSaved(editedPlace), false, 'Sau khi bỏ thích, isPlaceSaved thật phải trả về false');
+  assert.strictEqual(appState.favorites.includes('101'), false, 'dbId 101 phải được gỡ bỏ');
+  assert.strictEqual(appState.favorites.includes('quan-an-co-ba'), false, 'Slug cũ phải được gỡ bỏ');
+  assert.strictEqual(appState.favorites.includes('quan-an-co-ba-vip-moi'), false, 'Slug mới phải không có trong favorites');
+  const storedFavs = JSON.parse(globalThis.localStorage.getItem('vivu_favorites') || '[]');
+  assert.strictEqual(storedFavs.includes('101'), false, 'localStorage không còn dbId 101');
 });
 
 // =========================================================================

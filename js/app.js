@@ -57,48 +57,144 @@ function getStoredFavorites() {
     return [];
 }
 
+/**
+ * Tìm địa điểm trong danh sách theo ID, Slug hoặc dbId
+ */
+export function findPlaceByAnyId(placeOrId, places = (typeof state !== 'undefined' && state ? state.allPlaces : [])) {
+    if (!placeOrId) return null;
+    if (typeof placeOrId === 'object') return placeOrId;
+    const cleanId = String(placeOrId).trim();
+    if (!cleanId) return null;
+    return (places || []).find(p => (
+        (p.id && String(p.id) === cleanId) ||
+        (p.slug && String(p.slug) === cleanId) ||
+        (p.dbId && String(p.dbId) === cleanId)
+    )) || null;
+}
+
+/**
+ * Trả về tập hợp tất cả bí danh (aliases) của địa điểm: ID, Slug, dbId, legacy_slugs
+ */
+export function getPlaceAliases(placeOrId, places = (typeof state !== 'undefined' && state ? state.allPlaces : [])) {
+    const aliases = new Set();
+    if (!placeOrId) return aliases;
+
+    let place = null;
+    if (typeof placeOrId === 'object') {
+        place = placeOrId;
+        if (place.id) aliases.add(String(place.id));
+    } else {
+        const cleanId = String(placeOrId).trim();
+        if (cleanId) aliases.add(cleanId);
+        place = findPlaceByAnyId(cleanId, places);
+    }
+
+    if (place) {
+        if (place.id) aliases.add(String(place.id));
+        if (place.slug) aliases.add(String(place.slug));
+        if (place.dbId) aliases.add(String(place.dbId));
+        if (Array.isArray(place.aliases)) {
+            place.aliases.forEach(a => { if (a) aliases.add(String(a)); });
+        }
+        if (Array.isArray(place.legacy_slugs)) {
+            place.legacy_slugs.forEach(a => { if (a) aliases.add(String(a)); });
+        }
+    }
+
+    return aliases;
+}
+
+/**
+ * Trả về khóa chuẩn duy nhất để lưu trữ (ưu tiên dbId bền vững, fallback slug/id)
+ */
+export function getPlaceCanonicalKey(placeOrId, places = (typeof state !== 'undefined' && state ? state.allPlaces : [])) {
+    if (!placeOrId) return null;
+    const place = typeof placeOrId === 'object' ? placeOrId : findPlaceByAnyId(placeOrId, places);
+    if (place) {
+        if (place.dbId !== undefined && place.dbId !== null && String(place.dbId).trim().length > 0) {
+            return String(place.dbId).trim();
+        }
+        if (place.id !== undefined && place.id !== null && String(place.id).trim().length > 0) {
+            return String(place.id).trim();
+        }
+        if (place.slug !== undefined && place.slug !== null && String(place.slug).trim().length > 0) {
+            return String(place.slug).trim();
+        }
+    }
+    return typeof placeOrId === 'string' ? placeOrId.trim() : null;
+}
+
+/**
+ * Chuyển đổi toàn bộ favorite và recent từ slug cũ sang dbId chuẩn khi places được tải
+ */
+export function canonicalizePreferences(places = (typeof state !== 'undefined' && state ? state.allPlaces : [])) {
+    if (!Array.isArray(places) || places.length === 0 || typeof state === 'undefined' || !state) return;
+
+    let favChanged = false;
+    const newFavs = [];
+    for (const fav of (state.favorites || [])) {
+        const place = findPlaceByAnyId(fav, places);
+        const targetKey = place ? getPlaceCanonicalKey(place, places) : fav;
+        if (targetKey !== fav) favChanged = true;
+        if (!newFavs.includes(targetKey)) {
+            newFavs.push(targetKey);
+        } else if (targetKey !== fav) {
+            favChanged = true;
+        }
+    }
+    if (favChanged || newFavs.length !== (state.favorites || []).length) {
+        state.favorites = newFavs;
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.setItem('vivu_favorites', JSON.stringify(state.favorites));
+            }
+        } catch (e) {}
+    }
+
+    let recChanged = false;
+    const newRecs = [];
+    for (const rec of (state.recent || [])) {
+        const place = findPlaceByAnyId(rec, places);
+        const targetKey = place ? getPlaceCanonicalKey(place, places) : rec;
+        if (targetKey !== rec) recChanged = true;
+        if (!newRecs.includes(targetKey)) {
+            newRecs.push(targetKey);
+        } else if (targetKey !== rec) {
+            recChanged = true;
+        }
+    }
+    if (recChanged || newRecs.length !== (state.recent || []).length) {
+        state.recent = newRecs.slice(0, 20);
+        try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.setItem('vivu_recent', JSON.stringify(state.recent));
+            }
+        } catch (e) {}
+    }
+}
+
 export function isPlaceSaved(placeOrId) {
-    if (!placeOrId) return false;
-    const favs = state?.favorites || [];
+    if (!placeOrId || typeof state === 'undefined' || !state) return false;
+    const favs = state.favorites || [];
     if (!favs.length) return false;
 
-    if (typeof placeOrId === 'string') {
-        const cleanId = placeOrId.trim();
-        if (favs.includes(cleanId)) return true;
-        const place = (state.allPlaces || []).find(p => p.id === cleanId || p.slug === cleanId || (p.dbId && String(p.dbId) === cleanId));
-        if (place) {
-            return favs.some(favId =>
-                favId === place.id || (place.slug && favId === place.slug) || (place.dbId && favId === String(place.dbId))
-            );
-        }
-        return false;
+    const aliases = getPlaceAliases(placeOrId, state.allPlaces);
+    for (const alias of aliases) {
+        if (favs.includes(alias)) return true;
     }
-    const place = placeOrId;
-    return favs.some(favId =>
-        favId === place.id || (place.slug && favId === place.slug) || (place.dbId && favId === String(place.dbId))
-    );
+    return false;
 }
 
 export function isPlaceRecent(placeOrId) {
-    if (!placeOrId) return false;
-    const recs = state?.recent || [];
+    if (!placeOrId || typeof state === 'undefined' || !state) return false;
+    const recs = state.recent || [];
     if (!recs.length) return false;
 
-    if (typeof placeOrId === 'string') {
-        const cleanId = placeOrId.trim();
-        if (recs.includes(cleanId)) return true;
-        const place = (state.allPlaces || []).find(p => p.id === cleanId || p.slug === cleanId || (p.dbId && String(p.dbId) === cleanId));
-        if (place) {
-            return recs.some(recId =>
-                recId === place.id || (place.slug && recId === place.slug) || (place.dbId && recId === String(place.dbId))
-            );
-        }
-        return false;
+    const aliases = getPlaceAliases(placeOrId, state.allPlaces);
+    for (const alias of aliases) {
+        if (recs.includes(alias)) return true;
     }
-    const place = placeOrId;
-    return recs.some(recId =>
-        recId === place.id || (place.slug && recId === place.slug) || (place.dbId && recId === String(place.dbId))
-    );
+    return false;
 }
 
 export function showNoticeToast(titleText, msgText) {
@@ -133,13 +229,15 @@ function getStoredRecent() {
     return [];
 }
 
-export function saveRecentPlace(placeId) {
-    if (!placeId || typeof placeId !== 'string') return;
-    const cleanId = placeId.trim();
-    if (!cleanId) return;
+export function saveRecentPlace(placeOrId) {
+    if (!placeOrId || typeof state === 'undefined' || !state) return;
+    const aliases = getPlaceAliases(placeOrId, state.allPlaces);
+    const canonicalKey = getPlaceCanonicalKey(placeOrId, state.allPlaces);
+    if (!canonicalKey) return;
 
-    const filtered = (state.recent || []).filter(id => id !== cleanId);
-    filtered.unshift(cleanId);
+    // Lọc bỏ toàn bộ bí danh liên quan để không bị trùng hoặc lưu cả slug lẫn dbId
+    const filtered = (state.recent || []).filter(id => !aliases.has(id));
+    filtered.unshift(canonicalKey);
     state.recent = filtered.slice(0, 20);
 
     try {
@@ -170,7 +268,7 @@ export function clearRecentHistory() {
 }
 
 // Global Application State
-const state = {
+export const state = {
     allPlaces: [],
     filteredPlaces: [],
     spotlightPlace: null,
@@ -276,6 +374,9 @@ async function initApp() {
         state.allPlaces = places;
         state.filteredPlaces = [...places];
 
+        // Chuẩn hóa preferences lưu trong localStorage sang dbId canonical key
+        canonicalizePreferences(places);
+
         // Chọn địa điểm Spotlight: ưu tiên Ao Bà Om, Chùa Âng hoặc địa điểm có rating cao nhất
         state.spotlightPlace = places.find(p => p.name.toLowerCase().includes('ao bà om'))
             || places.find(p => p.name.toLowerCase().includes('chùa âng'))
@@ -283,7 +384,7 @@ async function initApp() {
 
         // Render các khối Bento
         renderStoryBubbles('storyBubblesContainer', state.activeBubble, handleBubbleSelect);
-        renderHeroSpotlight('heroSpotlightContainer', state.spotlightPlace, openDetailModal, toggleBookmark, state.favorites.includes(state.spotlightPlace.id));
+        renderHeroSpotlight('heroSpotlightContainer', state.spotlightPlace, openDetailModal, toggleBookmark, isPlaceSaved(state.spotlightPlace));
         renderWeatherAndSmartSuggestions('smartSuggestionsContainer', state.allPlaces, openDetailModal);
 
         // Render Section Lịch trình tour 1 ngày
@@ -939,9 +1040,14 @@ function applyFilters() {
     // Nếu đang xem "Vừa xem" (recent): sắp xếp theo thứ tự vừa xem gần nhất
     if (cat === 'recent') {
         state.filteredPlaces.sort((a, b) => {
-            const idxA = state.recent.indexOf(a.id);
-            const idxB = state.recent.indexOf(b.id);
-            return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
+            const getRecentIndex = (place) => {
+                const aliases = getPlaceAliases(place, state.allPlaces);
+                for (let i = 0; i < (state.recent || []).length; i++) {
+                    if (aliases.has(state.recent[i])) return i;
+                }
+                return 999;
+            };
+            return getRecentIndex(a) - getRecentIndex(b);
         });
     } else if (state.isNearMeActive) {
         // Nếu bộ lọc Gần tôi nhất đang bật, sắp xếp theo khoảng cách tăng dần
@@ -1018,43 +1124,68 @@ function updateDataSourceBadge(places) {
 /**
  * Quản lý Bookmark (Favorites)
  */
-function toggleBookmark(e, placeId) {
-    if (e) e.stopPropagation();
+export function toggleBookmark(e, placeOrId) {
+    if (e) {
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+    }
+    if (!placeOrId || typeof state === 'undefined' || !state) return;
 
-    const idx = state.favorites.indexOf(placeId);
-    if (idx > -1) {
-        state.favorites.splice(idx, 1);
+    const aliases = getPlaceAliases(placeOrId, state.allPlaces);
+    const currentlySaved = isPlaceSaved(placeOrId);
+
+    if (currentlySaved) {
+        // Khi bỏ thích (unfavorite), xóa mọi bí danh liên quan (id, slug, dbId) để không bị sót hoặc trùng
+        state.favorites = (state.favorites || []).filter(favId => !aliases.has(favId));
     } else {
-        state.favorites.push(placeId);
+        // Lưu khóa chuẩn bằng dbId khi có
+        const canonicalKey = getPlaceCanonicalKey(placeOrId, state.allPlaces);
+        if (canonicalKey) {
+            // Trước khi thêm, đảm bảo gỡ sạch mọi bí danh cũ (nếu có) để tránh trùng lặp
+            const cleanFavs = (state.favorites || []).filter(favId => !aliases.has(favId));
+            cleanFavs.push(canonicalKey);
+            state.favorites = cleanFavs;
+        }
     }
 
-    localStorage.setItem('vivu_favorites', JSON.stringify(state.favorites));
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('vivu_favorites', JSON.stringify(state.favorites));
+        }
+    } catch (err) {
+        console.warn('[Favorites] Không thể ghi favorites vào storage:', err);
+    }
+
     updateFavoritesCount();
 
-    // Re-render nếu đang xem tab saved
-    if (state.activeCategory === 'saved') {
-        applyFilters();
-    } else {
-        renderMainDiscoveryGrid();
-    }
+    if (typeof document !== 'undefined') {
+        // Re-render nếu đang xem tab saved
+        if (state.activeCategory === 'saved') {
+            applyFilters();
+        } else {
+            renderMainDiscoveryGrid();
+        }
 
-    // Cập nhật Spotlight button nếu trùng
-    if (state.spotlightPlace && state.spotlightPlace.id === placeId) {
-        const isSaved = state.favorites.includes(placeId);
-        const btn = document.getElementById('spotlightSaveBtn');
-        if (btn) {
-            btn.innerHTML = `
-                <span class="material-symbols-outlined text-lg ${isSaved ? 'text-rose-400' : ''}" style="${isSaved ? "font-variation-settings: 'FILL' 1;" : ''}">
-                    ${isSaved ? 'bookmark_added' : 'bookmark'}
-                </span>
-                <span>${isSaved ? 'Đã lưu' : 'Lưu địa điểm'}</span>
-            `;
+        // Cập nhật Spotlight button nếu trùng
+        if (state.spotlightPlace && aliases.has(state.spotlightPlace.id)) {
+            const isSaved = isPlaceSaved(state.spotlightPlace);
+            const btn = document.getElementById('spotlightSaveBtn');
+            if (btn) {
+                btn.innerHTML = `
+                    <span class="material-symbols-outlined text-lg ${isSaved ? 'text-rose-400' : ''}" style="${isSaved ? "font-variation-settings: 'FILL' 1;" : ''}">
+                        ${isSaved ? 'bookmark_added' : 'bookmark'}
+                    </span>
+                    <span>${isSaved ? 'Đã lưu' : 'Lưu địa điểm'}</span>
+                `;
+            }
         }
     }
 }
 
-function updateFavoritesCount() {
-    const count = state.favorites.length;
+export function updateFavoritesCount() {
+    if (typeof state === 'undefined' || !state) return;
+    const count = (state.favorites || []).length;
+    if (typeof document === 'undefined') return;
     const countEl = document.getElementById('savedHeaderCount');
     if (countEl) {
         countEl.textContent = count;
@@ -1208,7 +1339,7 @@ export function openDetailModal(placeId) {
     }
 
     // Lưu vào lịch sử vừa xem (Recently Viewed)
-    saveRecentPlace(place.id);
+    saveRecentPlace(place);
 
     // Lưu lại phần tử kích hoạt trước đó để trả focus sau khi đóng (Accessibility)
     state.lastActiveElement = document.activeElement;
@@ -2705,52 +2836,61 @@ export function showOfflineMapOverlay(container) {
 }
 
 // Expose ra window để hỗ trợ inline HTML event handlers
-window.ViVuApp = {
-    toggleTheme,
-    openDetailModal,
-    closeDetailModal,
-    openFullMapModal,
-    closeFullMapModal,
-    locateUserPosition,
-    openContributeModal,
-    closeContributeModal,
-    locateContributePosition,
-    handleContributePhotosSelect,
-    removeContributePhoto,
-    handleContributeSubmit,
-    handleGenerateRandomTour,
-    sharePlace,
-    promptPwaInstall,
-    navGoHome,
-    navGoMap,
-    navGoSaved,
-    navGoSearch,
-    setBottomNavActive,
-    toggleNearMeFilter,
-    handleTourSelect,
-    handleSearchKeyword,
-    viewPhotoModal,
-    switchModalTab,
-    openFestivalModal,
-    closeFestivalModal,
-    handleSeasonFilter,
-    openArticleModal,
-    closeArticleModal,
-    openDetailFromArticle,
-    handleArticlePhotoSelect,
-    removeArticleCommentPhoto,
-    handleArticleCommentSubmit,
-    shareArticle,
-    resetAllFilters,
-    clearRecentHistory,
-    syncAllPendingReviews: () => syncAllPendingReviews(
-        (rev) => window.ViVuComments ? window.ViVuComments.submitComment(rev) : Promise.reject(new Error('Chưa có service bình luận')),
-        (rev, status) => console.log('[ManualSync]', rev.id, status)
-    ),
-    openDetailFromMap: (id) => {
-        closeFullMapModal();
-        openDetailModal(id);
-    },
-    getState: () => state,
-    get state() { return state; }
-};
+if (typeof window !== 'undefined') {
+    window.ViVuApp = {
+        toggleTheme,
+        openDetailModal,
+        closeDetailModal,
+        openFullMapModal,
+        closeFullMapModal,
+        locateUserPosition,
+        openContributeModal,
+        closeContributeModal,
+        locateContributePosition,
+        handleContributePhotosSelect,
+        removeContributePhoto,
+        handleContributeSubmit,
+        handleGenerateRandomTour,
+        sharePlace,
+        promptPwaInstall,
+        navGoHome,
+        navGoMap,
+        navGoSaved,
+        navGoSearch,
+        setBottomNavActive,
+        toggleNearMeFilter,
+        handleTourSelect,
+        handleSearchKeyword,
+        viewPhotoModal,
+        switchModalTab,
+        openFestivalModal,
+        closeFestivalModal,
+        handleSeasonFilter,
+        openArticleModal,
+        closeArticleModal,
+        openDetailFromArticle,
+        handleArticlePhotoSelect,
+        removeArticleCommentPhoto,
+        handleArticleCommentSubmit,
+        shareArticle,
+        resetAllFilters,
+        clearRecentHistory,
+        toggleBookmark,
+        isPlaceSaved,
+        isPlaceRecent,
+        saveRecentPlace,
+        canonicalizePreferences,
+        getPlaceAliases,
+        getPlaceCanonicalKey,
+        syncAllPendingReviews: () => syncAllPendingReviews(
+            (rev) => window.ViVuComments ? window.ViVuComments.submitComment(rev) : Promise.reject(new Error('Chưa có service bình luận')),
+            (rev, status) => console.log('[ManualSync]', rev.id, status)
+        ),
+        openDetailFromMap: (id) => {
+            closeFullMapModal();
+            openDetailModal(id);
+        },
+        getState: () => state,
+        get state() { return state; }
+    };
+}
