@@ -125,39 +125,55 @@ async function supabaseRequest(path, options = {}) {
   };
 }
 
-async function callRateLimitRpc(ip) {
-  const config = getSupabaseConfig();
-  if (!config) {
-    return null;
-  }
+function isDevOrTestEnvironment() {
+  if (process.env.VIVU_TEST === '1') return true;
+  if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') return true;
+  if (process.env.ALLOW_LOCAL_RATE_LIMIT_FALLBACK === 'true' || process.env.ALLOW_MOCK_FALLBACK === 'true') return true;
+  return false;
+}
 
-  const { baseUrl, serviceRoleKey } = config;
-  try {
-    const res = await fetch(`${baseUrl}/rest/v1/rpc/check_and_record_rate_limit`, {
-      method: 'POST',
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_ip: ip,
-        window_seconds: RATE_LIMIT_WINDOW_SECONDS,
-        max_requests: MAX_REQUESTS_PER_WINDOW,
-        min_interval_seconds: MIN_INTERVAL_SECONDS,
-      }),
-    });
+async function checkDistributedRateLimit(ip, supabaseConfig) {
+  if (supabaseConfig) {
+    try {
+      const res = await fetch(`${supabaseConfig.baseUrl}/rest/v1/rpc/check_and_record_rate_limit`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseConfig.serviceRoleKey,
+          Authorization: `Bearer ${supabaseConfig.serviceRoleKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          client_ip: ip,
+          window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+          max_requests: MAX_REQUESTS_PER_WINDOW,
+          min_interval_seconds: MIN_INTERVAL_SECONDS,
+        }),
+      });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data && typeof data.allowed === 'boolean') {
-        return data;
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data.allowed === 'boolean') {
+          return data;
+        }
+      } else {
+        const errText = await res.text();
+        throw new Error(`RPC status ${res.status}: ${errText}`);
       }
+    } catch (err) {
+      if (!isDevOrTestEnvironment()) {
+        console.error('[RateLimit RPC Production Error]', err.message);
+        const error = new Error('Dịch vụ kiểm tra giới hạn tần suất tạm thời không khả dụng. Vui lòng thử lại sau.');
+        error.status = 503;
+        error.code = 'RATE_LIMIT_UNAVAILABLE';
+        throw error;
+      }
+
+      console.warn('[RateLimit RPC Fallback] Sử dụng local cache fallback (chế độ DEV/TEST):', err.message);
     }
-  } catch (err) {
-    console.warn('[RateLimit RPC] Lỗi gọi RPC, chuyển sang local cache:', err.message);
   }
-  return null;
+
+  // Local in-memory check (dành riêng cho TEST/DEV)
+  return checkLocalRateLimit(ip);
 }
 
 async function readBody(request, limit = MAX_PAYLOAD_SIZE) {
@@ -265,6 +281,12 @@ export default async function handler(request, response) {
   const ip = getClientIp(request);
   const supabaseConfig = getSupabaseConfig();
 
+  // Kiểm tra cấu hình Supabase trên môi trường production (chặn thành công giả)
+  if (!supabaseConfig && !isDevOrTestEnvironment()) {
+    console.error('[ReportPlace] Thiếu biến môi trường SUPABASE_URL hoặc SUPABASE_SERVICE_ROLE_KEY trên Production');
+    return sendError(response, 500, 'CONFIG_ERROR', 'Dịch vụ cơ sở dữ liệu chưa được cấu hình trên máy chủ.');
+  }
+
   // 3. Kiểm tra Idempotency qua client_report_id TRƯỚC rate-limit
   if (validated.client_report_id) {
     if (supabaseConfig) {
@@ -299,13 +321,15 @@ export default async function handler(request, response) {
     }
   }
 
-  // 4. Rate-limiting phân tán (Supabase RPC hoặc Fallback bộ nhớ)
-  let rateLimitResult = null;
-  if (supabaseConfig) {
-    rateLimitResult = await callRateLimitRpc(ip);
-  }
-  if (!rateLimitResult) {
-    rateLimitResult = checkLocalRateLimit(ip);
+  // 4. Rate-limiting phân tán (Supabase RPC, fail-closed 503 trên Production)
+  let rateLimitResult;
+  try {
+    rateLimitResult = await checkDistributedRateLimit(ip, supabaseConfig);
+  } catch (rateErr) {
+    if (rateErr.status === 503) {
+      return sendError(response, 503, rateErr.code || 'RATE_LIMIT_UNAVAILABLE', rateErr.message);
+    }
+    throw rateErr;
   }
 
   if (!rateLimitResult.allowed) {
@@ -369,7 +393,7 @@ export default async function handler(request, response) {
       console.error('[Supabase Exception]', dbErr);
       return sendError(response, 500, 'DATABASE_EXCEPTION', 'Lỗi kết nối cơ sở dữ liệu khi lưu phản ánh.');
     }
-  } else {
+  } else if (isDevOrTestEnvironment()) {
     // Chế độ DEV/TEST không có cấu hình Supabase
     createdReport = {
       id: 'mock-report-' + Date.now(),
@@ -377,6 +401,8 @@ export default async function handler(request, response) {
       created_at: new Date().toISOString(),
       _mode: 'mock_local'
     };
+  } else {
+    return sendError(response, 500, 'CONFIG_ERROR', 'Dịch vụ cơ sở dữ liệu chưa được cấu hình.');
   }
 
   // Ghi nhận thành công vào local cache

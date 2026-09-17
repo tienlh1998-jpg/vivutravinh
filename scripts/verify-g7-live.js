@@ -223,7 +223,7 @@ async function runLiveAudit() {
       createdRecordId = rows[0].id;
     });
 
-    await assertCase("Dọn dẹp bản ghi kiểm toán test sạch sẽ khỏi bảng place_reports", async () => {
+    await assertCase("Dọn dẹp bản ghi kiểm toán test sạch sẽ khỏi bảng place_reports và xác nhận còn 0 dòng", async () => {
       const delRes = await fetch(`${supaBase}/rest/v1/place_reports?client_report_id=eq.${encodeURIComponent(testReportId)}`, {
         method: "DELETE",
         headers: {
@@ -234,6 +234,23 @@ async function runLiveAudit() {
 
       if (!delRes.ok) {
         throw new Error(`Không thể dọn dẹp bản ghi kiểm toán: HTTP ${delRes.status}`);
+      }
+
+      // Truy vấn lại để xác nhận bản ghi đã bị xóa hoàn toàn (còn 0 dòng)
+      const verifyRes = await fetch(`${supaBase}/rest/v1/place_reports?client_report_id=eq.${encodeURIComponent(testReportId)}&select=id`, {
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+        }
+      });
+
+      if (!verifyRes.ok) {
+        throw new Error(`Không thể truy vấn kiểm tra sau xóa: HTTP ${verifyRes.status}`);
+      }
+
+      const remainingRows = await verifyRes.json();
+      if (!Array.isArray(remainingRows) || remainingRows.length !== 0) {
+        throw new Error(`Kỳ vọng 0 dòng sau khi dọn dẹp nhưng còn lại: ${remainingRows?.length || 0}`);
       }
     });
   }

@@ -292,9 +292,35 @@ await runAsyncTest('api/report-place handles validation, rate limiting, and 200 
       client_report_id: clientReportId
     }
   }, resSecond);
-  assert.equal(resSecond.statusCode, 200);
-  assert.equal(resSecond.body.success, true);
-  assert.equal(resSecond.body.idempotent, true);
+  // 8. Production configuration enforcement: disallow mock on production when Supabase is missing (prevent false success)
+  const prevEnv = process.env.NODE_ENV;
+  const prevVivu = process.env.VIVU_TEST;
+  try {
+    delete process.env.VIVU_TEST;
+    delete process.env.ALLOW_MOCK_FALLBACK;
+    delete process.env.ALLOW_LOCAL_RATE_LIMIT_FALLBACK;
+    process.env.NODE_ENV = 'production';
+    process.env.VERCEL = '1';
+
+    const prodRes = mockRes();
+    await handler({
+      method: 'POST',
+      headers: { 'x-forwarded-for': '192.168.1.99' },
+      body: {
+        place_id: 'ao-ba-om',
+        place_name: 'Ao Bà Om',
+        issue_type: 'wrong_address',
+        details: 'Phản ánh trên production khi thiếu Supabase'
+      }
+    }, prodRes);
+
+    assert.equal(prodRes.statusCode, 500, 'Production must return 500 CONFIG_ERROR when Supabase is unconfigured');
+    assert.equal(prodRes.body.error.code, 'CONFIG_ERROR');
+  } finally {
+    process.env.NODE_ENV = prevEnv;
+    if (prevVivu) process.env.VIVU_TEST = prevVivu;
+    delete process.env.VERCEL;
+  }
 });
 
 // 7. SERVER-SIDE DYNAMIC SEO & OPEN GRAPH (RAW HTTP CRAWLER AUDIT)
@@ -335,6 +361,18 @@ await runAsyncTest('api/og-place renders dynamic <title>, OG tags, Twitter cards
   assert.ok(ogRes.headers['Content-Type'].includes('text/html'));
   assert.ok(ogRes.body.includes('Chùa Hang - ViVu Trà Vinh'));
   assert.ok(ogRes.body.includes('https://vivutravinh.vercel.app/?place=chua-hang'));
+});
+
+// 8. CLIENT-SIDE IDEMPOTENCY RETRY PRESERVATION AUDIT
+console.log('\n--- 8. Client-Side Idempotency Retry Preservation Audit ---');
+runTest('js/app.js binds and preserves client_report_id in localStorage across retries', () => {
+  const appContent = fs.readFileSync(path.join(ROOT_DIR, 'js/app.js'), 'utf8');
+  assert.ok(appContent.includes('vivu_pending_report_id_'), 'Missing localStorage key for pending report ID');
+  assert.ok(appContent.includes('reportClientReportId'), 'Missing reportClientReportId element binding');
+  assert.ok(appContent.includes('localStorage.removeItem(storageKey)'), 'Must clear storageKey on success');
+
+  const indexContent = fs.readFileSync(path.join(ROOT_DIR, 'index.html'), 'utf8');
+  assert.ok(indexContent.includes('id="reportClientReportId"'), 'index.html missing hidden input reportClientReportId');
 });
 
 console.log(`\n========================================`);

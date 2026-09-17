@@ -1550,6 +1550,22 @@ export function openReportModal(place = null) {
         statusEl.className = 'hidden';
     }
 
+    // Bảo toàn client_report_id cho phiên phản ánh này qua localStorage để retry idempotent không bị trùng
+    const targetSlugOrId = targetPlace.slug || targetPlace.id;
+    const storageKey = `vivu_pending_report_id_${targetSlugOrId}`;
+    let clientReportId = '';
+    try {
+        clientReportId = localStorage.getItem(storageKey) || '';
+    } catch {}
+    if (!clientReportId) {
+        clientReportId = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        try {
+            localStorage.setItem(storageKey, clientReportId);
+        } catch {}
+    }
+    const clientReportInput = document.getElementById('reportClientReportId');
+    if (clientReportInput) clientReportInput.value = clientReportId;
+
     if (modal) modal.classList.remove('hidden');
 }
 
@@ -1584,8 +1600,24 @@ export async function submitReportPlace(event) {
         submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> <span>Đang gửi...</span>';
     }
 
+    const targetSlugOrId = placeId;
+    const storageKey = `vivu_pending_report_id_${targetSlugOrId}`;
+    let clientReportId = document.getElementById('reportClientReportId')?.value || '';
+    if (!clientReportId) {
+        try {
+            clientReportId = localStorage.getItem(storageKey) || '';
+        } catch {}
+    }
+    if (!clientReportId) {
+        clientReportId = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        try {
+            localStorage.setItem(storageKey, clientReportId);
+        } catch {}
+        const clientReportInput = document.getElementById('reportClientReportId');
+        if (clientReportInput) clientReportInput.value = clientReportId;
+    }
+
     try {
-        const clientReportId = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
         const payload = {
             place_id: placeId,
             place_name: placeName,
@@ -1609,6 +1641,13 @@ export async function submitReportPlace(event) {
             return;
         }
 
+        // Máy chủ đã xác nhận thành công hoặc idempotent replay: dọn sạch pending ID để lần gửi mới sinh ID mới
+        try {
+            localStorage.removeItem(storageKey);
+        } catch {}
+        const clientReportInput = document.getElementById('reportClientReportId');
+        if (clientReportInput) clientReportInput.value = '';
+
         showReportStatus('Cảm ơn bạn! Báo cáo đã được ghi nhận để BQT kiểm tra và cập nhật.', 'success');
         showNoticeToast('Đã gửi phản ánh', 'Cảm ơn đóng góp của bạn để hoàn thiện dữ liệu du lịch Trà Vinh!');
 
@@ -1620,7 +1659,7 @@ export async function submitReportPlace(event) {
     } catch (err) {
         console.warn('[ReportPlace] Lỗi kết nối:', err);
         recordNetworkError('/api/report-place', err);
-        showReportStatus('Không thể kết nối máy chủ. Báo cáo của bạn sẽ được hỗ trợ kiểm tra sau.', 'error');
+        showReportStatus('Không thể kết nối máy chủ. Vui lòng kiểm tra mạng và thử lại.', 'error');
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
