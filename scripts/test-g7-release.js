@@ -396,6 +396,27 @@ await runAsyncTest('Raw HTML generation enforces /place/{slug} canonical and rej
   assert.ok(!rendered.includes('content="https://vivutravinh.vercel.app/?place='), 'og:url must not contain ?place=');
 });
 
+// 10. SPA CLIENT ROUTING & ZERO ?place= AUDIT
+console.log('\n--- 10. SPA Client Routing & Zero ?place= Audit ---');
+runTest('js/app.js enforces /place/{slug} URL routing and cleans up ?place= completely', () => {
+  const appCode = fs.readFileSync(path.join(ROOT_DIR, 'js/app.js'), 'utf8');
+
+  // Must construct targetPath as /place/${encodeURIComponent(slug)}
+  assert.ok(appCode.includes('`/place/${encodeURIComponent(slug)}`'), 'openDetailModal must format pathname as /place/{slug}');
+
+  // Must delete ?place= param upon opening and closing
+  assert.ok(appCode.includes("url.searchParams.delete('place')"), 'URL handling must explicitly delete ?place= parameter');
+
+  // Must reset pathname to / upon closing modal
+  assert.ok(appCode.includes("url.pathname = '/'"), 'closeDetailModal must restore pathname to /');
+
+  // Must handle direct entry without duplicate history and replaceState back to /
+  assert.ok(appCode.includes('isDirect: true'), 'SPA routing must mark direct entry to avoid duplicate history stack');
+
+  // handleDeepLink must migrate legacy ?place= to canonical /place/
+  assert.ok(appCode.includes('fromLegacyQuery: true'), 'handleDeepLink must flag legacy query for canonical URL migration');
+});
+
 console.log(`\n========================================`);
 console.log(`G7 RELEASE AUDIT KẾT QUẢ: ${passedTests}/${totalTests} PASS`);
 console.log(`========================================\n`);

@@ -1345,7 +1345,7 @@ async function loadCommentsForModal(place, requestId) {
 /**
  * Modal Chi Tiết Địa Điểm (Mở tức thì không trễ - Zero Latency)
  */
-export function openDetailModal(placeOrId) {
+export function openDetailModal(placeOrId, options = {}) {
     let place = null;
     if (placeOrId && typeof placeOrId === 'object' && placeOrId.id) {
         place = placeOrId;
@@ -1413,11 +1413,25 @@ export function openDetailModal(placeOrId) {
         document.getElementById('modalCloseBtn')?.focus();
     }, 50);
 
-    // Cập nhật URL và đẩy lịch sử trình duyệt (hỗ trợ deep link và nút Back trên mobile)
+    // Cập nhật URL chuẩn canonical /place/{slug} và quản lý lịch sử trình duyệt
+    const slug = place.slug || place.id;
+    const targetPath = `/place/${encodeURIComponent(slug)}`;
     const url = new URL(window.location);
-    url.searchParams.set('place', place.id);
-    if (!window.history.state || window.history.state.placeId !== place.id) {
-        window.history.pushState({ modal: 'place', placeId: place.id }, '', url);
+    url.pathname = targetPath;
+    url.searchParams.delete('place');
+
+    const isDirectEntry = Boolean(
+        options.isDirect ||
+        options.fromLegacyQuery ||
+        (window.location.pathname === targetPath && (!window.history.state || window.history.state.modal !== 'place'))
+    );
+
+    if (isDirectEntry) {
+        window.history.replaceState({ modal: 'place', placeId: place.id, slug, isDirect: true }, '', url);
+    } else {
+        if (!window.history.state || window.history.state.placeId !== place.id) {
+            window.history.pushState({ modal: 'place', placeId: place.id, slug, isDirect: false }, '', url);
+        }
     }
 
     // Bắt đầu tải bình luận ngầm trong nền với Request ID chống race condition
@@ -1440,17 +1454,27 @@ export function closeDetailModal(fromPopstate = false) {
         video.pause();
     }
 
-    // Xóa path /place/ hoặc param ?place khỏi URL và đồng bộ lịch sử
+    // URL sau khi đóng modal luôn đưa về trang chủ / và xóa bỏ triệt để ?place=
     const url = new URL(window.location);
     if (url.pathname.startsWith('/place/') || url.pathname.startsWith('/places/')) {
         url.pathname = '/';
     }
     url.searchParams.delete('place');
 
-    if (!fromPopstate && window.history.state && window.history.state.modal === 'place') {
-        window.history.back();
+    if (!fromPopstate) {
+        if (window.history.state && window.history.state.modal === 'place' && !window.history.state.isDirect) {
+            // Mở từ trang chủ trong phiên này: quay lui lịch sử về /
+            window.history.back();
+        } else {
+            // Truy cập trực tiếp /place/{slug} hoặc link legacy ?place=: replaceState về /
+            window.history.replaceState({ modal: null }, '', url);
+        }
     } else {
-        window.history.replaceState({}, '', url);
+        // Đến từ sự kiện popstate (nhấn nút Back di động):
+        // Nếu URL vẫn còn vướng đường dẫn /place/ hoặc param ?place, dọn dẹp sạch về /
+        if (window.location.pathname.startsWith('/place/') || window.location.pathname.startsWith('/places/') || window.location.search.includes('place=')) {
+            window.history.replaceState({ modal: null }, '', url);
+        }
     }
 
     // Hoàn trả focus về phần tử kích hoạt trước đó (Accessibility)
@@ -2730,15 +2754,15 @@ function handleDeepLink() {
     const match = path.match(/^\/places?\/([^/?#]+)/i);
     if (match && match[1]) {
         const placeSlug = decodeURIComponent(match[1]);
-        setTimeout(() => openDetailModal(placeSlug), 300);
+        setTimeout(() => openDetailModal(placeSlug, { isDirect: true }), 300);
         return;
     }
 
-    // 2. Tương thích ngược: Hỗ trợ query param ?place={slug}
+    // 2. Tương thích ngược: Hỗ trợ query param ?place={slug}, tự động chuyển URL sang /place/{slug}
     const params = new URLSearchParams(window.location.search);
     const placeId = params.get('place');
     if (placeId) {
-        setTimeout(() => openDetailModal(placeId), 300);
+        setTimeout(() => openDetailModal(placeId, { isDirect: true, fromLegacyQuery: true }), 300);
         return;
     }
     const tripParam = params.get('trip');

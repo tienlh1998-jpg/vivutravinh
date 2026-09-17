@@ -228,7 +228,9 @@ async function runG6BrowserTests() {
             const isModalVisible = modal && !modal.classList.contains('hidden');
             const bodyOverflow = document.body.classList.contains('overflow-hidden');
             const currentUrl = new URL(window.location.href);
-            const urlPlace = currentUrl.searchParams.get('place');
+            const pathname = currentUrl.pathname;
+            const urlPlace = pathname.startsWith('/place/') ? pathname.replace('/place/', '') : currentUrl.searchParams.get('place');
+            const hasQueryPlace = currentUrl.searchParams.has('place');
             const modalTitle = document.getElementById('modalTitle')?.textContent?.trim();
 
             return {
@@ -236,6 +238,8 @@ async function runG6BrowserTests() {
                 isModalVisible,
                 bodyOverflow,
                 urlPlace,
+                hasQueryPlace,
+                pathname: currentUrl.pathname,
                 modalTitle
             };
         })()`);
@@ -243,11 +247,12 @@ async function runG6BrowserTests() {
         if (openModalResult.error) throw new Error(openModalResult.error);
         console.log(`  ✅ Đã mở modal địa điểm: "${openModalResult.modalTitle}"`);
         console.log(`  ✅ Modal hiển thị: ${openModalResult.isModalVisible}, Khóa cuộn body: ${openModalResult.bodyOverflow}`);
-        console.log(`  ✅ URL đồng bộ param place="${openModalResult.urlPlace}"`);
+        console.log(`  ✅ URL đồng bộ canonical path="${openModalResult.pathname}" (chứa slug "${openModalResult.urlPlace}", ?place= tồn tại: ${openModalResult.hasQueryPlace})`);
 
         if (!openModalResult.isModalVisible) throw new Error('Modal chi tiết không hiển thị');
         if (!openModalResult.bodyOverflow) throw new Error('Body không được khóa cuộn khi mở modal');
-        if (!openModalResult.urlPlace) throw new Error('URL không được cập nhật search param place');
+        if (!openModalResult.urlPlace) throw new Error('URL không được cập nhật canonical path /place/{slug}');
+        if (openModalResult.hasQueryPlace) throw new Error('URL không được phép chứa param ?place= trong luồng mới');
 
         // Chụp ảnh giao diện modal
         const modalPic = path.join(ARTIFACT_DIR, 'g6-modal-navigation.png');
@@ -255,8 +260,11 @@ async function runG6BrowserTests() {
 
         // Giả lập người dùng bấm nút Back trình duyệt di động (popstate event)
         const backResult = await cdp.eval(`(() => {
-            // Giả lập quay lui lịch sử trình duyệt
+            // Giả lập quay lui lịch sử trình duyệt về /
             const url = new URL(window.location.href);
+            if (url.pathname.startsWith('/place/') || url.pathname.startsWith('/places/')) {
+                url.pathname = '/';
+            }
             url.searchParams.delete('place');
             window.history.replaceState({}, '', url);
 
@@ -267,20 +275,24 @@ async function runG6BrowserTests() {
             const isModalHidden = modal && modal.classList.contains('hidden');
             const bodyFree = !document.body.classList.contains('overflow-hidden');
             const hasPlaceParam = new URL(window.location.href).searchParams.has('place');
+            const isPathHome = new URL(window.location.href).pathname === '/';
 
             return {
                 isModalHidden,
                 bodyFree,
-                hasPlaceParam
+                hasPlaceParam,
+                isPathHome
             };
         })()`);
 
         console.log(`  ✅ Sau popstate Back: Modal đã đóng = ${backResult.isModalHidden}`);
         console.log(`  ✅ Khôi phục cuộn trang body = ${backResult.bodyFree}`);
         console.log(`  ✅ URL param place đã sạch = ${!backResult.hasPlaceParam}`);
+        console.log(`  ✅ URL pathname đã về trang chủ = ${backResult.isPathHome}`);
 
         if (!backResult.isModalHidden) throw new Error('Modal không tự động đóng khi nhận sự kiện popstate Back');
         if (!backResult.bodyFree) throw new Error('Body vẫn bị khóa cuộn sau khi Back');
+        if (!backResult.isPathHome) throw new Error('URL pathname chưa được đưa về /');
 
         // =========================================================================
         // TEST 3: Gallery Ảnh: Chuyển Slide & Fallback Error An Toàn (E03)
