@@ -419,12 +419,15 @@ async function runG6BrowserTests() {
         // TEST 5: Trải Nghiệm Di Động & Vùng Chạm Touch Target (E09)
         // =========================================================================
         console.log('\n[5] KIỂM THỬ KÍCH THƯỚC VÙNG CHẠM TOUCH TARGET (>= 44px) TRÊN DI ĐỘNG (E09):');
-        const touchTargets = await cdp.eval(`(() => {
-            const targets = [];
-
-            // Mở modal để đo kích thước hiển thị thực tế của nút đóng
+        // Mở modal để đo kích thước hiển thị thực tế của nút đóng
+        await cdp.eval(`(() => {
             const firstPlace = window.ViVuApp.state.allPlaces?.[0];
             if (firstPlace) window.ViVuApp.openDetailModal(firstPlace.id);
+        })()`);
+        await sleep(300);
+
+        const touchTargets = await cdp.eval(`(() => {
+            const targets = [];
 
             // Nút đóng modal
             const closeBtn = document.getElementById('modalCloseBtn');

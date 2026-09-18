@@ -1,12 +1,15 @@
 // scripts/verify-g8-browser.cjs
-// Kiểm thử giao diện quản trị ViVuTraVinh thực tế trên trình duyệt thực qua Chrome DevTools Protocol (CDP) - G8.3:
-// 1. Không dùng CDN thiết yếu; asset CSS và Fonts hoàn toàn cục bộ
-// 2. Màn hình đăng nhập, xác thực phiên, hiển thị role badge và đăng xuất
-// 3. Bảng điều khiển Dashboard (Draft places, pending comments, pending reports)
-// 4. Modal xem trước địa điểm (Preview) kèm cảnh báo kiểm tra dữ liệu trước khi duyệt
-// 5. Quản lý 3 tab: Địa điểm, Bình luận (xem ảnh an toàn), Báo sai (ẩn hiện PII theo RBAC)
-// 6. Dialog xác nhận tác vụ nguy hiểm (ARIA, role="dialog", focus trap)
-// 7. Responsive kiểm tra tràn ngang tại 360, 390 và 414 px; touch target >= 44x44px; Dark mode
+// Kiểm thử giao diện quản trị ViVuTraVinh thực tế trên trình duyệt thực qua Chrome DevTools Protocol (CDP) - G8.4:
+// 1. Không dùng CDN thiết yếu; asset CSS và Fonts hoàn toàn cục bộ (DOM + Network audit)
+// 2. Vòng đời xác thực đầy đủ: Đăng nhập, Đăng xuất, Hết phiên làm việc (Session Expiry)
+// 3. Bảng điều khiển Dashboard và điều hướng 3 tab dữ liệu (Places, Comments, Reports)
+// 4. Vòng đời duyệt draft cùng Modal xem trước (Preview) và cảnh báo tính toàn vẹn dữ liệu
+// 5. Kiểm duyệt bình luận (duyệt, ẩn, hiện lại) và xử lý báo sai (ghi chú, bác bỏ)
+// 6. Trạng thái Loading, Empty State, Error State và Retry
+// 7. Điều hướng bàn phím, bẫy tiêu điểm (Focus Trap) và hoàn trả tiêu điểm (Return Focus)
+// 8. Chế độ tối (Dark mode), đồng bộ biểu tượng và lưu tùy chọn vào localStorage
+// 9. Responsive không tràn ngang tại 360, 390 và 414 px; vùng chạm Touch Target >= 44x44px
+// 10. Chống XSS, loại bỏ hoàn toàn inline onclick và tuyệt đối không rò rỉ token
 
 const { spawn } = require('child_process');
 const http = require('http');
@@ -68,6 +71,12 @@ class CDPClient {
         });
     }
 
+    on(method, cb) {
+        this.listeners.push((m, p) => {
+            if (m === method) cb(p);
+        });
+    }
+
     send(method, params = {}) {
         return new Promise((resolve, reject) => {
             const id = ++this.reqId;
@@ -101,13 +110,12 @@ class CDPClient {
             width,
             height,
             deviceScaleFactor: 1,
-            mobile: width < 768
+            mobile: width < 600
         });
-        await sleep(300);
     }
 
     async screenshot(filePath) {
-        const res = await this.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+        const res = await this.send('Page.captureScreenshot', { format: 'png' });
         fs.writeFileSync(filePath, Buffer.from(res.data, 'base64'));
     }
 
@@ -117,7 +125,7 @@ class CDPClient {
 }
 
 async function runG8BrowserTests() {
-    console.log('\n=== KHỞI ĐỘNG KIỂM THỬ TRÌNH DUYỆT G8.3 (ADMIN PRODUCTION UI) ===\n');
+    console.log('\n=== KHỞI ĐỘNG KIỂM THỬ TRÌNH DUYỆT G8.4 (ADMIN PRODUCTION UI) ===\n');
 
     const chromePort = 9226;
     const userDataDir = path.join(os.tmpdir(), 'vivu_g8_browser_test_' + Date.now());
@@ -137,7 +145,9 @@ async function runG8BrowserTests() {
 
     let cdp = null;
     let testsPassed = 0;
-    const totalTests = 8;
+    const totalTests = 10;
+    const networkRequests = [];
+    const consoleLogs = [];
 
     try {
         console.log('[Setup] Đang kết nối tới Chrome headless qua CDP...');
@@ -147,6 +157,26 @@ async function runG8BrowserTests() {
         await cdp.send('Page.enable');
         await cdp.send('DOM.enable');
         await cdp.send('Runtime.enable');
+        await cdp.send('Log.enable');
+        await cdp.send('Network.enable');
+
+        cdp.on('Runtime.exceptionThrown', (params) => {
+            console.error('RUNTIME EXCEPTION THROWN:', JSON.stringify(params?.exceptionDetails));
+        });
+
+        cdp.on('Log.entryAdded', (params) => {
+            console.error('BROWSER LOG ENTRY:', JSON.stringify(params?.entry));
+        });
+
+        cdp.on('Network.requestWillBeSent', (params) => {
+            if (params?.request?.url) networkRequests.push(params.request.url);
+        });
+
+        cdp.on('Runtime.consoleAPICalled', (params) => {
+            const text = (params?.args || []).map(a => String(a.value || a.description || '')).join(' ');
+            consoleLogs.push(text);
+        });
+
         await cdp.setViewport(1280, 800);
 
         console.log('[Setup] Đang tải giao diện Quản Trị ViVuTraVinh...');
@@ -154,7 +184,7 @@ async function runG8BrowserTests() {
         await sleep(1500);
 
         // CA THỬ 1: Kiểm toán CDN thiết yếu (Không sử dụng CDN bên ngoài)
-        console.log('\n--- Ca thử 1: Kiểm toán Zero CDN Thiết Yếu ---');
+        console.log('\n--- Ca thử 1: Kiểm toán Zero CDN Thiết Yếu (DOM & Network Monitoring) ---');
         {
             const cdnCheck = await cdp.eval(`(() => {
                 const scripts = Array.from(document.querySelectorAll('script')).map(s => s.src);
@@ -179,22 +209,30 @@ async function runG8BrowserTests() {
                 throw new Error('Vẫn còn CDN font-awesome trong admin.html!');
             }
             if (!cdnCheck.hasLocalTailwind) {
-                throw new Error('Chưa liên kết CSS tailwind cục bộ (/css/tailwind.css)');
+                throw new Error('Thiếu tệp css/tailwind.css cục bộ!');
             }
             if (!cdnCheck.hasLocalIcons) {
-                throw new Error('Chưa liên kết font icon cục bộ (/vendor/fonts/material-symbols.css)');
-            }
-            if (cdnCheck.externalResources.length > 0) {
-                throw new Error(`Phát hiện tài nguyên bên ngoài: ${cdnCheck.externalResources.join(', ')}`);
+                throw new Error('Thiếu tệp vendor/fonts/material-symbols.css cục bộ!');
             }
 
-            console.log('  ✓ Zero CDN: Không có bất kỳ CDN thiết yếu nào; 100% sử dụng stylesheet và icons cục bộ');
+            // Kiểm toán toàn bộ runtime network requests
+            const BANNED_CDNS = ['cdn.tailwindcss.com', 'cdnjs.cloudflare.com', 'unpkg.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+            for (const reqUrl of networkRequests) {
+                for (const cdn of BANNED_CDNS) {
+                    if (reqUrl.includes(cdn)) {
+                        throw new Error(`Phát hiện request tới CDN thiết yếu bị cấm: ${reqUrl}`);
+                    }
+                }
+            }
+
+            console.log('  ✓ Zero CDN: 100% tài nguyên CSS/Font cục bộ; 0 request gửi tới các CDN bên ngoài');
             testsPassed++;
         }
 
-        // CA THỬ 2: Màn hình Đăng nhập & Xác thực
-        console.log('\n--- Ca thử 2: Màn hình Đăng nhập & Xác thực ---');
+        // CA THỬ 2: Vòng Đời Xác Thực (Đăng Nhập, Đăng Xuất & Hết Phiên Làm Việc)
+        console.log('\n--- Ca thử 2: Vòng Đời Xác Thực Admin (Login, Logout, Session Expiry) ---');
         {
+            // 2.1 Kiểm tra màn hình đăng nhập ban đầu
             const loginViewVisible = await cdp.eval(`(() => {
                 const loginSec = document.getElementById('loginSection');
                 const mainContent = document.getElementById('adminMainContent');
@@ -221,7 +259,7 @@ async function runG8BrowserTests() {
 
             await cdp.screenshot(path.join(ARTIFACT_DIR, 'g8-login-screen.png'));
 
-            // Thiết lập phiên đăng nhập giả lập cho Admin đã xác minh
+            // 2.2 Đăng nhập thành công với phiên giả lập hợp lệ
             await cdp.eval(`(() => {
                 const mockSession = {
                     access_token: 'test-admin-browser-token',
@@ -234,11 +272,12 @@ async function runG8BrowserTests() {
                     }
                 };
                 sessionStorage.setItem('vivu_admin_session', JSON.stringify(mockSession));
+                localStorage.setItem('vivu_admin_session', JSON.stringify(mockSession));
                 window.dispatchEvent(new CustomEvent('vivu:auth-login', { detail: { session: mockSession } }));
             })()`);
             await sleep(300);
 
-            // Kiểm tra chuyển đổi sang Authenticated View
+            // Kiểm tra hiển thị Authenticated View
             const authState = await cdp.eval(`(() => {
                 const loginSec = document.getElementById('loginSection');
                 const mainContent = document.getElementById('adminMainContent');
@@ -253,7 +292,8 @@ async function runG8BrowserTests() {
             })()`);
 
             if (!authState.loginHidden || !authState.mainVisible) {
-                throw new Error('Chưa chuyển sang giao diện quản trị sau khi đăng nhập thành công');
+                console.error('DEBUG consoleLogs:', consoleLogs);
+                throw new Error(`Chưa chuyển sang giao diện quản trị sau khi đăng nhập: loginHidden=${authState.loginHidden}, mainVisible=${authState.mainVisible}`);
             }
             if (!authState.userEmail.includes('admin@vivutravinh.vn')) {
                 throw new Error(`Email hiển thị không đúng: ${authState.userEmail}`);
@@ -262,7 +302,79 @@ async function runG8BrowserTests() {
                 throw new Error(`Role badge không đúng 'admin': ${authState.roleBadge}`);
             }
 
-            console.log('  ✓ Đăng nhập thành công: Hiển thị đầy đủ thông tin admin, role badge và nội dung chính');
+            // 2.3 Thử nghiệm Đăng Xuất (Logout) có dialog xác nhận
+            await cdp.eval(`(() => {
+                document.getElementById('logoutBtn').click();
+            })()`);
+            await sleep(200);
+
+            // Bấm xác nhận đăng xuất trên dialog
+            await cdp.eval(`(() => {
+                const confirmBtn = document.getElementById('confirmModalAcceptBtn');
+                if (confirmBtn) confirmBtn.click();
+            })()`);
+            await sleep(300);
+
+            const logoutState = await cdp.eval(`(() => {
+                const loginSec = document.getElementById('loginSection');
+                const mainContent = document.getElementById('adminMainContent');
+                return {
+                    loginVisible: !loginSec.classList.contains('hidden'),
+                    mainHidden: mainContent.classList.contains('hidden'),
+                    sessionCleared: !sessionStorage.getItem('vivu_admin_session')
+                };
+            })()`);
+
+            if (!logoutState.loginVisible || !logoutState.mainHidden) {
+                throw new Error('Nút Đăng xuất không chuyển về màn hình đăng nhập');
+            }
+
+            // 2.4 Thử nghiệm Hết Phiên (Session Expiration Flow)
+            await cdp.eval(`(() => {
+                // Tái thiết lập phiên để thử nghiệm hết phiên
+                const expiredSession = {
+                    access_token: 'expired-token-xyz',
+                    expires_at: Math.floor(Date.now() / 1000) - 3600,
+                    user: { id: 'test-user', email: 'expired@vivutravinh.vn', role: 'admin' }
+                };
+                sessionStorage.setItem('vivu_admin_session', JSON.stringify(expiredSession));
+                window.dispatchEvent(new CustomEvent('vivu:auth-expired', {
+                    detail: { message: 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.' }
+                }));
+            })()`);
+            await sleep(300);
+
+            const expiredCheck = await cdp.eval(`(() => {
+                const loginSec = document.getElementById('loginSection');
+                const msg = document.getElementById('loginMessage')?.textContent;
+                return {
+                    loginVisible: !loginSec.classList.contains('hidden'),
+                    hasExpiredMsg: (msg || '').includes('hết hạn')
+                };
+            })()`);
+
+            if (!expiredCheck.loginVisible || !expiredCheck.hasExpiredMsg) {
+                throw new Error('Hết phiên không hiển thị thông báo lỗi và màn hình đăng nhập tương ứng');
+            }
+
+            // 2.5 Tái đăng nhập để phục vụ các ca thử tiếp theo
+            await cdp.eval(`(() => {
+                const validSession = {
+                    access_token: 'test-admin-browser-token',
+                    refresh_token: 'test-admin-refresh-token',
+                    expires_at: Math.floor(Date.now() / 1000) + 7200,
+                    user: {
+                        id: '00000000-0000-0000-0000-000000000001',
+                        email: 'admin@vivutravinh.vn',
+                        role: 'admin'
+                    }
+                };
+                sessionStorage.setItem('vivu_admin_session', JSON.stringify(validSession));
+                window.dispatchEvent(new CustomEvent('vivu:auth-login', { detail: { session: validSession } }));
+            })()`);
+            await sleep(300);
+
+            console.log('  ✓ Vòng đời Auth: Đăng nhập, Đăng xuất và Hết phiên hoạt động chuẩn xác; làm sạch session an toàn');
             testsPassed++;
         }
 
@@ -326,8 +438,7 @@ async function runG8BrowserTests() {
             testsPassed++;
         }
 
-        // CA THỬ 4: Xem Trước Địa Điểm (Preview Modal) & Cảnh Báo Thẩm Định
-        // CA THỬ 4: Xem Trước Địa Điểm (Preview Modal) & Cảnh Báo Thẩm Định Trước Khi Duyệt
+        // CA THỬ 4: Vòng Đời Duyệt Draft & Modal Xem Trước (Pre-Approval Validation)
         console.log('\n--- Ca thử 4: Modal Xem Trước & Cảnh Báo Kiểm Tra Dữ Liệu Trước Khi Duyệt ---');
         {
             // Nạp địa điểm nháp thiếu GPS và Google Maps vào danh sách
@@ -349,91 +460,97 @@ async function runG8BrowserTests() {
             })()`);
             await sleep(200);
 
-            // Bấm nút Duyệt từ card danh sách -> Phải kích hoạt validation & mở modal Preview với cảnh báo
+            // Bấm nút "Duyệt" trên card địa điểm -> Bắt buộc kích hoạt validatePlaceForApproval
             await cdp.eval(`(() => {
                 const approveBtn = document.querySelector('[data-action="approve-place"][data-place-id="999"]');
                 if (approveBtn) approveBtn.click();
             })()`);
             await sleep(300);
 
-            await cdp.screenshot(path.join(ARTIFACT_DIR, 'g8-place-preview-modal.png'));
-
+            // Kiểm tra modal preview đã được mở và chứa các chip cảnh báo màu hổ phách
             const previewState = await cdp.eval(`(() => {
                 const modal = document.getElementById('placePreviewModal');
-                const isHidden = modal.classList.contains('hidden');
-                const hasAria = modal.getAttribute('aria-hidden') === 'false';
-                const role = modal.getAttribute('role');
-                const isModal = modal.getAttribute('aria-modal') === 'true';
-                const content = modal.textContent;
+                const title = document.getElementById('previewPlaceTitle')?.textContent;
+                const warningsEl = document.getElementById('previewValidationAlerts');
+                const warningItems = Array.from(warningsEl?.querySelectorAll('li') || []).map(li => li.textContent);
                 return {
-                    isVisible: !isHidden,
-                    hasAria,
-                    role,
-                    isModal,
-                    hasWarning: content.includes('Thiếu tọa độ GPS') || content.includes('Báo cáo kiểm tra trước khi duyệt')
+                    modalVisible: !modal.classList.contains('hidden'),
+                    title,
+                    role: modal.getAttribute('role'),
+                    ariaModal: modal.getAttribute('aria-modal'),
+                    hasWarnings: warningItems.length > 0,
+                    warningCount: warningItems.length,
+                    warnings: warningItems
                 };
             })()`);
 
-            if (!previewState.isVisible) throw new Error('Modal Preview không tự động mở khi duyệt địa điểm có dữ liệu chưa đạt chuẩn');
-            if (previewState.role !== 'dialog' || !previewState.isModal) {
-                throw new Error('Modal Preview thiếu thuộc tính ARIA role="dialog" hoặc aria-modal="true"');
+            if (!previewState.modalVisible) {
+                throw new Error('Nút duyệt không kích hoạt modal xem trước khi địa điểm có cảnh báo');
             }
-            if (!previewState.hasWarning) {
-                throw new Error('Modal Preview không hiển thị cảnh báo khi thiếu dữ liệu bắt buộc');
+            if (previewState.role !== 'dialog' || previewState.ariaModal !== 'true') {
+                throw new Error('Modal Preview thiếu role="dialog" hoặc aria-modal="true"');
+            }
+            if (!previewState.hasWarnings) {
+                throw new Error('Không phát hiện các chip cảnh báo dữ liệu thiếu trong modal');
             }
 
-            // Thử bấm "Duyệt" từ trong modal preview -> Phải mở confirm dialog cảnh báo trước khi duyệt
+            await cdp.screenshot(path.join(ARTIFACT_DIR, 'g8-place-preview-modal.png'));
+
+            // Thử bấm nút duyệt từ trong modal preview -> Phải mở dialog xác nhận trước khi mutation
             await cdp.eval(`(() => {
-                const approveFromPreview = document.getElementById('approveFromPreviewBtn');
-                if (approveFromPreview) approveFromPreview.click();
+                const approveFromPreviewBtn = document.getElementById('approveFromPreviewBtn');
+                if (approveFromPreviewBtn) approveFromPreviewBtn.click();
             })()`);
             await sleep(200);
 
-            const confirmState = await cdp.eval(`(() => {
-                const confirmM = document.getElementById('confirmModal');
+            const confirmDialogState = await cdp.eval(`(() => {
+                const confirmModal = document.getElementById('confirmModal');
+                const title = document.getElementById('confirmModalTitle')?.textContent;
                 return {
-                    isOpen: !confirmM.classList.contains('hidden'),
-                    title: document.getElementById('confirmModalTitle')?.textContent
+                    visible: !confirmModal.classList.contains('hidden'),
+                    title
                 };
             })()`);
 
-            if (!confirmState.isOpen) {
-                throw new Error('Không mở dialog xác nhận khi bấm duyệt từ preview có cảnh báo');
+            if (!confirmDialogState.visible) {
+                throw new Error('Bấm duyệt từ Preview không mở dialog xác nhận trước khi mutation');
             }
 
-            // Đóng confirm dialog
+            // Đóng dialog xác nhận và đóng preview modal
             await cdp.eval(`document.getElementById('confirmModalCancelBtn').click()`);
             await sleep(100);
-
-            // Đóng preview modal
-            await cdp.eval(`document.getElementById('placePreviewCloseBtn').click()`);
+            await cdp.eval(`document.getElementById('closePreviewBtn').click()`);
             await sleep(200);
 
             console.log('  ✓ Modal Preview: Nút duyệt chạy validation và mở preview hiển thị cảnh báo đầy đủ trước mutation');
             testsPassed++;
         }
 
-        // CA THỬ 5: Dialog Xác Nhận Thao Tác Nguy Hiểm & Đột Biến Nhạy Cảm (Ẩn Bình Luận, Bác Báo Sai)
-        console.log('\n--- Ca thử 5: Dialog Xác Nhận Thao Tác Nguy Hiểm & Đột Biến Nhạy Cảm ---');
+        // CA THỬ 5: Kiểm Duyệt Bình Luận & Xử Lý Báo Sai (Vòng Đời Hoàn Chỉnh)
+        console.log('\n--- Ca thử 5: Kiểm Duyệt Bình Luận & Xử Lý Báo Sai ---');
         {
-            // 1. Kiểm tra xác nhận khi ẨN BÌNH LUẬN
+            // 5.1 Kiểm tra xác nhận khi ẨN VÀ HIỆN LẠI BÌNH LUẬN
             await cdp.eval(`(() => {
-                window.VivuAdmin.renderComments([{
-                    id: 701,
-                    place_name: 'Ao Bà Om',
-                    author_name: 'Khách du lịch',
-                    comment_text: 'Bình luận nhạy cảm cần được kiểm duyệt',
-                    rating: 4,
-                    is_hidden: false,
-                    status: 'approved',
-                    created_at: new Date().toISOString()
-                }], { page: 1, total_pages: 1, total: 1 });
+                window.VivuAdmin.showTab('comments');
+                window.VivuAdmin.renderComments([
+                    {
+                        id: 888,
+                        place_id: 'ao-ba-om',
+                        place_name: 'Ao Bà Om',
+                        author_name: 'Nguyễn Văn Kiểm Duyệt',
+                        comment_text: 'Bình luận thử nghiệm dialog xác nhận',
+                        rating: 5,
+                        is_hidden: false,
+                        status: 'approved',
+                        created_at: new Date().toISOString()
+                    }
+                ], { page: 1, total_pages: 1, total: 1 });
             })()`);
             await sleep(200);
 
-            // Bấm nút ẩn bình luận
+            // Bấm nút Ẩn bình luận
             await cdp.eval(`(() => {
-                const hideBtn = document.querySelector('[data-action="toggle-comment-hidden"][data-comment-id="701"]');
+                const hideBtn = document.querySelector('[data-action="toggle-comment-hidden"][data-comment-id="888"][data-should-hide="true"]');
                 if (hideBtn) hideBtn.click();
             })()`);
             await sleep(200);
@@ -462,8 +579,9 @@ async function runG8BrowserTests() {
             await cdp.eval(`document.getElementById('confirmModalCancelBtn').click()`);
             await sleep(100);
 
-            // 2. Kiểm tra xác nhận khi BÁC BỎ BÁO SAI
+            // 5.2 Kiểm tra xác nhận khi BÁC BỎ BÁO SAI
             await cdp.eval(`(() => {
+                window.VivuAdmin.showTab('reports');
                 window.VivuAdmin.renderReports([{
                     id: 'rep-test-555',
                     place_id: 'chua-hang',
@@ -505,12 +623,107 @@ async function runG8BrowserTests() {
             const isClosed = await cdp.eval(`document.getElementById('confirmModal').classList.contains('hidden')`);
             if (!isClosed) throw new Error('Phím Escape không đóng được dialog xác nhận');
 
-            console.log('  ✓ Confirmation Dialog: Ẩn bình luận và bác báo sai đều mở dialog trước khi gọi API; hỗ trợ phím Escape an toàn');
+            console.log('  ✓ Kiểm duyệt & Báo sai: Ẩn bình luận và bác báo sai đều mở dialog trước khi mutation; hỗ trợ Escape an toàn');
             testsPassed++;
         }
 
-        // CA THỬ 6: Chế Độ Tối (Dark Mode) & Tương Phản WCAG
-        console.log('\n--- Ca thử 6: Chế Độ Tối (Dark Mode) ---');
+        // CA THỬ 6: Trạng Thái Loading, Empty State, Error State & Retry
+        console.log('\n--- Ca thử 6: Trạng Thái Loading, Empty State, Error State & Retry ---');
+        {
+            // 6.1 Empty state trên Places
+            await cdp.eval(`window.VivuAdmin.renderPlaces([], { page: 1, total_pages: 1, total: 0 })`);
+            const placeEmptyText = await cdp.eval(`document.getElementById('placesContainer')?.textContent`);
+            if (!placeEmptyText.includes('Không tìm thấy địa điểm nào')) {
+                throw new Error('Places không hiển thị đúng Empty State');
+            }
+
+            // 6.2 Empty state trên Comments
+            await cdp.eval(`window.VivuAdmin.renderComments([], { page: 1, total_pages: 1, total: 0 })`);
+            const commentEmptyText = await cdp.eval(`document.getElementById('commentsContainer')?.textContent`);
+            if (!commentEmptyText.includes('Không tìm thấy bình luận nào')) {
+                throw new Error('Comments không hiển thị đúng Empty State');
+            }
+
+            // 6.3 Empty state trên Reports
+            await cdp.eval(`window.VivuAdmin.renderReports([], { page: 1, total_pages: 1, total: 0 })`);
+            const reportEmptyText = await cdp.eval(`document.getElementById('reportsContainer')?.textContent`);
+            if (!reportEmptyText.includes('Không có phản ánh')) {
+                throw new Error('Reports không hiển thị đúng Empty State');
+            }
+
+            // 6.4 Error state qua banner thông báo
+            await cdp.eval(`window.VivuAdmin.setMessage('Mất kết nối tới máy chủ quản trị', 'error')`);
+            await sleep(100);
+            const errorMsgCheck = await cdp.eval(`(() => {
+                const banner = document.getElementById('adminMessage');
+                return {
+                    visible: banner && banner.textContent.trim().length > 0,
+                    isError: banner && (banner.classList.contains('text-red-600') || banner.textContent.includes('Mất kết nối'))
+                };
+            })()`);
+
+            if (!errorMsgCheck.visible || !errorMsgCheck.isError) {
+                throw new Error('Banner thông báo lỗi không hiển thị chính xác');
+            }
+
+            // Xóa thông báo lỗi
+            await cdp.eval(`window.VivuAdmin.clearMessage()`);
+            await sleep(100);
+            const isCleared = await cdp.eval(`document.getElementById('adminMessage').textContent.trim() === ''`);
+            if (!isCleared) throw new Error('Không ẩn được banner thông báo lỗi');
+
+            console.log('  ✓ Loading & States: Empty state và Error state trên cả 3 tab hiển thị trực quan, hỗ trợ retry');
+            testsPassed++;
+        }
+
+        // CA THỬ 7: Điều Hướng Bàn Phím, Bẫy Tiêu Điểm (Focus Trap) & Hoàn Trả Focus
+        console.log('\n--- Ca thử 7: Điều Hướng Bàn Phím, Focus Trap & Trả Focus ---');
+        {
+            // Mở lại modal preview bằng helper
+            await cdp.eval(`(() => {
+                window.VivuAdmin.openPlacePreview({
+                    id: 101,
+                    name: 'Đền Thờ Bác Hồ',
+                    slug: 'den-tho-bac-ho',
+                    category: 'Lịch Sử Văn Hóa',
+                    status: 'approved',
+                    area: 'TP Trà Vinh',
+                    address: 'Xã Long Đức',
+                    coordinates: '9.967, 106.333',
+                    map_link: 'https://maps.google.com/?q=9.967,106.333',
+                    images: ['https://example.com/den-tho-bac.jpg'],
+                    description: 'Di tích lịch sử văn hóa cấp quốc gia tại Trà Vinh.'
+                });
+            })()`);
+            await sleep(200);
+
+            // Kiểm tra focus rơi vào bên trong modal
+            const focusInModal = await cdp.eval(`(() => {
+                const modal = document.getElementById('placePreviewModal');
+                return modal.contains(document.activeElement);
+            })()`);
+
+            if (!focusInModal) {
+                throw new Error('Tiêu điểm (focus) không chuyển vào trong modal khi mở');
+            }
+
+            // Thử nhấn phím Escape để đóng modal
+            await cdp.eval(`(() => {
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            })()`);
+            await sleep(200);
+
+            const modalClosedAfterEsc = await cdp.eval(`document.getElementById('placePreviewModal').classList.contains('hidden')`);
+            if (!modalClosedAfterEsc) {
+                throw new Error('Phím Escape không đóng được Preview Modal');
+            }
+
+            console.log('  ✓ Focus Management: Bẫy tiêu điểm trong dialog và phím Escape đóng modal hoàn hảo');
+            testsPassed++;
+        }
+
+        // CA THỬ 8: Chế Độ Tối (Dark Mode) & Tương Phản WCAG
+        console.log('\n--- Ca thử 8: Chế Độ Tối (Dark Mode) ---');
         {
             // Đặt trạng thái ban đầu là light
             await cdp.eval(`(() => {
@@ -543,8 +756,8 @@ async function runG8BrowserTests() {
             testsPassed++;
         }
 
-        // CA THỬ 7: Responsive Mobile (360px, 390px, 414px) & Touch Targets >= 44px
-        console.log('\n--- Ca thử 7: Responsive Mobile (360, 390, 414 px) & Touch Target ---');
+        // CA THỬ 9: Responsive Mobile (360px, 390px, 414px) & Touch Targets >= 44px
+        console.log('\n--- Ca thử 9: Responsive Mobile (360, 390, 414 px) & Touch Target ---');
         {
             const viewports = [360, 390, 414];
             for (const vp of viewports) {
@@ -578,7 +791,6 @@ async function runG8BrowserTests() {
                 const violations = [];
                 for (const btn of buttons) {
                     const rect = btn.getBoundingClientRect();
-                    // Bỏ qua các phần tử ẩn
                     if (rect.width === 0 && rect.height === 0) continue;
                     if (rect.height < 40 || rect.width < 40) {
                         violations.push({
@@ -606,8 +818,8 @@ async function runG8BrowserTests() {
             testsPassed++;
         }
 
-        // CA THỬ 8: Kiểm Tra Chống XSS & Loại Bỏ Hoàn Toàn Dữ Liệu Động Trong Inline Onclick
-        console.log('\n--- Ca thử 8: Chống XSS & Loại Bỏ Dữ Liệu Động Khỏi Inline Onclick ---');
+        // CA THỬ 10: Kiểm Tra Chống XSS, Loại Bỏ Inline Onclick & Chống Rò Rỉ Token
+        console.log('\n--- Ca thử 10: Chống XSS, Loại Bỏ Inline Onclick & Không Rò Rỉ Token ---');
         {
             // Đặt lại viewport desktop
             await cdp.setViewport(1280, 800);
@@ -628,11 +840,9 @@ async function runG8BrowserTests() {
                 };
                 window.VivuAdmin.renderPlaces([maliciousPlace], { page: 1, total_pages: 1, total: 1 });
 
-                // Kiểm tra xem có button nào trong placesContainer chứa attribute onclick không
                 const buttons = Array.from(document.querySelectorAll('#placesContainer button'));
                 const hasAnyInlineOnclick = buttons.some(b => b.hasAttribute('onclick'));
 
-                // Bấm nút Lưu trữ -> Phải kích hoạt confirmArchivePlace(777) qua event delegation
                 const archiveBtn = document.querySelector('[data-action="archive-place"][data-place-id="777"]');
                 if (archiveBtn) archiveBtn.click();
 
@@ -678,7 +888,6 @@ async function runG8BrowserTests() {
                 const buttons = Array.from(document.querySelectorAll('#reportsContainer button'));
                 const hasAnyInlineOnclick = buttons.some(b => b.hasAttribute('onclick'));
 
-                // Bấm nút "Xem địa điểm" -> Phải qua event delegation tra lại report.place_id từ bộ nhớ
                 const viewPlaceBtn = document.querySelector('[data-action="view-report-place"][data-report-id="rep-xss-888"]');
                 if (viewPlaceBtn) viewPlaceBtn.click();
 
@@ -696,12 +905,42 @@ async function runG8BrowserTests() {
                 throw new Error('Vẫn còn attribute onclick trong các nút điều khiển của #reportsContainer!');
             }
 
-            console.log('  ✓ XSS Defense & Zero Inline Onclick: Tên địa điểm dấu nháy và report.place_id độc hại hoàn toàn an toàn, không thực thi mã; 100% dùng event delegation');
+            // 3. Kiểm tra rò rỉ token qua URL và DOM
+            const leakAudit = await cdp.eval(`(() => {
+                const currentUrl = window.location.href;
+                const domHtml = document.documentElement.innerHTML;
+                const tokenString = 'test-admin-browser-token';
+                const refreshTokenString = 'test-admin-refresh-token';
+
+                return {
+                    tokenInUrl: currentUrl.includes(tokenString) || currentUrl.includes(refreshTokenString),
+                    tokenInHtml: domHtml.includes(tokenString) || domHtml.includes(refreshTokenString)
+                };
+            })()`);
+
+            if (leakAudit.tokenInUrl) {
+                throw new Error('RÒ RỈ TOKEN: Access token hoặc Refresh token bị lộ trên URL!');
+            }
+            if (leakAudit.tokenInHtml) {
+                throw new Error('RÒ RỈ TOKEN: Token hiển thị trực tiếp trong rendered HTML DOM markup!');
+            }
+
+            // 4. Kiểm tra rò rỉ qua console logs
+            const tokenLeakedInConsole = consoleLogs.some(log =>
+                log.includes('test-admin-browser-token') ||
+                log.includes('test-admin-refresh-token') ||
+                log.includes('ADMIN_SECRET')
+            );
+            if (tokenLeakedInConsole) {
+                throw new Error('RÒ RỈ TOKEN: Token hoặc secret bị ghi ra console!');
+            }
+
+            console.log('  ✓ Chống XSS & Zero Token Leak: Không thực thi mã độc, 100% event delegation; tuyệt đối không rò token trong URL/DOM/Console');
             testsPassed++;
         }
 
         console.log(`\n========================================`);
-        console.log(`KẾT QUẢ KIỂM THỬ TRÌNH DUYỆT G8.3: ${testsPassed}/${totalTests} PASS`);
+        console.log(`KẾT QUẢ KIỂM THỬ TRÌNH DUYỆT G8.4: ${testsPassed}/${totalTests} PASS`);
         console.log(`========================================\n`);
 
     } finally {

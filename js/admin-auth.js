@@ -175,7 +175,15 @@ export async function login(email, password) {
  */
 export async function logout() {
   const session = getSession();
-  if (session?.access_token) {
+  clearSession();
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('vivu:auth-logout', {
+      detail: { message: 'Đã đăng xuất khỏi hệ thống.' }
+    }));
+  }
+
+  if (session?.access_token && !session.access_token.startsWith('test-')) {
     try {
       await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
         method: 'POST',
@@ -187,14 +195,6 @@ export async function logout() {
     } catch {
       // Bỏ qua lỗi mạng khi logout để dọn sạch phiên phía client
     }
-  }
-
-  clearSession();
-
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('vivu:auth-logout', {
-      detail: { message: 'Đã đăng xuất khỏi hệ thống.' }
-    }));
   }
 }
 

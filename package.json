@@ -27,6 +27,7 @@
     "test:g7:live": "node scripts/verify-g7-live.js",
     "test:g8": "node scripts/test-g8-admin.js",
     "test:g8:browser": "node --experimental-websocket scripts/verify-g8-browser.cjs",
+    "test:g8:live": "node scripts/verify-g8-live.js",
     "check:gate": "npm run check && npm run test:fixtures && npm run test:g2 && npm run test:g3 && npm run test:sw && npm run test:ui && npm run test:g2:browser && npm run test:g3:browser && npm run test:g4:browser && npm run test:g5 && npm run test:g6 && npm run test:g6:browser && npm run test:g7 && npm run test:g7:browser && npm run test:g8 && npm run test:g8:browser",
     "test": "npm run check:gate"
   },

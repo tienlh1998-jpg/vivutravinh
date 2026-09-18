@@ -3,11 +3,17 @@
 
 import assert from 'assert';
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import placesHandler from '../api/admin-places.js';
 import commentsHandler from '../api/admin-comments.js';
 import reportsHandler from '../api/admin-reports.js';
 import profileHandler from '../api/admin-profile.js';
 import { sanitizeAuditPayload, readBody, getCorrelationId, validateCorrelationId, AUDIT_ALLOWLIST } from '../api/_admin-auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let passedTests = 0;
 let totalTests = 0;
@@ -77,6 +83,9 @@ function createMockReqRes(options = {}) {
 // In-Memory Database phục vụ Mock Supabase Server
 // ----------------------------------------------------------------------------
 let mockAuditLogShouldFail = false;
+let mockAuthDropConnection = false;
+let mockAuthStatus503 = false;
+let mockAdminUsers500 = false;
 let nextPlaceId = 101;
 let nextCommentId = 201;
 const mockAuditLogs = [];
@@ -239,6 +248,14 @@ function startMockSupabaseServer() {
 
       // 1. Supabase Auth: GET /auth/v1/user
       if (url.pathname === '/auth/v1/user') {
+        if (mockAuthDropConnection) {
+          req.socket.destroy();
+          return;
+        }
+        if (mockAuthStatus503) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'service_unavailable', message: 'Supabase Auth service is down' }));
+        }
         const token = authHeader.replace('Bearer ', '').trim();
         if (token === 'real-jwt-admin') {
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -282,6 +299,10 @@ function startMockSupabaseServer() {
 
       // 4. REST API: GET /rest/v1/admin_users
       if (url.pathname === '/rest/v1/admin_users') {
+        if (mockAdminUsers500) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ message: 'Database connection error' }));
+        }
         if (url.search.includes('uuid-admin-real')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify([{ user_id: 'uuid-admin-real', email: 'admin-real@vivutravinh.vn', role: 'admin', is_active: true }]));
@@ -1986,6 +2007,551 @@ try {
       0,
       'Tuyệt đối không được gửi direct REST mutation hoặc insert audit log riêng rẽ ngoài transaction RPC'
     );
+  });
+
+  // 40. API fail-closed khi Supabase/Auth không khả dụng
+  await runAsyncTest('40. API fail-closed khi Supabase/Auth không khả dụng (mạng đứt, 503, DB error, config lỗi)', async () => {
+    // 40.1 Mạng gián đoạn hoặc socket đóng bất ngờ khi gọi /auth/v1/user -> Trả 503 AUTH_UNAVAILABLE
+    mockAuthDropConnection = true;
+    try {
+      const { req, res } = createMockReqRes({
+        method: 'GET',
+        url: '/api/admin-profile',
+        ip: '10.0.0.40',
+        headers: { Authorization: 'Bearer real-jwt-admin' }
+      });
+      await profileHandler(req, res);
+      assert.strictEqual(res.getStatus(), 503, 'Phải trả HTTP 503 khi kết nối Supabase Auth bị gián đoạn');
+      assert.strictEqual(res.getBody().error?.code, 'AUTH_UNAVAILABLE');
+    } finally {
+      mockAuthDropConnection = false;
+    }
+
+    // 40.2 Supabase Auth trả lỗi 503 Service Unavailable -> Trả 401 UNAUTHENTICATED
+    mockAuthStatus503 = true;
+    try {
+      const { req, res } = createMockReqRes({
+        method: 'GET',
+        url: '/api/admin-places',
+        ip: '10.0.0.40',
+        headers: { Authorization: 'Bearer real-jwt-admin' }
+      });
+      await placesHandler(req, res);
+      assert.strictEqual(res.getStatus(), 401, 'Phải từ chối 401 khi Supabase Auth không xác thực được JWT');
+      assert.strictEqual(res.getBody().error?.code, 'UNAUTHENTICATED');
+    } finally {
+      mockAuthStatus503 = false;
+    }
+
+    // 40.3 Supabase DB bảng admin_users trả lỗi 500 -> Trả 500 DATABASE_ERROR
+    mockAdminUsers500 = true;
+    try {
+      const { req, res } = createMockReqRes({
+        method: 'GET',
+        url: '/api/admin-profile',
+        ip: '10.0.0.40',
+        headers: { Authorization: 'Bearer real-jwt-admin' }
+      });
+      await profileHandler(req, res);
+      assert.strictEqual(res.getStatus(), 500, 'Phải trả HTTP 500 khi DB admin_users lỗi');
+      assert.strictEqual(res.getBody().error?.code, 'DATABASE_ERROR');
+    } finally {
+      mockAdminUsers500 = false;
+    }
+
+    // 40.4 Thiếu cấu hình SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY -> Trả 500 CONFIG_ERROR
+    const origUrl = process.env.SUPABASE_URL;
+    try {
+      delete process.env.SUPABASE_URL;
+      const { req, res } = createMockReqRes({
+        method: 'GET',
+        url: '/api/admin-profile',
+        ip: '10.0.0.40',
+        headers: { Authorization: 'Bearer real-jwt-admin' }
+      });
+      await profileHandler(req, res);
+      assert.strictEqual(res.getStatus(), 500, 'Phải trả 500 khi thiếu cấu hình Supabase');
+      assert.strictEqual(res.getBody().error?.code, 'CONFIG_ERROR');
+    } finally {
+      process.env.SUPABASE_URL = origUrl;
+    }
+  });
+
+  // 41. Audit log được tạo đúng một lần cho mỗi mutation
+  await runAsyncTest('41. Audit log được tạo đúng một lần cho mỗi mutation (không thiếu, không duplicate)', async () => {
+    const baselineAuditCount = mockAuditLogs.length;
+
+    // 41.1 Create place -> +1 log (place.create)
+    const { req: p1Req, res: p1Res } = createMockReqRes({
+      method: 'POST',
+      url: '/api/admin-places',
+      ip: '10.0.0.41',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: { name: 'Điểm Test Audit Đúng 1 Lần', slug: 'diem-test-audit-1-lan', category: 'attraction' }
+    });
+    await placesHandler(p1Req, p1Res);
+    assert.strictEqual(p1Res.getStatus(), 201);
+    assert.strictEqual(mockAuditLogs.length, baselineAuditCount + 1, 'Create place phải tạo đúng 1 audit log');
+    assert.strictEqual(mockAuditLogs[mockAuditLogs.length - 1].action, 'place.create');
+
+    const createdPlaceId = p1Res.getBody().place?.id || p1Res.getBody().id;
+
+    // 41.2 Update place -> +1 log (place.update)
+    const { req: p2Req, res: p2Res } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-places',
+      ip: '10.0.0.41',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: { id: createdPlaceId, name: 'Điểm Test Audit Đã Sửa' }
+    });
+    await placesHandler(p2Req, p2Res);
+    assert.strictEqual(p2Res.getStatus(), 200);
+    assert.strictEqual(mockAuditLogs.length, baselineAuditCount + 2, 'Update place phải tạo đúng 1 audit log');
+    assert.strictEqual(mockAuditLogs[mockAuditLogs.length - 1].action, 'place.update');
+
+    // 41.3 Archive place -> +1 log (place.archive)
+    const { req: p3Req, res: p3Res } = createMockReqRes({
+      method: 'DELETE',
+      url: `/api/admin-places?id=${createdPlaceId}`,
+      ip: '10.0.0.41',
+      headers: { Authorization: 'Bearer mock-admin-token' }
+    });
+    await placesHandler(p3Req, p3Res);
+    assert.strictEqual(p3Res.getStatus(), 200);
+    assert.strictEqual(mockAuditLogs.length, baselineAuditCount + 3, 'Archive place phải tạo đúng 1 audit log');
+    assert.strictEqual(mockAuditLogs[mockAuditLogs.length - 1].action, 'place.archive');
+
+    // 41.4 Permanent delete place -> +1 log (place.delete_permanent)
+    const { req: p4Req, res: p4Res } = createMockReqRes({
+      method: 'DELETE',
+      url: `/api/admin-places?id=${createdPlaceId}&permanent=true`,
+      ip: '10.0.0.41',
+      headers: { Authorization: 'Bearer mock-admin-token' }
+    });
+    await placesHandler(p4Req, p4Res);
+    assert.strictEqual(p4Res.getStatus(), 200);
+    assert.strictEqual(mockAuditLogs.length, baselineAuditCount + 4, 'Permanent delete place phải tạo đúng 1 audit log');
+    assert.strictEqual(mockAuditLogs[mockAuditLogs.length - 1].action, 'place.delete');
+
+    // 41.5 Moderate comment -> +1 log (comment.moderate)
+    mockComments.push({
+      id: 777,
+      place_id: 'ao-ba-om',
+      place_name: 'Ao Bà Om',
+      author_name: 'Audit Once User',
+      comment_text: 'Bình luận test audit',
+      rating: 5,
+      is_hidden: false,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    });
+
+    const { req: c1Req, res: c1Res } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-comments',
+      ip: '10.0.0.41',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: { id: 777, is_hidden: true }
+    });
+    await commentsHandler(c1Req, c1Res);
+    assert.strictEqual(c1Res.getStatus(), 200);
+    assert.strictEqual(mockAuditLogs.length, baselineAuditCount + 5, 'Moderate comment phải tạo đúng 1 audit log');
+    assert.ok(['comment.hide', 'comment.moderate'].includes(mockAuditLogs[mockAuditLogs.length - 1].action));
+
+    // 41.6 Delete comment -> +1 log (comment.delete)
+    const { req: c2Req, res: c2Res } = createMockReqRes({
+      method: 'DELETE',
+      url: '/api/admin-comments?id=777',
+      ip: '10.0.0.41',
+      headers: { Authorization: 'Bearer mock-admin-token' }
+    });
+    await commentsHandler(c2Req, c2Res);
+    assert.strictEqual(c2Res.getStatus(), 200);
+    assert.strictEqual(mockAuditLogs.length, baselineAuditCount + 6, 'Delete comment phải tạo đúng 1 audit log');
+    assert.strictEqual(mockAuditLogs[mockAuditLogs.length - 1].action, 'comment.delete');
+
+    // 41.7 Update report -> +1 log (report.update / report.resolved)
+    const testRepId = '77777777-7777-7777-7777-000000000001';
+    mockReports.push({
+      id: testRepId,
+      place_id: 'chua-ang',
+      place_name: 'Chùa Âng',
+      issue_type: 'wrong_info',
+      details: 'Test audit report details',
+      status: 'pending',
+      created_at: new Date().toISOString()
+    });
+
+    const { req: r1Req, res: r1Res } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-reports',
+      ip: '10.0.0.41',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: { id: testRepId, status: 'resolved', admin_notes: 'Đã xử lý xong' }
+    });
+    await reportsHandler(r1Req, r1Res);
+    assert.strictEqual(r1Res.getStatus(), 200);
+    assert.strictEqual(mockAuditLogs.length, baselineAuditCount + 7, 'Update report phải tạo đúng 1 audit log');
+    assert.ok(['report.update', 'report.resolved'].includes(mockAuditLogs[mockAuditLogs.length - 1].action));
+  });
+
+  // 42. Kiểm toán bảo mật toàn bộ Audit Logs: Không chứa Secret, Token hay PII ngoài allowlist
+  await runAsyncTest('42. Toàn bộ Audit Logs không chứa Secret, Token hoặc PII ngoài allowlist (deep inspection)', async () => {
+    assert.ok(mockAuditLogs.length > 0, 'Phải có audit logs để kiểm tra');
+
+    const BANNED_KEYS = new Set([
+      'token', 'access_token', 'refresh_token', 'secret', 'password', 'api_key', 'apikey',
+      'bearer', 'auth', 'authorization', 'email', 'ip', 'contact', 'reporter_contact',
+      'author_name', 'comment_text', 'details', 'photo_url', 'photo_metadata'
+    ]);
+
+    function inspectObject(obj, path = '') {
+      if (!obj || typeof obj !== 'object') return;
+
+      for (const [key, val] of Object.entries(obj)) {
+        const fullPath = path ? `${path}.${key}` : key;
+        const lowerKey = key.toLowerCase();
+
+        // 1. Kiểm tra tên trường không được nằm trong danh sách cấm
+        assert.ok(
+          !BANNED_KEYS.has(lowerKey),
+          `Phát hiện trường nhạy cảm bị cấm trong audit log: "${fullPath}"`
+        );
+
+        // 2. Kiểm tra giá trị chuỗi không chứa token hoặc thông tin nhạy cảm
+        if (typeof val === 'string') {
+          assert.ok(!val.toLowerCase().startsWith('bearer '), `Giá trị chứa Bearer token tại "${fullPath}"`);
+          assert.ok(!val.includes('@vivutravinh'), `Giá trị chứa email nội bộ tại "${fullPath}"`);
+          assert.ok(!val.startsWith('eyJ'), `Giá trị chứa JWT base64 header tại "${fullPath}"`);
+        }
+
+        if (typeof val === 'object' && val !== null) {
+          inspectObject(val, fullPath);
+        }
+      }
+    }
+
+    for (const log of mockAuditLogs) {
+      // Kiểm tra cấu trúc bản ghi audit log
+      assert.ok(log.action, 'Audit log phải có action');
+      assert.ok(log.entity_type, 'Audit log phải có entity_type');
+
+      // Kiểm tra allowlist chặt chẽ của payload_before và payload_after
+      const allowedKeys = new Set(AUDIT_ALLOWLIST[log.entity_type] || []);
+
+      if (log.payload_before && typeof log.payload_before === 'object') {
+        inspectObject(log.payload_before, `log[${log.action}].payload_before`);
+        for (const k of Object.keys(log.payload_before)) {
+          assert.ok(
+            allowedKeys.has(k) || k === 'action' || k === 'id',
+            `Trường "${k}" trong payload_before không nằm trong allowlist của ${log.entity_type}`
+          );
+        }
+      }
+
+      if (log.payload_after && typeof log.payload_after === 'object') {
+        inspectObject(log.payload_after, `log[${log.action}].payload_after`);
+        for (const k of Object.keys(log.payload_after)) {
+          assert.ok(
+            allowedKeys.has(k) || k === 'action' || k === 'id',
+            `Trường "${k}" trong payload_after không nằm trong allowlist của ${log.entity_type}`
+          );
+        }
+      }
+    }
+  });
+
+  // 43. Chống Mass Assignment trên places và comments
+  await runAsyncTest('43. Chống Mass Assignment trên places và comments: Loại bỏ triệt để các trường cấm', async () => {
+    // 43.1 PATCH place: Gửi các trường nguy hiểm nhằm leo quyền hoặc sửa trường hệ thống
+    const { req: pReq, res: pRes } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-places',
+      ip: '10.0.0.43',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: {
+        id: 1,
+        name: 'Ao Bà Om Cập Nhật An Toàn',
+        is_admin: true,
+        role: 'superadmin',
+        audit_logs: 'fake_audit',
+        created_at: '2000-01-01T00:00:00Z',
+        custom_dangerous_prop: 'injected'
+      }
+    });
+    await placesHandler(pReq, pRes);
+    assert.strictEqual(pRes.getStatus(), 200);
+
+    const placeInDb = mockPlaces.find(p => p.id === 1);
+    assert.strictEqual(placeInDb.name, 'Ao Bà Om Cập Nhật An Toàn');
+    assert.strictEqual(placeInDb.is_admin, undefined, 'Không được phép thêm trường is_admin vào địa điểm');
+    assert.strictEqual(placeInDb.role, undefined, 'Không được phép thêm trường role vào địa điểm');
+    assert.strictEqual(placeInDb.audit_logs, undefined, 'Không được phép ghi đè audit_logs');
+    assert.notStrictEqual(placeInDb.created_at, '2000-01-01T00:00:00Z', 'created_at không được phép bị ghi đè');
+
+    // 43.2 PATCH comment: Cố tình ghi đè author_name, comment_text hoặc id
+    const targetComment = mockComments.find(c => c.id === 30);
+    const originalAuthor = targetComment.author_name;
+    const originalText = targetComment.comment_text;
+
+    const { req: cReq, res: cRes } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-comments',
+      ip: '10.0.0.43',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: {
+        id: 30,
+        is_hidden: false,
+        author_name: 'Hacked Author Name',
+        comment_text: 'Hacked Injected Comment Text',
+        role: 'admin',
+        is_admin: true
+      }
+    });
+    await commentsHandler(cReq, cRes);
+    assert.strictEqual(cRes.getStatus(), 200);
+
+    const updatedCommentInDb = mockComments.find(c => c.id === 30);
+    assert.strictEqual(updatedCommentInDb.author_name, originalAuthor, 'author_name không được phép bị thay đổi');
+    assert.strictEqual(updatedCommentInDb.comment_text, originalText, 'comment_text không được phép bị thay đổi');
+    assert.strictEqual(updatedCommentInDb.role, undefined);
+  });
+
+  // 44. Giới hạn kích thước payload (HTTP 413) trên places và comments
+  await runAsyncTest('44. Chặn dứt khoát payload vượt kích thước tối đa với HTTP 413 PAYLOAD_TOO_LARGE', async () => {
+    // 44.1 admin-places: Payload > 2MB
+    const hugePlacePayload = {
+      name: 'Điểm du lịch payload khổng lồ',
+      category: 'attraction',
+      description: 'X'.repeat(2.1 * 1024 * 1024)
+    };
+    const { req: pReq, res: pRes } = createMockReqRes({
+      method: 'POST',
+      url: '/api/admin-places',
+      ip: '10.0.0.44',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: hugePlacePayload
+    });
+    await placesHandler(pReq, pRes);
+    assert.strictEqual(pRes.getStatus(), 413, 'Phải trả HTTP 413 khi payload place > 2MB');
+    assert.strictEqual(pRes.getBody().error?.code, 'PAYLOAD_TOO_LARGE');
+
+    // 44.2 admin-comments: Payload > 1MB
+    const hugeCommentPayload = {
+      id: 30,
+      is_hidden: true,
+      extra_junk: 'Y'.repeat(1.2 * 1024 * 1024)
+    };
+    const { req: cReq, res: cRes } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-comments',
+      ip: '10.0.0.44',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: hugeCommentPayload
+    });
+    await commentsHandler(cReq, cRes);
+    assert.strictEqual(cRes.getStatus(), 413, 'Phải trả HTTP 413 khi payload comment > 1MB');
+    assert.strictEqual(cRes.getBody().error?.code, 'PAYLOAD_TOO_LARGE');
+  });
+
+  // 45. Xử lý an toàn dữ liệu XSS và kiểm tra ràng buộc Transition trạng thái
+  await runAsyncTest('45. Xử lý an toàn dữ liệu XSS và ràng buộc chuyển đổi trạng thái (Transition Validation)', async () => {
+    // 45.1 Tạo địa điểm với payload XSS phức tạp -> API xử lý bình thường, không sập server
+    const xssPlaceName = '<script>alert("xss")</script><img src=x onerror=console.log(1)>';
+    const { req: pXssReq, res: pXssRes } = createMockReqRes({
+      method: 'POST',
+      url: '/api/admin-places',
+      ip: '10.0.0.45',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: {
+        name: xssPlaceName,
+        slug: 'diem-xss-test',
+        category: 'attraction'
+      }
+    });
+    await placesHandler(pXssReq, pXssRes);
+    assert.strictEqual(pXssRes.getStatus(), 201, 'API phải tiếp nhận an toàn chuỗi XSS mà không sập');
+    assert.strictEqual(pXssRes.getBody().place?.name, xssPlaceName);
+
+    // 45.2 Cập nhật place với status không hợp lệ -> Từ chối HTTP 400
+    const { req: pBadReq, res: pBadRes } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-places',
+      ip: '10.0.0.45',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: { id: 1, status: 'super_approved_hack' }
+    });
+    await placesHandler(pBadReq, pBadRes);
+    assert.strictEqual(pBadRes.getStatus(), 400);
+
+    // 45.3 Cập nhật place với rating sai định dạng -> Từ chối HTTP 400
+    const { req: pBadRatingReq, res: pBadRatingRes } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-places',
+      ip: '10.0.0.45',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: { id: 1, rating: 99 }
+    });
+    await placesHandler(pBadRatingReq, pBadRatingRes);
+    assert.strictEqual(pBadRatingRes.getStatus(), 400);
+
+    // 45.4 Chuyển trạng thái report trái phép (ví dụ dismissed sang resolved trực tiếp) -> Từ chối 400
+    // Trước tiên đưa report sang dismissed
+    const repTarget = '11111111-1111-1111-1111-000000000003';
+    mockReports.find(r => r.id === repTarget).status = 'dismissed';
+
+    const { req: rBadTransReq, res: rBadTransRes } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-reports',
+      ip: '10.0.0.45',
+      headers: { Authorization: 'Bearer mock-admin-token' },
+      body: { id: repTarget, status: 'resolved' }
+    });
+    await reportsHandler(rBadTransReq, rBadTransRes);
+    assert.strictEqual(rBadTransRes.getStatus(), 400, 'Dismissed report không được chuyển thẳng sang resolved');
+    assert.strictEqual(rBadTransRes.getBody().error?.code, 'INVALID_STATUS_TRANSITION');
+  });
+
+  // 46. Phân trang bền vững & Chuẩn hóa tham số (Pagination & Filter Stability)
+  await runAsyncTest('46. Phân trang bền vững: Chuẩn hóa page/limit âm, vượt ngưỡng và tìm kiếm ổn định', async () => {
+    // 46.1 admin-places: page âm và limit âm -> Chuẩn hóa về page=1, limit mặc định
+    const { req: pNegReq, res: pNegRes } = createMockReqRes({
+      method: 'GET',
+      url: '/api/admin-places?page=-10&limit=-5',
+      ip: '10.0.0.46',
+      headers: { Authorization: 'Bearer mock-admin-token' }
+    });
+    await placesHandler(pNegReq, pNegRes);
+    assert.strictEqual(pNegRes.getStatus(), 200);
+    const pBody = pNegRes.getBody();
+    assert.strictEqual(pBody.pagination.page, 1, 'Page âm phải chuẩn hóa về 1');
+    assert.ok(pBody.pagination.limit > 0, 'Limit âm phải chuẩn hóa về giá trị mặc định');
+
+    // 46.2 admin-places: limit quá lớn -> Giới hạn ở max limit (50)
+    const { req: pMaxReq, res: pMaxRes } = createMockReqRes({
+      method: 'GET',
+      url: '/api/admin-places?limit=99999',
+      ip: '10.0.0.46',
+      headers: { Authorization: 'Bearer mock-admin-token' }
+    });
+    await placesHandler(pMaxReq, pMaxRes);
+    assert.strictEqual(pMaxRes.getStatus(), 200);
+    assert.ok(pMaxRes.getBody().pagination.limit <= 200, 'Limit quá lớn phải bị chặn ở max_limit (200)');
+
+    // 46.3 admin-comments: page chuỗi chữ -> Chuẩn hóa về page=1
+    const { req: cStrReq, res: cStrRes } = createMockReqRes({
+      method: 'GET',
+      url: '/api/admin-comments?page=invalid_string&limit=xyz',
+      ip: '10.0.0.46',
+      headers: { Authorization: 'Bearer mock-admin-token' }
+    });
+    await commentsHandler(cStrReq, cStrRes);
+    assert.strictEqual(cStrRes.getStatus(), 200);
+    assert.strictEqual(cStrRes.getBody().pagination.page, 1);
+  });
+
+  // 47. Contract Test: scripts/verify-g8-live.js tuân thủ đầy đủ chuẩn kiểm toán live
+  await runAsyncTest('47. Contract Test: scripts/verify-g8-live.js tuân thủ đầy đủ chuẩn kiểm toán live', async () => {
+    const liveScriptPath = path.join(__dirname, 'verify-g8-live.js');
+    assert.ok(fs.existsSync(liveScriptPath), 'scripts/verify-g8-live.js bắt buộc phải tồn tại');
+    const content = fs.readFileSync(liveScriptPath, 'utf8');
+
+    // 47.1. Đúng 6 RPC trong supabase/g8_admin.sql
+    const expectedRpcs = [
+      'admin_create_place_atomic',
+      'admin_update_place_atomic',
+      'admin_delete_place_atomic',
+      'admin_update_comment_atomic',
+      'admin_delete_comment_atomic',
+      'admin_update_report_atomic'
+    ];
+    for (const rpc of expectedRpcs) {
+      assert.ok(content.includes(`'${rpc}'`), `scripts/verify-g8-live.js thiếu RPC bắt buộc: ${rpc}`);
+    }
+
+    // 47.2. Đúng 12 tên cột audit schema
+    const expectedColumns = [
+      'id',
+      'actor_id',
+      'actor_email',
+      'actor_role',
+      'action',
+      'entity_type',
+      'entity_id',
+      'payload_before',
+      'payload_after',
+      'ip',
+      'correlation_id',
+      'created_at'
+    ];
+    for (const col of expectedColumns) {
+      assert.ok(content.includes(`'${col}'`), `scripts/verify-g8-live.js thiếu cột audit schema: ${col}`);
+    }
+
+    // 47.3. Không log secret hoặc cắt chuỗi secret (chỉ in 'đã cấu hình' / 'chưa cấu hình')
+    assert.ok(content.includes("'đã cấu hình' : 'chưa cấu hình'"), 'Chỉ được in trạng thái đã cấu hình / chưa cấu hình');
+    assert.ok(!content.includes('maskSecret'), 'Không được dùng hàm maskSecret in một phần secret');
+    assert.ok(!content.includes('.slice(0, 4)'), 'Không được in một phần substring của secret');
+    assert.ok(!content.includes('SUPABASE_SERVICE_ROLE_KEY.slice') && !content.includes('ADMIN_ACCESS_TOKEN.slice'), 'Không được cắt chuỗi secret/token bằng slice');
+    assert.ok(!content.includes('SUPABASE_SERVICE_ROLE_KEY.substring') && !content.includes('ADMIN_ACCESS_TOKEN.substring'), 'Không được cắt chuỗi secret/token bằng substring');
+    assert.ok(!content.includes('console.log(process.env.SUPABASE_SERVICE_ROLE_KEY)'));
+    assert.ok(!content.includes('console.log(process.env.ADMIN_ACCESS_TOKEN)'));
+
+    // 47.4. Không gọi process.exit() bên trong khối try/finally (toàn bộ code dùng process.exitCode)
+    const codeWithoutComments = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+    assert.ok(!codeWithoutComments.includes('process.exit('), 'Tuyệt đối không gọi process.exit() trong scripts/verify-g8-live.js');
+    assert.ok(content.includes('process.exitCode ='), 'Phải thiết lập process.exitCode sau khi cleanup hoàn tất');
+
+    // 47.5. Cleanup có xác minh 0 dòng
+    assert.ok(content.includes('rows.length !== 0'), 'Cleanup phải kiểm tra và xác nhận 0 dòng còn lại');
+    assert.ok(content.includes('cleanupFailed = true'), 'Cleanup thất bại phải đánh dấu cleanupFailed');
+    assert.ok(content.includes('0 dòng còn lại') || content.includes('0 bản ghi'), 'Cleanup phải có thông báo xác nhận 0 dòng');
+
+    // 47.6. Contract response: profData.user và body.place?.id
+    assert.ok(content.includes('profData.user'), 'scripts/verify-g8-live.js phải lấy profile từ profData.user');
+    assert.ok(content.includes('body.place?.id') || content.includes('body.place.id'), 'scripts/verify-g8-live.js phải lấy createdPlaceId từ body.place?.id');
+
+    // 47.7. Yêu cầu role === "admin"
+    assert.ok(content.includes("adminProfile.role !== 'admin'"), 'scripts/verify-g8-live.js phải bắt buộc role === "admin"');
+
+    // 47.8. RPC probe có đầy đủ tham số và role probe "__migration_probe__"
+    assert.ok(content.includes("'__migration_probe__'"), 'scripts/verify-g8-live.js phải probe RPC bằng role __migration_probe__');
+    assert.ok(content.includes('RPC_PROBES'), 'scripts/verify-g8-live.js phải khai báo cấu trúc tham số RPC_PROBES');
+    for (const rpc of expectedRpcs) {
+      assert.ok(content.includes(`${rpc}:`), `RPC_PROBES phải chứa cấu hình tham số cho ${rpc}`);
+    }
+
+    // 47.9. Audit count theo action/entity (fail nếu duplicate hoặc thiếu)
+    assert.ok(content.includes('l.action === expected.action') && content.includes('l.entity_id'), 'Audit verification phải đối soát chính xác theo action và entity_id');
+    assert.ok(content.includes('matches.length > 1'), 'Audit verification phải phát hiện và fail khi có duplicate log');
+    assert.ok(content.includes('matches.length === 0'), 'Audit verification phải phát hiện và fail khi thiếu log');
+    assert.ok(content.includes('logs.length !== expectedMutations.length'), 'Audit verification phải kiểm tra tổng số log khớp số mutation');
+
+    // 47.10. Cleanup dự phòng theo prefix / slug / correlation_id
+    assert.ok(content.includes('Fallback Cleanup') || content.includes('cleanup dự phòng'), 'Phải có bước cleanup dự phòng');
+    assert.ok(content.includes('testPlaceSlug') && content.includes('testClientReviewId') && content.includes('testClientReportId') && content.includes('testCorrelationId'), 'Cleanup dự phòng phải bao gồm slug, client_review_id, client_report_id và correlation_id');
+
+    // 47.11. Bắt buộc expected action place.archive và cấm chuỗi place.update_status
+    assert.ok(content.includes("'place.archive'"), 'verify-g8-live.js phải dùng action place.archive khi archive');
+    assert.ok(!content.includes('place.update_status'), 'verify-g8-live.js cấm chuỗi place.update_status');
+
+    // 47.12. RPC probe chỉ pass FORBIDDEN/42501; không coi response khác là sẵn sàng
+    assert.ok(
+      (content.includes("resText.includes('FORBIDDEN')") || content.includes('resText.includes("FORBIDDEN")')) &&
+      (content.includes("resText.includes('42501')") || content.includes('resText.includes("42501")')),
+      'RPC probe phải kiểm tra FORBIDDEN hoặc SQLSTATE 42501'
+    );
+    assert.ok(!content.includes('Response khác chứng minh hàm tồn tại'), 'Cấm coi response khác là RPC sẵn sàng');
+
+    // 47.13. Kiểm tra response.ok cho đủ 4 DELETE fallback và 4 GET verify fallback
+    assert.ok(content.includes('!delPlaceRes.ok'), 'Fallback places phải kiểm tra response.ok cho DELETE');
+    assert.ok(content.includes('!verPlaceRes.ok'), 'Fallback places phải kiểm tra response.ok cho GET verify');
+    assert.ok(content.includes('!delCommRes.ok'), 'Fallback comments phải kiểm tra response.ok cho DELETE');
+    assert.ok(content.includes('!verCommRes.ok'), 'Fallback comments phải kiểm tra response.ok cho GET verify');
+    assert.ok(content.includes('!delRepRes.ok'), 'Fallback reports phải kiểm tra response.ok cho DELETE');
+    assert.ok(content.includes('!verRepRes.ok'), 'Fallback reports phải kiểm tra response.ok cho GET verify');
+    assert.ok(content.includes('!delAuditRes.ok'), 'Fallback audit logs phải kiểm tra response.ok cho DELETE');
+    assert.ok(content.includes('!verAuditRes.ok'), 'Fallback audit logs phải kiểm tra response.ok cho GET verify');
   });
 
   console.log(`\n========================================`);

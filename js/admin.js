@@ -102,6 +102,10 @@ export function setLoginMessage(message, type = 'info') {
   }`;
 }
 
+export function clearMessage() {
+  setMessage('');
+}
+
 /**
  * Nhãn và lớp CSS cho trạng thái địa điểm
  */
@@ -287,7 +291,7 @@ export function openPlacePreview(place) {
     const errorCount = issues.filter(i => i.type === 'error').length;
     const warningCount = issues.filter(i => i.type === 'warning').length;
     warningHtml = `
-      <div class="mb-6 p-4 rounded-xl border ${errorCount > 0 ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-800' : 'bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'}">
+      <div id="previewValidationAlerts" class="mb-6 p-4 rounded-xl border ${errorCount > 0 ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-800' : 'bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'}">
         <div class="flex items-center gap-2 mb-2 font-bold ${errorCount > 0 ? 'text-red-700 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}">
           <span class="material-symbols-outlined text-xl">warning</span>
           <span>Báo cáo kiểm tra trước khi duyệt (${errorCount} lỗi, ${warningCount} lưu ý):</span>
@@ -318,7 +322,7 @@ export function openPlacePreview(place) {
       </div>
 
       <div>
-        <h3 class="text-2xl font-black text-slate-900 dark:text-white">${escapeHtml(place.name)}</h3>
+        <h3 id="previewPlaceTitle" class="text-2xl font-black text-slate-900 dark:text-white">${escapeHtml(place.name)}</h3>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
           <strong>Slug:</strong> /place/${escapeHtml(place.slug)} · <strong>Khu vực:</strong> ${escapeHtml(place.area || 'Chưa có')}
         </p>
@@ -1701,7 +1705,9 @@ window.VivuAdmin = {
   showAuthenticatedView,
   showLoginView,
   handleLoginSubmit,
-  handleLogoutClick
+  handleLogoutClick,
+  setMessage,
+  clearMessage
 };
 
 // ----------------------------------------------------------------------------
