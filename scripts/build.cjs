@@ -129,8 +129,26 @@ const versionInfo = {
 fs.writeFileSync(path.join(DIST_DIR, 'version.json'), JSON.stringify(versionInfo, null, 2), 'utf8');
 console.log(`  ✓ Đã sinh dist/version.json (v${pkg.version}, Precache: ~${precacheMb} MB / ${precacheMib} MiB)`);
 
+// 6. Kiểm tra đóng gói tài nguyên Quản Trị G8 (admin runtime assets)
+console.log('\n6. Kiểm tra đóng gói giao diện Quản Trị G8:');
+const adminRequiredFiles = [
+    { path: path.join(DIST_DIR, 'admin.html'), name: 'admin.html' },
+    { path: path.join(DIST_DIR, 'css', 'tailwind.css'), name: 'css/tailwind.css' },
+    { path: path.join(DIST_DIR, 'js', 'admin.js'), name: 'js/admin.js' },
+    { path: path.join(DIST_DIR, 'js', 'admin-auth.js'), name: 'js/admin-auth.js' },
+    { path: path.join(DIST_DIR, 'vendor', 'fonts', 'material-symbols.css'), name: 'vendor/fonts/material-symbols.css' }
+];
+
+for (const reqFile of adminRequiredFiles) {
+    if (!fs.existsSync(reqFile.path)) {
+        console.error(`  ❌ Lỗi đóng gói: Thiếu file quản trị bắt buộc '${reqFile.name}' trong dist/`);
+        process.exit(1);
+    }
+}
+console.log('  ✓ Đã đóng gói đầy đủ 5/5 tài nguyên runtime quản trị: admin.html, css/tailwind.css, js/admin.js, js/admin-auth.js, vendor/fonts/material-symbols.css');
+
 // 7. Thống kê kích thước bundle
-console.log('\n6. Thống kê kích thước bản build dist/:');
+console.log('\n7. Thống kê kích thước bản build dist/:');
 function getDirSize(dir) {
     let total = 0;
     const entries = fs.readdirSync(dir, { withFileTypes: true });

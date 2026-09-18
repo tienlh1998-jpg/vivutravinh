@@ -2554,6 +2554,94 @@ try {
     assert.ok(content.includes('!verAuditRes.ok'), 'Fallback audit logs phải kiểm tra response.ok cho GET verify');
   });
 
+  // 48. G8.5 Release Runbook, Packaging & Post-Deploy Verification
+  await runAsyncTest('48. G8.5 Release Runbook, Packaging & Post-Deploy Verification', async () => {
+    const ROOT_DIR = path.resolve(__dirname, '..');
+    // 48.1 Xác nhận docs/release-runbook.md tồn tại và chứa đủ 6 phần nghiệp vụ G8
+    const runbookPath = path.join(ROOT_DIR, 'docs', 'release-runbook.md');
+    assert.ok(fs.existsSync(runbookPath), 'docs/release-runbook.md bắt buộc phải tồn tại');
+    const runbook = fs.readFileSync(runbookPath, 'utf8');
+
+    // Pre-deploy checks
+    assert.ok(runbook.includes('check:gate') && runbook.includes('git diff --check') && runbook.includes('npm run build'), 'Runbook phải có pre-deploy audit');
+    assert.ok(runbook.includes('Database Backup Procedure') || runbook.includes('Sao Lưu Dữ Liệu') || runbook.includes('Sao lưu cơ sở dữ liệu'), 'Runbook phải có phần sao lưu DB bắt buộc');
+    assert.ok(runbook.includes('Cách xác nhận bản sao lưu sử dụng được') || runbook.includes('PostgreSQL database dump complete'), 'Runbook phải hướng dẫn xác nhận bản sao lưu');
+
+    // Migration G8
+    assert.ok(runbook.includes('g8_admin.sql'), 'Runbook phải nêu rõ file migration g8_admin.sql');
+    assert.ok(runbook.includes('admin_users') && runbook.includes('admin_audit_logs'), 'Runbook phải kiểm tra 2 bảng mới');
+    assert.ok(runbook.includes('reload schema') || runbook.includes('Schema Cache'), 'Runbook phải lưu ý reload PostgREST schema cache');
+    assert.ok(runbook.includes('g8_admin_rollback.sql'), 'Runbook phải có quy trình rollback bằng g8_admin_rollback.sql');
+    assert.ok(runbook.includes('ĐIỀU KIỆN & RỦI RO KHI ROLLBACK') || runbook.includes('RỦI RO'), 'Runbook phải cảnh báo rủi ro mất audit/admin allowlist khi rollback');
+
+    // Tạo admin đầu tiên và kiểm tra schema admin_users
+    assert.ok(runbook.includes('Khởi Tạo Quản Trị Viên Đầu Tiên') || runbook.includes('First Admin Provisioning'), 'Runbook phải có mục khởi tạo admin đầu tiên');
+    assert.ok(runbook.includes('auth.users') && runbook.includes('admin_users'), 'Runbook phải hướng dẫn liên kết auth.users với admin_users');
+    assert.ok(runbook.includes('user_id'), 'Runbook phải sử dụng cột user_id cho bảng admin_users');
+    assert.ok(!runbook.includes('admin_users (id,'), 'Cấm mẫu admin_users (id, trong runbook');
+    assert.ok(!runbook.includes('on conflict (id)'), 'Cấm mẫu on conflict (id) trong runbook');
+    assert.ok(!runbook.includes('select id,'), 'Cấm mẫu select id, từ admin_users trong runbook');
+    assert.ok(runbook.includes('is_active = true') && runbook.includes("role = 'admin'"), 'Runbook phải hướng dẫn gán role admin và is_active=true');
+    assert.ok(runbook.includes('KHÔNG BAO GIỜ') && runbook.includes('SUPABASE_SERVICE_ROLE_KEY'), 'Runbook phải cảnh báo cấm dùng service_role trong frontend');
+
+    // Vận hành tài khoản
+    assert.ok(runbook.includes('editor') && runbook.includes('moderator'), 'Runbook phải hướng dẫn tạo editor và moderator');
+    assert.ok(runbook.includes('ACCOUNT_DISABLED') || runbook.includes('is_active = false'), 'Runbook phải hướng dẫn khóa tài khoản');
+    assert.ok(runbook.includes('Send Password Recovery') || runbook.includes('Đặt lại mật khẩu'), 'Runbook phải hướng dẫn đặt lại mật khẩu');
+    assert.ok(runbook.includes('Sign out user') || runbook.includes('Thu hồi phiên đăng nhập'), 'Runbook phải hướng dẫn thu hồi session');
+
+    // Xử lý sự cố (Troubleshooting)
+    assert.ok(runbook.includes('503') && runbook.includes('AUTH_UNAVAILABLE'), 'Runbook phải ghi HTTP 503 AUTH_UNAVAILABLE khi Supabase Auth gián đoạn');
+    assert.ok(runbook.includes('500') && runbook.includes('DATABASE_ERROR'), 'Runbook phải ghi HTTP 500 DATABASE_ERROR khi query admin_users thất bại');
+    assert.ok(runbook.includes('CONFIG_ERROR') || runbook.includes('Vercel thiếu biến môi trường'), 'Runbook phải hướng dẫn xử lý khi thiếu biến môi trường Vercel');
+    assert.ok(runbook.includes('SUPABASE_URL') && runbook.includes('SUPABASE_SERVICE_ROLE_KEY'), 'Runbook phải liệt kê các biến môi trường bắt buộc SUPABASE_URL và SUPABASE_SERVICE_ROLE_KEY');
+    assert.ok(runbook.includes('SUPABASE_ANON_KEY') && runbook.includes('chưa được runtime sử dụng'), 'Runbook phải có ghi chú SUPABASE_ANON_KEY chưa được runtime sử dụng');
+    assert.ok(runbook.includes("'audit-g8-live-place-%'"), 'Runbook phải có tiền tố places audit-g8-live-place-%');
+    assert.ok(runbook.includes("'audit_rev_%'"), 'Runbook phải có tiền tố comments audit_rev_%');
+    assert.ok(runbook.includes("'audit_rep_%'"), 'Runbook phải có tiền tố reports audit_rep_%');
+    assert.ok(runbook.includes("'audit_g8_live_%'"), 'Runbook phải có tiền tố audit logs audit_g8_live_%');
+    assert.ok(runbook.includes("select count(*) from public.places where slug like 'audit-g8-live-place-%';"), 'Runbook phải có câu count(*) xác nhận places');
+    assert.ok(runbook.includes("select count(*) from public.place_comments where client_review_id like 'audit_rev_%';"), 'Runbook phải có câu count(*) xác nhận comments');
+    assert.ok(runbook.includes("select count(*) from public.place_reports where client_report_id like 'audit_rep_%';"), 'Runbook phải có câu count(*) xác nhận reports');
+    assert.ok(runbook.includes("select count(*) from public.admin_audit_logs where correlation_id like 'audit_g8_live_%';"), 'Runbook phải có câu count(*) xác nhận audit logs');
+
+    // Deploy sequence
+    assert.ok(runbook.includes('Release Deployment Sequence') || runbook.includes('Quy Trình Triển Khai Phát Hành'), 'Runbook phải có chuỗi tuần tự deploy');
+    assert.ok(runbook.includes('Smoke Test') || runbook.includes('Khói thử nghiệm'), 'Runbook phải có bước smoke test giao diện admin');
+    assert.ok(runbook.includes('npm run test:g8:live'), 'Runbook phải yêu cầu chạy live audit sau khi deploy');
+
+    // 48.2 Kiểm tra tĩnh scripts/build.cjs có đầy đủ contract cho các tài nguyên quản trị runtime thật
+    const buildScriptPath = path.join(ROOT_DIR, 'scripts', 'build.cjs');
+    const buildSource = fs.readFileSync(buildScriptPath, 'utf8');
+    assert.ok(buildSource.includes('admin.html'), 'build.cjs contract phải chứa admin.html');
+    assert.ok(buildSource.includes('css/tailwind.css'), 'build.cjs contract phải chứa css/tailwind.css');
+    assert.ok(buildSource.includes('js/admin.js'), 'build.cjs contract phải chứa js/admin.js');
+    assert.ok(buildSource.includes('js/admin-auth.js'), 'build.cjs contract phải chứa js/admin-auth.js');
+    assert.ok(buildSource.includes('vendor/fonts/material-symbols.css') || buildSource.includes('material-symbols.css'), 'build.cjs contract phải chứa vendor/fonts/material-symbols.css');
+
+    // 48.3 Xác nhận package.json: check:gate chứa test:g8 và test:g8:browser, KHÔNG chứa test:g8:live
+    const pkgPath = path.join(ROOT_DIR, 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    const gateCmd = pkg.scripts['check:gate'];
+    assert.ok(gateCmd.includes('npm run test:g8'), 'check:gate phải chứa npm run test:g8');
+    assert.ok(gateCmd.includes('npm run test:g8:browser'), 'check:gate phải chứa npm run test:g8:browser');
+    assert.ok(!gateCmd.includes('test:g8:live'), 'check:gate TUYỆT ĐỐI KHÔNG chứa test:g8:live (vì cần credentials và tạo fixture production)');
+    assert.ok(pkg.scripts['test:build'], 'package.json phải có script test:build');
+
+    // 48.4 Xác nhận mã nguồn gốc chứa đầy đủ 5 tài nguyên runtime quản trị trước khi build (độc lập với dist/)
+    const srcAdminHtml = path.join(ROOT_DIR, 'admin.html');
+    const srcAdminJs = path.join(ROOT_DIR, 'js', 'admin.js');
+    const srcAdminAuthJs = path.join(ROOT_DIR, 'js', 'admin-auth.js');
+    const srcTailwindCss = path.join(ROOT_DIR, 'css', 'tailwind.css');
+    const srcFontCss = path.join(ROOT_DIR, 'vendor', 'fonts', 'material-symbols.css');
+
+    assert.ok(fs.existsSync(srcAdminHtml), 'admin.html phải tồn tại trong mã nguồn');
+    assert.ok(fs.existsSync(srcAdminJs), 'js/admin.js phải tồn tại trong mã nguồn');
+    assert.ok(fs.existsSync(srcAdminAuthJs), 'js/admin-auth.js phải tồn tại trong mã nguồn');
+    assert.ok(fs.existsSync(srcTailwindCss), 'css/tailwind.css phải tồn tại trong mã nguồn');
+    assert.ok(fs.existsSync(srcFontCss), 'vendor/fonts/material-symbols.css phải tồn tại trong mã nguồn');
+  });
+
   console.log(`\n========================================`);
   console.log(`KẾT QUẢ KIỂM THỬ G8 TOÀN DIỆN: ${passedTests}/${totalTests} PASS`);
   console.log(`========================================\n`);
