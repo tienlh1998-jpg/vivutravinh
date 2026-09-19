@@ -30,6 +30,7 @@ alter table public.place_comments add column if not exists photo_metadata jsonb 
 alter table public.place_comments add column if not exists client_review_id text;
 alter table public.place_comments add column if not exists is_hidden boolean not null default false;
 alter table public.place_comments add column if not exists status text not null default 'pending';
+alter table public.place_comments add column if not exists updated_at timestamptz not null default now();
 
 -- Cập nhật giá trị mặc định cho bảng đã tồn tại:
 alter table public.place_comments alter column status set default 'pending';
