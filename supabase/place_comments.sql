@@ -25,6 +25,7 @@ create table if not exists public.place_comments (
 );
 
 -- Đảm bảo tương thích ngược và bổ sung cột cho cơ sở dữ liệu đã tồn tại từ trước:
+alter table public.place_comments add column if not exists photo_url text;
 alter table public.place_comments add column if not exists photo_metadata jsonb not null default '{}'::jsonb;
 alter table public.place_comments add column if not exists client_review_id text;
 alter table public.place_comments add column if not exists is_hidden boolean not null default false;
