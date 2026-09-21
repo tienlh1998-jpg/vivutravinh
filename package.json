@@ -8,7 +8,7 @@
     "dev": "http-server -p 8000 -c-1",
     "build": "node scripts/build.cjs",
     "preview": "node scripts/preview.cjs",
-    "check": "node --check js/config.js js/data.js js/app.js js/ui.js js/comments.js js/offline-sync.js js/telemetry.js js/admin-auth.js js/admin.js service-worker.js api/_admin-auth.js api/admin-profile.js api/admin-reports.js api/admin-comments.js api/admin-places.js api/import-place.js api/submit-comment.js api/submit-place.js api/report-place.js api/og-place.js",
+    "check": "node --check js/config.js js/data.js js/app.js js/ui.js js/comments.js js/offline-sync.js js/telemetry.js js/admin-auth.js js/admin.js service-worker.js api/_admin-auth.js api/admin-profile.js api/admin-reports.js api/admin-comments.js api/admin-places.js api/import-place.js api/submit-comment.js api/submit-place.js api/report-place.js api/og-place.js scripts/audit-g9-production.js scripts/test-g9-audit.js",
     "test:fixtures": "node scripts/test-fixtures.js",
     "test:g2": "node scripts/test-g2.js",
     "test:g2:browser": "node --experimental-websocket scripts/verify-g2-browser.cjs",
@@ -28,6 +28,8 @@
     "test:g8": "node scripts/test-g8-admin.js",
     "test:g8:browser": "node --experimental-websocket scripts/verify-g8-browser.cjs",
     "test:g8:live": "node scripts/verify-g8-live.js",
+    "test:g9:audit": "node scripts/test-g9-audit.js",
+    "audit:g9": "node scripts/audit-g9-production.js",
     "test:build": "node scripts/build.cjs",
     "check:gate": "npm run check && npm run test:fixtures && npm run test:g2 && npm run test:g3 && npm run test:sw && npm run test:ui && npm run test:g2:browser && npm run test:g3:browser && npm run test:g4:browser && npm run test:g5 && npm run test:g6 && npm run test:g6:browser && npm run test:g7 && npm run test:g7:browser && npm run test:g8 && npm run test:g8:browser",
     "test": "npm run check:gate"
