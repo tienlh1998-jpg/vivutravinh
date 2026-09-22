@@ -53,8 +53,8 @@ export const STRICT_COORD_DECIMAL_REGEX = /^[+-]?\d+(?:\.\d+)?$/;
  * - Chặn tuyệt đối: ftp:, javascript:, data:, vbscript:, file:, blob:, protocol-relative // và các giao thức tùy ý khác
  * - Chặn path traversal trong local asset: segment '..', '.', backslash, encoded traversal (%2e%2e, %2E%2E, %5c)
  * - Không bao giờ throw nếu decodeURIComponent gặp lỗi chuỗi percent-encoding
- * 
- * @param {string} rawUrl 
+ *
+ * @param {string} rawUrl
  * @returns {{ isSafe: boolean, isLocal?: boolean, urlObj: URL | null, reason?: string }}
  */
 export function inspectSafeUrl(rawUrl) {
@@ -172,7 +172,7 @@ export function inspectSafeUrl(rawUrl) {
 
 /**
  * Kiểm tra tính hợp lệ của đường dẫn Google Maps
- * @param {string} rawUrl 
+ * @param {string} rawUrl
  * @returns {{ valid: boolean, code?: string, message?: string }}
  */
 export function validateGoogleMapsUrl(rawUrl) {
@@ -243,8 +243,8 @@ export function validateGoogleMapsUrl(rawUrl) {
  * - Từ chối: ký tự chữ (abc, xyz), ký hiệu khoa học (9e0), Infinity, NaN, nhiều dấu chấm (9..3)
  * - Chỉ parse Number sau khi regex toàn chuỗi đã đạt
  * - Sau đó mới kiểm tra bounding box Trà Vinh
- * 
- * @param {string} rawCoords 
+ *
+ * @param {string} rawCoords
  * @returns {{ valid: boolean, parsed?: { lat: number, lng: number }, code?: string, message?: string }}
  */
 export function validateCoordinates(rawCoords) {
@@ -303,7 +303,7 @@ export function validateCoordinates(rawCoords) {
 /**
  * Kiểm tra xem một giá trị khoảng giá có được coi là ĐÃ CUNG CẤP hay không
  * "0đ", "Miễn phí", "0", "Free" đều là giá trị hợp lệ, không tính là thiếu.
- * @param {any} rawPrice 
+ * @param {any} rawPrice
  * @returns {boolean}
  */
 export function hasPriceValue(rawPrice) {
@@ -315,7 +315,7 @@ export function hasPriceValue(rawPrice) {
 /**
  * Kiểm tra xem một giá trị giờ có được coi là ĐÃ CUNG CẤP hay không
  * "00:00" là mốc nửa đêm hợp lệ, không tính là thiếu.
- * @param {any} rawTime 
+ * @param {any} rawTime
  * @returns {boolean}
  */
 export function hasTimeValue(rawTime) {
@@ -326,7 +326,7 @@ export function hasTimeValue(rawTime) {
 
 /**
  * Kiểm tra định dạng giờ 24h chuẩn (HH:mm)
- * @param {any} rawTime 
+ * @param {any} rawTime
  * @returns {{ valid: boolean, code?: string, message?: string }}
  */
 export function validateTimeFormat(rawTime) {
@@ -348,8 +348,8 @@ export function validateTimeFormat(rawTime) {
  * Thẩm định patch cho một bản ghi địa điểm ĐÃ ĐƯỢC PHÊ DUYỆT TRƯỚC ĐÓ (legacy approved place)
  * - Không chặn vì thiếu các trường cũ của bản ghi
  * - Nhưng nếu patch trực tiếp cung cấp URL/GPS/ảnh nguy hiểm hoặc sai cú pháp thì bắt buộc chặn
- * 
- * @param {object} patch 
+ *
+ * @param {object} patch
  * @returns {{
  *   valid: boolean,
  *   errors: Array<{ code: string, field: string, message: string }>,
@@ -457,7 +457,7 @@ export function validatePatchForApprovedLegacy(patch) {
 
 /**
  * Thẩm định chất lượng dữ liệu địa điểm (Place Data Quality Validator)
- * 
+ *
  * @param {object} place Đối tượng địa điểm cần kiểm tra
  * @param {object} [options]
  * @param {'draft' | 'approval' | 'legacy_patch'} [options.mode='approval'] Chế độ kiểm tra

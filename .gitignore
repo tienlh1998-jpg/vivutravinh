@@ -29,3 +29,7 @@ npm-debug.log*
 .vercel
 .env*
 !.env.example
+
+# Backups & Scratch
+backups/
+scratch/

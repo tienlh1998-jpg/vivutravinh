@@ -208,9 +208,38 @@ async function updatePlace(request, response, adminContext) {
   const targetStatus = patch.status !== undefined ? patch.status : currentStatus;
   const isTransitionToApproved = targetStatus === 'approved' && currentStatus !== 'approved';
   const isAlreadyApproved = currentStatus === 'approved' && targetStatus === 'approved';
+  const isRollback = body.is_rollback === true;
+
+  if (isRollback) {
+    if (adminContext?.user?.role !== 'admin') {
+      sendError(response, 403, 'FORBIDDEN', 'Chỉ tài khoản Admin mới có quyền thực hiện khôi phục (rollback) trạng thái địa điểm.');
+      return;
+    }
+
+    const allowedRollbackKeys = new Set(['id', 'status', 'is_rollback']);
+    const extraKeys = Object.keys(body).filter(k => !allowedRollbackKeys.has(k));
+    if (extraKeys.length > 0) {
+      sendError(response, 400, 'INVALID_INPUT', `Khi thực hiện rollback, chỉ được phép gửi các trường: id, status, is_rollback (phát hiện trường thừa: ${extraKeys.join(', ')}).`);
+      return;
+    }
+
+    if (currentStatus !== 'archived') {
+      sendError(response, 400, 'INVALID_ROLLBACK_STATE', `Chỉ được phép thực hiện rollback đối với địa điểm đang ở trạng thái "archived" (trạng thái hiện tại: "${currentStatus}").`);
+      return;
+    }
+
+    if (targetStatus !== 'approved' && targetStatus !== 'draft') {
+      sendError(response, 400, 'INVALID_INPUT', `Trạng thái rollback không hợp lệ: "${targetStatus}". Chỉ cho phép khôi phục về "approved" hoặc "draft".`);
+      return;
+    }
+  }
 
   let validation;
-  if (isTransitionToApproved) {
+  if (isRollback) {
+    // Khi rollback, chỉ role admin được phép khôi phục trạng thái trước đó của địa điểm.
+    // Vẫn kiểm tra an toàn URL và cấu trúc nhưng không chặn vì các trường thiếu của bản ghi legacy.
+    validation = validatePatchForApprovedLegacy({ ...existingPlace, ...patch });
+  } else if (isTransitionToApproved) {
     const mergedPlace = { ...existingPlace, ...patch };
     validation = validatePlace(mergedPlace, { mode: 'approval' });
   } else if (isAlreadyApproved) {

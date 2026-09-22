@@ -1,7 +1,7 @@
 # Hợp Đồng Chất Lượng Dữ Liệu Địa Điểm (Data Quality Contract)
 
-> **Dự án:** ViVuTraVinh — Cẩm nang du lịch tự túc & bản đồ số Trà Vinh  
-> **Phiên bản áp dụng:** v2.1.0+ (Mốc G9.1)  
+> **Dự án:** ViVuTraVinh — Cẩm nang du lịch tự túc & bản đồ số Trà Vinh
+> **Phiên bản áp dụng:** v2.1.0+ (Mốc G9.1)
 > **Mục đích:** Thiết lập chuẩn mực chất lượng dữ liệu du lịch nhằm đảm bảo mọi địa điểm được phê duyệt và hiển thị công khai đều có thông tin thực tế, an toàn, có thể định vị và kiểm chứng được.
 
 ---
@@ -35,7 +35,7 @@ graph TD
     A["Dữ liệu Địa Điểm (places)"] --> B["1. required-for-approval (ERROR nếu thiếu)"]
     A --> C["2. verified-for-public (WARNING nếu thiếu)"]
     A --> D["3. optional (Tùy chọn)"]
-    
+
     B --> B1["name (3–150 ký tự)"]
     B --> B2["slug (^[a-z0-9]+(?:-[a-z0-9]+)*$)"]
     B --> B3["category & area (chuỗi không rỗng)"]
@@ -44,7 +44,7 @@ graph TD
     B --> B6["URL Maps HTTPS hợp lệ, không độc hại"]
     B --> B7["Giờ HH:mm 24h hợp lệ (nếu có nhập)"]
     B --> B8["Ảnh an toàn (https, http, local asset)"]
-    
+
     C --> C1["address (Địa chỉ chi tiết)"]
     C --> C2["coordinates (Tọa độ định vị)"]
     C --> C3["map_link (Đường dẫn Google Maps)"]
@@ -52,7 +52,7 @@ graph TD
     C --> C5["contact (Điện thoại / Liên hệ)"]
     C --> C6["price_raw (Khoảng giá / Miễn phí)"]
     C --> C7["Hình ảnh đại diện"]
-    
+
     D --> D1["description (Mô tả chi tiết)"]
     D --> D2["note (Lưu ý trải nghiệm)"]
     D --> D3["images (Bộ sưu tập ảnh phụ)"]
@@ -191,5 +191,5 @@ Tất cả các định dạng khác, bao gồm tên miền giả mạo con (ví
 > [!NOTE]
 > Trong mốc G9.1, dự án tuân thủ tuyệt đối nguyên tắc **Zero Migration** để đảm bảo tính ổn định của cơ sở dữ liệu production.
 > Mọi ý tưởng mở rộng cấu trúc cơ sở dữ liệu (như tách `latitude`/`longitude` kiểu `numeric`, chuẩn hóa `price_min`/`price_max` kiểu số nguyên, bổ sung các trường siêu dữ liệu biên tập `verified_at`, `verification_source`, `verification_notes`...) chỉ là các định hướng kỹ thuật sơ bộ mang tính tham khảo dài hạn.
-> 
+>
 > **Các đề xuất này CHƯA ĐƯỢC PHÊ DUYỆT và TUYỆT ĐỐI KHÔNG THỰC THI trong G9.1.** Không chạy bất kỳ câu lệnh DDL SQL nào trên CSDL Supabase Production.
