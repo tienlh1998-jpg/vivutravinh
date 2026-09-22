@@ -16,6 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { validatePlace } from '../js/place-validator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,15 +69,18 @@ export function isLikelyTestData(place) {
 }
 
 export function analyzeMissingFields(place) {
+  const validation = validatePlace(place, { mode: 'approval' });
   const missing = [];
-  const hasImages = (Array.isArray(place.images) && place.images.length > 0) || Boolean(place.image_link);
-  if (!hasImages) missing.push('ảnh');
-  if (!place.address || place.address.trim().length < 5) missing.push('địa chỉ');
-  if (!place.coordinates || !place.coordinates.includes(',')) missing.push('GPS');
-  if (!place.opening_time && !place.closing_time && !place.display_hours) missing.push('giờ mở cửa');
-  if (!place.price_raw) missing.push('khoảng giá');
-  if (!place.contact) missing.push('liên hệ');
-  if (!place.map_link) missing.push('Google Maps');
+  const warnCodes = new Set(validation.warnings.map(w => w.code));
+
+  if (warnCodes.has('WARN_MISSING_IMAGES')) missing.push('ảnh');
+  if (warnCodes.has('WARN_MISSING_ADDRESS')) missing.push('địa chỉ');
+  if (warnCodes.has('WARN_MISSING_COORDINATES')) missing.push('GPS');
+  if (warnCodes.has('WARN_MISSING_HOURS') || warnCodes.has('WARN_INCOMPLETE_HOURS')) missing.push('giờ mở cửa');
+  if (warnCodes.has('WARN_MISSING_PRICE')) missing.push('khoảng giá');
+  if (warnCodes.has('WARN_MISSING_CONTACT')) missing.push('liên hệ');
+  if (warnCodes.has('WARN_MISSING_MAP_LINK')) missing.push('Google Maps');
+
   return missing;
 }
 

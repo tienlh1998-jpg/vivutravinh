@@ -969,6 +969,7 @@ try {
       body: {
         name: 'Quán Cà Phê Bờ Kè Mới',
         category: 'Cà Phê / Trà Sữa',
+        area: 'tp-tra-vinh',
         address: 'Đường Bờ Kè, Phường 1, Trà Vinh'
       }
     });

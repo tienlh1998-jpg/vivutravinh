@@ -13,6 +13,15 @@ import {
   getCorrelationId,
   parsePagination
 } from './_admin-auth.js';
+import { validatePlace, validatePatchForApprovedLegacy } from '../js/place-validator.js';
+
+function sanitizeValidationIssues(issues = []) {
+  return issues.map(i => ({
+    code: String(i.code || ''),
+    field: String(i.field || ''),
+    message: String(i.message || '')
+  }));
+}
 
 const TABLE_NAME = 'places';
 const VALID_STATUSES = new Set(['approved', 'draft', 'hidden', 'archived']);
@@ -179,6 +188,53 @@ async function updatePlace(request, response, adminContext) {
     return;
   }
 
+  // Đọc bản ghi hiện tại để kiểm tra tính toàn vẹn chất lượng dữ liệu
+  let existingPlace = null;
+  try {
+    const existingRows = await supabaseRequest(`${TABLE_NAME}?id=eq.${id}&select=*&limit=1`);
+    existingPlace = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null;
+  } catch (err) {
+    console.error('[AdminPlaces] Lỗi truy vấn địa điểm:', err);
+    sendError(response, 500, 'INTERNAL_ERROR', 'Đã xảy ra lỗi khi kiểm tra địa điểm.');
+    return;
+  }
+
+  if (!existingPlace) {
+    sendError(response, 404, 'NOT_FOUND', `Không tìm thấy địa điểm với ID ${id}.`);
+    return;
+  }
+
+  const currentStatus = existingPlace.status || 'draft';
+  const targetStatus = patch.status !== undefined ? patch.status : currentStatus;
+  const isTransitionToApproved = targetStatus === 'approved' && currentStatus !== 'approved';
+  const isAlreadyApproved = currentStatus === 'approved' && targetStatus === 'approved';
+
+  let validation;
+  if (isTransitionToApproved) {
+    const mergedPlace = { ...existingPlace, ...patch };
+    validation = validatePlace(mergedPlace, { mode: 'approval' });
+  } else if (isAlreadyApproved) {
+    validation = validatePatchForApprovedLegacy(patch);
+  } else {
+    const mergedPlace = { ...existingPlace, ...patch };
+    validation = validatePlace(mergedPlace, { mode: 'draft' });
+  }
+
+  if (!validation.valid) {
+    sendJson(response, 422, {
+      success: false,
+      error: {
+        code: 'DATA_QUALITY_FAILED',
+        message: isTransitionToApproved
+          ? 'Địa điểm không đạt tiêu chuẩn chất lượng dữ liệu để phê duyệt.'
+          : 'Dữ liệu địa điểm chứa trường không an toàn hoặc không hợp lệ.',
+        errors: sanitizeValidationIssues(validation.errors),
+        warnings: sanitizeValidationIssues(validation.warnings)
+      }
+    });
+    return;
+  }
+
   const actorId = getSafeActorId(adminContext);
   const actorEmail = adminContext?.user?.email || null;
   const actorRole = adminContext?.user?.role || 'editor';
@@ -321,10 +377,34 @@ async function createPlace(request, response, adminContext) {
     return;
   }
 
-  patch.slug = await ensureUniqueSlug(patch.slug, patch.name);
+  if (patch.slug) {
+    if (await slugExists(patch.slug)) {
+      patch.slug = `${patch.slug}-${Date.now().toString(36)}`;
+    }
+  } else {
+    patch.slug = await ensureUniqueSlug(null, patch.name);
+  }
   patch.status = patch.status || 'draft';
   patch.operating_status = patch.operating_status || 'Normal';
   patch.contributor = patch.contributor || 'Admin';
+
+  const validationMode = patch.status === 'approved' ? 'approval' : 'draft';
+  const validation = validatePlace(patch, { mode: validationMode });
+
+  if (!validation.valid) {
+    sendJson(response, 422, {
+      success: false,
+      error: {
+        code: 'DATA_QUALITY_FAILED',
+        message: validationMode === 'approval'
+          ? 'Địa điểm không đạt tiêu chuẩn chất lượng dữ liệu để phê duyệt.'
+          : 'Dữ liệu địa điểm chứa trường không an toàn hoặc không hợp lệ.',
+        errors: sanitizeValidationIssues(validation.errors),
+        warnings: sanitizeValidationIssues(validation.warnings)
+      }
+    });
+    return;
+  }
 
   const actorId = getSafeActorId(adminContext);
   const actorEmail = adminContext?.user?.email || null;

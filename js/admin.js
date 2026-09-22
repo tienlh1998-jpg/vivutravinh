@@ -14,6 +14,7 @@ import {
   canManageReports,
   canViewPII
 } from './admin-auth.js';
+import { validatePlace } from './place-validator.js';
 
 // Trạng thái ứng dụng quản trị
 let currentTab = 'places';
@@ -220,56 +221,19 @@ export function showConfirmDialog({ title, message, confirmText = 'Xác nhận',
 
 /**
  * Kiểm tra các trường dữ liệu bắt buộc và cảnh báo nếu thiếu/sai sót
+ * Tương thích ngược: sử dụng shared validatePlace từ ./place-validator.js
  * @param {object} place
- * @returns {Array<{type: 'error'|'warning', message: string}>}
+ * @returns {Array<{type: 'error'|'warning', code: string, field: string, message: string}>}
  */
 export function validatePlaceForApproval(place) {
+  const result = validatePlace(place, { mode: 'approval' });
   const issues = [];
-
-  if (!place.name || place.name.trim().length < 3) {
-    issues.push({ type: 'error', message: 'Tên địa điểm chưa hợp lệ hoặc quá ngắn (tối thiểu 3 ký tự).' });
+  for (const err of result.errors) {
+    issues.push({ type: 'error', code: err.code, field: err.field, message: err.message });
   }
-
-  if (!place.slug || !/^[a-z0-9-]+$/.test(place.slug)) {
-    issues.push({ type: 'error', message: 'Slug không hợp lệ (chỉ cho phép chữ thường không dấu, số và dấu gạch ngang).' });
+  for (const warn of result.warnings) {
+    issues.push({ type: 'warning', code: warn.code, field: warn.field, message: warn.message });
   }
-
-  if (!place.category || place.category.trim().length === 0) {
-    issues.push({ type: 'error', message: 'Chưa phân loại danh mục cho địa điểm.' });
-  }
-
-  // Kiểm tra tọa độ GPS
-  const coords = String(place.coordinates || '').trim();
-  if (!coords) {
-    issues.push({ type: 'warning', message: 'Thiếu tọa độ GPS (kinh độ, vĩ độ). Bản đồ số sẽ không thể định vị chính xác.' });
-  } else if (!/^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(coords)) {
-    issues.push({ type: 'warning', message: `Định dạng GPS '${coords}' không đúng chuẩn (Vĩ độ, Kinh độ - ví dụ: 9.9347,106.3449).` });
-  }
-
-  // Kiểm tra Google Maps Link
-  const mapLink = String(place.map_link || '').trim();
-  if (!mapLink) {
-    issues.push({ type: 'warning', message: 'Chưa có đường dẫn Google Maps chỉ đường.' });
-  } else if (!/^https?:\/\/(www\.)?(google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(mapLink)) {
-    issues.push({ type: 'warning', message: 'Đường dẫn bản đồ không phải định dạng Google Maps chuẩn.' });
-  }
-
-  // Kiểm tra hình ảnh
-  const images = Array.isArray(place.images) ? place.images : (place.image_link ? [place.image_link] : []);
-  if (images.length === 0) {
-    issues.push({ type: 'warning', message: 'Địa điểm chưa có hình ảnh minh họa nào.' });
-  }
-
-  // Kiểm tra giờ hoạt động
-  if (!place.opening_time || !place.closing_time) {
-    issues.push({ type: 'warning', message: 'Chưa cập nhật đầy đủ khung giờ mở cửa và đóng cửa.' });
-  }
-
-  // Kiểm tra mô tả
-  if (!place.description || place.description.trim().length < 20) {
-    issues.push({ type: 'warning', message: 'Mô tả địa điểm còn quá ngắn hoặc đang để trống.' });
-  }
-
   return issues;
 }
 
@@ -282,29 +246,46 @@ export function openPlacePreview(place) {
   if (!modal || !content) return;
 
   const previousActiveElement = document.activeElement;
-  const issues = validatePlaceForApproval(place);
+  const validation = validatePlace(place, { mode: 'approval' });
+  const { errors, warnings } = validation;
+  const hasErrors = errors.length > 0;
+  const hasWarnings = warnings.length > 0;
   const statusBadge = placeStatusInfo(place.status);
   const safeMainImg = sanitizeImageUrl(place.image_link || (Array.isArray(place.images) && place.images[0]) || '');
 
-  let warningHtml = '';
-  if (issues.length > 0) {
-    const errorCount = issues.filter(i => i.type === 'error').length;
-    const warningCount = issues.filter(i => i.type === 'warning').length;
-    warningHtml = `
-      <div id="previewValidationAlerts" class="mb-6 p-4 rounded-xl border ${errorCount > 0 ? 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-800' : 'bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800'}">
-        <div class="flex items-center gap-2 mb-2 font-bold ${errorCount > 0 ? 'text-red-700 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}">
-          <span class="material-symbols-outlined text-xl">warning</span>
-          <span>Báo cáo kiểm tra trước khi duyệt (${errorCount} lỗi, ${warningCount} lưu ý):</span>
-        </div>
-        <ul class="list-disc list-inside space-y-1 text-sm ${errorCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}">
-          ${issues.map(i => `<li>${escapeHtml(i.message)}</li>`).join('')}
-        </ul>
+  let alertsHtml = '';
+  if (hasErrors || hasWarnings) {
+    alertsHtml = `
+      <div class="space-y-3 mb-6">
+        ${hasErrors ? `
+          <div id="previewValidationErrors" role="alert" class="p-4 rounded-2xl border bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-800">
+            <div class="flex items-center gap-2 mb-2 font-bold text-red-700 dark:text-red-300">
+              <span class="material-symbols-outlined text-xl">error</span>
+              <span>Lỗi vi phạm tiêu chuẩn (${errors.length} lỗi bắt buộc phải sửa trước khi duyệt):</span>
+            </div>
+            <ul class="list-disc list-inside space-y-1 text-sm text-red-600 dark:text-red-400">
+              ${errors.map(e => `<li><strong>[${escapeHtml(e.field)}]</strong> ${escapeHtml(e.message)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+
+        ${hasWarnings ? `
+          <div id="previewValidationWarnings" class="p-4 rounded-2xl border bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800">
+            <div class="flex items-center gap-2 mb-2 font-bold text-amber-800 dark:text-amber-300">
+              <span class="material-symbols-outlined text-xl">warning</span>
+              <span>Lưu ý chất lượng dữ liệu (${warnings.length} cảnh báo khuyến nghị hoàn thiện):</span>
+            </div>
+            <ul class="list-disc list-inside space-y-1 text-sm text-amber-700 dark:text-amber-400">
+              ${warnings.map(w => `<li><strong>[${escapeHtml(w.field)}]</strong> ${escapeHtml(w.message)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
       </div>
     `;
   }
 
   content.innerHTML = `
-    ${warningHtml}
+    ${alertsHtml}
     <div class="space-y-4">
       <div class="relative h-56 sm:h-72 w-full rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
         ${safeMainImg ? `
@@ -363,10 +344,20 @@ export function openPlacePreview(place) {
           Đóng
         </button>
         ${canManagePlaces() && place.status !== 'approved' ? `
-          <button type="button" id="approveFromPreviewBtn" class="min-h-[44px] px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition flex items-center gap-1.5">
-            <span class="material-symbols-outlined text-lg">check_circle</span>
-            <span>Duyệt xuất bản</span>
-          </button>
+          ${hasErrors ? `
+            <button type="button" id="approveFromPreviewBtn" disabled aria-disabled="true"
+              class="min-h-[44px] px-5 py-2.5 rounded-xl bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-bold cursor-not-allowed opacity-60 flex items-center gap-1.5"
+              title="Không thể duyệt khi còn lỗi dữ liệu bắt buộc">
+              <span class="material-symbols-outlined text-lg">block</span>
+              <span>Không thể duyệt (Còn lỗi)</span>
+            </button>
+          ` : `
+            <button type="button" id="approveFromPreviewBtn"
+              class="min-h-[44px] px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm">
+              <span class="material-symbols-outlined text-lg">check_circle</span>
+              <span>Duyệt xuất bản</span>
+            </button>
+          `}
         ` : ''}
       </div>
     </div>
@@ -401,11 +392,16 @@ export function openPlacePreview(place) {
   const approveBtn = document.getElementById('approveFromPreviewBtn');
   if (approveBtn) {
     approveBtn.onclick = () => {
-      const issues = validatePlaceForApproval(place);
-      if (issues.length > 0) {
+      const v = validatePlace(place, { mode: 'approval' });
+      if (v.errors.length > 0) {
+        setMessage('Không thể duyệt: Địa điểm còn lỗi vi phạm chất lượng dữ liệu bắt buộc.', 'error');
+        return;
+      }
+
+      if (v.warnings.length > 0) {
         showConfirmDialog({
           title: 'Cảnh báo tính toàn vẹn dữ liệu',
-          message: `Địa điểm "${place.name}" còn ${issues.length} cảnh báo dữ liệu du lịch chưa đạt chuẩn (${issues.map(i => i.message).join('; ')}). Bạn có chắc chắn muốn bỏ qua các cảnh báo này và tiếp tục duyệt xuất bản?`,
+          message: `Địa điểm "${place.name}" còn ${v.warnings.length} lưu ý dữ liệu (${v.warnings.map(i => i.message).join('; ')}). Bạn có chắc chắn muốn bỏ qua các lưu ý này và tiếp tục duyệt xuất bản?`,
           confirmText: 'Vẫn duyệt địa điểm',
           confirmClass: 'bg-green-600 hover:bg-green-700 text-white',
           onConfirm: async () => {
@@ -802,13 +798,19 @@ export async function requestApprovePlace(id) {
     return;
   }
 
-  // 1. Chạy validatePlaceForApproval
-  const issues = validatePlaceForApproval(place);
+  // 1. Chạy validatePlace
+  const validation = validatePlace(place, { mode: 'approval' });
 
-  if (issues.length > 0) {
+  if (validation.errors.length > 0) {
+    openPlacePreview(place);
+    setMessage(`Địa điểm "${place.name}" có ${validation.errors.length} lỗi vi phạm hợp đồng dữ liệu. Nút Duyệt đã bị khóa, vui lòng sửa lỗi trước.`, 'error');
+    return;
+  }
+
+  if (validation.warnings.length > 0) {
     // Nếu có cảnh báo, mở preview và hiển thị cảnh báo
     openPlacePreview(place);
-    setMessage(`Địa điểm "${place.name}" có ${issues.length} cảnh báo dữ liệu du lịch chưa đạt chuẩn. Vui lòng kiểm tra kỹ trước khi duyệt.`, 'warning');
+    setMessage(`Địa điểm "${place.name}" có ${validation.warnings.length} lưu ý dữ liệu du lịch chưa đạt chuẩn. Vui lòng kiểm tra kỹ trước khi duyệt.`, 'warning');
     return;
   }
 
@@ -1671,44 +1673,46 @@ function setupStaticEventListeners() {
 // EXPOSE RA WINDOW CHO EVENT HANDLERS & CDP BROWSER TESTS
 // ----------------------------------------------------------------------------
 
-window.VivuAdmin = {
-  showTab,
-  toggleDarkMode,
-  loadAdminPlaces,
-  renderPlaces,
-  openPlaceEditor,
-  openNewPlaceForm,
-  closePlaceEditor,
-  savePlace,
-  updatePlaceStatus,
-  requestApprovePlace,
-  validatePlaceForApproval,
-  openPlacePreview,
-  previewPlace: (id) => {
-    const place = adminPlaces.find(p => Number(p.id) === Number(id));
-    if (place) openPlacePreview(place);
-  },
-  confirmArchivePlace,
-  confirmPermanentDeletePlace,
-  loadAdminComments,
-  renderComments,
-  toggleCommentHidden,
-  requestToggleCommentHidden,
-  confirmDeleteComment,
-  loadAdminReports,
-  renderReports,
-  updateReportStatus,
-  requestUpdateReportStatus,
-  saveReportNotes,
-  findAndOpenPlaceBySlug,
-  showConfirmDialog,
-  showAuthenticatedView,
-  showLoginView,
-  handleLoginSubmit,
-  handleLogoutClick,
-  setMessage,
-  clearMessage
-};
+if (typeof window !== 'undefined') {
+  window.VivuAdmin = {
+    showTab,
+    toggleDarkMode,
+    loadAdminPlaces,
+    renderPlaces,
+    openPlaceEditor,
+    openNewPlaceForm,
+    closePlaceEditor,
+    savePlace,
+    updatePlaceStatus,
+    requestApprovePlace,
+    validatePlaceForApproval,
+    openPlacePreview,
+    previewPlace: (id) => {
+      const place = adminPlaces.find(p => Number(p.id) === Number(id));
+      if (place) openPlacePreview(place);
+    },
+    confirmArchivePlace,
+    confirmPermanentDeletePlace,
+    loadAdminComments,
+    renderComments,
+    toggleCommentHidden,
+    requestToggleCommentHidden,
+    confirmDeleteComment,
+    loadAdminReports,
+    renderReports,
+    updateReportStatus,
+    requestUpdateReportStatus,
+    saveReportNotes,
+    findAndOpenPlaceBySlug,
+    showConfirmDialog,
+    showAuthenticatedView,
+    showLoginView,
+    handleLoginSubmit,
+    handleLogoutClick,
+    setMessage,
+    clearMessage
+  };
+}
 
 // ----------------------------------------------------------------------------
 // KHỞI ĐỘNG KHI TẢI TRANG
@@ -1748,8 +1752,10 @@ function initializeAdmin() {
   loadCurrentTab();
 }
 
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', initializeAdmin);
-} else {
-  initializeAdmin();
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initializeAdmin);
+  } else {
+    initializeAdmin();
+  }
 }
