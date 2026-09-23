@@ -107,7 +107,8 @@ const mockPlaces = [
     address: 'Phuong 8, TP Tra Vinh',
     client_submission_id: 'sub-test-1',
     sort_order: 1,
-    is_featured: true
+    is_featured: true,
+    updated_at: '2026-05-27T02:00:00.000Z'
   },
   {
     id: 2,
@@ -124,7 +125,8 @@ const mockPlaces = [
     address: 'Quoc lo 53, Tra Vinh',
     client_submission_id: 'sub-test-2',
     sort_order: 2,
-    is_featured: false
+    is_featured: false,
+    updated_at: '2026-05-27T02:00:00.000Z'
   },
   {
     id: 99,
@@ -133,7 +135,8 @@ const mockPlaces = [
     category: 'attraction',
     area: 'tp-tra-vinh',
     status: 'draft',
-    rating: 3.5
+    rating: 3.5,
+    updated_at: '2026-05-27T02:00:00.000Z'
   }
 ];
 
@@ -990,7 +993,8 @@ try {
       body: {
         id: 1,
         name: 'Ao Bà Om Cập Nhật Giờ Mở Cửa',
-        opening_hours: '06:00 - 22:00'
+        opening_hours: '06:00 - 22:00',
+        expected_updated_at: mockPlaces.find(p => p.id === 1).updated_at
       }
     });
     await placesHandler(req, res);
@@ -1032,12 +1036,13 @@ try {
     assert.strictEqual(pRes.getStatus(), 201);
 
     // 18.2 Admin PATCH place
+    const p101 = mockPlaces.find(p => p.id === 101);
     const { req: patchReq, res: patchRes } = createMockReqRes({
       method: 'PATCH',
       url: '/api/admin-places',
       ip: '10.0.0.18',
       headers: { Authorization: 'Bearer mock-admin-token' },
-      body: { id: 101, status: 'approved' }
+      body: { id: 101, status: 'approved', expected_updated_at: p101?.updated_at || new Date().toISOString() }
     });
     await placesHandler(patchReq, patchRes);
     assert.strictEqual(patchRes.getStatus(), 200);
@@ -1832,7 +1837,7 @@ try {
         url: '/api/admin-places',
         ip: '10.0.0.38',
         headers: { Authorization: 'Bearer mock-admin-token' },
-        body: { id: 1, rating: 1.0 }
+        body: { id: 1, rating: 1.0, expected_updated_at: mockPlaces.find(p => p.id === 1).updated_at }
       });
       await placesHandler(pReq, pRes);
       assert.strictEqual(pRes.getStatus(), 500, 'Phải trả HTTP 500 khi audit log lỗi');
@@ -1915,7 +1920,11 @@ try {
       url: '/api/admin-places',
       ip: '10.0.0.39',
       headers: { Authorization: 'Bearer mock-admin-token' },
-      body: { id: createdPlaceId, name: 'Chùa Hang Atomic Test Đã Cập Nhật' }
+      body: {
+        id: createdPlaceId,
+        name: 'Chùa Hang Atomic Test Đã Cập Nhật',
+        expected_updated_at: mockPlaces.find(p => p.id === createdPlaceId).updated_at
+      }
     });
     await placesHandler(pPatchReq, pPatchRes);
     assert.strictEqual(pPatchRes.getStatus(), 200);
@@ -2103,7 +2112,11 @@ try {
       url: '/api/admin-places',
       ip: '10.0.0.41',
       headers: { Authorization: 'Bearer mock-admin-token' },
-      body: { id: createdPlaceId, name: 'Điểm Test Audit Đã Sửa' }
+      body: {
+        id: createdPlaceId,
+        name: 'Điểm Test Audit Đã Sửa',
+        expected_updated_at: mockPlaces.find(p => p.id === createdPlaceId).updated_at
+      }
     });
     await placesHandler(p2Req, p2Res);
     assert.strictEqual(p2Res.getStatus(), 200);
@@ -2273,6 +2286,7 @@ try {
       body: {
         id: 1,
         name: 'Ao Bà Om Cập Nhật An Toàn',
+        expected_updated_at: mockPlaces.find(p => p.id === 1).updated_at,
         is_admin: true,
         role: 'superadmin',
         audit_logs: 'fake_audit',

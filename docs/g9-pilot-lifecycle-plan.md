@@ -98,15 +98,17 @@ Nghiêm cấm tuyệt đối việc chuyển thẳng từ `hidden` sang `approve
 
 ## 4. Cơ Chế Khóa Lạc Quan & Chiến Lược Phục Hồi (Optimistic Concurrency & Rollback)
 
-### 4.1. Khóa Lạc Quan Thật (Optimistic Concurrency Control — expected_updated_at & HTTP 409)
+### 4.1. Khóa Lạc Quan Thật (Optimistic Concurrency Control — expected_updated_at, HTTP 428 & HTTP 409)
 Mỗi bản vá chuẩn bị chứa `concurrency_token`:
 - `expected_before_sha256`: Mã băm SHA-256 từ snapshot trước khi thay đổi.
 - `expected_updated_at`: Dấu thời gian cập nhật chính xác của bản ghi trước khi thay đổi.
 
-Khi API `PATCH /api/admin-places` hoặc hàm cơ sở dữ liệu `admin_update_place_atomic` nhận payload:
-- So sánh `expected_updated_at` với `updated_at` thực tế trên hàng CSDL.
-- Nếu không trùng khớp (do có tác vụ khác cập nhật trước đó), hệ thống lập tức trả về **HTTP 409 CONFLICT** với mã lỗi `CONFLICT` và **hủy bỏ hoàn toàn thao tác mà không gây ra bất kỳ mutation nào**.
-- Điều kiện UPDATE trong SQL giao dịch: `where id = p_place_id and (updated_at = p_patch->>'expected_updated_at')`.
+**Quy tắc kiểm soát bắt buộc (G9.3C Hotfix)**:
+- **Bắt buộc `expected_updated_at` cho mọi PATCH thông thường**: Nếu thiếu hoặc rỗng, API `PATCH /api/admin-places` lập tức từ chối với **HTTP 428 PRECONDITION_REQUIRED** (`code: 'EXPECTED_UPDATED_AT_REQUIRED'`), chặn đứng mutation. Client không thể bỏ qua optimistic concurrency.
+- **Ngoại lệ duy nhất**: Chỉ luồng rollback (`body.is_rollback === true`) với allowlist trường nghiêm ngặt (`id`, `status`, `is_rollback`) được miễn trừ khỏi kiểm tra bắt buộc này.
+- **Kiểm tra xung đột timestamp**: So sánh `expected_updated_at` với `updated_at` thực tế trên hàng CSDL. Nếu không trùng khớp (bản ghi bị sửa đổi sau snapshot), hệ thống trả về **HTTP 409 CONFLICT** (`code: 'CONFLICT'`) và **hủy bỏ hoàn toàn thao tác mà không gây ra bất kỳ mutation nào**.
+- **Điều kiện UPDATE trong SQL giao dịch**: `where id = p_place_id and (updated_at = p_patch->>'expected_updated_at')`.
+- **Đồng bộ hóa giao diện UI**: Khi người dùng chỉnh sửa hoặc duyệt từ modal preview, giao diện tự động gửi `expected_updated_at` lấy từ bản ghi hiện tại. Sau khi PATCH thành công, UI lập tức cập nhật record trong bộ nhớ và tải lại danh sách mới nhất từ server trước bất kỳ thao tác kế tiếp nào.
 
 ### 4.2. Khôi Phục Toàn Vẹn (Rollback Contract)
 Bản vá JSON lưu trữ sẵn `rollback_payload` chứa giá trị snapshot gốc trước thay đổi của **toàn bộ các trường bị thay đổi (`changed_fields`)**, không phải toàn bộ mọi trường của `beforeRecord`. Hợp đồng phục hồi cam kết:

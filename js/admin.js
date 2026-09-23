@@ -81,6 +81,7 @@ export function formatDate(value) {
  * Hiển thị thông báo trạng thái
  */
 export function setMessage(message, type = 'info') {
+  if (typeof document === 'undefined') return;
   const element = document.getElementById('adminMessage');
   if (!element) return;
   element.textContent = message;
@@ -256,7 +257,7 @@ export function openPlacePreview(place) {
   let alertsHtml = '';
   if (hasErrors || hasWarnings) {
     alertsHtml = `
-      <div class="space-y-3 mb-6">
+      <div id="previewValidationAlerts" class="space-y-3 mb-6">
         ${hasErrors ? `
           <div id="previewValidationErrors" role="alert" class="p-4 rounded-2xl border bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-800">
             <div class="flex items-center gap-2 mb-2 font-bold text-red-700 dark:text-red-300">
@@ -406,7 +407,7 @@ export function openPlacePreview(place) {
           confirmClass: 'bg-green-600 hover:bg-green-700 text-white',
           onConfirm: async () => {
             closePreview();
-            await executeUpdatePlaceStatus(place.id, 'approved');
+            await executeUpdatePlaceStatus(place.id, 'approved', place.updated_at);
           }
         });
       } else {
@@ -417,7 +418,7 @@ export function openPlacePreview(place) {
           confirmClass: 'bg-green-600 hover:bg-green-700 text-white',
           onConfirm: async () => {
             closePreview();
-            await executeUpdatePlaceStatus(place.id, 'approved');
+            await executeUpdatePlaceStatus(place.id, 'approved', place.updated_at);
           }
         });
       }
@@ -435,6 +436,7 @@ export function openPlacePreview(place) {
  * Tải số liệu tổng quan cho Dashboard
  */
 export async function loadDashboardStats() {
+  if (typeof document === 'undefined') return;
   try {
     // 1. Số địa điểm draft
     const draftPlacesRes = await adminRequest('/api/admin-places?status=draft&limit=1').catch(() => ({ pagination: { total: 0 } }));
@@ -472,6 +474,7 @@ export async function loadDashboardStats() {
 export function renderPlaces(places, pagination = {}) {
   adminPlaces = places;
   placesPagination = pagination;
+  if (typeof document === 'undefined') return;
   const countEl = document.getElementById('placeCount');
   if (countEl) {
     countEl.textContent = `${pagination.total ?? places.length} địa điểm (Trang ${pagination.page || 1}/${pagination.total_pages || 1})`;
@@ -574,6 +577,7 @@ export function renderPlaces(places, pagination = {}) {
 }
 
 export async function loadAdminPlaces(page = 1) {
+  if (typeof document === 'undefined') return;
   try {
     setMessage('Đang tải danh sách địa điểm...');
     const search = document.getElementById('placeSearch')?.value.trim() || '';
@@ -639,6 +643,10 @@ export function openPlaceEditor(id) {
   document.getElementById('placeEditorMeta').textContent = `#${place.id} · cập nhật ${formatDate(place.updated_at || place.created_at)}`;
 
   document.getElementById('placeId').value = place.id;
+  const expectedUpdatedAtEl = document.getElementById('placeExpectedUpdatedAt');
+  if (expectedUpdatedAtEl) {
+    expectedUpdatedAtEl.value = place.updated_at || '';
+  }
   document.getElementById('placeName').value = place.name || '';
   document.getElementById('placeSlug').value = place.slug || '';
   document.getElementById('placeCategory').value = place.category || '';
@@ -678,6 +686,10 @@ export function openNewPlaceForm() {
   document.getElementById('placeEditorMeta').textContent = 'Điền đầy đủ thông tin để gửi kiểm duyệt hoặc xuất bản.';
 
   document.getElementById('placeId').value = '';
+  const expectedUpdatedAtEl = document.getElementById('placeExpectedUpdatedAt');
+  if (expectedUpdatedAtEl) {
+    expectedUpdatedAtEl.value = '';
+  }
   document.getElementById('placeName').value = '';
   document.getElementById('placeSlug').value = '';
   document.getElementById('placeCategory').value = '';
@@ -747,14 +759,30 @@ export async function savePlace(event) {
 
   if (!isNew) {
     payload.id = Number.parseInt(placeId, 10);
+    const existingPlace = adminPlaces.find(p => Number(p.id) === payload.id);
+    const expectedUpdatedAt = document.getElementById('placeExpectedUpdatedAt')?.value
+      || existingPlace?.updated_at
+      || '';
+    payload.expected_updated_at = expectedUpdatedAt;
   }
 
   try {
     setMessage(isNew ? 'Đang tạo địa điểm mới...' : 'Đang cập nhật địa điểm...');
-    await adminRequest('/api/admin-places', {
+    const res = await adminRequest('/api/admin-places', {
       method: isNew ? 'POST' : 'PATCH',
       body: JSON.stringify(payload)
     });
+
+    if (res && res.place) {
+      const idx = adminPlaces.findIndex(p => Number(p.id) === Number(res.place.id));
+      if (idx !== -1) {
+        adminPlaces[idx] = { ...adminPlaces[idx], ...res.place };
+      }
+      const expectedUpdatedAtEl = document.getElementById('placeExpectedUpdatedAt');
+      if (expectedUpdatedAtEl && res.place.updated_at) {
+        expectedUpdatedAtEl.value = res.place.updated_at;
+      }
+    }
 
     closePlaceEditor();
     await loadAdminPlaces(placesPagination.page || 1);
@@ -765,24 +793,41 @@ export async function savePlace(event) {
   }
 }
 
-export async function executeUpdatePlaceStatus(id, newStatus) {
+export async function executeUpdatePlaceStatus(id, newStatus, explicitExpectedUpdatedAt = null) {
   if (!canManagePlaces()) {
     setMessage('Bạn không có quyền thay đổi trạng thái địa điểm.', 'error');
     return;
   }
 
+  const numericId = Number(id);
+  const place = adminPlaces.find(p => Number(p.id) === numericId);
+  const expectedUpdatedAt = explicitExpectedUpdatedAt || place?.updated_at || '';
+
   try {
     setMessage(`Đang chuyển trạng thái địa điểm sang '${newStatus}'...`);
-    await adminRequest('/api/admin-places', {
+    const res = await adminRequest('/api/admin-places', {
       method: 'PATCH',
-      body: JSON.stringify({ id, status: newStatus })
+      body: JSON.stringify({
+        id: numericId,
+        status: newStatus,
+        expected_updated_at: expectedUpdatedAt
+      })
     });
+
+    if (res && res.place) {
+      const idx = adminPlaces.findIndex(p => Number(p.id) === numericId);
+      if (idx !== -1) {
+        adminPlaces[idx] = { ...adminPlaces[idx], ...res.place };
+      }
+    }
 
     await loadAdminPlaces(placesPagination.page || 1);
     await loadDashboardStats();
     setMessage(`Đã cập nhật trạng thái địa điểm thành công sang '${newStatus}'.`, 'success');
+    return res;
   } catch (error) {
     setMessage(error.message || 'Lỗi khi cập nhật trạng thái địa điểm.', 'error');
+    throw error;
   }
 }
 
@@ -821,7 +866,7 @@ export async function requestApprovePlace(id) {
     confirmText: 'Duyệt địa điểm',
     confirmClass: 'bg-green-600 hover:bg-green-700 text-white',
     onConfirm: async () => {
-      await executeUpdatePlaceStatus(place.id, 'approved');
+      await executeUpdatePlaceStatus(place.id, 'approved', place.updated_at);
     }
   });
 }
@@ -1684,6 +1729,7 @@ if (typeof window !== 'undefined') {
     closePlaceEditor,
     savePlace,
     updatePlaceStatus,
+    executeUpdatePlaceStatus,
     requestApprovePlace,
     validatePlaceForApproval,
     openPlacePreview,

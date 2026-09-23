@@ -21,6 +21,12 @@ import {
 } from './plan-g9-pilot.js';
 import { validatePlace } from '../js/place-validator.js';
 import placesHandler from '../api/admin-places.js';
+import {
+  savePlace,
+  executeUpdatePlaceStatus,
+  openPlaceEditor,
+  renderPlaces
+} from '../js/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -398,6 +404,268 @@ runTest('Phát hiện và chặn đứng khi checksum SHA-256 hoặc timestamp b
   );
 });
 
+await runAsyncTest('API PATCH /api/admin-places thiếu expected_updated_at bị chặn với HTTP 428 PRECONDITION_REQUIRED (không mutation)', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.SUPABASE_URL;
+  const originalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  let rpcCalled = false;
+
+  try {
+    process.env.SUPABASE_URL = 'https://mock.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-role-key';
+
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/rpc/')) {
+        rpcCalled = true;
+      }
+      if (u.includes('/places?id=eq.1')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [{
+            ...mockBefore1,
+            updated_at: '2026-09-23T08:21:45.915Z'
+          }],
+          text: async () => JSON.stringify([{
+            ...mockBefore1,
+            updated_at: '2026-09-23T08:21:45.915Z'
+          }])
+        };
+      }
+      return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+    };
+
+    // Gửi request PATCH không có expected_updated_at
+    const { req, res } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-places',
+      headers: {
+        authorization: 'Bearer mock-admin-token',
+        'content-type': 'application/json'
+      },
+      body: {
+        id: 1,
+        name: 'Ao Bà Om Thử Nghiệm Thiếu OCC'
+      }
+    });
+
+    await placesHandler(req, res);
+
+    assert.strictEqual(res.getStatus(), 428, 'Phải trả về HTTP 428 PRECONDITION_REQUIRED khi thiếu expected_updated_at');
+    const body = res.getBody();
+    assert.strictEqual(body.error?.code, 'EXPECTED_UPDATED_AT_REQUIRED', 'Error code phải là EXPECTED_UPDATED_AT_REQUIRED');
+    assert.ok(body.error?.message?.includes('expected_updated_at'), 'Thông điệp phải ghi rõ thiếu expected_updated_at');
+    assert.strictEqual(rpcCalled, false, 'Tuyệt đối không được gọi RPC mutation khi thiếu expected_updated_at');
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl !== undefined) process.env.SUPABASE_URL = originalUrl; else delete process.env.SUPABASE_URL;
+    if (originalKey !== undefined) process.env.SUPABASE_SERVICE_ROLE_KEY = originalKey; else delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+});
+
+await runAsyncTest('UI edit gửi expected_updated_at từ updated_at hiện tại của địa điểm', async () => {
+  const currentUpdatedAt = '2026-09-23T08:21:45.915Z';
+  const mockPlace = {
+    id: 1,
+    name: 'Ao Bà Om',
+    slug: 'ao-ba-om',
+    category: 'attraction',
+    status: 'draft',
+    area: 'TP. Trà Vinh',
+    address: 'Phường 8, TP. Trà Vinh',
+    coordinates: '9.9347, 106.3449',
+    map_link: 'https://maps.app.goo.gl/AoBaOm',
+    rating: 4.5,
+    updated_at: currentUpdatedAt
+  };
+
+  const formElements = {
+    placeId: { value: '' },
+    placeExpectedUpdatedAt: { value: '' },
+    placeName: { value: '' },
+    placeSlug: { value: '' },
+    placeCategory: { value: '' },
+    placeStatus: { value: 'draft' },
+    placeArea: { value: '' },
+    placeAddress: { value: '' },
+    placeMapLink: { value: '' },
+    placePriceRaw: { value: '' },
+    placeOpeningTime: { value: '' },
+    placeClosingTime: { value: '' },
+    placeOperatingStatus: { value: 'Normal' },
+    placeRating: { value: '0' },
+    placeCoordinates: { value: '' },
+    placeContact: { value: '' },
+    placeContributor: { value: '' },
+    placeSortOrder: { value: '0' },
+    placeIsFeatured: { checked: false },
+    placeImageLink: { value: '' },
+    placeImages: { value: '' },
+    placeDescription: { value: '' },
+    placeNote: { value: '' },
+    placeEditor: { classList: { remove() {}, add() {} }, scrollIntoView() {} },
+    placeEditorTitle: { textContent: '' },
+    placeEditorMeta: { textContent: '' },
+    placeCount: { textContent: '' },
+    placesContainer: { innerHTML: '' },
+    placesPaginationContainer: { innerHTML: '' },
+    placeSearch: { value: '' },
+    placeStatusFilter: { value: 'all' },
+    placeCategoryFilter: { value: '' }
+  };
+
+  const oldDoc = globalThis.document;
+  const oldStorage = globalThis.sessionStorage;
+  let interceptedPayload = null;
+
+  try {
+    const mockStorage = {
+      vivu_admin_session: JSON.stringify({
+        access_token: 'mock-admin-token',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: { role: 'admin', email: 'admin@vivutravinh.test' }
+      })
+    };
+    globalThis.sessionStorage = {
+      getItem(key) { return mockStorage[key] || null; },
+      setItem(key, val) { mockStorage[key] = String(val); },
+      removeItem(key) { delete mockStorage[key]; }
+    };
+
+    globalThis.document = {
+      getElementById(id) { return formElements[id] || null; },
+      addEventListener() {},
+      removeEventListener() {}
+    };
+
+    // Nạp địa điểm vào adminPlaces
+    renderPlaces([mockPlace], { page: 1, total_pages: 1, total: 1 });
+
+    // Mở form chỉnh sửa
+    openPlaceEditor(1);
+
+    // Kiểm tra input hidden placeExpectedUpdatedAt được gán đúng timestamp
+    assert.strictEqual(
+      formElements.placeExpectedUpdatedAt.value,
+      currentUpdatedAt,
+      'placeExpectedUpdatedAt trong DOM phải khớp updated_at của địa điểm'
+    );
+
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async (url, opts) => {
+        if (opts && opts.body) {
+          interceptedPayload = JSON.parse(opts.body);
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            place: { ...mockPlace, name: 'Ao Bà Om Sau Edit', updated_at: '2026-09-23T08:30:00.000Z' },
+            places: []
+          }),
+          text: async () => JSON.stringify({
+            success: true,
+            place: { ...mockPlace, name: 'Ao Bà Om Sau Edit', updated_at: '2026-09-23T08:30:00.000Z' },
+            places: []
+          })
+        };
+      };
+
+      await savePlace();
+
+      assert.ok(interceptedPayload !== null, 'Phải gửi request PATCH tới API');
+      assert.strictEqual(
+        interceptedPayload.expected_updated_at,
+        currentUpdatedAt,
+        'Payload PATCH từ UI edit bắt buộc phải chứa expected_updated_at khớp updated_at ban đầu'
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  } finally {
+    globalThis.document = oldDoc;
+    globalThis.sessionStorage = oldStorage;
+  }
+});
+
+await runAsyncTest('UI approve gửi expected_updated_at từ updated_at hiện tại của record đang preview', async () => {
+  const currentUpdatedAt = '2026-09-23T08:21:45.915Z';
+  const mockPlace = {
+    id: 3,
+    name: 'Chùa Âng',
+    slug: 'chua-ang',
+    category: 'Du Lịch Tâm Linh',
+    status: 'draft',
+    area: 'TP. Trà Vinh',
+    address: 'Quốc lộ 53, Khóm 4, Phường 8, TP Trà Vinh',
+    coordinates: '9.9515, 106.3191',
+    map_link: 'https://maps.app.goo.gl/ChuaAng',
+    rating: 4.8,
+    images: [],
+    image_link: null,
+    updated_at: currentUpdatedAt
+  };
+
+  let interceptedPayload = null;
+  const originalFetch = globalThis.fetch;
+  const oldStorage = globalThis.sessionStorage;
+
+  try {
+    const mockStorage = {
+      vivu_admin_session: JSON.stringify({
+        access_token: 'mock-admin-token',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: { role: 'admin', email: 'admin@vivutravinh.test' }
+      })
+    };
+    globalThis.sessionStorage = {
+      getItem(key) { return mockStorage[key] || null; },
+      setItem(key, val) { mockStorage[key] = String(val); },
+      removeItem(key) { delete mockStorage[key]; }
+    };
+
+    globalThis.fetch = async (url, opts) => {
+      if (opts && opts.body) {
+        interceptedPayload = JSON.parse(opts.body);
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          place: { ...mockPlace, status: 'approved', updated_at: '2026-09-23T08:35:00.000Z' },
+          places: []
+        }),
+        text: async () => JSON.stringify({
+          success: true,
+          place: { ...mockPlace, status: 'approved', updated_at: '2026-09-23T08:35:00.000Z' },
+          places: []
+        })
+      };
+    };
+
+    renderPlaces([mockPlace], { page: 1, total_pages: 1, total: 1 });
+
+    // Gọi executeUpdatePlaceStatus với updated_at của record đang preview
+    await executeUpdatePlaceStatus(mockPlace.id, 'approved', mockPlace.updated_at);
+
+    assert.ok(interceptedPayload !== null, 'Phải gửi request PATCH duyệt');
+    assert.strictEqual(interceptedPayload.status, 'approved');
+    assert.strictEqual(
+      interceptedPayload.expected_updated_at,
+      currentUpdatedAt,
+      'Luồng Duyệt phải gửi expected_updated_at lấy từ updated_at của record đang preview'
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.sessionStorage = oldStorage;
+  }
+});
+
 await runAsyncTest('API PATCH /api/admin-places trả HTTP 409 CONFLICT và chặn mutation khi expected_updated_at không khớp', async () => {
   const originalFetch = globalThis.fetch;
   const originalUrl = process.env.SUPABASE_URL;
@@ -453,6 +721,91 @@ await runAsyncTest('API PATCH /api/admin-places trả HTTP 409 CONFLICT và ch�
     const body = res.getBody();
     assert.strictEqual(body.error?.code, 'CONFLICT', 'Error code phải là CONFLICT');
     assert.ok(body.error?.message?.includes('Xung đột cập nhật đồng thời'), 'Thông điệp phải ghi rõ xung đột đồng thời');
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalUrl !== undefined) process.env.SUPABASE_URL = originalUrl; else delete process.env.SUPABASE_URL;
+    if (originalKey !== undefined) process.env.SUPABASE_SERVICE_ROLE_KEY = originalKey; else delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+});
+
+await runAsyncTest('API PATCH /api/admin-places thành công (HTTP 200) và nhận updated_at mới khi expected_updated_at khớp', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalUrl = process.env.SUPABASE_URL;
+  const originalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  const validSnapshotTime = '2026-09-23T08:21:45.915Z';
+  const newUpdateTime = '2026-09-23T08:40:00.000Z';
+  let rpcReceivedPatch = null;
+
+  try {
+    process.env.SUPABASE_URL = 'https://mock.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-role-key';
+
+    globalThis.fetch = async (url, opts) => {
+      const u = String(url);
+      if (u.includes('/places?id=eq.1')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [{
+            ...mockBefore1,
+            status: 'draft',
+            area: 'TP. Trà Vinh',
+            updated_at: validSnapshotTime
+          }],
+          text: async () => JSON.stringify([{
+            ...mockBefore1,
+            status: 'draft',
+            area: 'TP. Trà Vinh',
+            updated_at: validSnapshotTime
+          }])
+        };
+      }
+
+      if (u.includes('/rpc/admin_update_place_atomic')) {
+        const reqBody = JSON.parse(opts.body);
+        rpcReceivedPatch = reqBody.p_patch;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            ...mockBefore1,
+            ...rpcReceivedPatch,
+            updated_at: newUpdateTime
+          }),
+          text: async () => JSON.stringify({
+            ...mockBefore1,
+            ...rpcReceivedPatch,
+            updated_at: newUpdateTime
+          })
+        };
+      }
+
+      return { ok: true, status: 200, json: async () => [], text: async () => '[]' };
+    };
+
+    const { req, res } = createMockReqRes({
+      method: 'PATCH',
+      url: '/api/admin-places',
+      headers: {
+        authorization: 'Bearer mock-admin-token',
+        'content-type': 'application/json'
+      },
+      body: {
+        id: 1,
+        name: 'Ao Bà Om Đạt Chuẩn',
+        expected_updated_at: validSnapshotTime
+      }
+    });
+
+    await placesHandler(req, res);
+
+    assert.strictEqual(res.getStatus(), 200, 'Khớp timestamp phải cập nhật thành công HTTP 200');
+    const body = res.getBody();
+    assert.strictEqual(body.success, true);
+    assert.strictEqual(body.place.name, 'Ao Bà Om Đạt Chuẩn');
+    assert.strictEqual(body.place.updated_at, newUpdateTime, 'Phải nhận được updated_at mới từ database');
+    assert.strictEqual(rpcReceivedPatch.expected_updated_at, validSnapshotTime, 'RPC phải nhận được expected_updated_at để kiểm tra');
   } finally {
     globalThis.fetch = originalFetch;
     if (originalUrl !== undefined) process.env.SUPABASE_URL = originalUrl; else delete process.env.SUPABASE_URL;

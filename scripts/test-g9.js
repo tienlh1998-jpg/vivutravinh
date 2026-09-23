@@ -852,7 +852,8 @@ try {
       category: 'attraction',
       status: 'approved',
       area: null,
-      note: 'Ghi chú cũ'
+      note: 'Ghi chú cũ',
+      updated_at: '2026-05-27T02:00:00.000Z'
     });
 
     mockRpcCalled = false;
@@ -864,7 +865,8 @@ try {
       headers: { Authorization: 'Bearer mock-admin-token' },
       body: {
         id: 701,
-        note: 'Cập nhật ghi chú mới an toàn'
+        note: 'Cập nhật ghi chú mới an toàn',
+        expected_updated_at: '2026-05-27T02:00:00.000Z'
       }
     });
 
@@ -883,7 +885,8 @@ try {
       name: 'Điểm Draft Thiếu Area',
       category: 'attraction',
       status: 'draft',
-      area: null
+      area: null,
+      updated_at: '2026-05-27T02:00:00.000Z'
     });
 
     mockRpcCalled = false;
@@ -895,7 +898,8 @@ try {
       headers: { Authorization: 'Bearer mock-admin-token' },
       body: {
         id: 702,
-        status: 'approved'
+        status: 'approved',
+        expected_updated_at: '2026-05-27T02:00:00.000Z'
       }
     });
 
@@ -918,7 +922,8 @@ try {
       headers: { Authorization: 'Bearer mock-admin-token' },
       body: {
         id: 701, // Bản ghi approved legacy
-        map_link: 'javascript:alert("hacked")'
+        map_link: 'javascript:alert("hacked")',
+        expected_updated_at: '2026-05-27T02:00:00.000Z'
       }
     });
 

@@ -205,8 +205,25 @@ async function updatePlace(request, response, adminContext) {
     return;
   }
 
+  const isRollback = body.is_rollback === true;
+
+  // Khóa lạc quan bắt buộc (Optimistic Concurrency Control - G9.3C Hotfix)
+  // Mọi PATCH thông thường bắt buộc phải gửi expected_updated_at. Chỉ luồng rollback được miễn trừ.
+  if (!isRollback) {
+    const rawExpected = body.expected_updated_at !== undefined ? body.expected_updated_at : patch.expected_updated_at;
+    if (!rawExpected || typeof rawExpected !== 'string' || !rawExpected.trim()) {
+      sendError(
+        response,
+        428,
+        'EXPECTED_UPDATED_AT_REQUIRED',
+        'Thiếu trường expected_updated_at bắt buộc để kiểm soát khóa lạc quan (Optimistic Concurrency Control).'
+      );
+      return;
+    }
+  }
+
   // Khóa lạc quan (Optimistic Concurrency Control - G9.3C)
-  const expectedUpdatedAt = body.expected_updated_at || patch.expected_updated_at;
+  const expectedUpdatedAt = (body.expected_updated_at || patch.expected_updated_at || '').trim();
   if (expectedUpdatedAt) {
     const existingTime = existingPlace.updated_at ? new Date(existingPlace.updated_at).getTime() : 0;
     const expectedTime = new Date(expectedUpdatedAt).getTime();
@@ -226,7 +243,6 @@ async function updatePlace(request, response, adminContext) {
   const targetStatus = patch.status !== undefined ? patch.status : currentStatus;
   const isTransitionToApproved = targetStatus === 'approved' && currentStatus !== 'approved';
   const isAlreadyApproved = currentStatus === 'approved' && targetStatus === 'approved';
-  const isRollback = body.is_rollback === true;
 
   if (isRollback) {
     if (adminContext?.user?.role !== 'admin') {
