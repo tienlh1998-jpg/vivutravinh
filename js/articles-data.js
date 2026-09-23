@@ -7,7 +7,7 @@ export const TRA_VINH_ARTICLES = [
         title: 'Sự Tích Ao Bà Om: Cuộc Thi Đào Ao Huyền Thoại Giữa Phái Nam & Phái Nữ',
         category: 'Văn Hóa Khmer',
         categoryBadge: 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40',
-        coverImage: './ao bà om.jpg',
+        coverImage: '/ao bà om.jpg',
         readTime: '4 phút đọc',
         publishedAt: '2026-09-10',
         author: {
@@ -65,7 +65,7 @@ export const TRA_VINH_ARTICLES = [
         title: 'Bí Mật Dừa Sáp Cầu Kè: Vì Sao Trở Thành Đệ Nhất Đặc Sản Đắt Đỏ Xứ Miệt Vườn?',
         category: 'Ẩm Thực Bản Địa',
         categoryBadge: 'bg-orange-100 text-orange-900 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200 dark:border-orange-800/40',
-        coverImage: './cù lao tân qui.jpg',
+        coverImage: '/cù lao tân qui.jpg',
         readTime: '5 phút đọc',
         publishedAt: '2026-09-12',
         author: {
@@ -124,7 +124,7 @@ export const TRA_VINH_ARTICLES = [
         title: 'Cẩm Nang Phượt Cồn Chim 2N1Đ: Trải Nghiệm Du Lịch Thuận Thiên "Về Quê Đúng Nghĩa"',
         category: 'Ký Sự & Phượt',
         categoryBadge: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40',
-        coverImage: './cồn chim.jpg',
+        coverImage: '/cồn chim.jpg',
         readTime: '6 phút đọc',
         publishedAt: '2026-09-14',
         author: {

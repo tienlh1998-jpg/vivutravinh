@@ -15,6 +15,48 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 let cachedHtml = null;
 let cachedPlaces = null;
 
+/**
+ * Chuẩn hóa toàn bộ tài nguyên runtime sang URL root tuyệt đối:
+ * - Đảm bảo thẻ <base href="/"> hiện diện trong <head>
+ * - href="./..." -> href="/..."
+ * - src="./..." -> src="/..."
+ * - from './js/...' -> from '/js/...'
+ * - navigator.serviceWorker.register('./service-worker.js') -> register('/service-worker.js')
+ * - <a href="./" -> <a href="/"
+ * - href="css/tailwind.css", src="js/app.js", etc. -> root /
+ */
+export function normalizeRuntimeAssets(html) {
+  if (!html || typeof html !== 'string') return html;
+  let res = html;
+
+  // 1. Đảm bảo thẻ <base href="/"> hiện diện trong <head>
+  if (!/<base\s+[^>]*href=["']\/["'][^>]*>/i.test(res)) {
+    if (/<head[^>]*>/i.test(res)) {
+      res = res.replace(/(<head[^>]*>)/i, '$1\n    <base href="/">');
+    }
+  }
+
+  // 2. Chuyển đổi href="./..." và src="./..." thành root-relative /...
+  res = res.replace(/(href=["'])\.\/([^"']*)/gi, (match, p1, p2) => {
+    return p2 === '' ? `${p1}/` : `${p1}/${p2}`;
+  });
+  res = res.replace(/(src=["'])\.\/([^"']*)/gi, (match, p1, p2) => {
+    return `${p1}/${p2}`;
+  });
+
+  // 3. Chuyển đổi inline ES module imports: from './js/...' -> from '/js/...'
+  res = res.replace(/from\s+['"]\.\/js\/([^'"]+)['"]/g, "from '/js/$1'");
+
+  // 4. Chuyển đổi serviceWorker register
+  res = res.replace(/register\(\s*['"]\.\/service-worker\.js['"]\s*\)/g, "register('/service-worker.js')");
+
+  // 5. Chuyển đổi các đường dẫn tương đối không có dấu chấm nếu có
+  res = res.replace(/(href=["'])(css\/tailwind\.css|vendor\/|icons\/|data\/|manifest\.json)/gi, '$1/$2');
+  res = res.replace(/(src=["'])(js\/|vendor\/|icons\/)/gi, '$1/$2');
+
+  return res;
+}
+
 function loadHtmlTemplate() {
   if (cachedHtml && process.env.NODE_ENV === 'production') {
     return cachedHtml;
@@ -23,7 +65,7 @@ function loadHtmlTemplate() {
   const distPath = path.join(ROOT_DIR, 'dist', 'index.html');
   const rootPath = path.join(ROOT_DIR, 'index.html');
   const targetPath = fs.existsSync(distPath) ? distPath : rootPath;
-  cachedHtml = fs.readFileSync(targetPath, 'utf8');
+  cachedHtml = normalizeRuntimeAssets(fs.readFileSync(targetPath, 'utf8'));
   return cachedHtml;
 }
 
@@ -147,7 +189,9 @@ export function renderPlaceHtml(rawHtmlOrSlug, maybePlace, maybeRequest) {
     }
   }
 
-  if (!place) return rawHtml;
+  let html = normalizeRuntimeAssets(rawHtml);
+
+  if (!place) return html;
 
   const baseUrl = getBaseUrl(request);
   const name = place['Tên địa điểm'] || place.name || place.Name || 'Địa Điểm Trà Vinh';
@@ -167,8 +211,6 @@ export function renderPlaceHtml(rawHtmlOrSlug, maybePlace, maybeRequest) {
   const canonicalUrl = `${baseUrl}/place/${encodeURIComponent(slug)}`;
   const escapedDesc = escapeHtml(desc);
   const escapedImage = escapeHtml(image);
-
-  let html = rawHtml;
 
   // 1. Title tag
   html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${title}</title>`);

@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ViVuTraVinh - Cẩm Nang Khám Phá & Du Lịch Trà Vinh</title>
     <meta name="description"
@@ -12,15 +13,15 @@
     <meta name="author" content="ViVuTraVinh Team">
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#064e3b">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="ViVuTraVinh">
-    <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
-    <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
-    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 
     <!-- Canonical URL -->
     <link rel="canonical" id="canonicalLink" href="https://vivutravinh.id.vn/">
@@ -167,8 +168,8 @@
             setDataSource,
             setSimulation,
             resetSimulation
-        } from './js/data.js';
-        import { loadComments, submitComment, summarizeComments, validateCommentInput } from './js/comments.js';
+        } from '/js/data.js';
+        import { loadComments, submitComment, summarizeComments, validateCommentInput } from '/js/comments.js';
         import {
             saveOfflineReview,
             getOfflineReviewsByPlace,
@@ -178,8 +179,8 @@
             syncAllPendingReviews,
             compressImage,
             setupAutoSync
-        } from './js/offline-sync.js';
-        import { escapeHtml, renderCommentsList } from './js/ui.js';
+        } from '/js/offline-sync.js';
+        import { escapeHtml, renderCommentsList } from '/js/ui.js';
 
         window.ViVuData = {
             loadPlaces,
@@ -218,13 +219,13 @@
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <!-- Main Controller Module -->
-    <script type="module" src="./js/app.js"></script>
+    <script type="module" src="/js/app.js"></script>
 
     <!-- Service Worker Registration & Safe Update Controller -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js')
+                navigator.serviceWorker.register('/service-worker.js')
                     .then(reg => {
                         console.log('[ViVuTraVinh PWA] Service worker registered:', reg.scope);
                         window._swRegistration = reg;
@@ -278,7 +279,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-3">
                 <!-- Logo ViVuTraVinh: Icon gọn trên Mobile (< sm) -->
-                <a href="./" class="flex items-center sm:hidden shrink-0 group" aria-label="ViVuTraVinh - Trang chủ">
+                <a href="/" class="flex items-center sm:hidden shrink-0 group" aria-label="ViVuTraVinh - Trang chủ">
                     <svg class="w-10 h-10" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="40" height="40" rx="12" fill="#064E3B" class="group-hover:fill-emerald-800 transition-colors"/>
                         <path d="M12 28L20 14L28 28H12Z" fill="#10B981" opacity="0.9"/>
@@ -288,7 +289,7 @@
                 </a>
 
                 <!-- Logo ViVuTraVinh: Đầy đủ trên Desktop (>= sm) -->
-                <a href="./" class="hidden sm:flex items-center gap-2.5 shrink-0 group" aria-label="ViVuTraVinh - Trang chủ">
+                <a href="/" class="hidden sm:flex items-center gap-2.5 shrink-0 group" aria-label="ViVuTraVinh - Trang chủ">
                     <svg class="h-10 w-auto" viewBox="0 0 200 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="40" height="40" rx="12" fill="#064E3B" class="group-hover:fill-emerald-800 transition-colors"/>
                         <path d="M12 28L20 14L28 28H12Z" fill="#10B981" opacity="0.9"/>

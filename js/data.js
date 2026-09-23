@@ -13,8 +13,8 @@ const CACHE_KEY_PREFIX = 'vivutravinh-places-';
 const CACHE_TTL = 60 * 1000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 800;
-const FIXTURE_URL = './data/data-fixture.json';
-const FALLBACK_URL = './data/data-fallback.json';
+const FIXTURE_URL = '/data/data-fixture.json';
+const FALLBACK_URL = '/data/data-fallback.json';
 // Placeholder SVG nội bộ trung tính, không phụ thuộc mạng CDN
 const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400' width='600' height='400'%3E%3Crect width='600' height='400' fill='%23f1f5f9'/%3E%3Cpath d='M260 170a30 30 0 1 0 0-60 30 30 0 0 0 0 60zm-80 110h240l-75-100-60 80-45-60-60 80z' fill='%23cbd5e1'/%3E%3Ctext x='50%25' y='320' font-family='sans-serif' font-size='20' font-weight='bold' fill='%2394a3b8' text-anchor='middle'%3EViVuTraVinh%3C/text%3E%3C/svg%3E";
 
@@ -159,7 +159,13 @@ function convertGoogleDriveLink(url) {
 function parseImages(rawImages) {
     const images = normalizeText(rawImages)
         .split(/[\n,]+/)
-        .map(image => convertGoogleDriveLink(image))
+        .map(image => {
+            const converted = convertGoogleDriveLink(image);
+            if (converted.startsWith('./')) {
+                return converted.slice(1);
+            }
+            return converted;
+        })
         .filter(Boolean);
 
     return images.length > 0 ? images : [PLACEHOLDER_IMAGE];
@@ -491,7 +497,7 @@ function resolveFetchUrl(url) {
     if (typeof url !== 'string') return url;
     if ((url.startsWith('./') || url.startsWith('/') || url.startsWith('../')) && typeof window !== 'undefined' && window.location) {
         try {
-            const base = window.location.href || window.location.origin || `http://localhost:${window.location.port || 8000}`;
+            const base = (typeof document !== 'undefined' && document.baseURI) ? document.baseURI : (window.location.origin || window.location.href || `http://localhost:${window.location.port || 8000}`);
             return new URL(url, base).toString();
         } catch {}
     }

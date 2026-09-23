@@ -56,25 +56,25 @@ let indexHtml = fs.readFileSync(path.join(ROOT_DIR, 'index.html'), 'utf8');
 
 // Thay thế Google Fonts & Font Awesome bằng local Material Symbols CSS
 const cdnFontsRegex = /<!-- Google Fonts & Material Symbols Icons -->[\s\S]*?<!-- Leaflet CSS -->/;
-indexHtml = indexHtml.replace(cdnFontsRegex, `<!-- Local Self-Hosted Material Symbols Icons & Fonts -->\n    <link rel="stylesheet" href="./vendor/fonts/material-symbols.css">\n\n    <!-- Leaflet CSS -->`);
+indexHtml = indexHtml.replace(cdnFontsRegex, `<!-- Local Self-Hosted Material Symbols Icons & Fonts -->\n    <link rel="stylesheet" href="/vendor/fonts/material-symbols.css">\n\n    <!-- Leaflet CSS -->`);
 
 // Thay thế unpkg Leaflet CSS bằng local Leaflet CSS
 indexHtml = indexHtml.replace(
     /<link rel="stylesheet" href="https:\/\/unpkg\.com\/leaflet@[^"]+\/dist\/leaflet\.css"[^>]*>/,
-    `<link rel="stylesheet" href="./vendor/leaflet/leaflet.css">`
+    `<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">`
 );
 
 // Thay thế Tailwind CDN bằng local tailwind.css
 const tailwindCdnRegex = /<!-- Tailwind CSS with custom design tokens from Stitch -->[\s\S]*?<\/script>\s*<script>[\s\S]*?tailwind\.config =[\s\S]*?<\/script>/;
 indexHtml = indexHtml.replace(
     tailwindCdnRegex,
-    `<!-- Tailwind CSS Static Compiled Build -->\n    <link rel="stylesheet" href="./css/tailwind.css">`
+    `<!-- Tailwind CSS Static Compiled Build -->\n    <link rel="stylesheet" href="/css/tailwind.css">`
 );
 
 // Thay thế unpkg Leaflet JS bằng local Leaflet JS
 indexHtml = indexHtml.replace(
     /<script src="https:\/\/unpkg\.com\/leaflet@[^"]+\/dist\/leaflet\.js"[^>]*><\/script>/,
-    `<script src="./vendor/leaflet/leaflet.js"></script>`
+    `<script src="/vendor/leaflet/leaflet.js"></script>`
 );
 
 fs.writeFileSync(path.join(DIST_DIR, 'index.html'), indexHtml, 'utf8');
@@ -102,7 +102,7 @@ if (dataMatch) {
 
 const uniquePrecacheFiles = new Set();
 for (const relUrl of precacheUrls) {
-    let clean = relUrl.replace(/^\.\//, '');
+    let clean = relUrl.replace(/^(\.\/|\/)/, '');
     if (!clean || clean === '/') clean = 'index.html';
     uniquePrecacheFiles.add(clean);
 }

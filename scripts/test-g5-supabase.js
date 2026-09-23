@@ -660,7 +660,7 @@ async function runTests() {
         const approveRes = await callServerlessHandler(adminPlacesHandler, {
             method: 'PATCH',
             headers: { 'x-admin-secret': VALID_ADMIN_SECRET },
-            body: { id: newPlaceId, status: 'approved' }
+            body: { id: newPlaceId, status: 'approved', expected_updated_at: draftPlace.updated_at }
         });
         assert.strictEqual(approveRes.statusCode, 200);
         assert.strictEqual(approveRes.data.place.status, 'approved');
