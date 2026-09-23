@@ -49,6 +49,7 @@ const PATCH_FIELDS = new Set([
   'image_link',
   'sort_order',
   'is_featured',
+  'expected_updated_at',
 ]);
 
 function normalizeText(value) {
@@ -204,6 +205,23 @@ async function updatePlace(request, response, adminContext) {
     return;
   }
 
+  // Khóa lạc quan (Optimistic Concurrency Control - G9.3C)
+  const expectedUpdatedAt = body.expected_updated_at || patch.expected_updated_at;
+  if (expectedUpdatedAt) {
+    const existingTime = existingPlace.updated_at ? new Date(existingPlace.updated_at).getTime() : 0;
+    const expectedTime = new Date(expectedUpdatedAt).getTime();
+    if (isNaN(expectedTime) || existingTime !== expectedTime) {
+      sendError(
+        response,
+        409,
+        'CONFLICT',
+        `Xung đột cập nhật đồng thời: Bản ghi đã bị sửa đổi sau snapshot (expected_updated_at: "${expectedUpdatedAt}", current: "${existingPlace.updated_at}"). Không thực hiện mutation.`
+      );
+      return;
+    }
+    patch.expected_updated_at = expectedUpdatedAt;
+  }
+
   const currentStatus = existingPlace.status || 'draft';
   const targetStatus = patch.status !== undefined ? patch.status : currentStatus;
   const isTransitionToApproved = targetStatus === 'approved' && currentStatus !== 'approved';
@@ -286,6 +304,10 @@ async function updatePlace(request, response, adminContext) {
     const msg = error.message || '';
     if (msg.includes('NOT_FOUND')) {
       sendError(response, 404, 'NOT_FOUND', `Không tìm thấy địa điểm với ID ${id}.`);
+      return;
+    }
+    if (msg.includes('CONFLICT') || msg.includes('40001')) {
+      sendError(response, 409, 'CONFLICT', msg);
       return;
     }
     if (msg.includes('FORBIDDEN')) {

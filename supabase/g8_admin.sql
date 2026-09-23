@@ -225,6 +225,13 @@ begin
     raise exception 'NOT_FOUND: Không tìm thấy địa điểm %', p_place_id using errcode = 'P0002';
   end if;
 
+  -- Khóa lạc quan (Optimistic Concurrency Control - G9.3C)
+  if p_patch ? 'expected_updated_at' and p_patch->>'expected_updated_at' is not null and trim(p_patch->>'expected_updated_at') <> '' then
+    if v_old_record.updated_at is distinct from (p_patch->>'expected_updated_at')::timestamptz then
+      raise exception 'CONFLICT: Bản ghi đã bị sửa đổi đồng thời (expected_updated_at không khớp)' using errcode = '40001';
+    end if;
+  end if;
+
   -- Cập nhật chỉ các trường trong allowlist (chống mass assignment: không cho sửa id, created_at, client_submission_id)
   update public.places
   set
@@ -252,7 +259,17 @@ begin
     is_featured = case when p_patch ? 'is_featured' then (p_patch->>'is_featured')::boolean else is_featured end,
     updated_at = now()
   where id = p_place_id
+    and (
+      not (p_patch ? 'expected_updated_at')
+      or p_patch->>'expected_updated_at' is null
+      or trim(p_patch->>'expected_updated_at') = ''
+      or updated_at = (p_patch->>'expected_updated_at')::timestamptz
+    )
   returning * into v_new_record;
+
+  if not found then
+    raise exception 'CONFLICT: Bản ghi không thể cập nhật (có thể do xung đột updated_at hoặc id không tồn tại)' using errcode = '40001';
+  end if;
 
   -- Audit payload allowlist nghiêm ngặt (không PII)
   v_audit_before := jsonb_build_object(
