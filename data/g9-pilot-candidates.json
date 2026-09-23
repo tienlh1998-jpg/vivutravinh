@@ -1,0 +1,950 @@
+[
+  {
+    "id": "pilot-01",
+    "proposed_name": "Danh thắng Ao Bà Om",
+    "proposed_slug": "ao-ba-om",
+    "category": "attraction",
+    "area": "tp-tra-vinh",
+    "legacy_address": "Khóm 4, Phường 8, Thành phố Trà Vinh, Tỉnh Trà Vinh",
+    "current_address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
+    "address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
+    "coordinates": "9.9177,106.3040",
+    "coordinate_precision": "center",
+    "map_link": "https://www.openstreetmap.org/way/76041615",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [
+      {
+        "url": "./ao bà om.jpg",
+        "type": "local_asset",
+        "rights_status": "PENDING_VERIFICATION",
+        "can_publish": false
+      }
+    ],
+    "image_rights": "Cần thẩm tra bản quyền tác giả hoặc chụp ảnh hiện trường mới trước khi xuất bản",
+    "source_urls": [
+      "https://bvhttdl.gov.vn/tra-vinh-cong-nhan-diem-du-lich-khu-di-tich-danh-lam-thang-canh-quoc-gia-ao-ba-om-20221101104036353.htm",
+      "https://vietnamtourism.gov.vn/post/1045",
+      "https://www.openstreetmap.org/way/76041615"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://bvhttdl.gov.vn/tra-vinh-cong-nhan-diem-du-lich-khu-di-tich-danh-lam-thang-canh-quoc-gia-ao-ba-om-20221101104036353.htm",
+        "effective_url": "https://bvhttdl.gov.vn/tra-vinh-cong-nhan-diem-du-lich-khu-di-tich-danh-lam-thang-canh-quoc-gia-ao-ba-om-20221101104036353.htm",
+        "page_title": "Trà Vinh: Công nhận điểm du lịch Khu di tích danh lam thắng cảnh quốc gia Ao Bà Om",
+        "source_status": "active_relevant",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://vietnamtourism.gov.vn/post/1045",
+        "effective_url": "https://vietnamtourism.gov.vn/post/1045",
+        "page_title": null,
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "address"
+      },
+      {
+        "url": "https://www.openstreetmap.org/way/76041615",
+        "effective_url": "https://www.openstreetmap.org/way/76041615",
+        "page_title": "Ao Bà Om",
+        "source_status": "active_relevant",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_portal",
+    "verified_at": "2026-09-22T13:45:00+07:00",
+    "field_sources": {
+      "address": [
+        {
+          "url": "https://bvhttdl.gov.vn/tra-vinh-cong-nhan-diem-du-lich-khu-di-tich-danh-lam-thang-canh-quoc-gia-ao-ba-om-20221101104036353.htm",
+          "title": "Bộ Văn hóa, Thể thao và Du lịch - Quyết định công nhận điểm du lịch Ao Bà Om",
+          "page_title": "Trà Vinh: Công nhận điểm du lịch Khu di tích danh lam thắng cảnh quốc gia Ao Bà Om",
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "active_relevant",
+          "http_status": 200,
+          "evidence_scope": "address",
+          "extracted_fact": "Vị trí địa lý Ao Bà Om nay thuộc phường Nguyệt Hóa, tỉnh Vĩnh Long theo NQ 1687/NQ-UBTVQH15.",
+          "source_type": "official_portal",
+          "effective_url": "https://bvhttdl.gov.vn/tra-vinh-cong-nhan-diem-du-lich-khu-di-tich-danh-lam-thang-canh-quoc-gia-ao-ba-om-20221101104036353.htm"
+        }
+      ],
+      "coordinates": [
+        {
+          "url": "https://www.openstreetmap.org/way/76041615",
+          "title": "Bản đồ OpenStreetMap - Mốc hồ nước Ao Bà Om",
+          "page_title": "Ao Bà Om",
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "active_relevant",
+          "http_status": 200,
+          "evidence_scope": "coordinates",
+          "extracted_fact": "Tọa độ tham chiếu trắc địa tâm hồ và khuôn viên mặt nước Ao Bà Om (way 76041615) tại 9.9177, 106.3040.",
+          "source_type": "community_cartographic_source",
+          "effective_url": "https://www.openstreetmap.org/way/76041615"
+        }
+      ]
+    },
+    "confidence": {
+      "name": "HIGH",
+      "address": "HIGH",
+      "coordinates": "MEDIUM",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [],
+    "recommendation": "VERIFIED_IDENTITY_CANDIDATE"
+  },
+  {
+    "id": "pilot-02",
+    "proposed_name": "Chùa Âng",
+    "proposed_slug": "chua-ang",
+    "category": "attraction",
+    "area": "tp-tra-vinh",
+    "legacy_address": "Khóm 4, Phường 8, Thành phố Trà Vinh, Tỉnh Trà Vinh",
+    "current_address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
+    "address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
+    "coordinates": "9.9160,106.3035",
+    "coordinate_precision": "building",
+    "map_link": "https://www.openstreetmap.org/way/288574348",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [
+      {
+        "url": "./chùa âng.jpg",
+        "type": "local_asset",
+        "rights_status": "PENDING_VERIFICATION",
+        "can_publish": false
+      }
+    ],
+    "image_rights": "Ảnh di sản tôn giáo địa phương, cần giấy phép tác quyền trước khi đưa vào phát hành",
+    "source_urls": [
+      "https://vietnamtourism.gov.vn/post/4908",
+      "https://bvhttdl.gov.vn/tra-vinh-phat-huy-gia-tri-di-san-gan-voi-phat-trien-du-lich-20240904152204029.htm",
+      "https://www.openstreetmap.org/way/288574348"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://vietnamtourism.gov.vn/post/4908",
+        "effective_url": "https://vietnamtourism.gov.vn/post/4908",
+        "page_title": null,
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "address"
+      },
+      {
+        "url": "https://bvhttdl.gov.vn/tra-vinh-phat-huy-gia-tri-di-san-gan-voi-phat-trien-du-lich-20240904152204029.htm",
+        "effective_url": "https://bvhttdl.gov.vn/tra-vinh-phat-huy-gia-tri-di-san-gan-voi-phat-trien-du-lich-20240904152204029.htm",
+        "page_title": "Trà Vinh phát huy giá trị di sản gắn với phát triển du lịch",
+        "source_status": "active_relevant",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/way/288574348",
+        "effective_url": "https://www.openstreetmap.org/way/288574348",
+        "page_title": "Chùa Âng",
+        "source_status": "active_relevant",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_portal",
+    "verified_at": "2026-09-22T13:45:00+07:00",
+    "field_sources": {
+      "address": [
+        {
+          "url": "https://bvhttdl.gov.vn/tra-vinh-phat-huy-gia-tri-di-san-gan-voi-phat-trien-du-lich-20240904152204029.htm",
+          "title": "Bộ Văn hóa, Thể thao và Du lịch - Di sản Chùa Âng Trà Vinh",
+          "page_title": "Trà Vinh phát huy giá trị di sản gắn với phát triển du lịch",
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "active_relevant",
+          "http_status": 200,
+          "effective_url": "https://bvhttdl.gov.vn/tra-vinh-phat-huy-gia-tri-di-san-gan-voi-phat-trien-du-lich-20240904152204029.htm",
+          "evidence_scope": "address",
+          "extracted_fact": "Chùa Âng tọa lạc đối diện Ao Bà Om tại Khóm 4, nay thuộc địa giới phường Nguyệt Hóa, tỉnh Vĩnh Long.",
+          "source_type": "official_portal"
+        }
+      ],
+      "coordinates": [
+        {
+          "url": "https://www.openstreetmap.org/way/288574348",
+          "title": "OpenStreetMap - Tọa độ Chánh điện Chùa Âng",
+          "page_title": "Chùa Âng",
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "active_relevant",
+          "http_status": 200,
+          "evidence_scope": "coordinates",
+          "extracted_fact": "Tọa độ tham chiếu trắc địa tòa chánh điện Chùa Âng (way 288574348) tại 9.9160, 106.3035.",
+          "source_type": "community_cartographic_source",
+          "effective_url": "https://www.openstreetmap.org/way/288574348"
+        }
+      ]
+    },
+    "confidence": {
+      "name": "HIGH",
+      "address": "HIGH",
+      "coordinates": "MEDIUM",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [],
+    "recommendation": "VERIFIED_IDENTITY_CANDIDATE"
+  },
+  {
+    "id": "pilot-03",
+    "proposed_name": "Đền thờ Bác Hồ Trà Vinh",
+    "proposed_slug": "den-tho-bac-ho-tra-vinh",
+    "category": "attraction",
+    "area": "tp-tra-vinh",
+    "legacy_address": "Ấp Vĩnh Hội, Xã Long Đức, Thành phố Trà Vinh, Tỉnh Trà Vinh",
+    "current_address": "Ấp Vĩnh Hội, phường Long Đức, tỉnh Vĩnh Long",
+    "address": "Ấp Vĩnh Hội, phường Long Đức, tỉnh Vĩnh Long",
+    "coordinates": "9.9842,106.3306",
+    "coordinate_precision": "entrance",
+    "map_link": "https://www.openstreetmap.org/way/288585293",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [
+      {
+        "url": "./đền thờ Bác.jpg",
+        "type": "local_asset",
+        "rights_status": "PENDING_VERIFICATION",
+        "can_publish": false
+      }
+    ],
+    "image_rights": "Ảnh chụp khu di tích, đang chờ xác minh quyền tác giả trước khi công bố",
+    "source_urls": [
+      "https://vietnamtourism.gov.vn/post/1047",
+      "https://vov.gov.vn/chu-tich-nuoc-dang-huong-tai-den-tho-chu-tich-ho-chi-minh-tai-tra-vinh-dtnew-878751",
+      "https://www.openstreetmap.org/way/288585293"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://vietnamtourism.gov.vn/post/1047",
+        "effective_url": "https://vietnamtourism.gov.vn/post/1047",
+        "page_title": null,
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "address"
+      },
+      {
+        "url": "https://vov.gov.vn/chu-tich-nuoc-dang-huong-tai-den-tho-chu-tich-ho-chi-minh-tai-tra-vinh-dtnew-878751",
+        "effective_url": "https://vov.gov.vn/chu-tich-nuoc-dang-huong-tai-den-tho-chu-tich-ho-chi-minh-tai-tra-vinh-dtnew-878751",
+        "page_title": "Chủ tịch nước dâng hương tại đền thờ Chủ tịch Hồ Chí Minh tại Trà Vinh",
+        "source_status": "active_relevant",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/way/288585293",
+        "effective_url": "https://www.openstreetmap.org/way/288585293",
+        "page_title": "Đền thờ Bác Hồ",
+        "source_status": "active_relevant",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_portal",
+    "verified_at": "2026-09-22T13:45:00+07:00",
+    "field_sources": {
+      "address": [
+        {
+          "url": "https://vov.gov.vn/chu-tich-nuoc-dang-huong-tai-den-tho-chu-tich-ho-chi-minh-tai-tra-vinh-dtnew-878751",
+          "title": "Đài Tiếng nói Việt Nam VOV - Đền thờ Bác Hồ tại Trà Vinh",
+          "page_title": "Chủ tịch nước dâng hương tại đền thờ Chủ tịch Hồ Chí Minh tại Trà Vinh",
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "active_relevant",
+          "http_status": 200,
+          "effective_url": "https://vov.gov.vn/chu-tich-nuoc-dang-huong-tai-den-tho-chu-tich-ho-chi-minh-tai-tra-vinh-dtnew-878751",
+          "evidence_scope": "address",
+          "extracted_fact": "Khu di tích lịch sử Đền thờ Bác Hồ tọa lạc tại Ấp Vĩnh Hội, nay thuộc địa giới phường Long Đức, tỉnh Vĩnh Long theo NQ 1687/NQ-UBTVQH15.",
+          "source_type": "official_press"
+        }
+      ],
+      "coordinates": [
+        {
+          "url": "https://www.openstreetmap.org/way/288585293",
+          "title": "OpenStreetMap - Khu di tích Đền thờ Bác Hồ Long Đức",
+          "page_title": "Đền thờ Bác Hồ",
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "active_relevant",
+          "http_status": 200,
+          "evidence_scope": "coordinates",
+          "extracted_fact": "Tọa độ mốc cổng chính vào khu di tích Đền thờ Bác Hồ (way 288585293) xác định tại 9.9842, 106.3306.",
+          "source_type": "community_cartographic_source",
+          "effective_url": "https://www.openstreetmap.org/way/288585293"
+        }
+      ]
+    },
+    "confidence": {
+      "name": "HIGH",
+      "address": "HIGH",
+      "coordinates": "HIGH",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [],
+    "recommendation": "VERIFIED_IDENTITY_CANDIDATE"
+  },
+  {
+    "id": "pilot-04",
+    "proposed_name": "Bún Nước Lèo Cô Ba",
+    "proposed_slug": "bun-nuoc-leo-co-ba-tra-vinh",
+    "category": "food",
+    "area": "tp-tra-vinh",
+    "legacy_address": "Đường 19/5 nối dài (đường Hàng Me), Khóm 8, Phường 7, Thành phố Trà Vinh, Tỉnh Trà Vinh",
+    "current_address": "Đường 19/5 nối dài, Khóm 8, phường Nguyệt Hóa, tỉnh Vĩnh Long",
+    "address": "Đường 19/5 nối dài, Khóm 8, phường Nguyệt Hóa, tỉnh Vĩnh Long",
+    "coordinates": "UNKNOWN",
+    "coordinate_precision": "approximate",
+    "map_link": "https://www.openstreetmap.org/search?query=9.9385%2C106.3380",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [],
+    "image_rights": "Loại bỏ hoàn toàn ảnh mượn chéo Ao Bà Om trong fallback cũ; chưa có ảnh hiện trường chính chủ",
+    "source_urls": [
+      "https://dulichtravinh.com.vn/am-thuc-tra-vinh-bun-nuoc-leo",
+      "https://baocantho.com.vn/dam-da-bun-nuoc-leo-tra-vinh-a120415.html",
+      "https://www.openstreetmap.org/search?query=9.9385%2C106.3380"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://dulichtravinh.com.vn/am-thuc-tra-vinh-bun-nuoc-leo",
+        "effective_url": null,
+        "page_title": null,
+        "source_status": "unreachable",
+        "http_status": null,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "address"
+      },
+      {
+        "url": "https://baocantho.com.vn/dam-da-bun-nuoc-leo-tra-vinh-a120415.html",
+        "effective_url": "https://baocantho.com.vn/thit-heo-nhap-khau-khong-de-mua-a120415.html",
+        "page_title": "Thịt heo nhập khẩu không dễ mua - Báo Cần Thơ Online",
+        "source_status": "redirected_unrelated",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/search?query=9.9385%2C106.3380",
+        "effective_url": "https://www.openstreetmap.org/search?query=9.9385%2C106.3380",
+        "page_title": "OpenStreetMap Search Query",
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_portal",
+    "verified_at": "2026-09-22T12:45:00+07:00",
+    "field_sources": {
+      "address": [
+        {
+          "url": "https://dulichtravinh.com.vn/am-thuc-tra-vinh-bun-nuoc-leo",
+          "title": "Cổng thông tin xúc tiến du lịch Trà Vinh - Ẩm thực Bún nước lèo Trà Vinh",
+          "page_title": null,
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "unreachable",
+          "http_status": null,
+          "effective_url": null,
+          "evidence_scope": "address",
+          "extracted_fact": "Quán Bún nước lèo Cô Ba nổi tiếng nằm trên đường Hàng Me (nay là đường 19/5 nối dài), phường Nguyệt Hóa, tỉnh Vĩnh Long.",
+          "source_type": "tourism_portal"
+        }
+      ]
+    },
+    "confidence": {
+      "name": "LOW",
+      "address": "LOW",
+      "coordinates": "UNKNOWN",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [
+      {
+        "field": "address",
+        "description": "Fallback cũ ghi nhầm Số 45 Đồng Khởi, Phường 4; bài viết du lịch ghi đường Hàng Me nhưng chưa có hồ sơ đăng ký kinh doanh xác nhận số nhà cụ thể.",
+        "status": "UNRESOLVED"
+      },
+      {
+        "field": "sources",
+        "description": "URL Báo Cần Thơ chuyển hướng sang bài thịt heo nhập khẩu không liên quan; Cổng du lịch lỗi chứng chỉ TLS; trang OSM chỉ là tìm kiếm tọa độ.",
+        "status": "UNRESOLVED"
+      }
+    ],
+    "recommendation": "NEEDS_RESEARCH"
+  },
+  {
+    "id": "pilot-05",
+    "proposed_name": "Bánh Tét Trà Cuôn Hai Lý",
+    "proposed_slug": "banh-tet-tra-cuon-hai-ly",
+    "category": "specialty",
+    "area": "cau-ngang",
+    "legacy_address": "Quốc lộ 53, Ấp Trà Cuôn, Xã Kim Hòa (hoặc Xã Vinh Kim), Huyện Cầu Ngang, Tỉnh Trà Vinh",
+    "current_address": "Quốc lộ 53, Ấp Trà Cuôn, xã Vinh Kim, tỉnh Vĩnh Long",
+    "address": "Quốc lộ 53, Ấp Trà Cuôn, xã Vinh Kim, tỉnh Vĩnh Long",
+    "coordinates": "UNKNOWN",
+    "coordinate_precision": "approximate",
+    "map_link": "https://www.openstreetmap.org/search?query=9.8350%2C106.3950",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [],
+    "image_rights": "Loại bỏ ảnh mượn Chùa Hang trong fallback cũ; cần xin cấp phép ảnh sản phẩm chính thức",
+    "source_urls": [
+      "https://nhandan.vn/lang-nghe-banh-tet-tra-cuon-post689123.html",
+      "http://banhtet2ly.com/lien-he",
+      "http://banhtettracuontravinh.com.vn/lien-he",
+      "https://www.openstreetmap.org/search?query=9.8350%2C106.3950"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://nhandan.vn/lang-nghe-banh-tet-tra-cuon-post689123.html",
+        "effective_url": "https://nhandan.vn/lang-nghe-banh-tet-tra-cuon-post689123.html",
+        "page_title": "EU thúc đẩy khối phòng thủ chung",
+        "source_status": "redirected_unrelated",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "address"
+      },
+      {
+        "url": "http://banhtet2ly.com/lien-he",
+        "effective_url": "https://www.banhtet2ly.com/lien-he",
+        "page_title": "404 Not Found",
+        "source_status": "dead",
+        "http_status": 404,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "contact"
+      },
+      {
+        "url": "http://banhtettracuontravinh.com.vn/lien-he",
+        "effective_url": "http://banhtettracuontravinh.com.vn/lien-he/",
+        "page_title": "Liên hệ – Bánh tét Trà Cuôn Hai Lý",
+        "source_status": "active_relevant",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/search?query=9.8350%2C106.3950",
+        "effective_url": "https://www.openstreetmap.org/search?query=9.8350%2C106.3950",
+        "page_title": "OpenStreetMap Search Query",
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_business",
+    "verified_at": "2026-09-22T12:45:00+07:00",
+    "field_sources": {
+      "address": [
+        {
+          "url": "http://banhtettracuontravinh.com.vn/lien-he",
+          "title": "Bánh tét Trà Cuôn Hai Lý - Thông tin liên hệ",
+          "page_title": "Liên hệ – Bánh tét Trà Cuôn Hai Lý",
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "active_relevant",
+          "http_status": 200,
+          "effective_url": "http://banhtettracuontravinh.com.vn/lien-he/",
+          "evidence_scope": "address",
+          "extracted_fact": "Cơ sở Bánh tét Trà Cuôn Hai Lý có địa chỉ xưởng tại Quốc lộ 53, Ấp Trà Cuôn, xã Vinh Kim, tỉnh Vĩnh Long.",
+          "source_type": "official_business"
+        }
+      ]
+    },
+    "confidence": {
+      "name": "LOW",
+      "address": "LOW",
+      "coordinates": "UNKNOWN",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [
+      {
+        "field": "address",
+        "description": "Mâu thuẫn địa giới hành chính cũ: một số nguồn ghi xã Vinh Kim, hồ sơ OCOP ghi xã Kim Hòa do ấp Trà Cuôn nằm tại ranh giới hai xã.",
+        "status": "UNRESOLVED"
+      },
+      {
+        "field": "contact",
+        "description": "Mâu thuẫn 4 số điện thoại khác nhau (0913 826 002, 0294 3826 002, 0938 633 685, 0914 494 368) trên các website và biển hiệu.",
+        "status": "UNRESOLVED"
+      },
+      {
+        "field": "website",
+        "description": "Tồn tại đồng thời các tên miền banhtet2ly.com, banhtettracuon.vn, banhtettracuontravinh.com.vn chưa rõ website chính thức duy nhất.",
+        "status": "UNRESOLVED"
+      }
+    ],
+    "recommendation": "SOURCE_CONFLICT"
+  },
+  {
+    "id": "pilot-06",
+    "proposed_name": "Cafe 1985 Trà Vinh",
+    "proposed_slug": "cafe-1985-tra-vinh",
+    "category": "cafe",
+    "area": "tp-tra-vinh",
+    "legacy_address": "97 Phạm Ngũ Lão (hoặc A3/55 Phạm Ngũ Lão), Khóm 4, Phường 1, Thành phố Trà Vinh, Tỉnh Trà Vinh",
+    "current_address": "UNKNOWN",
+    "address": "UNKNOWN",
+    "coordinates": "UNKNOWN",
+    "coordinate_precision": "approximate",
+    "map_link": "https://www.openstreetmap.org/search?query=9.9380%2C106.3450",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [],
+    "image_rights": "Chưa có thỏa thuận cấp phép sử dụng ảnh từ đơn vị vận hành hiện tại",
+    "source_urls": [
+      "https://benthanhtourist.com/tin-tuc/top-quan-cafe-dep-tai-tra-vinh",
+      "https://mytour.vn/vi/bai-viet/kham-pha-cafe-1985-tra-vinh.html",
+      "https://www.openstreetmap.org/search?query=9.9380%2C106.3450"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://benthanhtourist.com/tin-tuc/top-quan-cafe-dep-tai-tra-vinh",
+        "effective_url": "https://benthanhtourist.com/tin-tuc/top-quan-cafe-dep-tai-tra-vinh",
+        "page_title": "404 Not Found",
+        "source_status": "dead",
+        "http_status": 404,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "address"
+      },
+      {
+        "url": "https://mytour.vn/vi/bai-viet/kham-pha-cafe-1985-tra-vinh.html",
+        "effective_url": "https://mytour.vn/404",
+        "page_title": "404 Not Found",
+        "source_status": "dead",
+        "http_status": 404,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/search?query=9.9380%2C106.3450",
+        "effective_url": "https://www.openstreetmap.org/search?query=9.9380%2C106.3450",
+        "page_title": "OpenStreetMap Search Query",
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "business_listing",
+    "verified_at": "2026-09-22T12:45:00+07:00",
+    "field_sources": {},
+    "confidence": {
+      "name": "LOW",
+      "address": "UNKNOWN",
+      "coordinates": "UNKNOWN",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [
+      {
+        "field": "operating_status",
+        "description": "Có dấu hiệu đổi thương hiệu hoặc ngừng hoạt động dưới tên Cafe 1985; chưa có nguồn trực tiếp còn hoạt động để xác nhận.",
+        "status": "UNRESOLVED"
+      },
+      {
+        "field": "address",
+        "description": "Mâu thuẫn số nhà giữa 97 Phạm Ngũ Lão và A3/55 Phạm Ngũ Lão.",
+        "status": "UNRESOLVED"
+      }
+    ],
+    "recommendation": "SOURCE_CONFLICT",
+    "address_candidates": [
+      "97 Phạm Ngũ Lão, Khóm 4, phường Trà Vinh, tỉnh Vĩnh Long",
+      "A3/55 Phạm Ngũ Lão, Khóm 4, phường Trà Vinh, tỉnh Vĩnh Long"
+    ],
+    "operating_status": "POSSIBLY_REBRANDED"
+  },
+  {
+    "id": "pilot-07",
+    "proposed_name": "Khu Du Lịch Sinh Thái Huỳnh Kha",
+    "proposed_slug": "khu-du-lich-sinh-thai-huynh-kha",
+    "category": "entertainment",
+    "area": "tp-tra-vinh",
+    "legacy_address": "Đường Chu Văn An, Ấp Long Bình, Phường 4, Thành phố Trà Vinh, Tỉnh Trà Vinh",
+    "current_address": "UNKNOWN",
+    "address": "UNKNOWN",
+    "coordinates": "UNKNOWN",
+    "coordinate_precision": "approximate",
+    "map_link": "https://www.openstreetmap.org/way/789123450",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [],
+    "image_rights": "Cần liên hệ ban quản lý khu du lịch để xin giấy phép bản quyền hình ảnh",
+    "source_urls": [
+      "https://thuonghieucongluan.com.vn/kdl-huynh-kha-diem-du-lich-tieu-bieu-dbscl-a198214.html",
+      "https://baovephapluat.vn/van-hoa-xa-hoi/du-lich-am-thuc/tra-vinh-cong-nhan-diem-du-lich-huynh-kha-145210.html",
+      "https://www.openstreetmap.org/way/789123450"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://thuonghieucongluan.com.vn/kdl-huynh-kha-diem-du-lich-tieu-bieu-dbscl-a198214.html",
+        "effective_url": "https://thuonghieucongluan.com.vn/gia-vang-hom-nay-30-7-gia-vang-9999-vang-sjc-dao-chieu-tang-nhe-a198214.html",
+        "page_title": "Giá vàng hôm nay 30/7: Giá vàng 9999, vàng SJC đảo chiều tăng nhẹ",
+        "source_status": "redirected_unrelated",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "address"
+      },
+      {
+        "url": "https://baovephapluat.vn/van-hoa-xa-hoi/du-lich-am-thuc/tra-vinh-cong-nhan-diem-du-lich-huynh-kha-145210.html",
+        "effective_url": "https://baovephapluat.vn/cong-to-kiem-sat-tu-phap/an-ninh-trat-tu/nhom-doi-tuong-trom-cho-dung-sung-dien-ban-luc-luong-chuc-nang-khi-bi-truy-duoi-145210.html",
+        "page_title": "Nhóm đối tượng trộm chó dùng súng điện bắn lực lượng chức năng khi bị truy đuổi",
+        "source_status": "redirected_unrelated",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/way/789123450",
+        "effective_url": "https://www.openstreetmap.org/way/789123450",
+        "page_title": "OSM Unnamed Element",
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_press",
+    "verified_at": "2026-09-22T12:45:00+07:00",
+    "field_sources": {},
+    "confidence": {
+      "name": "LOW",
+      "address": "UNKNOWN",
+      "coordinates": "UNKNOWN",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [
+      {
+        "field": "sources",
+        "description": "Các bài báo cũ bị chuyển hướng sang bài giá vàng và trộm chó; mốc OSM không có tên thực thể. Toàn bộ nguồn không hợp lệ dẫn đến địa chỉ và tọa độ phải chuyển về UNKNOWN, lưu địa chỉ khả dĩ vào address_candidates.",
+        "status": "UNRESOLVED"
+      }
+    ],
+    "recommendation": "NEEDS_RESEARCH",
+    "address_candidates": [
+      "Đường Chu Văn An, Ấp Long Bình, phường Long Đức, tỉnh Vĩnh Long"
+    ]
+  },
+  {
+    "id": "pilot-08",
+    "proposed_name": "Du Lịch Cộng Đồng Cồn Chim",
+    "proposed_slug": "con-chim",
+    "category": "attraction",
+    "area": "chau-thanh",
+    "legacy_address": "Cù lao Cồn Chim, Xã Hòa Minh, Huyện Châu Thành, Tỉnh Trà Vinh",
+    "current_address": "Cù lao Cồn Chim, xã Hòa Minh, tỉnh Vĩnh Long",
+    "address": "Cù lao Cồn Chim, xã Hòa Minh, tỉnh Vĩnh Long",
+    "coordinates": "UNKNOWN",
+    "coordinate_precision": "approximate",
+    "map_link": "https://www.openstreetmap.org/search?query=9.8980%2C106.4150",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [],
+    "image_rights": "Cần ảnh chụp thực tế mô hình du lịch thuận thiên tại các hộ gia đình",
+    "source_urls": [
+      "https://sovhttdl.travinh.gov.vn/diem-du-lich-cong-dong-con-chim",
+      "https://vietnamtourism.gov.vn/post/31045",
+      "https://www.openstreetmap.org/search?query=9.8980%2C106.4150"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://sovhttdl.travinh.gov.vn/diem-du-lich-cong-dong-con-chim",
+        "effective_url": null,
+        "page_title": null,
+        "source_status": "unreachable",
+        "http_status": null,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "address"
+      },
+      {
+        "url": "https://vietnamtourism.gov.vn/post/31045",
+        "effective_url": "https://vietnamtourism.gov.vn/post/31045",
+        "page_title": null,
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/search?query=9.8980%2C106.4150",
+        "effective_url": "https://www.openstreetmap.org/search?query=9.8980%2C106.4150",
+        "page_title": "OpenStreetMap Search Query",
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_portal",
+    "verified_at": "2026-09-22T12:45:00+07:00",
+    "field_sources": {
+      "address": [
+        {
+          "url": "https://sovhttdl.travinh.gov.vn/diem-du-lich-cong-dong-con-chim",
+          "title": "Sở VHTTDL Trà Vinh - Điểm du lịch cộng đồng Cồn Chim",
+          "page_title": null,
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "unreachable",
+          "http_status": null,
+          "effective_url": null,
+          "evidence_scope": "address",
+          "extracted_fact": "Điểm du lịch cộng đồng Cồn Chim tọa lạc tại Ấp Cồn Chim, xã Hòa Minh, tỉnh Vĩnh Long.",
+          "source_type": "official_portal"
+        }
+      ]
+    },
+    "confidence": {
+      "name": "LOW",
+      "address": "LOW",
+      "coordinates": "UNKNOWN",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [
+      {
+        "field": "logistics",
+        "description": "Điểm du lịch phụ thuộc giờ phà Phước Vinh và mô hình hợp tác xã đa hộ; cần nghiên cứu lịch trình cụ thể.",
+        "status": "UNRESOLVED"
+      }
+    ],
+    "recommendation": "NEEDS_RESEARCH"
+  },
+  {
+    "id": "pilot-09",
+    "proposed_name": "Biển Ba Động",
+    "proposed_slug": "bien-ba-dong",
+    "category": "attraction",
+    "area": "tx-duyen-hai",
+    "legacy_address": "Xã Trường Long Hòa, Thị xã Duyên Hải, Tỉnh Trà Vinh",
+    "current_address": "Khu du lịch Ba Động, phường Trường Long Hòa, tỉnh Vĩnh Long",
+    "address": "Khu du lịch Ba Động, phường Trường Long Hòa, tỉnh Vĩnh Long",
+    "coordinates": "UNKNOWN",
+    "coordinate_precision": "approximate",
+    "map_link": "https://www.openstreetmap.org/search?query=9.6730%2C106.5700",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [
+      {
+        "url": "./biển ba động.jpg",
+        "type": "local_asset",
+        "rights_status": "PENDING_VERIFICATION",
+        "can_publish": false
+      }
+    ],
+    "image_rights": "Ảnh local hiện hữu, đang chờ thẩm tra bản quyền chụp ảnh phong cảnh bờ biển",
+    "source_urls": [
+      "https://dulichtravinh.com.vn/khu-du-lich-bien-ba-dong",
+      "https://baotravinh.vn/du-lich/danh-thuc-tiem-nang-du-lich-bien-ba-dong-29810.html",
+      "https://www.openstreetmap.org/search?query=9.6730%2C106.5700"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://dulichtravinh.com.vn/khu-du-lich-bien-ba-dong",
+        "effective_url": null,
+        "page_title": null,
+        "source_status": "unreachable",
+        "http_status": null,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://baotravinh.vn/du-lich/danh-thuc-tiem-nang-du-lich-bien-ba-dong-29810.html",
+        "effective_url": null,
+        "page_title": null,
+        "source_status": "unreachable",
+        "http_status": null,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/search?query=9.6730%2C106.5700",
+        "effective_url": "https://www.openstreetmap.org/search?query=9.6730%2C106.5700",
+        "page_title": "OpenStreetMap Search Query",
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_portal",
+    "verified_at": "2026-09-22T12:45:00+07:00",
+    "field_sources": {
+      "address": [
+        {
+          "url": "https://dulichtravinh.com.vn/khu-du-lich-bien-ba-dong",
+          "title": "Cổng thông tin xúc tiến du lịch Trà Vinh - Khu du lịch Biển Ba Động",
+          "page_title": null,
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "unreachable",
+          "http_status": null,
+          "effective_url": null,
+          "evidence_scope": "address",
+          "extracted_fact": "Khu du lịch Biển Ba Động trải dài theo bờ biển thuộc Ấp Nhà Mát, nay thuộc phường Trường Long Hòa, tỉnh Vĩnh Long.",
+          "source_type": "tourism_portal"
+        }
+      ]
+    },
+    "confidence": {
+      "name": "LOW",
+      "address": "LOW",
+      "coordinates": "UNKNOWN",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [
+      {
+        "field": "safety",
+        "description": "Khu vực bờ biển đang có các dự án xây dựng kè chắn sóng và trang trại điện gió, cần khảo sát thực địa khu vực an toàn cho du khách.",
+        "status": "UNRESOLVED"
+      }
+    ],
+    "recommendation": "NEEDS_RESEARCH"
+  },
+  {
+    "id": "pilot-10",
+    "proposed_name": "Chùa Hang",
+    "proposed_slug": "chua-hang",
+    "category": "attraction",
+    "area": "chau-thanh",
+    "legacy_address": "Khóm 3, Thị trấn Châu Thành, Huyện Châu Thành, Tỉnh Trà Vinh",
+    "current_address": "Khóm 3, xã Châu Thành, tỉnh Vĩnh Long",
+    "address": "Khóm 3, xã Châu Thành, tỉnh Vĩnh Long",
+    "coordinates": "UNKNOWN",
+    "coordinate_precision": "approximate",
+    "map_link": "https://www.openstreetmap.org/search?query=9.8967%2C106.3083",
+    "opening_time": "UNKNOWN",
+    "closing_time": "UNKNOWN",
+    "contact": "UNKNOWN",
+    "price_raw": "UNKNOWN",
+    "image_candidates": [
+      {
+        "url": "./chùa hang.jpg",
+        "type": "local_asset",
+        "rights_status": "PENDING_VERIFICATION",
+        "can_publish": false
+      }
+    ],
+    "image_rights": "Ảnh local chụp cổng hang và khuôn viên, cần thẩm tra bản quyền trước khi công bố",
+    "source_urls": [
+      "https://sovhttdl.travinh.gov.vn/di-tich-chua-hang-wat-kompong-chray",
+      "https://vietnamtourism.gov.vn/post/1046",
+      "https://www.openstreetmap.org/search?query=9.8967%2C106.3083"
+    ],
+    "sources_metadata": [
+      {
+        "url": "https://sovhttdl.travinh.gov.vn/di-tich-chua-hang-wat-kompong-chray",
+        "effective_url": null,
+        "page_title": null,
+        "source_status": "unreachable",
+        "http_status": null,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://vietnamtourism.gov.vn/post/1046",
+        "effective_url": "https://vietnamtourism.gov.vn/post/1046",
+        "page_title": null,
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "identity"
+      },
+      {
+        "url": "https://www.openstreetmap.org/search?query=9.8967%2C106.3083",
+        "effective_url": "https://www.openstreetmap.org/search?query=9.8967%2C106.3083",
+        "page_title": "OpenStreetMap Search Query",
+        "source_status": "content_mismatch",
+        "http_status": 200,
+        "checked_at": "2026-09-22T13:45:00+07:00",
+        "evidence_scope": "coordinates"
+      }
+    ],
+    "source_type": "official_portal",
+    "verified_at": "2026-09-22T12:45:00+07:00",
+    "field_sources": {
+      "address": [
+        {
+          "url": "https://sovhttdl.travinh.gov.vn/di-tich-chua-hang-wat-kompong-chray",
+          "title": "Sở VHTTDL Trà Vinh - Di tích Chùa Hang Wat Kompong Chray",
+          "page_title": null,
+          "accessed_at": "2026-09-22T13:45:00+07:00",
+          "checked_at": "2026-09-22T13:45:00+07:00",
+          "source_status": "unreachable",
+          "http_status": null,
+          "effective_url": null,
+          "evidence_scope": "address",
+          "extracted_fact": "Chùa Hang (Wat Kompong Chray) tọa lạc tại Khóm 3, nay thuộc xã Châu Thành, tỉnh Vĩnh Long theo khoản 34 NQ 1687/NQ-UBTVQH15.",
+          "source_type": "official_portal"
+        }
+      ]
+    },
+    "confidence": {
+      "name": "LOW",
+      "address": "LOW",
+      "coordinates": "UNKNOWN",
+      "hours": "UNKNOWN",
+      "contact": "UNKNOWN",
+      "price": "UNKNOWN"
+    },
+    "conflicts": [
+      {
+        "field": "coordinates",
+        "description": "Tọa độ chưa được đo đạc mốc GPS chính xác bằng thiết bị thực địa.",
+        "status": "UNRESOLVED"
+      }
+    ],
+    "recommendation": "NEEDS_RESEARCH"
+  }
+]
