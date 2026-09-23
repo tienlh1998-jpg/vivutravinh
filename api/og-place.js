@@ -82,9 +82,54 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;');
 }
 
-export function renderPlaceHtml(rawHtmlOrSlug, maybePlace) {
+export const ALLOWED_CANONICAL_HOSTS = Object.freeze(['vivutravinh.id.vn', 'www.vivutravinh.id.vn']);
+export const PRIMARY_CANONICAL_ORIGIN = 'https://vivutravinh.id.vn';
+
+export function isAllowedHost(host) {
+  if (!host || typeof host !== 'string') return false;
+  const cleanHost = host.split(':')[0].trim().toLowerCase();
+  return ALLOWED_CANONICAL_HOSTS.includes(cleanHost);
+}
+
+export function isValidSiteUrl(urlStr) {
+  if (!urlStr || typeof urlStr !== 'string') return false;
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:') return false;
+    return isAllowedHost(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Trả về base URL cho Canonical và OpenGraph tags
+ * Chống triệt để Canonical Host Injection / Cache Poisoning:
+ * - Không tin tùy ý header host hay x-forwarded-host
+ * - Chỉ chấp nhận hostname nằm trong allowlist: vivutravinh.id.vn và www.vivutravinh.id.vn
+ * - www.vivutravinh.id.vn luôn được chuẩn hóa canonical về https://vivutravinh.id.vn
+ * - Host lạ (evil.example), javascript:, http:, preview domain (.vercel.app) luôn fallback về PRIMARY_CANONICAL_ORIGIN
+ * - Biến môi trường SITE_URL chỉ được dùng khi là HTTPS URL hợp lệ và nằm trong allowlist
+ */
+export function getBaseUrl(request) {
+  if (process.env.SITE_URL) {
+    if (isValidSiteUrl(process.env.SITE_URL)) {
+      return PRIMARY_CANONICAL_ORIGIN;
+    }
+  }
+
+  const rawHost = request?.headers?.['x-forwarded-host'] || request?.headers?.host;
+  if (rawHost && isAllowedHost(rawHost)) {
+    return PRIMARY_CANONICAL_ORIGIN;
+  }
+
+  return PRIMARY_CANONICAL_ORIGIN;
+}
+
+export function renderPlaceHtml(rawHtmlOrSlug, maybePlace, maybeRequest) {
   let rawHtml;
   let place;
+  let request = maybeRequest;
 
   if (typeof rawHtmlOrSlug === 'string' && (rawHtmlOrSlug.includes('<html') || rawHtmlOrSlug.includes('<!DOCTYPE') || rawHtmlOrSlug.includes('<head>'))) {
     rawHtml = rawHtmlOrSlug;
@@ -92,11 +137,19 @@ export function renderPlaceHtml(rawHtmlOrSlug, maybePlace) {
   } else {
     rawHtml = loadHtmlTemplate();
     const places = loadPlacesData();
-    place = maybePlace !== undefined ? maybePlace : findPlace(rawHtmlOrSlug, places);
+    if (maybePlace && (maybePlace.headers || maybePlace.url)) {
+      request = maybePlace;
+      place = findPlace(rawHtmlOrSlug, places);
+    } else if (maybePlace !== undefined) {
+      place = maybePlace;
+    } else {
+      place = findPlace(rawHtmlOrSlug, places);
+    }
   }
 
   if (!place) return rawHtml;
 
+  const baseUrl = getBaseUrl(request);
   const name = place['Tên địa điểm'] || place.name || place.Name || 'Địa Điểm Trà Vinh';
   const rawDesc = place['Mô tả chi tiết'] || place['Mô Tả'] || place.description || place.Description || 'Khám phá điểm đến đặc sắc tại Trà Vinh.';
   const desc = rawDesc.length > 160 ? rawDesc.slice(0, 157) + '...' : rawDesc;
@@ -107,11 +160,11 @@ export function renderPlaceHtml(rawHtmlOrSlug, maybePlace) {
     image = image.split('\n')[0].trim();
   }
   if (!image || !image.startsWith('http')) {
-    image = 'https://vivutravinh.vercel.app/icons/icon-512.png';
+    image = `${baseUrl}/icons/icon-512.png`;
   }
 
   const title = `${escapeHtml(name)} - ViVu Trà Vinh`;
-  const canonicalUrl = `https://vivutravinh.vercel.app/place/${encodeURIComponent(slug)}`;
+  const canonicalUrl = `${baseUrl}/place/${encodeURIComponent(slug)}`;
   const escapedDesc = escapeHtml(desc);
   const escapedImage = escapeHtml(image);
 
@@ -177,7 +230,7 @@ export default async function handler(request, response) {
   const places = loadPlacesData();
 
   const place = findPlace(placeParam, places);
-  const finalHtml = renderPlaceHtml(baseHtml, place);
+  const finalHtml = renderPlaceHtml(baseHtml, place, request);
 
   response.statusCode = 200;
   response.setHeader('Content-Type', 'text/html; charset=utf-8');

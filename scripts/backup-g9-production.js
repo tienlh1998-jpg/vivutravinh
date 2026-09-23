@@ -23,7 +23,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const BACKUPS_DIR = path.join(ROOT_DIR, 'backups');
 
 const DEFAULT_SUPABASE_URL = 'https://foyraoimhksfvlxndwxr.supabase.co';
-const DEFAULT_VERCEL_URL = 'https://vivutravinh.vercel.app';
+const FALLBACK_DEPLOYMENT_URL = 'https://vivutravinh.vercel.app';
 
 export const EXPECTED_TARGETS = Object.freeze([
   { id: 4, name: 'Địa điểm test Google Form', slug: 'dia-diem-test-google-form', status: 'approved' },
@@ -181,7 +181,7 @@ export async function createProductionManifest(options = {}) {
   const adminToken = options.adminToken !== undefined ? options.adminToken : process.env.ADMIN_ACCESS_TOKEN;
   const serviceKey = options.serviceKey !== undefined ? options.serviceKey : (options.adminToken ? null : process.env.SUPABASE_SERVICE_ROLE_KEY);
   const supabaseUrl = options.supabaseUrl || process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const vercelUrl = options.vercelUrl || process.env.VERCEL_URL || DEFAULT_VERCEL_URL;
+  const vercelUrl = options.vercelUrl || process.env.VERCEL_URL || FALLBACK_DEPLOYMENT_URL;
 
   // FAIL CLOSED nếu thiếu credentials (chỉ cho phép local test nếu có cờ rõ ràng)
   if (!adminToken && !serviceKey) {

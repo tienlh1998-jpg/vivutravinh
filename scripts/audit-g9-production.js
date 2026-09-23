@@ -24,7 +24,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 
 const DEFAULT_SUPABASE_URL = 'https://foyraoimhksfvlxndwxr.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZveXJhb2ltaGtzZnZseG5kd3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjkwNzAsImV4cCI6MjA5NTMwNTA3MH0.ARJ173UkVNCichCiJmVrbp2aTByVoXnSEAIsIvbnYJ8';
-const DEFAULT_VERCEL_URL = 'https://vivutravinh.vercel.app';
+const FALLBACK_DEPLOYMENT_URL = 'https://vivutravinh.vercel.app';
 
 const TEST_KEYWORDS = [
   'test', 'thu nghiem', 'thử nghiệm', 'adasdasd', 'asdasd', 'abc', 'xyz', 'demo', 'sample', 'fake'
@@ -630,7 +630,7 @@ export async function runProductionAudit(options = {}) {
   const supabaseAnonKey = env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || '';
   const adminAccessToken = env.ADMIN_ACCESS_TOKEN || '';
-  const rawVercel = env.VERCEL_URL || env.APP_URL || DEFAULT_VERCEL_URL;
+  const rawVercel = env.VERCEL_URL || env.APP_URL || FALLBACK_DEPLOYMENT_URL;
   const vercelBase = rawVercel.startsWith('http') ? rawVercel.replace(/\/$/, '') : `https://${rawVercel.replace(/\/$/, '')}`;
 
   // Xác định chế độ thật và scope

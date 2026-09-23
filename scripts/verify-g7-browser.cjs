@@ -131,8 +131,35 @@ async function waitForAppReady(cdp, timeoutMs = 12000) {
     throw new Error('Hết thời gian chờ: Ứng dụng ViVuTraVinh chưa sẵn sàng (places chưa render).');
 }
 
+function checkServer(port) {
+    return new Promise((resolve) => {
+        const req = http.get(`http://127.0.0.1:${port}/`, (res) => {
+            res.resume();
+            resolve(true);
+        });
+        req.on('error', () => resolve(false));
+        req.setTimeout(500, () => {
+            req.destroy();
+            resolve(false);
+        });
+    });
+}
+
 async function runG7BrowserTests() {
     console.log('\n=== KHỞI ĐỘNG KIỂM THỬ TRÌNH DUYỆT G7 (RELEASE & FEATURES) ===\n');
+
+    let localServer = null;
+    if (!(await checkServer(8000))) {
+        console.log('[Setup] Máy chủ cổng 8000 chưa chạy. Đang tự động khởi động http-server...');
+        localServer = spawn('npx', ['http-server', '-p', '8000', '-c-1'], {
+            cwd: path.resolve(__dirname, '..'),
+            stdio: 'ignore'
+        });
+        for (let i = 0; i < 25; i++) {
+            await sleep(200);
+            if (await checkServer(8000)) break;
+        }
+    }
 
     const chromePort = 9225;
     const userDataDir = path.join(os.tmpdir(), 'vivu_g7_browser_test_' + Date.now());
@@ -206,7 +233,7 @@ async function runG7BrowserTests() {
             if (!flow1State.title.includes('Ao Bà Om')) {
                 throw new Error(`document.title không chứa tên địa điểm: ${flow1State.title}`);
             }
-            if (flow1State.canonical !== 'https://vivutravinh.vercel.app/place/ao-ba-om') {
+            if (flow1State.canonical !== 'https://vivutravinh.id.vn/place/ao-ba-om') {
                 throw new Error(`Canonical link không đúng chuẩn /place/ao-ba-om: ${flow1State.canonical}`);
             }
             console.log('     ✓ Mở từ trang chủ: URL pathname cập nhật thành /place/ao-ba-om (0 param ?place=)');
@@ -238,7 +265,7 @@ async function runG7BrowserTests() {
             if (!backState.modalHidden) throw new Error('Modal chưa đóng sau sự kiện Back');
             if (backState.pathname !== '/') throw new Error(`URL pathname chưa quay về / sau Back: ${backState.pathname}`);
             if (backState.hasQueryPlace) throw new Error('URL vẫn dính ?place= sau Back');
-            if (backState.canonical !== 'https://vivutravinh.vercel.app/') {
+            if (backState.canonical !== 'https://vivutravinh.id.vn/') {
                 throw new Error(`Canonical chưa được khôi phục về trang chủ: ${backState.canonical}`);
             }
             console.log('     ✓ Nút Back popstate: Modal đóng, URL pathname trở về / và canonical khôi phục');
@@ -488,6 +515,9 @@ async function runG7BrowserTests() {
         if (cdp) cdp.close();
         try { chrome.kill(); } catch {}
         try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch {}
+        if (localServer) {
+            try { localServer.kill(); } catch {}
+        }
     }
 }
 

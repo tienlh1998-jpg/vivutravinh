@@ -8,9 +8,43 @@ export const RANGE = 'A:Z';
 export const SUPABASE_URL = 'https://foyraoimhksfvlxndwxr.supabase.co';
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZveXJhb2ltaGtzZnZseG5kd3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjkwNzAsImV4cCI6MjA5NTMwNTA3MH0.ARJ173UkVNCichCiJmVrbp2aTByVoXnSEAIsIvbnYJ8';
 export const FACEBOOK_FANPAGE_URL = 'https://www.facebook.com/vivutravinh.official';
+export const PRIMARY_DOMAIN = 'vivutravinh.id.vn';
+export const DEFAULT_SITE_URL = `https://${PRIMARY_DOMAIN}`;
+export const ALLOWED_CANONICAL_HOSTS = Object.freeze(['vivutravinh.id.vn', 'www.vivutravinh.id.vn']);
 
 // Nguồn dữ liệu mặc định: 'mock' (phát triển local không gọi Supabase), 'supabase' (kết nối backend), 'fallback' (bản snapshot phát hành)
 export const DEFAULT_DATA_SOURCE = 'mock';
+
+export function isValidCanonicalSiteUrl(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    try {
+        const parsed = new URL(urlStr);
+        if (parsed.protocol !== 'https:') return false;
+        const host = parsed.hostname.toLowerCase();
+        return ALLOWED_CANONICAL_HOSTS.includes(host);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Trả về SITE_URL chuẩn hóa cho canonical / SEO (luôn là https://vivutravinh.id.vn)
+ * Chống canonical host injection:
+ * - Allowlist nghiêm ngặt: chỉ vivutravinh.id.vn và www.vivutravinh.id.vn
+ * - www hay apex đều chuẩn hóa về domain chính https://vivutravinh.id.vn
+ * - Preview origin, localhost, host lạ, HTTP, javascript URL luôn fallback về DEFAULT_SITE_URL
+ */
+export function getSiteUrl(overrides = {}) {
+    const candidate = overrides?.siteUrl || (typeof window !== 'undefined' ? window.VIVUTRAVINH_CONFIG?.siteUrl : null);
+    if (candidate && typeof candidate === 'string') {
+        if (isValidCanonicalSiteUrl(candidate)) {
+            return DEFAULT_SITE_URL;
+        }
+    }
+    // Browser runtime: Preview URLs (ví dụ preview.vercel.app), localhost, hay bất kỳ origin nào khác
+    // đều phải canonicalize về domain chính để bảo toàn SEO và tránh host injection
+    return DEFAULT_SITE_URL;
+}
 
 function safeGetStorage(key) {
     try {
@@ -81,6 +115,7 @@ export function initConfig(overrides = {}) {
         supabaseUrl: overrides.supabaseUrl || runtimeConfig.supabaseUrl || SUPABASE_URL,
         supabaseAnonKey: overrides.supabaseAnonKey || runtimeConfig.supabaseAnonKey || SUPABASE_ANON_KEY,
         facebookFanpageUrl: overrides.facebookFanpageUrl || runtimeConfig.facebookFanpageUrl || FACEBOOK_FANPAGE_URL,
+        siteUrl: getSiteUrl(overrides),
     };
 }
 

@@ -32,7 +32,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 const BACKUPS_DIR = path.join(ROOT_DIR, 'backups');
 
-const DEFAULT_VERCEL_URL = process.env.VERCEL_URL || 'https://vivutravinh.vercel.app';
+const FALLBACK_DEPLOYMENT_URL = 'https://vivutravinh.vercel.app';
 const DEFAULT_SUPABASE_URL = process.env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co';
 
 // Danh sách các ID mục tiêu được phê duyệt dọn dẹp trong G9.2
@@ -83,7 +83,7 @@ export function resolveCredentials(options = {}) {
   const isLocalTest = Boolean(options.localTest);
   const adminToken = options.adminToken !== undefined ? options.adminToken : process.env.ADMIN_ACCESS_TOKEN;
   const serviceKey = options.serviceKey !== undefined ? options.serviceKey : process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const vercelUrl = options.vercelUrl || process.env.VERCEL_URL || DEFAULT_VERCEL_URL;
+  const vercelUrl = options.vercelUrl || process.env.VERCEL_URL || FALLBACK_DEPLOYMENT_URL;
   const supabaseUrl = options.supabaseUrl || process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
 
   // Nếu thao tác là mutation hoặc rollback qua Vercel API: BẮT BUỘC có ADMIN_ACCESS_TOKEN

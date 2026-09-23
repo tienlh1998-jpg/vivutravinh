@@ -44,7 +44,8 @@
  * - Bảo mật: Tuyệt đối không log bí mật ra console (chỉ in "đã cấu hình" / "chưa cấu hình").
  */
 
-const rawVercelUrl = process.env.VERCEL_URL || process.env.APP_URL || 'https://vivutravinh.vercel.app';
+const FALLBACK_DEPLOYMENT_URL = 'https://vivutravinh.vercel.app';
+const rawVercelUrl = process.env.VERCEL_URL || process.env.APP_URL || FALLBACK_DEPLOYMENT_URL;
 const VERCEL_BASE = rawVercelUrl.startsWith('http') ? rawVercelUrl.replace(/\/$/, '') : `https://${rawVercelUrl.replace(/\/$/, '')}`;
 const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co').replace(/\/$/, '');
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';

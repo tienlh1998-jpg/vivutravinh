@@ -33,3 +33,4 @@ npm-debug.log*
 # Backups & Scratch
 backups/
 scratch/
+dns-snapshot*

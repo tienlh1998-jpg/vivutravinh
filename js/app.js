@@ -39,6 +39,7 @@ import {
 
 import { TRA_VINH_FESTIVALS } from './festivals-data.js';
 import { TRA_VINH_ARTICLES } from './articles-data.js';
+import { getSiteUrl, DEFAULT_SITE_URL } from './config.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
 import {
     initTelemetry,
@@ -1489,7 +1490,7 @@ export function closeDetailModal(fromPopstate = false) {
  */
 const DEFAULT_PAGE_TITLE = 'ViVu Trà Vinh - Cẩm Nang Khám Phá & Bản Đồ Số Trà Vinh';
 const DEFAULT_PAGE_DESC = 'Khám phá văn hóa Khmer, ẩm thực trứ danh, chùa cổ và các điểm du lịch sinh thái độc đáo tại Trà Vinh với bản đồ số.';
-const DEFAULT_CANONICAL = 'https://vivutravinh.vercel.app/';
+const DEFAULT_CANONICAL = `${getSiteUrl()}/`;
 
 export function updatePlaceMetaTags(place) {
     if (!place || typeof document === 'undefined') return;
@@ -1497,7 +1498,7 @@ export function updatePlaceMetaTags(place) {
     const desc = place.description
         ? (place.description.slice(0, 160) + (place.description.length > 160 ? '...' : ''))
         : DEFAULT_PAGE_DESC;
-    const canonicalUrl = `https://vivutravinh.vercel.app/place/${encodeURIComponent(place.slug || place.id)}`;
+    const canonicalUrl = `${getSiteUrl()}/place/${encodeURIComponent(place.slug || place.id)}`;
 
     document.title = title;
 

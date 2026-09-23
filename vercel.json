@@ -2,6 +2,19 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.vivutravinh.id.vn"
+        }
+      ],
+      "destination": "https://vivutravinh.id.vn/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/",

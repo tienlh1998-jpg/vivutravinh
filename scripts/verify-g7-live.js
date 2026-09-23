@@ -24,8 +24,9 @@
 
 const allowOffline = process.argv.includes("--allow-offline");
 
-const rawVercelUrl = process.env.VERCEL_URL || process.env.APP_URL || "https://vivutravinh.vercel.app";
-const VERCEL_BASE = rawVercelUrl.startsWith("http") ? rawVercelUrl.replace(/\/$/, "") : `https://${rawVercelUrl.replace(/\/$/, "")}`;
+const FALLBACK_DEPLOYMENT_URL = "https://vivutravinh.vercel.app";
+const rawTargetUrl = process.env.VERCEL_URL || process.env.APP_URL || FALLBACK_DEPLOYMENT_URL;
+const VERCEL_BASE = rawTargetUrl.startsWith("http") ? rawTargetUrl.replace(/\/$/, "") : `https://${rawTargetUrl.replace(/\/$/, "")}`;
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://foyraoimhksfvlxndwxr.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
@@ -188,10 +189,13 @@ async function runLiveAudit() {
     if (!rawHtml.includes("property=\"og:title\" content=\"Ao Bà Om - ViVu Trà Vinh\"")) {
       throw new Error("Raw HTML không chứa thẻ meta og:title chính xác");
     }
-    if (!rawHtml.includes("https://vivutravinh.vercel.app/place/ao-ba-om")) {
-      throw new Error("Raw HTML không chứa canonical / og:url dạng /place/ao-ba-om");
+    if (!rawHtml.includes("https://vivutravinh.id.vn/place/ao-ba-om")) {
+      throw new Error("Raw HTML không chứa canonical / og:url dạng https://vivutravinh.id.vn/place/ao-ba-om");
     }
-    if (rawHtml.includes("https://vivutravinh.vercel.app/?place=ao-ba-om")) {
+    if (rawHtml.includes("https://vivutravinh.vercel.app/place/ao-ba-om")) {
+      throw new Error("Raw HTML không được chứa canonical legacy domain vivutravinh.vercel.app");
+    }
+    if (rawHtml.includes("?place=ao-ba-om")) {
       throw new Error("Raw HTML vẫn chứa URL cũ ?place=ao-ba-om làm canonical / og:url");
     }
   });

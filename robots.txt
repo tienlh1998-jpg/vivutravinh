@@ -1,11 +1,11 @@
 # Robots.txt for ViVuTraVinh
-# https://vivutravinh.vercel.app/
+# https://vivutravinh.id.vn/
 
 User-agent: *
 Allow: /
 
 # Sitemaps
-Sitemap: https://vivutravinh.vercel.app/sitemap.xml
+Sitemap: https://vivutravinh.id.vn/sitemap.xml
 
 # Disallow internal directories and admin
 Disallow: /.git/

@@ -1,4 +1,4 @@
-const IMPORT_ENDPOINT = 'https://vivutravinh.vercel.app/api/import-place';
+const IMPORT_ENDPOINT = 'https://vivutravinh.id.vn/api/import-place';
 const IMPORT_SECRET = 'THAY_BANG_IMPORT_SECRET_CUA_BAN';
 
 function onFormSubmit(e) {

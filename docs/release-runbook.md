@@ -352,7 +352,8 @@ git push origin main
 Theo dõi tiến trình build trên Vercel Dashboard. Xác nhận build hoàn tất thành công.
 
 ### Bước 5: Smoke Test giao diện Admin
-1. Truy cập `https://vivutravinh.vercel.app/admin.html`.
+1. Truy cập `https://vivutravinh.id.vn/admin.html` (URL chính thức).
+   *(Lưu ý: Có thể sử dụng `https://vivutravinh.vercel.app/admin.html` làm fallback deployment URL kiểm tra kỹ thuật trực tiếp trên Vercel, nhưng không phải canonical production URL).*
 2. Kiểm tra giao diện hiển thị màn hình đăng nhập sạch sẽ, không tải CDN bên ngoài.
 3. Đăng nhập bằng tài khoản admin vừa tạo: kiểm tra nạp dữ liệu thống kê Dashboard, danh sách địa điểm, bình luận và báo sai.
 4. Kiểm tra bật/tắt chế độ tối (Dark Mode) và đăng xuất.

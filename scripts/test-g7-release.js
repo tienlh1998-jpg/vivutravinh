@@ -57,13 +57,14 @@ runTest('Sitemap.xml exists, valid XML, 0 hash fragments, correct canonical doma
   for (const locTag of locMatches) {
     const url = locTag.replace(/<\/?loc>/g, '');
     assert.ok(!url.includes('#'), `Sitemap URL contains forbidden hash fragment: ${url}`);
-    assert.ok(url.startsWith('https://vivutravinh.vercel.app'), `URL must use production domain: ${url}`);
+    assert.ok(url.startsWith('https://vivutravinh.id.vn'), `URL must strictly use primary domain: ${url}`);
+    assert.ok(!url.includes('vivutravinh.vercel.app'), `Sitemap URL contains forbidden legacy domain: ${url}`);
   }
 
   // Must contain canonical homepage and places canonical path links
-  assert.ok(content.includes('<loc>https://vivutravinh.vercel.app/</loc>'), 'Homepage missing');
-  assert.ok(content.includes('<loc>https://vivutravinh.vercel.app/place/ao-ba-om</loc>'), 'Ao Ba Om canonical /place/ missing');
-  assert.ok(content.includes('<loc>https://vivutravinh.vercel.app/place/chua-hang</loc>'), 'Chua Hang canonical /place/ missing');
+  assert.ok(content.includes('<loc>https://vivutravinh.id.vn/</loc>'), 'Homepage missing');
+  assert.ok(content.includes('<loc>https://vivutravinh.id.vn/place/ao-ba-om</loc>'), 'Ao Ba Om canonical /place/ missing');
+  assert.ok(content.includes('<loc>https://vivutravinh.id.vn/place/chua-hang</loc>'), 'Chua Hang canonical /place/ missing');
 
   // Must NOT contain query param URLs (?place=) in sitemap
   assert.ok(!content.includes('?place='), 'Sitemap contains forbidden ?place= query URLs');
@@ -76,7 +77,8 @@ runTest('Robots.txt points to canonical sitemap on production domain', () => {
 
   assert.ok(content.includes('User-agent: *'), 'Missing User-agent: *');
   assert.ok(content.includes('Allow: /'), 'Missing Allow: /');
-  assert.ok(content.includes('Sitemap: https://vivutravinh.vercel.app/sitemap.xml'), 'Incorrect Sitemap URL');
+  assert.ok(content.includes('Sitemap: https://vivutravinh.id.vn/sitemap.xml'), 'Incorrect Sitemap URL');
+  assert.ok(!content.includes('vivutravinh.vercel.app'), 'Robots.txt contains forbidden legacy domain');
 });
 
 // 2. HTML HEAD SEO & SCHEMA.ORG AUDIT
@@ -86,18 +88,21 @@ runTest('index.html contains canonical link, absolute OG tags, Twitter card & Sc
   const content = fs.readFileSync(indexPath, 'utf8');
 
   // Canonical
-  assert.ok(content.includes('<link rel="canonical" id="canonicalLink" href="https://vivutravinh.vercel.app/">'), 'Missing or invalid canonical link');
+  assert.ok(content.includes('<link rel="canonical" id="canonicalLink" href="https://vivutravinh.id.vn/">'), 'Missing or invalid canonical link');
+  assert.ok(!content.includes('href="https://vivutravinh.vercel.app/"'), 'Canonical link must not contain legacy domain');
 
   // Open Graph
-  assert.ok(content.includes('<meta property="og:url" content="https://vivutravinh.vercel.app/">'), 'Missing og:url');
+  assert.ok(content.includes('<meta property="og:url" content="https://vivutravinh.id.vn/">'), 'Missing og:url');
   assert.ok(content.includes('<meta property="og:site_name" content="ViVu Trà Vinh">'), 'Missing og:site_name');
-  assert.ok(content.includes('property="og:image" content="https://vivutravinh.vercel.app/icons/icon-512.png"'), 'og:image must be absolute URL');
+  assert.ok(content.includes('property="og:image" content="https://vivutravinh.id.vn/icons/icon-512.png"'), 'og:image must be absolute URL on primary domain');
+  assert.ok(!content.includes('property="og:image" content="https://vivutravinh.vercel.app'), 'og:image must not contain legacy domain');
   assert.ok(content.includes('property="og:title"'), 'Missing og:title');
   assert.ok(content.includes('property="og:description"'), 'Missing og:description');
 
   // Twitter Card
   assert.ok(content.includes('name="twitter:card" content="summary_large_image"'), 'Missing twitter:card');
-  assert.ok(content.includes('name="twitter:image" content="https://vivutravinh.vercel.app/icons/icon-512.png"'), 'twitter:image must be absolute URL');
+  assert.ok(content.includes('name="twitter:image" content="https://vivutravinh.id.vn/icons/icon-512.png"'), 'twitter:image must be absolute URL on primary domain');
+  assert.ok(!content.includes('name="twitter:image" content="https://vivutravinh.vercel.app'), 'twitter:image must not contain legacy domain');
 
   // Schema.org JSON-LD
   assert.ok(content.includes('<script type="application/ld+json">'), 'Missing Schema.org JSON-LD script tag');
@@ -343,9 +348,10 @@ await runAsyncTest('api/og-place renders dynamic <title>, OG tags, Twitter cards
   const htmlAoBaOm = renderPlaceHtml('ao-ba-om');
   assert.ok(htmlAoBaOm.includes('<title>Ao Bà Om - ViVu Trà Vinh</title>'), 'Place title missing in raw HTML');
   assert.ok(htmlAoBaOm.includes('<meta property="og:title" content="Ao Bà Om - ViVu Trà Vinh">'), 'OG title missing');
-  assert.ok(htmlAoBaOm.includes('<meta property="og:url" content="https://vivutravinh.vercel.app/place/ao-ba-om">'), 'OG url missing');
-  assert.ok(htmlAoBaOm.includes('<link rel="canonical" id="canonicalLink" href="https://vivutravinh.vercel.app/place/ao-ba-om">'), 'Canonical link missing');
-  assert.ok(!htmlAoBaOm.includes('https://vivutravinh.vercel.app/?place='), 'Raw HTML must not use ?place= as canonical or OG URL');
+  assert.ok(htmlAoBaOm.includes('<meta property="og:url" content="https://vivutravinh.id.vn/place/ao-ba-om">'), 'OG url missing');
+  assert.ok(htmlAoBaOm.includes('<link rel="canonical" id="canonicalLink" href="https://vivutravinh.id.vn/place/ao-ba-om">'), 'Canonical link missing');
+  assert.ok(!htmlAoBaOm.includes('vivutravinh.vercel.app'), 'Raw HTML must not use legacy vercel.app domain');
+  assert.ok(!htmlAoBaOm.includes('?place='), 'Raw HTML must not use ?place= as canonical or OG URL');
   assert.ok(htmlAoBaOm.includes('<meta name="twitter:title" content="Ao Bà Om - ViVu Trà Vinh">'), 'Twitter title missing');
   assert.ok(htmlAoBaOm.includes('Ao Bà Om'), 'Place name missing in rendered HTML');
   assert.ok(htmlAoBaOm.includes('Danh thắng nổi tiếng'), 'Place description missing');
@@ -373,8 +379,9 @@ await runAsyncTest('api/og-place renders dynamic <title>, OG tags, Twitter cards
   assert.equal(ogRes.statusCode, 200);
   assert.ok(ogRes.headers['Content-Type'].includes('text/html'));
   assert.ok(ogRes.body.includes('Chùa Hang - ViVu Trà Vinh'));
-  assert.ok(ogRes.body.includes('https://vivutravinh.vercel.app/place/chua-hang'));
-  assert.ok(!ogRes.body.includes('https://vivutravinh.vercel.app/?place=chua-hang'));
+  assert.ok(ogRes.body.includes('https://vivutravinh.id.vn/place/chua-hang'), 'OG handler must use primary domain');
+  assert.ok(!ogRes.body.includes('vivutravinh.vercel.app'), 'OG handler must not use legacy vercel.app domain');
+  assert.ok(!ogRes.body.includes('?place=chua-hang'));
 });
 
 // 8. CLIENT-SIDE IDEMPOTENCY RETRY PRESERVATION AUDIT
@@ -396,12 +403,13 @@ await runAsyncTest('Raw HTML generation enforces /place/{slug} canonical and rej
   const rendered = renderPlaceHtml('ao-ba-om');
 
   // Must have /place/ao-ba-om
-  assert.ok(rendered.includes('href="https://vivutravinh.vercel.app/place/ao-ba-om"'), 'Canonical href must be /place/ao-ba-om');
-  assert.ok(rendered.includes('content="https://vivutravinh.vercel.app/place/ao-ba-om"'), 'og:url must be /place/ao-ba-om');
+  assert.ok(rendered.includes('href="https://vivutravinh.id.vn/place/ao-ba-om"'), 'Canonical href must be /place/ao-ba-om');
+  assert.ok(rendered.includes('content="https://vivutravinh.id.vn/place/ao-ba-om"'), 'og:url must be /place/ao-ba-om');
+  assert.ok(!rendered.includes('vivutravinh.vercel.app'), 'Rendered HTML must not use legacy vercel.app domain');
 
   // Must NOT have ?place= in canonical or og:url
-  assert.ok(!rendered.includes('href="https://vivutravinh.vercel.app/?place='), 'Canonical link must not contain ?place=');
-  assert.ok(!rendered.includes('content="https://vivutravinh.vercel.app/?place='), 'og:url must not contain ?place=');
+  assert.ok(!rendered.includes('href="https://vivutravinh.id.vn/?place='), 'Canonical link must not contain ?place=');
+  assert.ok(!rendered.includes('content="https://vivutravinh.id.vn/?place='), 'og:url must not contain ?place=');
 });
 
 // 10. SPA CLIENT ROUTING & ZERO ?place= AUDIT
