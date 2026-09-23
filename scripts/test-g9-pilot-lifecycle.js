@@ -538,6 +538,8 @@ await runAsyncTest('generatePilotPlan() sinh file trong thư mục tạm và bac
   const tempBackupsDir = path.join(tempDir, 'backups');
   const tempDataDir = path.join(tempDir, 'data');
 
+  const initialRepoManifests = fs.readdirSync(BACKUPS_DIR).filter(f => f.startsWith('g9-pilot-1-3-manifest-'));
+
   try {
     const mockData = {
       places: [mockBefore1, mockBefore3],
@@ -574,18 +576,77 @@ await runAsyncTest('generatePilotPlan() sinh file trong thư mục tạm và bac
     assert.deepStrictEqual(savedPatches.patches[0].after.images, []);
     assert.strictEqual(savedPatches.patches[0].after.image_link, null);
     assert.strictEqual(savedPatches.patches[0].patch_payload.expected_updated_at, mockBefore1.updated_at);
+
+    // Kiểm tra các trường metadata bắt buộc: data_source, captured_at, is_valid_production_patch, notice
+    assert.strictEqual(savedPatches.data_source, 'mock_data', 'data_source phải lấy đúng từ manifest');
+    assert.strictEqual(savedPatches.captured_at, result.manifestData.captured_at, 'captured_at phải khớp 100% manifest');
+    assert.strictEqual(savedPatches.is_valid_production_patch, false, 'is_valid_production_patch phải false khi không phải live_supabase');
+    assert.ok(typeof savedPatches.notice === 'string' && savedPatches.notice.includes('KHÔNG ĐƯỢC COI LÀ BẢN VÁ PRODUCTION HỢP LỆ'), 'Phải có notice cảnh báo');
   } finally {
     // Dọn dẹp triệt để thư mục tạm
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 
-  // Khẳng định thư mục backups/ của repo KHÔNG bị sinh thêm file manifest g9-pilot nào
-  const repoBackups = fs.readdirSync(BACKUPS_DIR).filter(f => f.startsWith('g9-pilot-1-3-manifest-'));
+  // Khẳng định thư mục backups/ của repo KHÔNG bị sinh thêm file manifest g9-pilot nào từ test
+  const finalRepoManifests = fs.readdirSync(BACKUPS_DIR).filter(f => f.startsWith('g9-pilot-1-3-manifest-'));
   assert.strictEqual(
-    repoBackups.length,
-    0,
-    `Thư mục backups/ của repo bị nhiễm ${repoBackups.length} file test manifest: ${repoBackups.join(', ')}`
+    finalRepoManifests.length,
+    initialRepoManifests.length,
+    `Thư mục backups/ của repo bị sinh thêm file test manifest: ${finalRepoManifests.length - initialRepoManifests.length} file`
   );
+});
+
+// 11. THẨM ĐỊNH METADATA BẢN VÁ PRODUCTION (LIVE_SUPABASE VÀ IS_VALID_PRODUCTION_PATCH)
+console.log('\n--- 11. Thẩm Định Metadata Bản Vá Production (live_supabase & is_valid_production_patch) ---');
+
+await runAsyncTest('generatePilotPlan() với live_supabase đặt is_valid_production_patch=true và captured_at từ manifest', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vivu-pilot-live-test-'));
+  const tempBackupsDir = path.join(tempDir, 'backups');
+  const tempDataDir = path.join(tempDir, 'data');
+
+  const mockLiveFetch = async (url) => {
+    const u = String(url);
+    if (u.includes('/places?')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [mockBefore1, mockBefore3]
+      };
+    }
+    return { ok: true, status: 200, json: async () => [] };
+  };
+
+  try {
+    const result = await generatePilotPlan({
+      dryRun: true,
+      args: ['--ids=1,3', '--dry-run'],
+      serviceKey: 'mock-valid-service-key',
+      fetchFn: mockLiveFetch,
+      backupsDir: tempBackupsDir,
+      dataDir: tempDataDir,
+      saveFiles: true
+    });
+
+    const { manifestData, proposedPatchesData } = result;
+
+    assert.strictEqual(manifestData.data_source, 'live_supabase', 'Manifest phải ghi nhận live_supabase');
+    assert.ok(manifestData.captured_at, 'Manifest phải có captured_at');
+
+    assert.strictEqual(proposedPatchesData.data_source, 'live_supabase', 'data_source phải lấy từ manifest');
+    assert.strictEqual(proposedPatchesData.captured_at, manifestData.captured_at, 'captured_at phải khớp chính xác manifest');
+    assert.strictEqual(proposedPatchesData.is_valid_production_patch, true, 'is_valid_production_patch phải bằng true khi data_source là live_supabase');
+    assert.strictEqual(proposedPatchesData.notice, undefined, 'Không được có notice cảnh báo khi is_valid_production_patch là true');
+
+    // Đọc từ file đã lưu trong tempDataDir
+    const tempPatchesPath = path.join(tempDataDir, 'g9-pilot-1-3-proposed-patches.json');
+    const saved = JSON.parse(fs.readFileSync(tempPatchesPath, 'utf8'));
+    assert.strictEqual(saved.data_source, 'live_supabase');
+    assert.strictEqual(saved.captured_at, manifestData.captured_at);
+    assert.strictEqual(saved.is_valid_production_patch, true);
+    assert.strictEqual(saved.notice, undefined);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 console.log('\n========================================');

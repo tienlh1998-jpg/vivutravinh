@@ -122,15 +122,13 @@ Bản vá JSON lưu trữ sẵn `rollback_payload` chứa giá trị snapshot g�
 > Migration [`supabase/g8_admin.sql`](file:///home/huutien-tran/antigravity/vivutravinh/supabase/g8_admin.sql) (bổ sung kiểm tra khóa lạc quan `expected_updated_at` và điều kiện `updated_at` trong hàm `admin_update_place_atomic`) **bắt buộc phải được chạy trên CSDL Supabase Production TRƯỚC KHI deploy mã nguồn API mới** (`api/admin-places.js`).  
 > *Hiện tại ở checkpoint này: Tuyệt đối chưa chạy SQL migration trên production, chưa deploy API, chưa mutation, và chưa push/deploy.*
 
-> [!WARNING]
-> **Trạng Thái Tệp Proposed Patches Hiện Tại**:
-> Tệp [`data/g9-pilot-1-3-proposed-patches.json`](file:///home/huutien-tran/antigravity/vivutravinh/data/g9-pilot-1-3-proposed-patches.json) hiện tại chỉ là mock fixture / dry-run template thử nghiệm cú pháp, tham chiếu snapshot cũ (`g9-cleanup-manifest-2026-09-22T04-04-15-704Z.json`).  
-> **KHÔNG ĐƯỢC COI TỆP NÀY LÀ BẢN VÁ PRODUCTION HỢP LỆ**.  
-> Bản vá production hợp lệ bắt buộc phải được tạo lại bằng lệnh:
-> ```bash
-> npm run plan:g9:pilot -- --ids=1,3 --dry-run
-> ```
-> Lệnh này phải sử dụng credentials production thực tế, tạo snapshot manifest mới với `data_source = 'live_supabase'`, `captured_at` mới và `expected_updated_at` đọc trực tiếp từ CSDL production. Sau đó dừng lại để QC duyệt bản vá live trước khi thực hiện bất kỳ mutation nào.
+> [!NOTE]
+> **Trạng Thái Bản Vá Sau Live Dry-Run (QC Đã Xác Minh)**:
+> Live dry-run G9.3C đã được QC xác minh: 2/2 bản vá đọc trực tiếp từ `live_supabase` (manifest `g9-pilot-1-3-manifest-2026-09-23T08-21-45-915Z.json`), chưa mutation.  
+> Tệp [`data/g9-pilot-1-3-proposed-patches.json`](file:///home/huutien-tran/antigravity/vivutravinh/data/g9-pilot-1-3-proposed-patches.json) được chuẩn hóa với ba trường metadata tự động:
+> - `data_source`: Lấy trực tiếp từ manifest (`"live_supabase"`).
+> - `captured_at`: Lấy chính xác thời điểm chụp từ manifest (`"2026-09-23T08:21:45.915Z"`).
+> - `is_valid_production_patch`: Đặt `true` khi và chỉ khi `data_source === "live_supabase"`. Nếu không phải `live_supabase`, trường này bắt buộc là `false` kèm trường `notice` cảnh báo.
 
 ---
 

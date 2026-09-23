@@ -377,10 +377,17 @@ export async function generatePilotPlan(options = {}) {
     console.log(`✓ [ID ${targetId}] ${afterRecord.name}: Chuẩn bị bản vá thành công (${changedFields.length} trường thay đổi)`);
   }
 
+  const isValidProductionPatch = manifestData.data_source === 'live_supabase';
   const proposedPatchesData = {
     plan_version: '1.0.0',
     generated_at: new Date().toISOString(),
     mode: 'DRY_RUN_ONLY',
+    data_source: manifestData.data_source,
+    captured_at: manifestData.captured_at,
+    is_valid_production_patch: isValidProductionPatch,
+    ...(isValidProductionPatch ? {} : {
+      notice: 'Tệp này chỉ là bản vá mẫu kiểm thử cú pháp (dry-run fixture), không được tạo từ live_supabase. KHÔNG ĐƯỢC COI LÀ BẢN VÁ PRODUCTION HỢP LỆ.'
+    }),
     target_ids: requestedIds,
     manifest_reference: manifestFileName,
     patches
