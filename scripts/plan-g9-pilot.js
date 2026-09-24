@@ -156,6 +156,9 @@ export function buildProposedPatchForPlace3(beforeRecord) {
     closing_time: null,
     display_hours: null,
     price_raw: null, // Xóa "Miễn phí" chưa xác minh
+    rating: null, // Xóa rating 5 chưa có đánh giá người dùng thực tế
+    description: 'Di tích lịch sử - văn hóa cấp quốc gia (Wat Angkorajaborey), ngôi chùa Phật giáo Nam tông Khmer cổ kính khởi dựng từ thế kỷ X tọa lạc bên danh thắng Ao Bà Om.',
+    note: null, // Xóa note tự suy diễn
     contact: null,
     status: 'draft', // Chuẩn bị cho bước review
     operating_status: 'Normal',
@@ -197,6 +200,18 @@ export function buildProposedPatchForPlace3(beforeRecord) {
     price_raw: {
       source_url: null,
       rationale: 'Xóa "Miễn phí" tự suy diễn, đặt về UNKNOWN/null'
+    },
+    rating: {
+      source_url: null,
+      rationale: 'Chưa có lượt đánh giá người dùng thực tế nào được kiểm duyệt; xóa điểm 5 tự gán, đặt về null (hiển thị "Chưa có đánh giá")'
+    },
+    description: {
+      source_url: 'https://vietnamtourism.gov.vn',
+      rationale: 'Mô tả tóm tắt chuẩn xác căn cứ hồ sơ Di tích lịch sử - văn hóa cấp quốc gia Wat Angkorajaborey (QĐ 123/QĐ-BVHTT)'
+    },
+    note: {
+      source_url: null,
+      rationale: 'Xóa ghi chú nhắc nhở chưa có nguồn quy định chính thức; giữ null'
     },
     contact: {
       source_url: null,

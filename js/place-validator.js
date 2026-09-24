@@ -630,7 +630,7 @@ export function validatePlace(place, options = {}) {
 
   // 11. KHOẢNG GIÁ (price_raw)
   if (!hasPriceValue(target.price_raw)) {
-    addWarning('WARN_MISSING_PRICE', 'price_raw', 'Chưa có thông tin khoảng giá dịch vụ (có thể ghi "Miễn phí" nếu không thu vé).');
+    addWarning('WARN_MISSING_PRICE', 'price_raw', 'Chưa có thông tin khoảng giá dịch vụ (cần cập nhật biểu giá hoặc xác nhận không thu vé).');
   }
 
   // 12. MÔ TẢ ĐỊA ĐIỂM (description)

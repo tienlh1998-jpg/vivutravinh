@@ -315,8 +315,8 @@ export function openPlacePreview(place) {
         <div><strong>Tọa độ GPS:</strong> ${escapeHtml(place.coordinates || 'Chưa có')}</div>
         <div><strong>Giờ mở cửa:</strong> ${escapeHtml(place.opening_time || '--')} - ${escapeHtml(place.closing_time || '--')}</div>
         <div><strong>Trạng thái hoạt động:</strong> ${escapeHtml(place.operating_status || 'Bình thường')}</div>
-        <div><strong>Đánh giá:</strong> ⭐ ${escapeHtml(place.rating || 0)}/5 (${escapeHtml(place.review_count || 0)} lượt)</div>
-        <div><strong>Giá tham khảo:</strong> ${escapeHtml(place.price_raw || 'Miễn phí / Chưa rõ')}</div>
+        <div><strong>Đánh giá:</strong> ${Number(place.rating) > 0 ? `⭐ ${escapeHtml(place.rating)}/5 (${escapeHtml(place.review_count || 0)} lượt)` : 'Chưa có đánh giá'}</div>
+        <div><strong>Giá tham khảo:</strong> ${escapeHtml(place.price_raw || 'Liên hệ / Chưa rõ')}</div>
       </div>
 
       <div>

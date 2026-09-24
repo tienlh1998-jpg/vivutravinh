@@ -27,6 +27,7 @@ import {
   openPlaceEditor,
   renderPlaces
 } from '../js/admin.js';
+import { formatPlacePrice, renderRatingStars } from '../js/ui.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1000,6 +1001,60 @@ await runAsyncTest('generatePilotPlan() với live_supabase đặt is_valid_prod
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+});
+
+// 12. THẨM ĐỊNH TOÀN DIỆN CHÙA ÂNG (ID 3): LOẠI BỎ TRIỆT ĐỂ MIỄN PHÍ, SĐT CŨ, GIỜ CŨ, ẢNH CŨ VÀ FAKE RATING
+console.log('\n--- 12. Thẩm Định Toàn Diện Chùa Âng (ID 3): Loại Bỏ Triệt Để Dữ Liệu Chưa Xác Minh ---');
+
+runTest('Khẳng định 0 xuất hiện Miễn phí, 0 SĐT cũ, 0 giờ cũ, 0 ảnh cũ, 0 fake rating trong patch Chùa Âng', () => {
+  const { afterRecord } = buildProposedPatchForPlace3(mockBefore3);
+
+  // 1. Không xuất hiện "Miễn phí" (price_raw = null)
+  assert.strictEqual(afterRecord.price_raw, null, 'price_raw phải là null');
+  const serialized = JSON.stringify(afterRecord);
+  assert.ok(!serialized.includes('Miễn phí'), 'afterRecord TUYỆT ĐỐI không chứa chuỗi "Miễn phí"');
+
+  // 2. Không xuất hiện số điện thoại cũ 0294.385.1111
+  assert.strictEqual(afterRecord.contact, null, 'contact phải là null');
+  assert.ok(!serialized.includes('0294.385.1111'), 'afterRecord TUYỆT ĐỐI không chứa SĐT cũ 0294.385.1111');
+
+  // 3. Không xuất hiện giờ cũ 06:00 hoặc 18:00
+  assert.strictEqual(afterRecord.opening_time, null, 'opening_time phải là null');
+  assert.strictEqual(afterRecord.closing_time, null, 'closing_time phải là null');
+  assert.strictEqual(afterRecord.display_hours, null, 'display_hours phải là null');
+  assert.ok(!serialized.includes('06:00'), 'afterRecord TUYỆT ĐỐI không chứa giờ cũ 06:00');
+  assert.ok(!serialized.includes('18:00'), 'afterRecord TUYỆT ĐỐI không chứa giờ cũ 18:00');
+
+  // 4. Không xuất hiện ảnh chưa xác minh ./chùa âng.jpg
+  assert.deepStrictEqual(afterRecord.images, [], 'images phải là mảng rỗng []');
+  assert.strictEqual(afterRecord.image_link, null, 'image_link phải là null');
+  assert.ok(!serialized.includes('./chùa âng.jpg'), 'afterRecord TUYỆT ĐỐI không chứa đường dẫn ảnh chưa xác minh');
+
+  // 5. Không xuất hiện rating 5 khi chưa có đánh giá thực tế
+  assert.strictEqual(afterRecord.rating, null, 'rating phải là null khi chưa có review thực tế');
+  assert.strictEqual(afterRecord.note, null, 'note phải là null khi chưa có nguồn chính thức');
+
+  // 6. Mô tả chuẩn xác từ nguồn chính thống
+  assert.ok(afterRecord.description.includes('Wat Angkorajaborey'), 'Mô tả phải có tên chuẩn di tích quốc gia');
+  assert.ok(afterRecord.description.includes('thế kỷ X'), 'Mô tả phải phản ánh đúng lịch sử khởi dựng');
+});
+
+runTest('Giao diện Admin Preview & Public Modal hiển thị đúng "Liên hệ / Chưa rõ" và "Chưa có đánh giá", không bao giờ "Miễn phí"', () => {
+  const { afterRecord } = buildProposedPatchForPlace3(mockBefore3);
+
+  // Admin Preview format
+  const adminPriceDisplay = afterRecord.price_raw || 'Liên hệ / Chưa rõ';
+  const adminRatingDisplay = Number(afterRecord.rating) > 0 ? `⭐ ${afterRecord.rating}/5` : 'Chưa có đánh giá';
+  assert.strictEqual(adminPriceDisplay, 'Liên hệ / Chưa rõ', 'Admin Preview phải hiển thị "Liên hệ / Chưa rõ"');
+  assert.ok(!adminPriceDisplay.includes('Miễn phí'), 'Admin Preview TUYỆT ĐỐI không được hiển thị "Miễn phí"');
+  assert.strictEqual(adminRatingDisplay, 'Chưa có đánh giá', 'Admin Preview phải hiển thị "Chưa có đánh giá"');
+
+  // Public UI format
+  const publicPriceDisplay = formatPlacePrice(afterRecord);
+  const publicStarsDisplay = renderRatingStars(afterRecord.rating);
+  assert.strictEqual(publicPriceDisplay, 'Liên hệ', 'Public UI formatPlacePrice phải trả về "Liên hệ"');
+  assert.ok(!publicPriceDisplay.includes('Miễn phí'), 'Public UI TUYỆT ĐỐI không được trả về "Miễn phí"');
+  assert.ok(publicStarsDisplay.includes('Chưa có đánh giá'), 'Public UI renderRatingStars phải trả về "Chưa có đánh giá"');
 });
 
 console.log('\n========================================');

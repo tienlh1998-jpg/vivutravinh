@@ -3,16 +3,27 @@
  * scripts/preview-g9-chua-ang.js
  * Tạo màn hình preview & kiểm tra thẩm định toàn diện dữ liệu Chùa Âng (ID 3)
  * trước khi thực hiện phê duyệt (Approval).
+ *
+ * Tiêu chuẩn chất lượng G9.3C:
+ * 1. Đọc ID 3 trực tiếp từ production CSDL live (Zero Mutation, Read-Only).
+ * 2. Lấy updated_at mới nhất từ production, không hard-code snapshot làm dữ liệu live.
+ * 3. Hiển thị "Liên hệ / Chưa rõ" cho price_raw=null trong Admin Preview (tuyệt đối không hiện "Miễn phí").
+ * 4. Loại bỏ thông báo HTTP 404 phía sau modal bằng cách mock các endpoint Admin API đúng phạm vi preview.
+ * 5. Xác minh hoặc xóa rating 5, mô tả và note nếu chưa có nguồn đáng tin cậy.
+ * 6. Kiểm tra tự động khẳng định không xuất hiện "Miễn phí", SĐT cũ, giờ cũ, ảnh cũ, rating giả.
+ * 7. Xuất đủ 6 ảnh chụp màn hình preview cho cả Admin & Public (Desktop/Mobile, Light/Dark).
  */
 
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import assert from 'node:assert';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validatePlace } from '../js/place-validator.js';
 import { buildProposedPatchForPlace3 } from './plan-g9-pilot.js';
+import { loadPilotProductionRecords } from './audit-g9-pilot-production.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -113,7 +124,6 @@ async function getDebuggerUrl(port) {
     try {
       const res = await fetch(`http://127.0.0.1:${port}/json`);
       const data = await res.json();
-      console.log('    [DEBUGGER-TARGETS]', JSON.stringify(data));
       if (Array.isArray(data)) {
         const pageTarget = data.find(p => p.type === 'page');
         if (pageTarget?.webSocketDebuggerUrl) return pageTarget.webSocketDebuggerUrl;
@@ -125,44 +135,68 @@ async function getDebuggerUrl(port) {
   throw new Error('Không thể kết nối Chrome DevTools CDP');
 }
 
+/**
+ * Nạp biến môi trường từ các file local nếu process.env chưa có
+ */
+function loadLocalEnv() {
+  const env = { ...process.env };
+  const envCandidates = ['.env.live.tmp', '.vercel/.env.preview.local', '.env.local', '.env'];
+  for (const envFile of envCandidates) {
+    const fullPath = path.join(REPO_ROOT, envFile);
+    if (!fs.existsSync(fullPath)) continue;
+    const lines = fs.readFileSync(fullPath, 'utf8').split('\n');
+    for (const l of lines) {
+      const trimmed = l.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        const key = trimmed.slice(0, idx).trim();
+        let val = trimmed.slice(idx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (val && val !== '[SENSITIVE]' && !env[key]) {
+          env[key] = val;
+        }
+      }
+    }
+  }
+  if (env.SUPABASE_URL && !env.SUPABASE_URL.startsWith('http')) {
+    env.SUPABASE_URL = 'https://' + env.SUPABASE_URL;
+  }
+  return env;
+}
+
 async function runChuaAngPreview() {
   console.log('\n======================================================');
   console.log('KIỂM TRA & CHUẨN BỊ PREVIEW CHÙA ÂNG (ID 3) TRƯỚC KHI DUYỆT');
   console.log('======================================================\n');
 
-  // 1. Dữ liệu Before từ CSDL / snapshot
-  const beforeRecord = {
-    id: 3,
-    slug: 'chua-ang',
-    name: 'Chùa Âng',
-    category: 'Du Lịch Tâm Linh',
-    area: 'TP. Trà Vinh',
-    address: 'Khóm 4, phường 8, TP. Trà Vinh',
-    map_link: 'https://www.google.com/maps?q=9.9322,106.3364',
-    coordinates: '9.9322,106.3364',
-    price_raw: 'Miễn phí',
-    opening_time: '06:00',
-    closing_time: '18:00',
-    display_hours: null,
-    operating_status: 'Normal',
-    status: 'hidden',
-    images: ['./chùa âng.jpg'],
-    image_link: './chùa âng.jpg',
-    description: 'Ngôi chùa Khmer cổ kính, nổi bật với kiến trúc truyền thống và không gian yên bình.',
-    note: 'Giữ trang phục lịch sự khi tham quan.',
-    contact: '0294.385.1111',
-    contributor: 'Admin',
-    rating: 5,
-    sort_order: 3,
-    is_featured: true,
-    created_at: '2026-05-27T02:13:13.148216+00:00',
-    updated_at: '2026-05-27T04:38:31.731583+00:00'
-  };
+  // 1. Đọc ID 3 trực tiếp từ production CSDL live (Zero Mutation, Read-Only)
+  console.log('--- 1. Truy Vấn Dữ Liệu ID 3 Trực Tiếp Từ Production Live ---');
+  const env = loadLocalEnv();
+
+  const { source, places } = await loadPilotProductionRecords({ env });
+  const liveRecord3 = places.find(p => p.id === 3);
+
+  if (!liveRecord3) {
+    throw new Error('FAIL_CLOSED: Không tìm thấy bản ghi ID 3 trên live production CSDL.');
+  }
+
+  console.log(`  • Nguồn dữ liệu            : ${source}`);
+  console.log(`  • ID 3 Tên                 : ${liveRecord3.name}`);
+  console.log(`  • ID 3 Slug                : ${liveRecord3.slug}`);
+  console.log(`  • ID 3 Trạng thái CSDL live: ${liveRecord3.status}`);
+  console.log(`  • ID 3 updated_at mới nhất : ${liveRecord3.updated_at}`);
+
+  // Sử dụng bản ghi live làm beforeRecord thay vì snapshot cũ
+  const beforeRecord = liveRecord3;
 
   // 2. Sinh Proposed Patch qua hàm chuẩn của hệ thống
   const { afterRecord, fieldSources, changedFields, rollbackPayload } = buildProposedPatchForPlace3(beforeRecord);
 
-  console.log('--- 1. Đối Soát Dữ Liệu Thay Đổi (Before vs After) ---');
+  console.log('\n--- 2. Đối Soát Dữ Liệu Thay Đổi (Before vs After) ---');
+  console.log(`  • Tổng số trường thay đổi: ${changedFields.length}`);
   for (const field of changedFields) {
     console.log(`  • [${field}]:`);
     console.log(`      Trước : ${JSON.stringify(beforeRecord[field])}`);
@@ -175,8 +209,23 @@ async function runChuaAngPreview() {
     }
   }
 
-  // 3. Thẩm định tiêu chuẩn dữ liệu qua validatePlace
-  console.log('\n--- 2. Thẩm Định Tiêu Chuẩn Dữ Liệu (Place Validator) ---');
+  // 3. Kiểm tra tự động tính trung thực dữ liệu ID 3
+  console.log('\n--- 3. Kiểm Tra Tự Động Tính Trung Thực Dữ Liệu (QC Invariants) ---');
+  assert.strictEqual(afterRecord.price_raw, null, 'price_raw phải là null (không suy diễn "Miễn phí")');
+  assert.strictEqual(afterRecord.rating, null, 'rating phải là null (chưa có đánh giá thực tế)');
+  assert.strictEqual(afterRecord.note, null, 'note phải là null (xóa ghi chú chưa xác minh)');
+  assert.strictEqual(afterRecord.contact, null, 'contact phải là null (xóa hotline cũ 0294.385.1111)');
+  assert.strictEqual(afterRecord.opening_time, null, 'opening_time phải là null (xóa giờ cũ 06:00)');
+  assert.strictEqual(afterRecord.closing_time, null, 'closing_time phải là null (xóa giờ cũ 18:00)');
+  assert.strictEqual(afterRecord.display_hours, null, 'display_hours phải là null');
+  assert.deepStrictEqual(afterRecord.images, [], 'images phải là mảng rỗng [] (chặn ảnh chưa thẩm định bản quyền)');
+  assert.strictEqual(afterRecord.image_link, null, 'image_link phải là null');
+  assert.ok(afterRecord.description.includes('Wat Angkorajaborey'), 'Mô tả phải có tên chuẩn Wat Angkorajaborey');
+  assert.strictEqual(afterRecord.expected_updated_at, beforeRecord.updated_at, 'expected_updated_at phải khớp với updated_at mới nhất từ live CSDL');
+  console.log('  ✓ [ĐẠT] 100% các tiêu chí QC cốt lõi (0 Miễn phí, 0 SĐT cũ, 0 giờ cũ, 0 ảnh cũ, 0 fake rating)');
+
+  // 4. Thẩm định tiêu chuẩn dữ liệu qua validatePlace
+  console.log('\n--- 4. Thẩm Định Tiêu Chuẩn Dữ Liệu (Place Validator) ---');
   const draftVal = validatePlace(afterRecord, { mode: 'draft' });
   const approvalVal = validatePlace(afterRecord, { mode: 'approval' });
 
@@ -186,20 +235,58 @@ async function runChuaAngPreview() {
   if (approvalVal.errors.length > 0) {
     console.error('❌ LỖI BẮT BUỘC CHẶN DUYỆT:');
     approvalVal.errors.forEach(e => console.error(`    - [${e.field}] ${e.message}`));
+    throw new Error('Dữ liệu afterRecord vi phạm tiêu chuẩn duyệt.');
   } else {
     console.log('  ✓ [ĐẠT] Không có bất kỳ lỗi vi phạm bắt buộc nào (0 errors). Nút duyệt đủ điều kiện kích hoạt.');
   }
 
-  console.log('  • Chi tiết các cảnh báo chất lượng dữ liệu được chấp nhận:');
-  approvalVal.warnings.forEach(w => {
-    console.log(`    - [${w.field}] (${w.code}): ${w.message}`);
-  });
-
-  // 4. Khởi động Web Server cục bộ phục vụ các tài nguyên repo
+  // 5. Khởi động Web Server cục bộ phục vụ các tài nguyên repo kèm mock Admin API
   const serverPort = 8021;
   const server = http.createServer((req, res) => {
-    console.log('    [HTTP-SERVER]', req.method, req.url);
-    let filePath = path.join(REPO_ROOT, req.url.split('?')[0]);
+    const parsedUrl = new URL(req.url, `http://127.0.0.1:${serverPort}`);
+    const pathname = parsedUrl.pathname;
+
+    // Mock các Admin API endpoints trong phạm vi preview để loại bỏ 404 phía sau modal
+    if (pathname === '/api/admin-places') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        places: [afterRecord],
+        pagination: { page: 1, limit: 15, total: 1, total_pages: 1 }
+      }));
+      return;
+    }
+
+    if (pathname === '/api/admin-comments') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        comments: [],
+        pagination: { page: 1, limit: 15, total: 0, total_pages: 0 }
+      }));
+      return;
+    }
+
+    if (pathname === '/api/admin-reports') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        reports: [],
+        pagination: { page: 1, limit: 15, total: 0, total_pages: 0 }
+      }));
+      return;
+    }
+
+    if (pathname === '/api/admin-profile') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        success: true,
+        profile: { role: 'admin', full_name: 'Quản Trị Viên QC' }
+      }));
+      return;
+    }
+
+    let filePath = path.join(REPO_ROOT, pathname);
     if (filePath.endsWith('/')) filePath += 'index.html';
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
@@ -215,8 +302,8 @@ async function runChuaAngPreview() {
 
   await new Promise(r => server.listen(serverPort, '127.0.0.1', r));
 
-  // 5. Khởi động Chrome Headless & CDP Client
-  console.log('\n--- 3. Khởi Động Trình Duyệt Thực Tế Chrome Headless (CDP) ---');
+  // 6. Khởi động Chrome Headless & CDP Client
+  console.log('\n--- 5. Khởi Động Trình Duyệt Thực Tế Chrome Headless (CDP) ---');
   const chromePort = 9227;
   const chromeProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'vivu_chua_ang_preview_'));
 
@@ -240,26 +327,11 @@ async function runChuaAngPreview() {
     await cdp.send('Runtime.enable');
     await cdp.send('Network.enable');
 
-    cdp.listeners.push((method, params) => {
-      if (method === 'Network.requestWillBeSent') {
-        console.log('    [CHROME-REQ]', params.request.url);
-      }
-      if (method === 'Network.responseReceived') {
-        console.log('    [CHROME-RESP]', params.response.status, params.response.url);
-      }
-      if (method === 'Runtime.consoleAPICalled') {
-        console.log('    [CHROME-CONSOLE]', params.type, params.args?.map(a => a.value));
-      }
-      if (method === 'Runtime.exceptionThrown') {
-        console.log('    [CHROME-EXC]', params.exceptionDetails?.text, params.exceptionDetails?.exception?.description);
-      }
-    });
-
-    // 5.1 GIAO DIỆN QUẢN TRỊ (ADMIN PREVIEW MODAL)
-    console.log('\n--- 4. Màn Hình Xem Trước & Thẩm Định Quản Trị (Admin Preview Modal) ---');
+    // 6.1 GIAO DIỆN QUẢN TRỊ (ADMIN PREVIEW MODAL)
+    console.log('\n--- 6. Màn Hình Xem Trước & Thẩm Định Quản Trị (Admin Preview Modal) ---');
     await cdp.setViewport(1280, 850, false);
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${serverPort}/admin.html` });
-    
+
     // Đợi window.VivuAdmin sẵn sàng
     for (let i = 0; i < 25; i++) {
       const hasVivuAdmin = await cdp.eval(`Boolean(window.VivuAdmin)`);
@@ -277,7 +349,7 @@ async function runChuaAngPreview() {
       sessionStorage.setItem('vivu_admin_session', JSON.stringify(session));
       window.dispatchEvent(new CustomEvent('vivu:auth-login', { detail: { session } }));
     })()`);
-    await sleep(300);
+    await sleep(400);
 
     // Kích hoạt mở modal xem trước địa điểm Chùa Âng
     await cdp.eval(`(() => {
@@ -285,6 +357,26 @@ async function runChuaAngPreview() {
       window.VivuAdmin.openPlacePreview(placeData);
     })()`);
     await sleep(400);
+
+    // Kiểm tra DOM của Admin Preview Modal
+    const adminModalData = await cdp.eval(`(() => {
+      const modal = document.getElementById('placePreviewModal');
+      const text = modal ? modal.innerText : '';
+      const alerts = document.querySelectorAll('.bg-rose-50, .text-rose-600, #adminMessageContainer .text-red-700, #adminMessageContainer .text-rose-700');
+      const alertTexts = Array.from(alerts).map(a => a.innerText.trim()).filter(Boolean);
+      return { text, alertTexts };
+    })()`);
+
+    console.log('  • Xác thực giao diện Admin Preview:');
+    assert.ok(adminModalData.text.includes('Liên hệ / Chưa rõ'), 'Admin Preview phải hiển thị "Liên hệ / Chưa rõ" cho price_raw=null');
+    assert.ok(!adminModalData.text.includes('Miễn phí'), 'Admin Preview TUYỆT ĐỐI không được hiển thị "Miễn phí"');
+    assert.ok(!adminModalData.text.includes('0294.385.1111'), 'Admin Preview TUYỆT ĐỐI không hiển thị SĐT cũ');
+    assert.ok(!adminModalData.text.includes('06:00'), 'Admin Preview TUYỆT ĐỐI không hiển thị giờ cũ 06:00');
+    assert.ok(!adminModalData.text.includes('18:00'), 'Admin Preview TUYỆT ĐỐI không hiển thị giờ cũ 18:00');
+    assert.ok(!adminModalData.text.includes('./chùa âng.jpg'), 'Admin Preview TUYỆT ĐỐI không chứa link ảnh chưa xác minh');
+    assert.ok(adminModalData.text.includes('Chưa có đánh giá'), 'Admin Preview phải hiển thị "Chưa có đánh giá"');
+    assert.strictEqual(adminModalData.alertTexts.length, 0, `Nền Admin Dashboard không được có thông báo lỗi 404 (tìm thấy: ${adminModalData.alertTexts.join('; ')})`);
+    console.log('    ✓ Admin Preview: 0 "Miễn phí", 0 "0294.385.1111", 0 giờ cũ, 0 ảnh cũ, 0 fake rating, 0 lỗi 404 nền');
 
     // Chụp ảnh Admin Preview Light Mode
     const adminLightShot = path.join(ARTIFACT_DIR, 'g9-chua-ang-admin-preview-light.png');
@@ -298,8 +390,8 @@ async function runChuaAngPreview() {
     await cdp.screenshot(adminDarkShot);
     console.log(`  ✓ Đã lưu ảnh Admin Preview (Dark Mode): ${path.basename(adminDarkShot)}`);
 
-    // 5.2 GIAO DIỆN CÔNG KHAI NGƯỜI DÙNG (PUBLIC CLIENT MODAL)
-    console.log('\n--- 5. Màn Hình Hiển Thị Thực Tế Với Người Dùng Khi Được Duyệt (Public Detail Modal) ---');
+    // 6.2 GIAO DIỆN CÔNG KHAI NGƯỜI DÙNG (PUBLIC CLIENT MODAL)
+    console.log('\n--- 7. Màn Hình Hiển Thị Thực Tế Với Người Dùng Khi Được Duyệt (Public Detail Modal) ---');
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${serverPort}/index.html` });
     await sleep(600);
 
@@ -326,7 +418,34 @@ async function runChuaAngPreview() {
     })()`);
     await sleep(400);
 
+    // Kiểm tra DOM của Public Detail Modal
+    const publicModalData = await cdp.eval(`(() => {
+      const modal = document.getElementById('detailModal');
+      return {
+        text: modal ? modal.innerText : '',
+        price: document.getElementById('modalPrice')?.innerText || '',
+        hours: document.getElementById('modalHours')?.innerText || '',
+        stars: document.getElementById('modalStars')?.innerText || '',
+        contactBlockHidden: document.getElementById('modalContactBlock')?.classList.contains('hidden')
+      };
+    })()`);
+
+    console.log('  • Xác thực giao diện Public Detail Modal:');
+    assert.strictEqual(publicModalData.price, 'Liên hệ', 'Public Modal giá phải hiển thị "Liên hệ"');
+    assert.ok(!publicModalData.text.includes('Miễn phí'), 'Public Modal TUYỆT ĐỐI không được hiển thị "Miễn phí"');
+    assert.ok(!publicModalData.text.includes('0294.385.1111'), 'Public Modal TUYỆT ĐỐI không hiển thị SĐT cũ');
+    assert.ok(!publicModalData.text.includes('06:00'), 'Public Modal TUYỆT ĐỐI không hiển thị giờ cũ 06:00');
+    assert.ok(!publicModalData.text.includes('18:00'), 'Public Modal TUYỆT ĐỐI không hiển thị giờ cũ 18:00');
+    assert.ok(!publicModalData.text.includes('./chùa âng.jpg'), 'Public Modal TUYỆT ĐỐI không dùng ảnh chưa bản quyền');
+    assert.ok(publicModalData.stars.includes('Chưa có đánh giá'), 'Public Modal phải hiển thị "Chưa có đánh giá"');
+    assert.strictEqual(publicModalData.contactBlockHidden, true, 'Khối liên hệ phải ẩn khi contact=null');
+    console.log('    ✓ Public Modal: 0 "Miễn phí", 0 "0294.385.1111", 0 giờ cũ, 0 ảnh cũ, 0 fake rating, khối liên hệ ẩn');
+
     // Desktop Light
+    await cdp.eval(`(() => {
+      document.getElementById('offlineSyncToast')?.remove();
+    })()`);
+    await sleep(100);
     const publicDesktopLightShot = path.join(ARTIFACT_DIR, 'g9-chua-ang-public-preview-desktop-light.png');
     await cdp.screenshot(publicDesktopLightShot);
     console.log(`  ✓ Đã lưu ảnh Public Modal (Desktop Light): ${path.basename(publicDesktopLightShot)}`);
