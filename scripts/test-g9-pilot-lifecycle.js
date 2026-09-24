@@ -331,7 +331,7 @@ runTest('Chùa Âng chuẩn hóa tên, địa chỉ NQ 1687, giữ nguyên slug 
   assert.strictEqual(afterRecord.opening_time, null);
   assert.strictEqual(afterRecord.closing_time, null);
   assert.strictEqual(afterRecord.price_raw, null);
-  assert.ok(fieldSources.name.source_url.includes('bvhttdl.gov.vn'));
+  assert.ok(fieldSources.name.source_url.includes('vietnamtourism.gov.vn'));
   assert.ok(fieldSources.coordinates.source_url.includes('openstreetmap.org'));
 });
 
@@ -1034,9 +1034,15 @@ runTest('Khẳng định 0 xuất hiện Miễn phí, 0 SĐT cũ, 0 giờ cũ, 0
   assert.strictEqual(afterRecord.rating, null, 'rating phải là null khi chưa có review thực tế');
   assert.strictEqual(afterRecord.note, null, 'note phải là null khi chưa có nguồn chính thức');
 
-  // 6. Mô tả chuẩn xác từ nguồn chính thống
-  assert.ok(afterRecord.description.includes('Wat Angkorajaborey'), 'Mô tả phải có tên chuẩn di tích quốc gia');
-  assert.ok(afterRecord.description.includes('thế kỷ X'), 'Mô tả phải phản ánh đúng lịch sử khởi dựng');
+  // 6. Mô tả chuẩn xác từ nguồn bài viết chính thống Cục Du lịch Quốc gia Việt Nam
+  assert.ok(afterRecord.description.includes('Ao Bà Om'), 'Mô tả phải có thông tin nằm trong cụm danh thắng Ao Bà Om');
+  assert.ok(afterRecord.description.includes('năm 990'), 'Mô tả phải phản ánh đúng năm khởi dựng 990');
+
+  // 7. Nguồn bài viết chính xác, không dùng mã quyết định chưa có bằng chứng trực tiếp
+  const { fieldSources } = buildProposedPatchForPlace3(mockBefore3);
+  assert.strictEqual(fieldSources.description.source_url, 'https://dantoc.vietnamtourism.gov.vn/chua-ang-ngoi-co-tu-khmer-tuyet-dep-o-vinh-long/');
+  assert.ok(!fieldSources.description.rationale.includes('123/QĐ-BVHTT'), 'Rationale không được chứa mã quyết định chưa có tài liệu đối soát');
+  assert.ok(fieldSources.description.rationale.includes('năm 990'), 'Rationale phải phản ánh năm khởi dựng 990');
 });
 
 runTest('Giao diện Admin Preview & Public Modal hiển thị đúng "Liên hệ / Chưa rõ" và "Chưa có đánh giá", không bao giờ "Miễn phí"', () => {

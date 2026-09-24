@@ -220,7 +220,7 @@ async function runChuaAngPreview() {
   assert.strictEqual(afterRecord.display_hours, null, 'display_hours phải là null');
   assert.deepStrictEqual(afterRecord.images, [], 'images phải là mảng rỗng [] (chặn ảnh chưa thẩm định bản quyền)');
   assert.strictEqual(afterRecord.image_link, null, 'image_link phải là null');
-  assert.ok(afterRecord.description.includes('Wat Angkorajaborey'), 'Mô tả phải có tên chuẩn Wat Angkorajaborey');
+  assert.ok(afterRecord.description.includes('Ao Bà Om') && afterRecord.description.includes('năm 990'), 'Mô tả phải phản ánh đúng bài viết chính thức (cụm Ao Bà Om, khởi dựng năm 990)');
   assert.strictEqual(afterRecord.expected_updated_at, beforeRecord.updated_at, 'expected_updated_at phải khớp với updated_at mới nhất từ live CSDL');
   console.log('  ✓ [ĐẠT] 100% các tiêu chí QC cốt lõi (0 Miễn phí, 0 SĐT cũ, 0 giờ cũ, 0 ảnh cũ, 0 fake rating)');
 

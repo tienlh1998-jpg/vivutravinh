@@ -157,7 +157,7 @@ export function buildProposedPatchForPlace3(beforeRecord) {
     display_hours: null,
     price_raw: null, // Xóa "Miễn phí" chưa xác minh
     rating: null, // Xóa rating 5 chưa có đánh giá người dùng thực tế
-    description: 'Di tích lịch sử - văn hóa cấp quốc gia (Wat Angkorajaborey), ngôi chùa Phật giáo Nam tông Khmer cổ kính khởi dựng từ thế kỷ X tọa lạc bên danh thắng Ao Bà Om.',
+    description: 'Ngôi chùa Khmer cổ kính và tiêu biểu bậc nhất Nam Bộ khởi dựng từ năm 990, tọa lạc trong khuôn viên danh thắng Ao Bà Om và được công nhận là Di tích lịch sử - văn hóa cấp quốc gia.',
     note: null, // Xóa note tự suy diễn
     contact: null,
     status: 'draft', // Chuẩn bị cho bước review
@@ -170,15 +170,15 @@ export function buildProposedPatchForPlace3(beforeRecord) {
 
   const fieldSources = {
     name: {
-      source_url: 'https://bvhttdl.gov.vn/di-tich-lich-su-van-hoa-chua-ang-wat-angkorajaborey.htm',
-      rationale: 'Tên di tích lịch sử văn hóa cấp quốc gia Chùa Âng (Wat Angkorajaborey)'
+      source_url: 'https://dantoc.vietnamtourism.gov.vn/chua-ang-ngoi-co-tu-khmer-tuyet-dep-o-vinh-long/',
+      rationale: 'Tên ngôi cổ tự Chùa Âng theo bài viết Cổng thông tin Cục Du lịch Quốc gia Việt Nam'
     },
     slug: {
       source_url: null,
       rationale: 'Bảo tồn slug hiện hữu "chua-ang", không thay đổi'
     },
     address: {
-      source_url: 'https://bvhttdl.gov.vn/di-tich-lich-su-van-hoa-chua-ang-wat-angkorajaborey.htm',
+      source_url: 'https://dantoc.vietnamtourism.gov.vn/chua-ang-ngoi-co-tu-khmer-tuyet-dep-o-vinh-long/',
       rationale: 'Cập nhật theo địa giới NQ 1687/NQ-UBTVQH15, lưu legacy_address'
     },
     legacy_address: {
@@ -206,8 +206,8 @@ export function buildProposedPatchForPlace3(beforeRecord) {
       rationale: 'Chưa có lượt đánh giá người dùng thực tế nào được kiểm duyệt; xóa điểm 5 tự gán, đặt về null (hiển thị "Chưa có đánh giá")'
     },
     description: {
-      source_url: 'https://vietnamtourism.gov.vn',
-      rationale: 'Mô tả tóm tắt chuẩn xác căn cứ hồ sơ Di tích lịch sử - văn hóa cấp quốc gia Wat Angkorajaborey (QĐ 123/QĐ-BVHTT)'
+      source_url: 'https://dantoc.vietnamtourism.gov.vn/chua-ang-ngoi-co-tu-khmer-tuyet-dep-o-vinh-long/',
+      rationale: 'Mô tả chuẩn xác theo bài viết trên Cổng thông tin Cục Du lịch Quốc gia Việt Nam: Chùa Âng là ngôi chùa Khmer cổ kính khởi dựng từ năm 990, tọa lạc trong cụm danh thắng Ao Bà Om.'
     },
     note: {
       source_url: null,
