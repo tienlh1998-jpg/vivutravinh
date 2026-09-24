@@ -2050,6 +2050,12 @@ function parseCoordinates(coordStr) {
     return null;
 }
 
+export const MAP_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+export const MAP_TILE_OPTIONS = {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
+};
+
 /**
  * Khởi tạo Leaflet Mini Map trên Bento Grid
  */
@@ -2067,9 +2073,7 @@ function initMiniMap() {
         attributionControl: false
     }).setView(defaultCenter, 11);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 18
-    }).addTo(state.miniMap);
+    L.tileLayer(MAP_TILE_URL, MAP_TILE_OPTIONS).addTo(state.miniMap);
 
     // Ghim các địa điểm có tọa độ lên mini map
     state.allPlaces.forEach(p => {
@@ -2110,21 +2114,21 @@ function initModalMap(place) {
         ? place.parsedCoordinates
         : parseCoordinates(place.coordinates);
 
+    const googleFallbackUrl = place.map_link || (coords ? `https://www.google.com/maps?q=${coords[0]},${coords[1]}` : null);
+
     if (coords) {
         state.modalMap = L.map('modalLeafletMap', {
             zoomControl: false,
             attributionControl: false
         }).setView(coords, 14);
 
-        const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 18
-        }).addTo(state.modalMap);
+        const tileLayer = L.tileLayer(MAP_TILE_URL, MAP_TILE_OPTIONS).addTo(state.modalMap);
 
         tileLayer.on('tileerror', () => {
-            showOfflineMapOverlay(modalMapEl);
+            showOfflineMapOverlay(modalMapEl, { googleMapsUrl: googleFallbackUrl });
         });
         if (!navigator.onLine) {
-            showOfflineMapOverlay(modalMapEl);
+            showOfflineMapOverlay(modalMapEl, { googleMapsUrl: googleFallbackUrl });
         }
 
         L.marker(coords).addTo(state.modalMap).bindPopup(`<b>${place.name}</b><br>${place.area || 'Trà Vinh'}`).openPopup();
@@ -2135,15 +2139,13 @@ function initModalMap(place) {
             attributionControl: false
         }).setView([9.9347, 106.3449], 11);
 
-        const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 18
-        }).addTo(state.modalMap);
+        const tileLayer = L.tileLayer(MAP_TILE_URL, MAP_TILE_OPTIONS).addTo(state.modalMap);
 
         tileLayer.on('tileerror', () => {
-            showOfflineMapOverlay(modalMapEl);
+            showOfflineMapOverlay(modalMapEl, { googleMapsUrl: googleFallbackUrl });
         });
         if (!navigator.onLine) {
-            showOfflineMapOverlay(modalMapEl);
+            showOfflineMapOverlay(modalMapEl, { googleMapsUrl: googleFallbackUrl });
         }
 
         L.popup()
@@ -2170,16 +2172,14 @@ export function openFullMapModal() {
                 attributionControl: false
             }).setView([9.9347, 106.3449], 11);
 
-            const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 18
-            }).addTo(state.fullMap);
+            const tileLayer = L.tileLayer(MAP_TILE_URL, MAP_TILE_OPTIONS).addTo(state.fullMap);
 
             const fullScreenMapEl = document.getElementById('fullScreenMap');
             tileLayer.on('tileerror', () => {
-                showOfflineMapOverlay(fullScreenMapEl);
+                showOfflineMapOverlay(fullScreenMapEl, { googleMapsUrl: 'https://www.google.com/maps?q=9.9347,106.3449' });
             });
             if (!navigator.onLine) {
-                showOfflineMapOverlay(fullScreenMapEl);
+                showOfflineMapOverlay(fullScreenMapEl, { googleMapsUrl: 'https://www.google.com/maps?q=9.9347,106.3449' });
             }
 
             // Ghim toàn bộ địa điểm
@@ -2396,9 +2396,7 @@ function initContributeMap() {
             attributionControl: false
         }).setView([defaultLat, defaultLng], 14);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 18
-        }).addTo(state.contributeMap);
+        L.tileLayer(MAP_TILE_URL, MAP_TILE_OPTIONS).addTo(state.contributeMap);
 
         state.contributeMarker = L.marker([defaultLat, defaultLng], {
             draggable: true
@@ -3330,14 +3328,22 @@ export function initServiceWorkerUpdateFlow() {
 /**
  * Hiển thị thông báo khi bản đồ vệ tinh không tải được do mất mạng (Offline Map)
  */
-export function showOfflineMapOverlay(container) {
+export function showOfflineMapOverlay(container, options = {}) {
     if (!container || container.querySelector('.offline-map-overlay')) return;
+    const googleMapsUrl = typeof options === 'string' ? options : options?.googleMapsUrl;
     const overlay = document.createElement('div');
     overlay.className = 'offline-map-overlay absolute inset-0 bg-stone-900/85 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center text-white z-[1000] pointer-events-auto rounded-xl select-none';
+    const actionBtn = googleMapsUrl
+        ? `<a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm">
+             <span class="material-symbols-outlined text-sm">map</span>
+             <span>Mở Google Maps</span>
+           </a>`
+        : '';
     overlay.innerHTML = `
         <span class="material-symbols-outlined text-amber-400 text-2xl mb-1">wifi_off</span>
-        <p class="text-xs font-bold text-amber-200">Bản đồ ngoại tuyến: Không thể tải bản đồ vệ tinh/đường đi khi không có kết nối internet.</p>
-        <p class="text-[10px] text-stone-300 mt-0.5">Địa chỉ và tọa độ GPS vẫn được lưu trữ đầy đủ. Nhấn nút "Chỉ đường" để mở Google Maps khi có mạng.</p>
+        <p class="text-xs font-bold text-amber-200">Bản đồ ngoại tuyến: Không thể tải bản đồ trực tuyến.</p>
+        <p class="text-[10px] text-stone-300 mt-0.5">Địa chỉ và tọa độ GPS vẫn được lưu trữ đầy đủ.</p>
+        ${actionBtn}
     `;
     container.style.position = 'relative';
     container.appendChild(overlay);

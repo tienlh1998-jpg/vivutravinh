@@ -16,6 +16,10 @@ import {
 } from './execute-g9-bien-ba-dong-draft.js';
 import { validatePlace } from '../js/place-validator.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '..');
+
 let totalTests = 0;
 let passedTests = 0;
 
@@ -120,6 +124,22 @@ await runAsyncTest('2.2 resolveAndAuthenticateAdmin từ chối role không ph�
   );
 });
 
+await runAsyncTest('2.3 resolveAndAuthenticateAdmin ném lỗi ngay cả khi có ADMIN_SECRET nếu thiếu ADMIN_ACCESS_TOKEN', async () => {
+  await assert.rejects(
+    () => resolveAndAuthenticateAdmin({
+      env: { SUPABASE_URL: 'https://test.supabase.co', ADMIN_SECRET: 'super-secret-password-123', ADMIN_ACCESS_TOKEN: '' },
+      adminToken: ''
+    }),
+    /FAIL_CLOSED_NO_ADMIN_TOKEN/
+  );
+});
+
+runTest('2.4 scripts/execute-g9-bien-ba-dong-draft.js không chứa JWT anon key hard-code', () => {
+  const executeCode = fs.readFileSync(path.join(REPO_ROOT, 'scripts/execute-g9-bien-ba-dong-draft.js'), 'utf8');
+  assert.ok(!executeCode.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'), 'Tuyệt đối không hard-code chuỗi anon JWT trong script mutation');
+  assert.ok(executeCode.includes('CONFIG_SUPABASE_ANON_KEY'), 'Phải import anon key từ cấu hình chuẩn js/config.js');
+});
+
 // 3. Kiểm tra bảo vệ Dry-Run (Zero Mutation)
 console.log('\n--- 3. Kiểm Tra Bảo Vệ Dry-Run (Zero Mutation) ---');
 
@@ -208,6 +228,22 @@ runTest('4.1 Patch payload Biển Ba Động đạt chuẩn 100% validatePlace �
   assert.strictEqual(patchPayload.price_raw, null);
   assert.strictEqual(patchPayload.rating, null);
   assert.strictEqual(patchPayload.status, 'draft');
+});
+
+// 5. Kiểm tra hạ tầng Map Tiles & Fallback
+console.log('\n--- 5. Kiểm Tra Cấu Hình Tile Bản Đồ & Fallback Trung Tính ---');
+
+runTest('5.1 js/app.js sử dụng standard OpenStreetMap tiles và không chứa basemaps.cartocdn.com', () => {
+  const appCode = fs.readFileSync(path.join(REPO_ROOT, 'js/app.js'), 'utf8');
+  assert.ok(!appCode.includes('basemaps.cartocdn.com'), 'js/app.js không được chứa cartocdn đòi hỏi API key');
+  assert.ok(appCode.includes('tile.openstreetmap.org'), 'js/app.js phải trỏ đến tile provider tiêu chuẩn OpenStreetMap');
+  assert.ok(appCode.includes('MAP_TILE_URL'), 'js/app.js định nghĩa hằng số MAP_TILE_URL');
+});
+
+runTest('5.2 showOfflineMapOverlay hỗ trợ fallback trung tính và nút mở Google Maps', () => {
+  const appCode = fs.readFileSync(path.join(REPO_ROOT, 'js/app.js'), 'utf8');
+  assert.ok(appCode.includes('showOfflineMapOverlay(container, options = {})'), 'Hàm overlay hỗ trợ options');
+  assert.ok(appCode.includes('Mở Google Maps'), 'Có nút bấm trung tính mở Google Maps khi lỗi tile');
 });
 
 console.log('\n========================================');

@@ -24,6 +24,7 @@ import assert from 'node:assert';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validatePlace } from '../js/place-validator.js';
+import { SUPABASE_ANON_KEY as CONFIG_SUPABASE_ANON_KEY } from '../js/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,8 +88,9 @@ export function computeRecordChecksum(record) {
 
 export async function fetchLivePlaceId2(options = {}) {
   const env = options.env || loadLiveEnvConfig();
-  const supabaseUrl = env.SUPABASE_URL;
-  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
+  const supabaseUrl = env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co';
+  const anonKey = options.anonKey || env.SUPABASE_ANON_KEY || CONFIG_SUPABASE_ANON_KEY;
+  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || anonKey;
 
   if (options.mockPlace) {
     return options.mockPlace;
@@ -120,9 +122,10 @@ export async function fetchLivePlaceId2(options = {}) {
 
 export async function resolveAndAuthenticateAdmin(options = {}) {
   const env = options.env || loadLiveEnvConfig();
-  let adminToken = options.adminToken || env.ADMIN_ACCESS_TOKEN || '';
+  const adminToken = options.adminToken || env.ADMIN_ACCESS_TOKEN || '';
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || '';
-  const supabaseUrl = (env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co')
+  const anonKey = options.anonKey || env.SUPABASE_ANON_KEY || CONFIG_SUPABASE_ANON_KEY;
+  const supabaseUrl = (options.supabaseUrl || env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co')
     .replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 
   if (options.mockAuth) {
@@ -130,42 +133,16 @@ export async function resolveAndAuthenticateAdmin(options = {}) {
     return options.mockAuth.actor;
   }
 
-  // Nếu chưa có ADMIN_ACCESS_TOKEN, tự động đăng nhập qua Supabase Auth API
-  if (!adminToken) {
-    const adminEmail = options.adminEmail || 'tienlh1998@gmail.com';
-    const adminPassword = options.adminPassword || env.ADMIN_SECRET;
-    const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZveXJhb2ltaGtzZnZseG5kd3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjkwNzAsImV4cCI6MjA5NTMwNTA3MH0.ARJ173UkVNCichCiJmVrbp2aTByVoXnSEAIsIvbnYJ8';
-
-    if (!adminPassword) {
-      throw new Error('FAIL_CLOSED_NO_ADMIN_TOKEN: Thiếu ADMIN_ACCESS_TOKEN và không có ADMIN_SECRET để xác thực.');
-    }
-
-    const authRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: anonKey
-      },
-      body: JSON.stringify({ email: adminEmail, password: adminPassword })
-    });
-
-    if (!authRes.ok) {
-      throw new Error(`UNAUTHENTICATED: Đăng nhập quản trị viên thất bại (HTTP ${authRes.status}).`);
-    }
-
-    const authData = await authRes.json();
-    adminToken = authData.access_token;
-  }
-
-  if (!adminToken) {
-    throw new Error('FAIL_CLOSED_NO_ADMIN_TOKEN: Không thể tạo hoặc tìm thấy ADMIN_ACCESS_TOKEN.');
+  // Bắt buộc phải có ADMIN_ACCESS_TOKEN. Tuyệt đối không tự động đăng nhập ngầm bằng ADMIN_SECRET!
+  if (!adminToken || typeof adminToken !== 'string' || !adminToken.trim()) {
+    throw new Error('FAIL_CLOSED_NO_ADMIN_TOKEN: Thao tác mutation bắt buộc có ADMIN_ACCESS_TOKEN. Không tự động đăng nhập ngầm bằng ADMIN_SECRET.');
   }
 
   // 1. Xác thực token với Supabase Auth /auth/v1/user
   const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: {
       Authorization: `Bearer ${adminToken}`,
-      apikey: serviceKey || adminToken
+      apikey: serviceKey || anonKey
     }
   });
 
@@ -183,7 +160,7 @@ export async function resolveAndAuthenticateAdmin(options = {}) {
     `${supabaseUrl}/rest/v1/admin_users?user_id=eq.${encodeURIComponent(authUser.id)}&select=user_id,email,role,is_active`,
     {
       headers: {
-        apikey: serviceKey || adminToken,
+        apikey: serviceKey || anonKey,
         Authorization: `Bearer ${serviceKey || adminToken}`
       }
     }
@@ -540,7 +517,7 @@ export async function capturePlacePreviewScreenshots(placeRecord, options = {}) 
       window.ViVuApp.openDetailModal(p);
       document.getElementById('offlineSyncToast')?.classList.add('hidden');
     })()`);
-    await sleep(400);
+    await sleep(1500);
 
     // Desktop Light
     await cdp.eval(`document.getElementById('offlineSyncToast')?.remove();`);
@@ -551,7 +528,7 @@ export async function capturePlacePreviewScreenshots(placeRecord, options = {}) 
 
     // Desktop Dark
     await cdp.eval(`document.documentElement.classList.add('dark'); document.getElementById('offlineSyncToast')?.classList.add('hidden');`);
-    await sleep(200);
+    await sleep(300);
     const pubDeskDark = path.join(artifactDir, 'g9-bien-ba-dong-public-preview-desktop-dark.png');
     await cdp.screenshot(pubDeskDark);
     screenshots.publicDesktopDark = pubDeskDark;
@@ -559,6 +536,8 @@ export async function capturePlacePreviewScreenshots(placeRecord, options = {}) 
 
     // Mobile Viewport (390x844)
     await cdp.setViewport(390, 844, true);
+    await cdp.eval(`(() => { if (window.ViVuApp?.state?.modalMap) window.ViVuApp.state.modalMap.invalidateSize(); return true; })()`);
+    await sleep(600);
 
     // Mobile Light
     await cdp.eval(`document.documentElement.classList.remove('dark'); document.getElementById('offlineSyncToast')?.classList.add('hidden');`);
