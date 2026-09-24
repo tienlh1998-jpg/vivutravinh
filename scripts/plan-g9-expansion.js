@@ -175,7 +175,7 @@ export function buildPatchForBienBaDong(liveRecord) {
     operating_status: 'Normal',
     images: [], // SVG placeholder trung tính
     image_link: null,
-    description: 'Địa danh nghỉ dưỡng biển nổi tiếng từ thời Pháp thuộc, nổi bật với bãi cát dài thoai thoải, các đụn cát tự nhiên rợp bóng hàng phi lao xanh mát và không khí sinh thái duyên hải trong lành.',
+    description: 'Biển Ba Động là điểm du lịch biển nổi tiếng từ thời Pháp thuộc, mang đặc trưng cảnh quan và hệ sinh thái duyên hải của vùng đất Trà Vinh.',
     expected_updated_at: liveRecord.updated_at // OCC ĐỌC ĐỘNG TỪ PRODUCTION LIVE
   };
 
@@ -225,7 +225,7 @@ export function buildPatchForBienBaDong(liveRecord) {
     },
     description: {
       source_url: 'https://vietnamtourism.gov.vn/printer/26535?type=1',
-      rationale: 'Trích xuất từ Cục Du lịch Quốc gia Việt Nam: Địa danh nghỉ dưỡng biển nổi tiếng từ thời Pháp thuộc, nổi bật với bãi cát dài thoai thoải, các đụn cát tự nhiên rợp bóng hàng phi lao xanh mát và không khí sinh thái duyên hải trong lành.'
+      rationale: 'Trích xuất từ Cục Du lịch Quốc gia Việt Nam: Biển Ba Động là điểm du lịch biển nổi tiếng từ thời Pháp thuộc, mang đặc trưng cảnh quan và hệ sinh thái duyên hải của vùng đất Trà Vinh.'
     }
   };
 

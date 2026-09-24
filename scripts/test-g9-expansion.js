@@ -266,12 +266,17 @@ runTest('5.2 Tọa độ không tự nhận bừa là "mốc trắc địa", có
   }
 });
 
-runTest('5.3 Mô tả Biển Ba Động phản ánh văn bản từ Cục Du lịch Quốc gia (Pháp thuộc, phi lao, đụn cát)', () => {
+runTest('5.3 Mô tả Biển Ba Động chỉ chứa dữ kiện đã xác minh trung tính (Pháp thuộc, hệ sinh thái duyên hải, Trà Vinh)', () => {
   const baDong = candidates.find(c => c.slug === 'bien-ba-dong');
   const desc = baDong.after.description;
+  assert.strictEqual(
+    desc,
+    'Biển Ba Động là điểm du lịch biển nổi tiếng từ thời Pháp thuộc, mang đặc trưng cảnh quan và hệ sinh thái duyên hải của vùng đất Trà Vinh.',
+    'Mô tả Biển Ba Động phải khớp chính xác câu dữ kiện đã xác minh trung tính'
+  );
   assert.ok(desc.includes('Pháp thuộc'), 'Mô tả phải chứa "Pháp thuộc"');
-  assert.ok(desc.includes('phi lao'), 'Mô tả phải chứa "phi lao"');
-  assert.ok(desc.includes('đụn cát'), 'Mô tả phải chứa "đụn cát"');
+  assert.ok(desc.includes('hệ sinh thái duyên hải'), 'Mô tả phải chứa "hệ sinh thái duyên hải"');
+  assert.ok(desc.includes('Trà Vinh'), 'Mô tả phải chứa "Trà Vinh"');
 });
 
 // --- 6. ĐỊA GIỚI HÀNH CHÍNH THEO NGHỊ QUYẾT 1687/NQ-UBTVQH15 ---
