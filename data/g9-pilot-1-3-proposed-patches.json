@@ -1,15 +1,15 @@
 {
   "plan_version": "1.0.0",
-  "generated_at": "2026-09-24T02:51:16.182Z",
+  "generated_at": "2026-09-24T03:15:17.883Z",
   "mode": "DRY_RUN_ONLY",
   "data_source": "live_supabase",
-  "captured_at": "2026-09-24T02:51:16.178Z",
+  "captured_at": "2026-09-24T03:15:17.881Z",
   "is_valid_production_patch": true,
   "target_ids": [
     1,
     3
   ],
-  "manifest_reference": "g9-pilot-1-3-manifest-2026-09-24T02-51-16-177Z.json",
+  "manifest_reference": "g9-pilot-1-3-manifest-2026-09-24T03-15-17-881Z.json",
   "patches": [
     {
       "place_id": 1,
@@ -71,7 +71,7 @@
         "sort_order": 1,
         "is_featured": true,
         "created_at": "2026-05-27T02:13:13.148216+00:00",
-        "updated_at": "2026-09-24T02:51:16.179Z",
+        "updated_at": "2026-09-24T03:15:17.882Z",
         "client_submission_id": null,
         "expected_updated_at": "2026-09-23T09:51:04.83917+00:00"
       },
@@ -140,7 +140,7 @@
       },
       "checksums": {
         "before_sha256": "4f74f45fe1743716d016fd84cd96d890c30065764e0a6d2c6248748b2fc12da3",
-        "after_sha256": "1e509004f62319823308582b9adfe9a28415516e6767d7a3940da0a8da2b8c48"
+        "after_sha256": "66336c86f3bc4f079be6772c7e44a9587aede50135c0f88db1bd793c3f4b9356"
       },
       "expected_validator_result": {
         "draft_valid": true,
@@ -197,8 +197,8 @@
       "place_id": 3,
       "slug": "chua-ang",
       "concurrency_token": {
-        "expected_before_sha256": "c81b0a2ab72ad401606066afa0d45fdaeb978eb17647e2614c6030155e74363c",
-        "expected_updated_at": "2026-09-23T09:10:54.041501+00:00"
+        "expected_before_sha256": "3bf30cd3f76da27eaa7034b38f828ccfb652426c1499a28a5dc98b56b4593c2d",
+        "expected_updated_at": "2026-09-24T03:04:53.20242+00:00"
       },
       "before": {
         "id": 3,
@@ -209,23 +209,23 @@
         "address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
         "map_link": "https://www.google.com/maps?q=9.9322,106.3364",
         "price_raw": null,
-        "description": "Ngôi chùa Khmer cổ kính, nổi bật với kiến trúc truyền thống và không gian yên bình.",
-        "note": "Giữ trang phục lịch sự khi tham quan.",
+        "description": "Ngôi chùa Khmer cổ kính và tiêu biểu bậc nhất Nam Bộ khởi dựng từ năm 990, tọa lạc trong khuôn viên danh thắng Ao Bà Om và được công nhận là Di tích lịch sử - văn hóa cấp quốc gia.",
+        "note": null,
         "contact": null,
         "coordinates": "9.9322,106.3364",
         "contributor": "Admin",
-        "rating": 5,
+        "rating": null,
         "opening_time": null,
         "closing_time": null,
         "display_hours": null,
         "operating_status": "Normal",
-        "status": "draft",
+        "status": "approved",
         "images": [],
         "image_link": null,
         "sort_order": 3,
         "is_featured": true,
         "created_at": "2026-05-27T02:13:13.148216+00:00",
-        "updated_at": "2026-09-23T09:10:54.041501+00:00",
+        "updated_at": "2026-09-24T03:04:53.20242+00:00",
         "client_submission_id": null
       },
       "after": {
@@ -253,14 +253,12 @@
         "sort_order": 3,
         "is_featured": true,
         "created_at": "2026-05-27T02:13:13.148216+00:00",
-        "updated_at": "2026-09-24T02:51:16.181Z",
+        "updated_at": "2026-09-24T03:15:17.883Z",
         "client_submission_id": null,
-        "expected_updated_at": "2026-09-23T09:10:54.041501+00:00"
+        "expected_updated_at": "2026-09-24T03:04:53.20242+00:00"
       },
       "changed_fields": [
-        "description",
-        "note",
-        "rating"
+        "status"
       ],
       "field_sources": {
         "name": {
@@ -327,20 +325,16 @@
         }
       },
       "rollback_payload": {
-        "description": "Ngôi chùa Khmer cổ kính, nổi bật với kiến trúc truyền thống và không gian yên bình.",
-        "note": "Giữ trang phục lịch sự khi tham quan.",
-        "rating": 5
+        "status": "approved"
       },
       "patch_payload": {
         "id": 3,
-        "expected_updated_at": "2026-09-23T09:10:54.041501+00:00",
-        "description": "Ngôi chùa Khmer cổ kính và tiêu biểu bậc nhất Nam Bộ khởi dựng từ năm 990, tọa lạc trong khuôn viên danh thắng Ao Bà Om và được công nhận là Di tích lịch sử - văn hóa cấp quốc gia.",
-        "note": null,
-        "rating": null
+        "expected_updated_at": "2026-09-24T03:04:53.20242+00:00",
+        "status": "draft"
       },
       "checksums": {
-        "before_sha256": "c81b0a2ab72ad401606066afa0d45fdaeb978eb17647e2614c6030155e74363c",
-        "after_sha256": "3f9b566c2bd7d345e997be3297ec60e836e15c9ac4d6368ddbda3b595ef2c9bc"
+        "before_sha256": "3bf30cd3f76da27eaa7034b38f828ccfb652426c1499a28a5dc98b56b4593c2d",
+        "after_sha256": "45f707fa6a08ed5933c0c963a121e7b8d184ba5c1251fb192d420fd93d5aff32"
       },
       "expected_validator_result": {
         "draft_valid": true,
