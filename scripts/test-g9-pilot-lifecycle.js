@@ -28,6 +28,11 @@ import {
   renderPlaces
 } from '../js/admin.js';
 import { formatPlacePrice, renderRatingStars } from '../js/ui.js';
+import {
+  resolveAdminCredentials,
+  authenticateAdminToken,
+  executeChuaAngPilot
+} from './execute-g9-pilot-chua-ang.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1061,6 +1066,133 @@ runTest('Giao diện Admin Preview & Public Modal hiển thị đúng "Liên h�
   assert.strictEqual(publicPriceDisplay, 'Liên hệ', 'Public UI formatPlacePrice phải trả về "Liên hệ"');
   assert.ok(!publicPriceDisplay.includes('Miễn phí'), 'Public UI TUYỆT ĐỐI không được trả về "Miễn phí"');
   assert.ok(publicStarsDisplay.includes('Chưa có đánh giá'), 'Public UI renderRatingStars phải trả về "Chưa có đánh giá"');
+});
+
+// ============================================================================
+// 13. KIỂM THỬ HARDENING CUỐI G9.3C: BẮT BUỘC ADMIN_ACCESS_TOKEN & CỜ --EXECUTE --CONFIRM
+// ============================================================================
+console.log('\n--- 13. Hardening Cuối G9.3C: Token & Cờ Thực Thi Fail-Closed ---');
+
+runTest('13.1 resolveAdminCredentials ném lỗi FAIL_CLOSED_NO_ADMIN_TOKEN khi thiếu ADMIN_ACCESS_TOKEN', () => {
+  assert.throws(() => {
+    resolveAdminCredentials({ env: { ADMIN_ACCESS_TOKEN: '' }, adminToken: '' });
+  }, /FAIL_CLOSED_NO_ADMIN_TOKEN/);
+
+  assert.throws(() => {
+    resolveAdminCredentials({ env: { ADMIN_TOKEN: 'legacy_val', ADMIN_ACCESS_TOKEN: '' }, adminToken: '' });
+  }, /INVALID_ENV_VAR/);
+});
+
+await runAsyncTest('13.2 authenticateAdminToken từ chối token không hợp lệ với UNAUTHENTICATED', async () => {
+  const mockFetch = async (url) => {
+    if (url.includes('/auth/v1/user')) {
+      return { ok: false, status: 401, json: async () => ({ message: 'Invalid JWT' }) };
+    }
+    return { ok: false, status: 404 };
+  };
+
+  await assert.rejects(async () => {
+    await authenticateAdminToken('invalid_token', { fetchFn: mockFetch });
+  }, /UNAUTHENTICATED/);
+});
+
+await runAsyncTest('13.3 authenticateAdminToken từ chối user không phải role "admin" với FORBIDDEN', async () => {
+  const mockFetch = async (url) => {
+    if (url.includes('/auth/v1/user')) {
+      return { ok: true, json: async () => ({ id: 'editor-uuid-001', email: 'editor@vivutravinh.test' }) };
+    }
+    if (url.includes('/rest/v1/admin_users')) {
+      return {
+        ok: true,
+        json: async () => [{ user_id: 'editor-uuid-001', email: 'editor@vivutravinh.test', role: 'editor', is_active: true }]
+      };
+    }
+    return { ok: false, status: 404 };
+  };
+
+  await assert.rejects(async () => {
+    await authenticateAdminToken('valid_editor_token', { fetchFn: mockFetch });
+  }, /FORBIDDEN.*admin/);
+});
+
+await runAsyncTest('13.4 authenticateAdminToken trích xuất actor duy nhất từ token đã xác thực, không tự chọn từ CSDL', async () => {
+  const mockFetch = async (url) => {
+    if (url.includes('/auth/v1/user')) {
+      return { ok: true, json: async () => ({ id: 'admin-uuid-999', email: 'superadmin@vivutravinh.test' }) };
+    }
+    if (url.includes('/rest/v1/admin_users')) {
+      return {
+        ok: true,
+        json: async () => [{ user_id: 'admin-uuid-999', email: 'superadmin@vivutravinh.test', role: 'admin', is_active: true }]
+      };
+    }
+    return { ok: false, status: 404 };
+  };
+
+  const actor = await authenticateAdminToken('valid_admin_token', { fetchFn: mockFetch });
+  assert.strictEqual(actor.id, 'admin-uuid-999', 'Actor ID phải lấy trực tiếp từ token auth');
+  assert.strictEqual(actor.email, 'superadmin@vivutravinh.test', 'Actor email phải lấy trực tiếp từ token auth');
+  assert.strictEqual(actor.role, 'admin', 'Actor role phải là admin');
+});
+
+await runAsyncTest('13.5 executeChuaAngPilot chạy ở chế độ Dry-Run an toàn khi thiếu cờ --execute hoặc --confirm (Zero Mutation)', async () => {
+  let rpcCalled = false;
+  const mockFetch = async (url, opts) => {
+    if (url.includes('/rest/v1/places?id=eq.3')) {
+      return {
+        ok: true,
+        json: async () => [{
+          id: 3,
+          slug: 'chua-ang',
+          name: 'Chùa Âng',
+          status: 'draft',
+          updated_at: '2026-09-23T09:10:54.041501+00:00'
+        }]
+      };
+    }
+    if (url.includes('/rpc/admin_update_place_atomic')) {
+      rpcCalled = true;
+      return { ok: true, text: async () => JSON.stringify({ id: 3, status: 'approved' }) };
+    }
+    return { ok: true, json: async () => [] };
+  };
+
+  const mockAuth = {
+    actor: { id: 'admin-uuid-test', email: 'admin@test.local', role: 'admin' }
+  };
+
+  // Ca 1: Không có cờ nào
+  const res1 = await executeChuaAngPilot({
+    args: [],
+    adminToken: 'test_token',
+    mockAuth,
+    fetchFn: mockFetch
+  });
+  assert.strictEqual(res1.dryRun, true, 'Thiếu cờ phải chạy dryRun');
+  assert.strictEqual(res1.mutated, false, 'Tuyệt đối không mutation');
+  assert.strictEqual(rpcCalled, false, 'RPC tuyệt đối không được gọi');
+
+  // Ca 2: Chỉ có --execute nhưng thiếu --confirm
+  const res2 = await executeChuaAngPilot({
+    args: ['--execute'],
+    adminToken: 'test_token',
+    mockAuth,
+    fetchFn: mockFetch
+  });
+  assert.strictEqual(res2.dryRun, true, 'Thiếu --confirm phải chạy dryRun');
+  assert.strictEqual(res2.mutated, false, 'Tuyệt đối không mutation');
+  assert.strictEqual(rpcCalled, false, 'RPC tuyệt đối không được gọi');
+
+  // Ca 3: Chỉ có --confirm nhưng thiếu --execute
+  const res3 = await executeChuaAngPilot({
+    args: ['--confirm'],
+    adminToken: 'test_token',
+    mockAuth,
+    fetchFn: mockFetch
+  });
+  assert.strictEqual(res3.dryRun, true, 'Thiếu --execute phải chạy dryRun');
+  assert.strictEqual(res3.mutated, false, 'Tuyệt đối không mutation');
+  assert.strictEqual(rpcCalled, false, 'RPC tuyệt đối không được gọi');
 });
 
 console.log('\n========================================');
