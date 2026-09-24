@@ -1,0 +1,400 @@
+{
+  "plan_version": "1.0.0",
+  "phase": "G9.4_PHASE_A_RESEARCH_AND_DRY_RUN",
+  "mode": "DRY_RUN_ONLY",
+  "generated_at": "2026-09-24T04:06:45.706Z",
+  "manifest_file": "g9-expansion-manifest-2026-09-24T04-06-45-706Z.json",
+  "manifest_sha256": "e58b8695a5b734e6fdf86d3229a1f9a220326d8d31934f4f8c2111a3d0b7609f",
+  "candidates_count": 5,
+  "candidates": [
+    {
+      "actionType": "update",
+      "targetId": 2,
+      "slug": "bien-ba-dong",
+      "name": "Biển Ba Động",
+      "client_submission_id": "g9-4-rehab-bien-ba-dong-id2",
+      "concurrency_token": {
+        "expected_updated_at": "2026-05-28T03:29:53.940474+00:00",
+        "before_sha256": "6ed2dd3c44db93a1be11de60ba361288bc12e7ab343c2bba25cb8ae3087bc95a"
+      },
+      "before": {
+        "id": 2,
+        "slug": "bien-ba-dong",
+        "name": "Biển Ba Động DH",
+        "category": "Điểm Check-in / Sống Ảo",
+        "area": "Duyên Hải",
+        "address": "Xã Trường Long Hòa, thị xã Duyên Hải",
+        "map_link": "https://www.google.com/maps?q=9.6115,106.5775",
+        "price_raw": "Miễn phí",
+        "description": "Bãi biển hoang sơ với những đồi cát nhấp nhô độc đáo, phù hợp để check-in và ăn hải sản.",
+        "note": "Nên kiểm tra thời tiết trước khi đi.",
+        "contact": null,
+        "coordinates": "9.6115,106.5775",
+        "contributor": "Admin",
+        "rating": 4,
+        "opening_time": "07:00",
+        "closing_time": "18:00",
+        "display_hours": null,
+        "operating_status": "Normal",
+        "status": "hidden",
+        "images": [
+          "./biển ba động.jpg"
+        ],
+        "image_link": "./biển ba động.jpg",
+        "sort_order": 2,
+        "is_featured": true,
+        "created_at": "2026-05-27T02:13:13.148216+00:00",
+        "updated_at": "2026-05-28T03:29:53.940474+00:00",
+        "client_submission_id": null
+      },
+      "after": {
+        "id": 2,
+        "slug": "bien-ba-dong",
+        "name": "Biển Ba Động",
+        "category": "Điểm Check-in / Sống Ảo",
+        "area": "Duyên Hải",
+        "address": "Khu du lịch Ba Động, phường Trường Long Hòa, tỉnh Vĩnh Long",
+        "map_link": "https://www.google.com/maps?q=9.6730,106.5700",
+        "price_raw": null,
+        "description": "Địa danh nghỉ dưỡng biển nổi tiếng từ thời Pháp thuộc, nổi bật với bãi cát dài thoai thoải, các đụn cát tự nhiên rợp bóng hàng phi lao xanh mát và không khí sinh thái duyên hải trong lành.",
+        "note": null,
+        "contact": null,
+        "coordinates": "9.6730,106.5700",
+        "contributor": "Admin",
+        "rating": null,
+        "opening_time": null,
+        "closing_time": null,
+        "display_hours": null,
+        "operating_status": "Normal",
+        "status": "draft",
+        "images": [],
+        "image_link": null,
+        "sort_order": 2,
+        "is_featured": true,
+        "created_at": "2026-05-27T02:13:13.148216+00:00",
+        "updated_at": "2026-05-28T03:29:53.940474+00:00",
+        "client_submission_id": null,
+        "expected_updated_at": "2026-05-28T03:29:53.940474+00:00"
+      },
+      "rollback": {
+        "id": 2,
+        "name": "Biển Ba Động DH",
+        "slug": "bien-ba-dong",
+        "category": "Điểm Check-in / Sống Ảo",
+        "area": "Duyên Hải",
+        "address": "Xã Trường Long Hòa, thị xã Duyên Hải",
+        "coordinates": "9.6115,106.5775",
+        "map_link": "https://www.google.com/maps?q=9.6115,106.5775",
+        "opening_time": "07:00",
+        "closing_time": "18:00",
+        "display_hours": null,
+        "price_raw": "Miễn phí",
+        "rating": 4,
+        "contact": null,
+        "note": "Nên kiểm tra thời tiết trước khi đi.",
+        "status": "hidden",
+        "operating_status": "Normal",
+        "images": [
+          "./biển ba động.jpg"
+        ],
+        "image_link": "./biển ba động.jpg"
+      },
+      "field_sources": {
+        "name": {
+          "source_url": "https://vietnamtourism.gov.vn/printer/26535?type=1",
+          "rationale": "Loại bỏ hậu tố rác \"DH\", chuẩn hóa tên danh thắng Biển Ba Động theo Cục Du lịch Quốc gia Việt Nam"
+        },
+        "slug": {
+          "source_url": null,
+          "rationale": "Bảo tồn canonical slug hiện hữu \"bien-ba-dong\", khớp sitemap và route public"
+        },
+        "address": {
+          "source_url": "https://vietnamtourism.gov.vn/printer/26535?type=1",
+          "rationale": "Cập nhật theo Nghị quyết 1687/NQ-UBTVQH15 (phường Trường Long Hòa, tỉnh Vĩnh Long), lưu legacy_address trong audit"
+        },
+        "legacy_address": {
+          "source_url": null,
+          "rationale": "Xã Trường Long Hòa, Thị xã Duyên Hải, Tỉnh Trà Vinh"
+        },
+        "coordinates": {
+          "source_url": "https://www.openstreetmap.org/#map=16/9.6730/106.5700",
+          "coordinate_precision": "approximate_area_center",
+          "rationale": "Tọa độ khu vực bãi biển Ba Động theo khung nhìn bản đồ OpenStreetMap (#map=...); chỉ chứng minh vị trí gần tọa độ chứ chưa xác minh đúng đối tượng trên bản đồ, giữ mức độ approximate_area_center chờ thẩm tra thực địa."
+        },
+        "description": {
+          "source_url": "https://vietnamtourism.gov.vn/printer/26535?type=1",
+          "rationale": "Trích xuất từ Cục Du lịch Quốc gia Việt Nam: Địa danh nghỉ dưỡng biển nổi tiếng từ thời Pháp thuộc, nổi bật với bãi cát dài thoai thoải, các đụn cát tự nhiên rợp bóng hàng phi lao xanh mát và không khí sinh thái duyên hải trong lành."
+        }
+      },
+      "validation": {
+        "valid": true,
+        "errorsCount": 0,
+        "warningsCount": 4
+      }
+    },
+    {
+      "actionType": "create",
+      "targetId": null,
+      "slug": "den-tho-bac-ho-tra-vinh",
+      "name": "Đền thờ Bác Hồ Trà Vinh",
+      "client_submission_id": "g9-4-create-den-tho-bac-ho-tra-vinh",
+      "draft_payload": {
+        "name": "Đền thờ Bác Hồ Trà Vinh",
+        "slug": "den-tho-bac-ho-tra-vinh",
+        "category": "Du Lịch Tâm Linh",
+        "area": "TP. Trà Vinh",
+        "address": "Ấp Vĩnh Hội, phường Long Đức, tỉnh Vĩnh Long",
+        "coordinates": "9.9705,106.3382",
+        "map_link": "https://www.google.com/maps?q=9.9705,106.3382",
+        "description": "Di tích lịch sử cấp Quốc gia được xây dựng trong những năm kháng chiến ác liệt, biểu tượng thiêng liêng cho tấm lòng son sắt của quân dân Trà Vinh đối với Chủ tịch Hồ Chí Minh.",
+        "opening_time": null,
+        "closing_time": null,
+        "display_hours": null,
+        "price_raw": null,
+        "rating": null,
+        "contact": null,
+        "note": null,
+        "status": "draft",
+        "operating_status": "Normal",
+        "contributor": "BQT ViVuTraVinh",
+        "images": [],
+        "image_link": null
+      },
+      "rollback": {
+        "action": "archive",
+        "slug": "den-tho-bac-ho-tra-vinh",
+        "client_submission_id": "g9-4-create-den-tho-bac-ho-tra-vinh"
+      },
+      "field_sources": {
+        "name": {
+          "source_url": "https://nhandan.vn/den-tho-bac-ho-o-tra-vinh-bieu-tuong-long-dan-nam-bo-post647000.html",
+          "rationale": "Tên chuẩn Di tích lịch sử cấp Quốc gia (QĐ 98/VH-QĐ năm 1989)"
+        },
+        "slug": {
+          "source_url": null,
+          "rationale": "Định danh canonical \"den-tho-bac-ho-tra-vinh\""
+        },
+        "address": {
+          "source_url": "https://nhandan.vn/den-tho-bac-ho-o-tra-vinh-bieu-tuong-long-dan-nam-bo-post647000.html",
+          "rationale": "Ấp Vĩnh Hội, phường Long Đức, tỉnh Vĩnh Long theo Nghị quyết 1687/NQ-UBTVQH15"
+        },
+        "legacy_address": {
+          "source_url": null,
+          "rationale": "Ấp Vĩnh Hội, Xã Long Đức, Thành phố Trà Vinh, Tỉnh Trà Vinh"
+        },
+        "coordinates": {
+          "source_url": "https://www.openstreetmap.org/way/451892019",
+          "coordinate_precision": "entrance_area",
+          "rationale": "Tọa độ khu vực cổng vào và bãi đỗ khuôn viên di tích Đền thờ Bác Hồ theo OSM way 451892019"
+        },
+        "description": {
+          "source_url": "https://nhandan.vn/den-tho-bac-ho-o-tra-vinh-bieu-tuong-long-dan-nam-bo-post647000.html",
+          "rationale": "Trích xuất từ bài viết Báo Nhân Dân: Di tích lịch sử cấp Quốc gia được xây dựng trong những năm kháng chiến ác liệt, biểu tượng thiêng liêng cho tấm lòng son sắt của quân dân Trà Vinh đối với Chủ tịch Hồ Chí Minh."
+        }
+      },
+      "validation": {
+        "valid": true,
+        "errorsCount": 0,
+        "warningsCount": 4
+      }
+    },
+    {
+      "actionType": "create",
+      "targetId": null,
+      "slug": "chua-hang",
+      "name": "Chùa Hang",
+      "client_submission_id": "g9-4-create-chua-hang",
+      "draft_payload": {
+        "name": "Chùa Hang",
+        "slug": "chua-hang",
+        "category": "Du Lịch Tâm Linh",
+        "area": "Châu Thành",
+        "address": "Khóm 3, xã Châu Thành, tỉnh Vĩnh Long",
+        "coordinates": "9.8967,106.3083",
+        "map_link": "https://www.google.com/maps?q=9.8967,106.3083",
+        "description": "Ngôi chùa Khmer cổ kính (Wat Kompong Ch'rây) thành lập từ năm 1637, nổi bật với cổng vòm dạng hang độc đáo, khuôn viên rợp bóng cổ thụ và xưởng điêu khắc gỗ nghệ thuật tinh xảo của các nhà sư.",
+        "opening_time": null,
+        "closing_time": null,
+        "display_hours": null,
+        "price_raw": null,
+        "rating": null,
+        "contact": null,
+        "note": null,
+        "status": "draft",
+        "operating_status": "Normal",
+        "contributor": "BQT ViVuTraVinh",
+        "images": [],
+        "image_link": null
+      },
+      "rollback": {
+        "action": "archive",
+        "slug": "chua-hang",
+        "client_submission_id": "g9-4-create-chua-hang"
+      },
+      "field_sources": {
+        "name": {
+          "source_url": "https://nhandan.vn/doc-dao-chua-khmer-o-tra-vinh-post769288.html",
+          "rationale": "Tên Di tích lịch sử - văn hóa cấp Quốc gia Chùa Hang (Wat Kompong Ch'rây)"
+        },
+        "slug": {
+          "source_url": null,
+          "rationale": "Định danh canonical \"chua-hang\""
+        },
+        "address": {
+          "source_url": "https://nhandan.vn/doc-dao-chua-khmer-o-tra-vinh-post769288.html",
+          "rationale": "Khóm 3, xã Châu Thành, tỉnh Vĩnh Long theo khoản 34 NQ 1687/NQ-UBTVQH15 (sáp nhập thị trấn Châu Thành thành xã Châu Thành)"
+        },
+        "legacy_address": {
+          "source_url": null,
+          "rationale": "Khóm 3, Thị trấn Châu Thành, Huyện Châu Thành, Tỉnh Trà Vinh"
+        },
+        "coordinates": {
+          "source_url": "https://www.openstreetmap.org/#map=17/9.8967/106.3083",
+          "coordinate_precision": "approximate_temple_grounds",
+          "rationale": "Tọa độ tham chiếu khuôn viên chùa cổ tại khóm 3 Châu Thành theo khung nhìn bản đồ OpenStreetMap (#map=...); chỉ chứng minh vị trí gần tọa độ chứ chưa xác minh đối tượng trên bản đồ, giữ mức độ approximate_temple_grounds chờ thẩm tra thực địa."
+        },
+        "description": {
+          "source_url": "https://nhandan.vn/doc-dao-chua-khmer-o-tra-vinh-post769288.html",
+          "rationale": "Trích xuất từ bài viết Báo Nhân Dân: Ngôi chùa Khmer cổ kính (Wat Kompong Ch'rây) thành lập từ năm 1637, nổi bật với cổng vòm dạng hang độc đáo, khuôn viên rợp bóng cổ thụ và xưởng điêu khắc gỗ nghệ thuật tinh xảo của các nhà sư."
+        }
+      },
+      "validation": {
+        "valid": true,
+        "errorsCount": 0,
+        "warningsCount": 4
+      }
+    },
+    {
+      "actionType": "create",
+      "targetId": null,
+      "slug": "con-chim",
+      "name": "Du Lịch Cộng Đồng Cồn Chim",
+      "client_submission_id": "g9-4-create-con-chim",
+      "draft_payload": {
+        "name": "Du Lịch Cộng Đồng Cồn Chim",
+        "slug": "con-chim",
+        "category": "Du Lịch Sinh Thái / Cộng Đồng",
+        "area": "Châu Thành",
+        "address": "Cù lao Cồn Chim, xã Hòa Minh, tỉnh Vĩnh Long",
+        "coordinates": "9.9167,106.4274",
+        "map_link": "https://www.google.com/maps?q=9.9167,106.4274",
+        "description": "Điểm du lịch sinh thái cộng đồng tiêu biểu đạt Giải thưởng Du lịch ASEAN 2025, vận hành theo triết lý 'thuận thiên' với mô hình con tôm ôm cây lúa và nếp sống mộc mạc miệt vườn.",
+        "opening_time": null,
+        "closing_time": null,
+        "display_hours": null,
+        "price_raw": null,
+        "rating": null,
+        "contact": null,
+        "note": null,
+        "status": "draft",
+        "operating_status": "Normal",
+        "contributor": "BQT ViVuTraVinh",
+        "images": [],
+        "image_link": null
+      },
+      "rollback": {
+        "action": "archive",
+        "slug": "con-chim",
+        "client_submission_id": "g9-4-create-con-chim"
+      },
+      "field_sources": {
+        "name": {
+          "source_url": "https://nhandan.vn/ocop/vinh-long-phat-trien-kinh-te-du-lich-theo-khong-gian-moi-post919861.html",
+          "rationale": "Điểm du lịch cộng đồng Cồn Chim đạt Giải thưởng Du lịch cộng đồng ASEAN 2025"
+        },
+        "slug": {
+          "source_url": null,
+          "rationale": "Định danh canonical \"con-chim\""
+        },
+        "address": {
+          "source_url": "https://nhandan.vn/ocop/vinh-long-phat-trien-kinh-te-du-lich-theo-khong-gian-moi-post919861.html",
+          "rationale": "Cù lao Cồn Chim, xã Hòa Minh, tỉnh Vĩnh Long theo Nghị quyết 1687/NQ-UBTVQH15"
+        },
+        "legacy_address": {
+          "source_url": null,
+          "rationale": "Cù lao Cồn Chim, Xã Hòa Minh, Huyện Châu Thành, Tỉnh Trà Vinh"
+        },
+        "coordinates": {
+          "source_url": "https://www.openstreetmap.org/way/26776420",
+          "coordinate_precision": "area_island",
+          "rationale": "Mốc cồn trên sông Cổ Chiên thuộc xã Hòa Minh theo OpenStreetMap way 26776420"
+        },
+        "description": {
+          "source_url": "https://nhandan.vn/ocop/vinh-long-phat-trien-kinh-te-du-lich-theo-khong-gian-moi-post919861.html",
+          "rationale": "Trích xuất từ Báo Nhân Dân: Điểm du lịch sinh thái cộng đồng tiêu biểu đạt Giải thưởng Du lịch ASEAN 2025, vận hành theo triết lý 'thuận thiên' với mô hình con tôm ôm cây lúa và nếp sống mộc mạc miệt vườn."
+        }
+      },
+      "validation": {
+        "valid": true,
+        "errorsCount": 0,
+        "warningsCount": 4
+      }
+    },
+    {
+      "actionType": "create",
+      "targetId": null,
+      "slug": "chua-vam-ray",
+      "name": "Chùa Vàm Rây",
+      "client_submission_id": "g9-4-create-chua-vam-ray",
+      "draft_payload": {
+        "name": "Chùa Vàm Rây",
+        "slug": "chua-vam-ray",
+        "category": "Du Lịch Tâm Linh",
+        "area": "Trà Cú",
+        "address": "Ấp Vàm Ray, xã Hàm Giang, tỉnh Vĩnh Long",
+        "coordinates": "9.6670,106.2580",
+        "map_link": "https://www.google.com/maps?q=9.6670,106.2580",
+        "description": "Đại tự Phật giáo Nam tông Khmer lớn nhất miền Tây Nam Bộ có niên đại khoảng 600 năm, tráng lệ với kiến trúc phong cách Angkor và bức tượng Phật Thích Ca nhập Niết Bàn ngoài trời dài 54m sơn son thếp vàng.",
+        "opening_time": null,
+        "closing_time": null,
+        "display_hours": null,
+        "price_raw": null,
+        "rating": null,
+        "contact": null,
+        "note": null,
+        "status": "draft",
+        "operating_status": "Normal",
+        "contributor": "BQT ViVuTraVinh",
+        "images": [],
+        "image_link": null
+      },
+      "rollback": {
+        "action": "archive",
+        "slug": "chua-vam-ray",
+        "client_submission_id": "g9-4-create-chua-vam-ray"
+      },
+      "field_sources": {
+        "name": {
+          "source_url": "https://nhandan.vn/doc-dao-chua-khmer-o-tra-vinh-post769288.html",
+          "rationale": "Ngôi chùa Khmer lớn nhất hiện nay theo Báo Nhân Dân"
+        },
+        "slug": {
+          "source_url": null,
+          "rationale": "Định danh canonical \"chua-vam-ray\""
+        },
+        "address": {
+          "source_url": "https://nhandan.vn/doc-dao-chua-khmer-o-tra-vinh-post769288.html",
+          "rationale": "Ấp Vàm Ray, xã Hàm Giang, tỉnh Vĩnh Long theo Nghị quyết 1687/NQ-UBTVQH15 (sáp nhập xã Hàm Tân, Hàm Giang, Kim Sơn thành xã Hàm Giang)"
+        },
+        "legacy_address": {
+          "source_url": null,
+          "rationale": "Ấp Vàm Ray, Xã Hàm Tân, Huyện Trà Cú, Tỉnh Trà Vinh"
+        },
+        "coordinates": {
+          "source_url": "https://www.openstreetmap.org/#map=17/9.6670/106.2580",
+          "coordinate_precision": "approximate_temple_grounds",
+          "rationale": "Tọa độ tham chiếu khuôn viên chùa tại ấp Vàm Ray theo khung nhìn bản đồ OpenStreetMap (#map=...); chỉ chứng minh vị trí gần tọa độ chứ chưa xác minh đối tượng trên bản đồ, giữ mức độ approximate_temple_grounds chờ thẩm tra thực địa."
+        },
+        "description": {
+          "source_url": "https://nhandan.vn/doc-dao-chua-khmer-o-tra-vinh-post769288.html",
+          "rationale": "Trích xuất từ Báo Nhân Dân: Đại tự Phật giáo Nam tông Khmer lớn nhất miền Tây Nam Bộ có niên đại khoảng 600 năm, tráng lệ với kiến trúc phong cách Angkor và bức tượng Phật Thích Ca nhập Niết Bàn ngoài trời dài 54m sơn son thếp vàng."
+        }
+      },
+      "validation": {
+        "valid": true,
+        "errorsCount": 0,
+        "warningsCount": 4
+      }
+    }
+  ]
+}
