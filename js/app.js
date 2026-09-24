@@ -1348,19 +1348,54 @@ async function loadCommentsForModal(place, requestId) {
  */
 export function openDetailModal(placeOrId, options = {}) {
     let place = null;
+    const isDirect = Boolean(options.isDirect || options.fromLegacyQuery);
+
     if (placeOrId && typeof placeOrId === 'object' && placeOrId.id) {
         place = placeOrId;
     } else {
         const query = String(placeOrId || '').trim().toLowerCase();
-        place = state.allPlaces.find(p =>
-            p.id === query ||
-            (p.slug && p.slug.toLowerCase() === query) ||
-            (p.dbId && String(p.dbId) === query) ||
-            (query === 'ao-ba-om' && (p.slug || p.id || '').includes('ao-ba-om')) ||
-            (query === 'chua-hang' && (p.slug || p.id || '').includes('chua-hang'))
-        );
+        if (isDirect) {
+            // Khi truy cập trực tiếp /place/{slug}: chỉ tìm kiếm exact slug
+            place = state.allPlaces.find(p => p.slug && String(p.slug).trim().toLowerCase() === query);
+        } else {
+            // Khi tương tác nội bộ: tra cứu theo id, slug hoặc dbId
+            place = state.allPlaces.find(p =>
+                p.id === query ||
+                (p.slug && String(p.slug).trim().toLowerCase() === query) ||
+                (p.dbId && String(p.dbId).trim().toLowerCase() === query)
+            );
+        }
     }
     const placeId = place?.id || placeOrId;
+
+    // G9.3C: Khi truy cập trực tiếp URL công khai /place/{slug}:
+    // 1. Chỉ tự mở modal nếu tìm được exact slug trong nguồn Supabase approved
+    // 2. Nếu Supabase lỗi và ứng dụng chuyển fallback, không được tự mở dữ liệu fallback cũ
+    // 3. Hiển thị thông báo “Không thể tải thông tin đã xác minh” hoặc offline state an toàn
+    if (isDirect) {
+        const isVerifiedApproved = place && place._source === 'supabase' && place.status === 'approved';
+        if (!isVerifiedApproved) {
+            console.warn(`[ViVuTraVinh] Chặn direct route cho địa điểm chưa được duyệt từ Supabase live: ${placeId}`);
+            if (typeof window !== 'undefined' && window.location) {
+                const url = new URL(window.location);
+                if (url.pathname.startsWith('/place/') || url.pathname.startsWith('/places/')) {
+                    url.pathname = '/';
+                }
+                if (url.searchParams.has('place')) {
+                    url.searchParams.delete('place');
+                }
+                window.history.replaceState({}, '', url);
+            }
+            const isFallbackMode = (place && place._source === 'fallback') || (state.allPlaces && state.allPlaces.length > 0 && state.allPlaces[0]?._source === 'fallback');
+            if (isFallbackMode) {
+                showNoticeToast('Không thể tải thông tin đã xác minh', 'Không thể kết nối máy chủ để xác thực thông tin địa điểm này. Vui lòng kiểm tra lại kết nối mạng.');
+            } else {
+                showNoticeToast('Địa điểm không khả dụng', 'Địa điểm này chưa được xuất bản hoặc không tồn tại.');
+            }
+            return;
+        }
+    }
+
     if (!place) {
         console.warn(`[ViVuTraVinh] Địa điểm không tồn tại hoặc đã tạm dừng hiển thị: ${placeId}`);
         if (typeof window !== 'undefined' && window.location) {

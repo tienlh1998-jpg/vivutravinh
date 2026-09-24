@@ -156,9 +156,10 @@
 
     <!-- App Configuration & Module Exposing -->
     <script>
-        window.VIVUTRAVINH_CONFIG = {
-            apiKey: 'AIzaSyBLmhLn1joMDe7NFEXktRt0rhjw-3cu3vo'
-        };
+        window.VIVUTRAVINH_CONFIG = Object.assign({
+            apiKey: 'AIzaSyBLmhLn1joMDe7NFEXktRt0rhjw-3cu3vo',
+            dataSource: 'supabase'
+        }, window.VIVUTRAVINH_CONFIG || {});
     </script>
     <script type="module">
         import {
