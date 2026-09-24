@@ -585,7 +585,7 @@ export async function executeBienBaDongApprove(options = {}) {
   console.log('\n======================================================================');
   console.log('🛑 BƯỚC 8: DỪNG LẠI HOÀN TẤT BIỂN BA ĐỘNG — CHƯA ĐỘNG ĐẾN 4 ĐỊA ĐIỂM CÒN LẠI');
   console.log('   Biển Ba Động (ID 2) đã được DUYỆT CÔNG KHAI và hiển thị chuẩn xác trên Production.');
-  console.log('   Tuyệt đối chưa tạo hoặc duyệt: Chùa Hang, Chùa Vàm Rây, Cồn Chim, Cù Lao Tân Quy.');
+  console.log('   Tuyệt đối chưa tạo hoặc duyệt: Đền thờ Bác Hồ Trà Vinh, Chùa Hang, Cồn Chim, Chùa Vàm Rây.');
   console.log('======================================================================\n');
 
   return {
