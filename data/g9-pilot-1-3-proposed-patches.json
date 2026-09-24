@@ -1,51 +1,49 @@
 {
   "plan_version": "1.0.0",
-  "generated_at": "2026-09-23T08:21:45.917Z",
+  "generated_at": "2026-09-24T02:51:16.182Z",
   "mode": "DRY_RUN_ONLY",
   "data_source": "live_supabase",
-  "captured_at": "2026-09-23T08:21:45.915Z",
+  "captured_at": "2026-09-24T02:51:16.178Z",
   "is_valid_production_patch": true,
   "target_ids": [
     1,
     3
   ],
-  "manifest_reference": "g9-pilot-1-3-manifest-2026-09-23T08-21-45-915Z.json",
+  "manifest_reference": "g9-pilot-1-3-manifest-2026-09-24T02-51-16-177Z.json",
   "patches": [
     {
       "place_id": 1,
       "slug": "ao-ba-om",
       "concurrency_token": {
-        "expected_before_sha256": "fe6129a3365d41b3e27a098ea704a025294b65583c988d790ba952c452d66486",
-        "expected_updated_at": "2026-05-27T09:05:21.983729+00:00"
+        "expected_before_sha256": "4f74f45fe1743716d016fd84cd96d890c30065764e0a6d2c6248748b2fc12da3",
+        "expected_updated_at": "2026-09-23T09:51:04.83917+00:00"
       },
       "before": {
         "id": 1,
         "slug": "ao-ba-om",
-        "name": "Ao Bà Om aa",
+        "name": "Ao Bà Om",
         "category": "Điểm Check-in / Sống Ảo",
         "area": "TP. Trà Vinh",
-        "address": "Phường 8, TP. Trà Vinh",
+        "address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
         "map_link": "https://www.google.com/maps?q=9.9347,106.3449",
-        "price_raw": "Miễn phí",
+        "price_raw": null,
         "description": "Danh thắng nổi tiếng bậc nhất Trà Vinh với hàng cây cổ thụ trăm tuổi soi bóng xuống mặt hồ phẳng\r\n  lặng.",
         "note": "Nên đi buổi sáng hoặc chiều mát để chụp ảnh đẹp hơn.",
         "contact": null,
         "coordinates": "9.9347,106.3449",
         "contributor": "Admin",
         "rating": 5,
-        "opening_time": "07:00",
-        "closing_time": "18:00",
+        "opening_time": null,
+        "closing_time": null,
         "display_hours": null,
         "operating_status": "Normal",
-        "status": "hidden",
-        "images": [
-          "./ao bà om.jpg"
-        ],
-        "image_link": "./ao bà om.jpg",
+        "status": "approved",
+        "images": [],
+        "image_link": null,
         "sort_order": 1,
         "is_featured": true,
         "created_at": "2026-05-27T02:13:13.148216+00:00",
-        "updated_at": "2026-05-27T09:05:21.983729+00:00",
+        "updated_at": "2026-09-23T09:51:04.83917+00:00",
         "client_submission_id": null
       },
       "after": {
@@ -73,19 +71,12 @@
         "sort_order": 1,
         "is_featured": true,
         "created_at": "2026-05-27T02:13:13.148216+00:00",
-        "updated_at": "2026-09-23T08:21:45.916Z",
+        "updated_at": "2026-09-24T02:51:16.179Z",
         "client_submission_id": null,
-        "expected_updated_at": "2026-05-27T09:05:21.983729+00:00"
+        "expected_updated_at": "2026-09-23T09:51:04.83917+00:00"
       },
       "changed_fields": [
-        "name",
-        "address",
-        "price_raw",
-        "opening_time",
-        "closing_time",
-        "status",
-        "images",
-        "image_link"
+        "status"
       ],
       "field_sources": {
         "name": {
@@ -140,32 +131,16 @@
         }
       },
       "rollback_payload": {
-        "name": "Ao Bà Om aa",
-        "address": "Phường 8, TP. Trà Vinh",
-        "price_raw": "Miễn phí",
-        "opening_time": "07:00",
-        "closing_time": "18:00",
-        "status": "hidden",
-        "images": [
-          "./ao bà om.jpg"
-        ],
-        "image_link": "./ao bà om.jpg"
+        "status": "approved"
       },
       "patch_payload": {
         "id": 1,
-        "expected_updated_at": "2026-05-27T09:05:21.983729+00:00",
-        "name": "Ao Bà Om",
-        "address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
-        "price_raw": null,
-        "opening_time": null,
-        "closing_time": null,
-        "status": "draft",
-        "images": [],
-        "image_link": null
+        "expected_updated_at": "2026-09-23T09:51:04.83917+00:00",
+        "status": "draft"
       },
       "checksums": {
-        "before_sha256": "fe6129a3365d41b3e27a098ea704a025294b65583c988d790ba952c452d66486",
-        "after_sha256": "9e091566c38adf8219099f8239ffe430c4b5fb2a86f244e798503844f0941457"
+        "before_sha256": "4f74f45fe1743716d016fd84cd96d890c30065764e0a6d2c6248748b2fc12da3",
+        "after_sha256": "1e509004f62319823308582b9adfe9a28415516e6767d7a3940da0a8da2b8c48"
       },
       "expected_validator_result": {
         "draft_valid": true,
@@ -189,7 +164,7 @@
           {
             "code": "WARN_MISSING_PRICE",
             "field": "price_raw",
-            "message": "Chưa có thông tin khoảng giá dịch vụ (có thể ghi \"Miễn phí\" nếu không thu vé)."
+            "message": "Chưa có thông tin khoảng giá dịch vụ (cần cập nhật biểu giá hoặc xác nhận không thu vé)."
           }
         ],
         "approval_valid": true,
@@ -213,7 +188,7 @@
           {
             "code": "WARN_MISSING_PRICE",
             "field": "price_raw",
-            "message": "Chưa có thông tin khoảng giá dịch vụ (có thể ghi \"Miễn phí\" nếu không thu vé)."
+            "message": "Chưa có thông tin khoảng giá dịch vụ (cần cập nhật biểu giá hoặc xác nhận không thu vé)."
           }
         ]
       }
@@ -222,40 +197,10 @@
       "place_id": 3,
       "slug": "chua-ang",
       "concurrency_token": {
-        "expected_before_sha256": "fef5381b2476ea039426675ee4f6f5375a5f1cb962ea6d41b1a815f512a20cf4",
-        "expected_updated_at": "2026-05-27T04:38:31.731583+00:00"
+        "expected_before_sha256": "c81b0a2ab72ad401606066afa0d45fdaeb978eb17647e2614c6030155e74363c",
+        "expected_updated_at": "2026-09-23T09:10:54.041501+00:00"
       },
       "before": {
-        "id": 3,
-        "slug": "chua-ang",
-        "name": "Chùa Âng",
-        "category": "Du Lịch Tâm Linh",
-        "area": "TP. Trà Vinh",
-        "address": "Khóm 4, phường 8, TP. Trà Vinh",
-        "map_link": "https://www.google.com/maps?q=9.9322,106.3364",
-        "price_raw": "Miễn phí",
-        "description": "Ngôi chùa Khmer cổ kính, nổi bật với kiến trúc truyền thống và không gian yên bình.",
-        "note": "Giữ trang phục lịch sự khi tham quan.",
-        "contact": null,
-        "coordinates": "9.9322,106.3364",
-        "contributor": "Admin",
-        "rating": 5,
-        "opening_time": "06:00",
-        "closing_time": "18:00",
-        "display_hours": null,
-        "operating_status": "Normal",
-        "status": "hidden",
-        "images": [
-          "./chùa âng.jpg"
-        ],
-        "image_link": "./chùa âng.jpg",
-        "sort_order": 3,
-        "is_featured": true,
-        "created_at": "2026-05-27T02:13:13.148216+00:00",
-        "updated_at": "2026-05-27T04:38:31.731583+00:00",
-        "client_submission_id": null
-      },
-      "after": {
         "id": 3,
         "slug": "chua-ang",
         "name": "Chùa Âng",
@@ -280,30 +225,54 @@
         "sort_order": 3,
         "is_featured": true,
         "created_at": "2026-05-27T02:13:13.148216+00:00",
-        "updated_at": "2026-09-23T08:21:45.917Z",
+        "updated_at": "2026-09-23T09:10:54.041501+00:00",
+        "client_submission_id": null
+      },
+      "after": {
+        "id": 3,
+        "slug": "chua-ang",
+        "name": "Chùa Âng",
+        "category": "Du Lịch Tâm Linh",
+        "area": "TP. Trà Vinh",
+        "address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
+        "map_link": "https://www.google.com/maps?q=9.9322,106.3364",
+        "price_raw": null,
+        "description": "Ngôi chùa Khmer cổ kính và tiêu biểu bậc nhất Nam Bộ khởi dựng từ năm 990, tọa lạc trong khuôn viên danh thắng Ao Bà Om và được công nhận là Di tích lịch sử - văn hóa cấp quốc gia.",
+        "note": null,
+        "contact": null,
+        "coordinates": "9.9322,106.3364",
+        "contributor": "Admin",
+        "rating": null,
+        "opening_time": null,
+        "closing_time": null,
+        "display_hours": null,
+        "operating_status": "Normal",
+        "status": "draft",
+        "images": [],
+        "image_link": null,
+        "sort_order": 3,
+        "is_featured": true,
+        "created_at": "2026-05-27T02:13:13.148216+00:00",
+        "updated_at": "2026-09-24T02:51:16.181Z",
         "client_submission_id": null,
-        "expected_updated_at": "2026-05-27T04:38:31.731583+00:00"
+        "expected_updated_at": "2026-09-23T09:10:54.041501+00:00"
       },
       "changed_fields": [
-        "address",
-        "price_raw",
-        "opening_time",
-        "closing_time",
-        "status",
-        "images",
-        "image_link"
+        "description",
+        "note",
+        "rating"
       ],
       "field_sources": {
         "name": {
-          "source_url": "https://bvhttdl.gov.vn/di-tich-lich-su-van-hoa-chua-ang-wat-angkorajaborey.htm",
-          "rationale": "Tên di tích lịch sử văn hóa cấp quốc gia Chùa Âng (Wat Angkorajaborey)"
+          "source_url": "https://dantoc.vietnamtourism.gov.vn/chua-ang-ngoi-co-tu-khmer-tuyet-dep-o-vinh-long/",
+          "rationale": "Tên ngôi cổ tự Chùa Âng theo bài viết Cổng thông tin Cục Du lịch Quốc gia Việt Nam"
         },
         "slug": {
           "source_url": null,
           "rationale": "Bảo tồn slug hiện hữu \"chua-ang\", không thay đổi"
         },
         "address": {
-          "source_url": "https://bvhttdl.gov.vn/di-tich-lich-su-van-hoa-chua-ang-wat-angkorajaborey.htm",
+          "source_url": "https://dantoc.vietnamtourism.gov.vn/chua-ang-ngoi-co-tu-khmer-tuyet-dep-o-vinh-long/",
           "rationale": "Cập nhật theo địa giới NQ 1687/NQ-UBTVQH15, lưu legacy_address"
         },
         "legacy_address": {
@@ -326,6 +295,18 @@
           "source_url": null,
           "rationale": "Xóa \"Miễn phí\" tự suy diễn, đặt về UNKNOWN/null"
         },
+        "rating": {
+          "source_url": null,
+          "rationale": "Chưa có lượt đánh giá người dùng thực tế nào được kiểm duyệt; xóa điểm 5 tự gán, đặt về null (hiển thị \"Chưa có đánh giá\")"
+        },
+        "description": {
+          "source_url": "https://dantoc.vietnamtourism.gov.vn/chua-ang-ngoi-co-tu-khmer-tuyet-dep-o-vinh-long/",
+          "rationale": "Mô tả chuẩn xác theo bài viết trên Cổng thông tin Cục Du lịch Quốc gia Việt Nam: Chùa Âng là ngôi chùa Khmer cổ kính khởi dựng từ năm 990, tọa lạc trong cụm danh thắng Ao Bà Om."
+        },
+        "note": {
+          "source_url": null,
+          "rationale": "Xóa ghi chú nhắc nhở chưa có nguồn quy định chính thức; giữ null"
+        },
         "contact": {
           "source_url": null,
           "rationale": "Chưa có số hotline công bố chính thức; giữ null"
@@ -346,30 +327,20 @@
         }
       },
       "rollback_payload": {
-        "address": "Khóm 4, phường 8, TP. Trà Vinh",
-        "price_raw": "Miễn phí",
-        "opening_time": "06:00",
-        "closing_time": "18:00",
-        "status": "hidden",
-        "images": [
-          "./chùa âng.jpg"
-        ],
-        "image_link": "./chùa âng.jpg"
+        "description": "Ngôi chùa Khmer cổ kính, nổi bật với kiến trúc truyền thống và không gian yên bình.",
+        "note": "Giữ trang phục lịch sự khi tham quan.",
+        "rating": 5
       },
       "patch_payload": {
         "id": 3,
-        "expected_updated_at": "2026-05-27T04:38:31.731583+00:00",
-        "address": "Khóm 4, phường Nguyệt Hóa, tỉnh Vĩnh Long",
-        "price_raw": null,
-        "opening_time": null,
-        "closing_time": null,
-        "status": "draft",
-        "images": [],
-        "image_link": null
+        "expected_updated_at": "2026-09-23T09:10:54.041501+00:00",
+        "description": "Ngôi chùa Khmer cổ kính và tiêu biểu bậc nhất Nam Bộ khởi dựng từ năm 990, tọa lạc trong khuôn viên danh thắng Ao Bà Om và được công nhận là Di tích lịch sử - văn hóa cấp quốc gia.",
+        "note": null,
+        "rating": null
       },
       "checksums": {
-        "before_sha256": "fef5381b2476ea039426675ee4f6f5375a5f1cb962ea6d41b1a815f512a20cf4",
-        "after_sha256": "a8e645785a869a3b635488d7ec379f08d1f0d27fe601500267d8cb5c37e9e20c"
+        "before_sha256": "c81b0a2ab72ad401606066afa0d45fdaeb978eb17647e2614c6030155e74363c",
+        "after_sha256": "3f9b566c2bd7d345e997be3297ec60e836e15c9ac4d6368ddbda3b595ef2c9bc"
       },
       "expected_validator_result": {
         "draft_valid": true,
@@ -393,7 +364,7 @@
           {
             "code": "WARN_MISSING_PRICE",
             "field": "price_raw",
-            "message": "Chưa có thông tin khoảng giá dịch vụ (có thể ghi \"Miễn phí\" nếu không thu vé)."
+            "message": "Chưa có thông tin khoảng giá dịch vụ (cần cập nhật biểu giá hoặc xác nhận không thu vé)."
           }
         ],
         "approval_valid": true,
@@ -417,7 +388,7 @@
           {
             "code": "WARN_MISSING_PRICE",
             "field": "price_raw",
-            "message": "Chưa có thông tin khoảng giá dịch vụ (có thể ghi \"Miễn phí\" nếu không thu vé)."
+            "message": "Chưa có thông tin khoảng giá dịch vụ (cần cập nhật biểu giá hoặc xác nhận không thu vé)."
           }
         ]
       }
