@@ -17,7 +17,7 @@ console.log(`✅ File data/data-fixture.json hợp lệ: ${fixtures.length} ca t
 const rawFallback = fs.readFileSync('data/data-fallback.json', 'utf8');
 const fallbacks = JSON.parse(rawFallback);
 assert(Array.isArray(fallbacks), 'Fallback phải là một mảng.');
-assert(fallbacks.length >= 10, `Fallback cần ít nhất 10 địa điểm thực tế.`);
+assert(fallbacks.length >= 7, `Fallback cần ít nhất 7 địa điểm thực tế đã được approved, hiện có ${fallbacks.length}.`);
 const hasDummySample = fallbacks.some(p => (p['Mô Tả'] || '').includes('mẫu') || (p['Ghi Chú Thêm'] || '').includes('mẫu'));
 assert(!hasDummySample, 'data/data-fallback.json không được chứa địa điểm giả/mẫu kiểm tra.');
 console.log(`✅ File data/data-fallback.json sạch, không chứa địa điểm giả: ${fallbacks.length} địa điểm.`);

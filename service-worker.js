@@ -1,7 +1,7 @@
 // ViVuTraVinh Service Worker
-// Version 2.9.0 - Partitioned Caches & Atomic Precache
+// Version 2.10.0 - Partitioned Caches & Atomic Precache
 
-const VERSION = '2.9.0';
+const VERSION = '2.10.0';
 const CACHE_SHELL = `vivutravinh-shell-v${VERSION}`;
 const CACHE_DATA = `vivutravinh-data-v${VERSION}`;
 const CACHE_IMAGES = `vivutravinh-images-v${VERSION}`;
