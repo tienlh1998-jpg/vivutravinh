@@ -143,6 +143,38 @@ async function waitForCondition(fn, timeoutMs = 12000, intervalMs = 250) {
 async function runTests() {
     console.log('--- BẮT ĐẦU KIỂM THỬ G1: UI/MOBILE, MODAL, DARK MODE, ACCESSIBILITY ---');
 
+    let localServer = null;
+    const is8000Open = await new Promise(resolve => {
+        const req = http.get('http://127.0.0.1:8000/', () => resolve(true)).on('error', () => resolve(false));
+        req.setTimeout(500, () => { req.destroy(); resolve(false); });
+    });
+    if (!is8000Open) {
+        const MIME = {
+            '.html': 'text/html; charset=utf-8',
+            '.js': 'application/javascript; charset=utf-8',
+            '.json': 'application/json; charset=utf-8',
+            '.css': 'text/css; charset=utf-8',
+            '.svg': 'image/svg+xml',
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.webp': 'image/webp',
+            '.woff2': 'font/woff2'
+        };
+        localServer = http.createServer((req, res) => {
+            let p = req.url.split('?')[0];
+            if (p === '/') p = '/index.html';
+            const fp = path.join(__dirname, '..', p);
+            if (fs.existsSync(fp) && fs.statSync(fp).isFile()) {
+                res.writeHead(200, { 'Content-Type': MIME[path.extname(fp).toLowerCase()] || 'application/octet-stream' });
+                res.end(fs.readFileSync(fp));
+            } else {
+                res.writeHead(404);
+                res.end('Not Found');
+            }
+        });
+        await new Promise(r => localServer.listen(8000, '127.0.0.1', r));
+    }
+
     const port = 9223;
     const tmpProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'chrome_g1_'));
     const chrome = spawn('google-chrome', [
@@ -460,6 +492,7 @@ async function runTests() {
         chrome.kill();
         await sleep(500);
         try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch (e) {}
+        if (localServer) { try { localServer.close(); } catch (e) {} }
 
         console.log('\n--- TẤT CẢ TIÊU CHÍ G1 VÀ ACCESSIBILITY ĐÃ ĐƯỢC KIỂM TRA VÀ ĐẠT 100% ---');
         process.exit(0);
@@ -471,6 +504,7 @@ async function runTests() {
         try { chrome.kill(); } catch (err) {}
         await sleep(500);
         try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch (err) {}
+        if (localServer) { try { localServer.close(); } catch (err) {} }
         process.exit(1);
     }
 }
