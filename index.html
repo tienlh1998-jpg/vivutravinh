@@ -392,6 +392,10 @@
                             <span class="material-symbols-outlined text-[20px] text-amber-500">military_tech</span>
                             <span>Hồ sơ &amp; Thành tích</span>
                         </a>
+                        <a href="#securityModal" onclick="window.ViVuApp?.openSecurityModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-emerald-600 dark:text-emerald-400">shield_lock</span>
+                            <span>Cài đặt &amp; Bảo mật</span>
+                        </a>
                         <a href="#tourItinerariesSection" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px]">route</span>
                             <span>Lịch trình tour 1 ngày</span>
@@ -399,7 +403,7 @@
                     </div>
                 </div>
 
-                <!-- Group 3: Hỗ Trợ Dự Án -->
+                <!-- Group 3: Hỗ TrỢ Dự Án -->
                 <div class="px-space-md">
                     <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Hỗ Trợ Dự Án</span>
                     <div role="navigation" aria-label="Hỗ Trợ Dự Án" class="mt-2 flex flex-col gap-1">
@@ -413,7 +417,7 @@
         </div>
 
         <!-- Bottom Profile Widget (Sidebar) -->
-        <div class="p-space-md border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between">
+        <div class="p-space-md border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between gap-1">
             <button type="button" onclick="window.ViVuApp?.openProfileModal?.()" class="flex items-center gap-3 min-w-0 text-left hover:opacity-85 transition-opacity min-h-[44px] flex-1">
                 <div class="w-9 h-9 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
                     <img src="chùa âng.jpg" alt="Nguyễn Văn Tiến" class="w-full h-full object-cover" />
@@ -422,6 +426,9 @@
                     <span class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">Nguyễn Văn Tiến</span>
                     <span class="font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium">Thành viên Xanh</span>
                 </div>
+            </button>
+            <button onclick="window.ViVuApp?.openSecurityModal?.()" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Cài đặt &amp; Bảo mật" type="button" id="sidebarSettingsBtn">
+                <span class="material-symbols-outlined text-[20px]">settings</span>
             </button>
             <button onclick="window.ViVuApp?.toggleTheme?.()" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Chuyển chế độ giao diện" type="button">
                 <span class="material-symbols-outlined text-[20px]">dark_mode</span>
@@ -503,6 +510,13 @@
                             class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full p-0.5 border border-outline-variant/40 dark:border-zinc-700 hover:ring-2 hover:ring-secondary transition-all flex items-center justify-center shrink-0"
                             title="Hồ sơ &amp; Thành tích Xứ Trà" aria-label="Xem hồ sơ và huy hiệu cá nhân">
                             <img src="chùa âng.jpg" alt="Avatar" class="w-8 h-8 rounded-full object-cover" />
+                        </button>
+
+                        <!-- Nút Cài đặt & Bảo mật (Header Settings) -->
+                        <button id="headerSettingsBtn" onclick="window.ViVuApp.openSecurityModal()"
+                            class="hidden md:flex w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-700 items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
+                            title="Cài đặt tài khoản &amp; Bảo mật" aria-label="Mở cài đặt và bảo mật">
+                            <span class="material-symbols-outlined text-lg">settings</span>
                         </button>
 
                         <!-- Nút Đổi Dark/Light Mode (Touch target >= 44x44px chuẩn W3C) -->
@@ -2576,6 +2590,32 @@
     <div id="savedNoticeToast" class="fixed bottom-20 md:bottom-6 right-6 z-50 transform translate-y-16 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 px-4 py-3 rounded-2xl bg-primary text-white shadow-2xl border border-emerald-500/40">
         <span class="material-symbols-outlined text-[20px] text-secondary-fixed">bookmark_check</span>
         <span class="font-body-md text-xs sm:text-sm font-semibold" id="savedNoticeToastText">Đã cập nhật bộ sưu tập</span>
+    </div>
+
+    <!-- 24. MODAL TRUNG TÂM CÀI ĐẶT & BẢO MẬT (SECURITY CENTER MODAL - PHASE 8) -->
+    <div id="securityModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="securityModalTitle">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeSecurityModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-0 sm:p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full max-w-6xl min-h-screen sm:min-h-0 my-0 sm:my-6 border-0 sm:border border-outline-variant/30 dark:border-zinc-800">
+                    <span id="securityModalTitle" class="sr-only">Cài đặt tài khoản và Trung tâm Bảo mật</span>
+                    <div id="securityModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 25. MODAL LIÊN KẾT AUTHENTICATOR 2FA (LINK 2FA MODAL - PHASE 8) -->
+    <div id="link2faModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="link2faModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeLink2FAModal()"></div>
+        <div class="relative z-10 w-full max-w-lg" id="link2faModalContent"></div>
+    </div>
+
+    <!-- 26. MODAL MÃ KHÔI PHỤC DỰ PHÒNG (BACKUP CODES MODAL - PHASE 8) -->
+    <div id="backupCodesModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="backupCodesModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeBackupCodesModal()"></div>
+        <div class="relative z-10 w-full max-w-lg" id="backupCodesModalContent"></div>
     </div>
 
 </body>

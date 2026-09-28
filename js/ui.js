@@ -5908,4 +5908,869 @@ export function renderExportItineraryModalContent(savedItems = []) {
     `;
 }
 
+/**
+ * =========================================================================
+ * PHASE 8: TRUNG TÂM CÀI ĐẶT, BẢO MẬT & XÁC THỰC 2FA (STITCH SECURITY CENTER)
+ * =========================================================================
+ */
+
+/**
+ * Render Security Modal Content (Desktop Bento & Mobile Responsive)
+ */
+export function renderSecurityModalContent(secState, activeTab = 'security') {
+    const healthScore = secState.healthScore || 75;
+    const healthLevel = secState.healthLevel || 'Rất cao';
+    const protectionLayers = secState.protectionLayers || '3/4 lớp bảo vệ';
+    const devices = secState.devices || [];
+    const notifs = secState.notifications || {};
+    const privacy = secState.privacy || {};
+    const currentDevice = devices.find(d => d.isCurrent) || devices[0];
+    const otherDevices = devices.filter(d => !d.isCurrent);
+
+    return `
+        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl max-w-6xl w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-outline-variant/30 dark:border-zinc-800">
+            <!-- Modal Top Header -->
+            <div class="p-4 sm:p-6 border-b border-outline-variant/20 dark:border-zinc-800 flex items-center justify-between gap-4 bg-surface-container-low dark:bg-zinc-850 shrink-0">
+                <div class="flex items-center gap-3.5 min-w-0">
+                    <div class="w-11 h-11 rounded-2xl bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs">
+                        <span class="material-symbols-outlined text-[24px]">verified_user</span>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base sm:text-xl font-bold text-on-surface dark:text-zinc-100 truncate">
+                                Cài đặt tài khoản &amp; Trung tâm Bảo mật
+                            </h2>
+                            <span class="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-bold tracking-wide uppercase">
+                                Trà Vinh ID
+                            </span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 truncate mt-0.5">
+                            Quản lý thông tin bảo vệ dữ liệu cá nhân, phương thức xác thực và phiên đăng nhập
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" onclick="window.ViVuApp.closeSecurityModal()"
+                        aria-label="Đóng cài đặt"
+                        class="w-11 h-11 rounded-2xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 hover:text-on-surface transition-colors min-h-[44px] min-w-[44px]">
+                        <span class="material-symbols-outlined text-[22px]">close</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body with Sub-Navigation (Sidebar on Desktop, Top Pills on Mobile) -->
+            <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+                <!-- Sub-Navigation Navigation (Sidebar on Desktop) -->
+                <aside class="w-full md:w-64 p-3 sm:p-4 bg-surface-container-low/60 dark:bg-zinc-900/60 border-b md:border-b-0 md:border-r border-outline-variant/20 dark:border-zinc-800 shrink-0 overflow-x-auto md:overflow-y-auto no-scrollbar">
+                    <nav class="flex md:flex-col gap-1.5" role="tablist" aria-label="Các danh mục bảo mật">
+                        <button type="button" role="tab" aria-selected="${activeTab === 'security' ? 'true' : 'false'}"
+                            onclick="window.ViVuApp.switchSecurityTab('security')"
+                            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm whitespace-nowrap transition-all min-h-[44px] shrink-0 ${
+                                activeTab === 'security'
+                                    ? 'bg-primary-container text-white dark:bg-emerald-800 shadow-sm'
+                                    : 'text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-800'
+                            }">
+                            <span class="flex items-center gap-2.5">
+                                <span class="material-symbols-outlined text-[20px]">lock</span>
+                                <span>Mật khẩu &amp; 2FA</span>
+                            </span>
+                            <span class="hidden md:inline material-symbols-outlined text-[18px]">chevron_right</span>
+                        </button>
+
+                        <button type="button" role="tab" aria-selected="${activeTab === 'devices' ? 'true' : 'false'}"
+                            onclick="window.ViVuApp.switchSecurityTab('devices')"
+                            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm whitespace-nowrap transition-all min-h-[44px] shrink-0 ${
+                                activeTab === 'devices'
+                                    ? 'bg-primary-container text-white dark:bg-emerald-800 shadow-sm'
+                                    : 'text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-800'
+                            }">
+                            <span class="flex items-center gap-2.5">
+                                <span class="material-symbols-outlined text-[20px]">devices</span>
+                                <span>Quản lý Thiết bị</span>
+                            </span>
+                            <span class="hidden md:inline w-2 h-2 rounded-full bg-secondary"></span>
+                        </button>
+
+                        <button type="button" role="tab" aria-selected="${activeTab === 'notifications' ? 'true' : 'false'}"
+                            onclick="window.ViVuApp.switchSecurityTab('notifications')"
+                            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm whitespace-nowrap transition-all min-h-[44px] shrink-0 ${
+                                activeTab === 'notifications'
+                                    ? 'bg-primary-container text-white dark:bg-emerald-800 shadow-sm'
+                                    : 'text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-800'
+                            }">
+                            <span class="flex items-center gap-2.5">
+                                <span class="material-symbols-outlined text-[20px]">notifications_active</span>
+                                <span>Thông báo &amp; Tùy chọn</span>
+                            </span>
+                            <span class="hidden md:inline material-symbols-outlined text-[18px]">chevron_right</span>
+                        </button>
+
+                        <button type="button" role="tab" aria-selected="${activeTab === 'privacy' ? 'true' : 'false'}"
+                            onclick="window.ViVuApp.switchSecurityTab('privacy')"
+                            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm whitespace-nowrap transition-all min-h-[44px] shrink-0 ${
+                                activeTab === 'privacy'
+                                    ? 'bg-primary-container text-white dark:bg-emerald-800 shadow-sm'
+                                    : 'text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-800'
+                            }">
+                            <span class="flex items-center gap-2.5">
+                                <span class="material-symbols-outlined text-[20px]">policy</span>
+                                <span>Quyền riêng tư &amp; Dữ liệu</span>
+                            </span>
+                            <span class="hidden md:inline material-symbols-outlined text-[18px]">chevron_right</span>
+                        </button>
+                    </nav>
+
+                    <!-- Emergency support card on desktop sidebar -->
+                    <div class="hidden md:flex flex-col gap-2.5 p-3.5 rounded-2xl bg-surface-container dark:bg-zinc-800/80 border border-outline-variant/20 dark:border-zinc-700/60 mt-6">
+                        <div class="flex items-center gap-2 text-secondary dark:text-emerald-400 font-bold text-xs">
+                            <span class="material-symbols-outlined text-[18px]">support_agent</span>
+                            <span>Hỗ trợ khẩn cấp 24/7</span>
+                        </div>
+                        <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                            Phát hiện truy cập bất thường tại Trà Vinh? Liên hệ ngay Đội An ninh ViVu.
+                        </p>
+                        <a href="tel:19001234" class="text-xs font-bold text-secondary dark:text-emerald-400 hover:underline flex items-center gap-1 min-h-[36px]">
+                            <span>Gọi hotline an ninh</span>
+                            <span class="material-symbols-outlined text-[14px]">call</span>
+                        </a>
+                    </div>
+                </aside>
+
+                <!-- Main Content Pane -->
+                <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6">
+                    ${activeTab === 'security' ? `
+                        <!-- ================= TAB 1: PASSWORD & 2FA ================= -->
+                        <!-- 1. Security Health Banner -->
+                        <div class="bg-surface-container-low dark:bg-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/20 dark:border-zinc-700/60 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                            <div class="flex items-start sm:items-center gap-4">
+                                <div class="relative w-16 h-16 shrink-0 flex items-center justify-center">
+                                    <svg class="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
+                                        <path class="text-surface-container-high dark:text-zinc-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3.5"></path>
+                                        <path class="text-secondary dark:text-emerald-400" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="${healthScore}, 100" stroke-linecap="round" stroke-width="3.5"></path>
+                                    </svg>
+                                    <div class="absolute inset-0 flex items-center justify-center font-bold text-sm text-secondary dark:text-emerald-400">
+                                        ${healthScore}%
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">
+                                            Mức độ bảo vệ: ${healthLevel}
+                                        </h3>
+                                        <span class="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-bold">
+                                            ${protectionLayers}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                        Tài khoản được bảo vệ vững chắc bởi Mật khẩu mạnh, Xác thực 2FA sinh thái và phiên xác thực hợp lệ.
+                                    </p>
+                                    <div class="flex items-center gap-3 pt-1 text-[11px] flex-wrap">
+                                        <span class="text-secondary dark:text-emerald-400 flex items-center gap-1 font-medium">
+                                            <span class="material-symbols-outlined text-[15px]">check_circle</span>
+                                            <span>Mật khẩu an toàn</span>
+                                        </span>
+                                        <span class="text-secondary dark:text-emerald-400 flex items-center gap-1 font-medium">
+                                            <span class="material-symbols-outlined text-[15px]">check_circle</span>
+                                            <span>TOTP 2FA đang bật</span>
+                                        </span>
+                                        <span class="text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">
+                                            <span class="material-symbols-outlined text-[15px]">info</span>
+                                            <span>Chưa bật khóa FIDO2</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="window.ViVuApp.openLink2FAModal()"
+                                class="px-4 py-2.5 rounded-xl bg-secondary hover:bg-primary text-white font-semibold text-xs sm:text-sm transition-all shadow-sm shrink-0 flex items-center justify-center gap-1.5 min-h-[44px]">
+                                <span class="material-symbols-outlined text-[18px]">verified</span>
+                                <span>Tối ưu ngay</span>
+                            </button>
+                        </div>
+
+                        <!-- 2. Change Password Form Card -->
+                        <div class="bg-surface-container-low dark:bg-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/20 dark:border-zinc-700/60 space-y-5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-surface-container dark:bg-zinc-700 text-primary dark:text-emerald-400 flex items-center justify-center">
+                                        <span class="material-symbols-outlined text-[22px]">key</span>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm sm:text-base font-bold text-on-surface dark:text-zinc-100">Đổi mật khẩu tài khoản</h3>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400">Khuyến nghị sử dụng mật khẩu độc nhất không trùng khớp nền tảng khác</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="window.ViVuApp.showSavedToast('Mã đặt lại mật khẩu đã gửi vào email!')"
+                                    class="text-xs font-semibold text-secondary dark:text-emerald-400 hover:underline min-h-[44px] flex items-center">
+                                    Quên mật khẩu?
+                                </button>
+                            </div>
+
+                            <form id="changePasswordForm" onsubmit="event.preventDefault(); window.ViVuApp.submitChangePassword(this);" class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <!-- Current Password -->
+                                    <div class="space-y-1.5 md:col-span-2">
+                                        <label class="text-xs font-semibold text-on-surface dark:text-zinc-200 flex items-center justify-between" for="currPass">
+                                            <span>MẬT KHẨU HIỆN TẠI</span>
+                                            <span class="text-outline text-[11px] font-normal">Bắt buộc</span>
+                                        </label>
+                                        <div class="relative flex items-center">
+                                            <span class="material-symbols-outlined absolute left-3.5 text-outline text-[18px] pointer-events-none">password</span>
+                                            <input id="currPass" name="currPass" type="password" required value="••••••••••••"
+                                                class="w-full h-11 pl-11 pr-11 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 text-xs sm:text-sm text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary min-h-[44px]" />
+                                            <button type="button" onclick="window.ViVuApp.togglePasswordVisibility('currPass')"
+                                                class="absolute right-2 text-outline hover:text-on-surface p-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                                                <span class="material-symbols-outlined text-[18px]">visibility</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- New Password -->
+                                    <div class="space-y-1.5">
+                                        <label class="text-xs font-semibold text-on-surface dark:text-zinc-200" for="newPass">MẬT KHẨU MỚI</label>
+                                        <div class="relative flex items-center">
+                                            <span class="material-symbols-outlined absolute left-3.5 text-outline text-[18px] pointer-events-none">lock</span>
+                                            <input id="newPass" name="newPass" type="password" required placeholder="Nhập mật khẩu mới" value="TraVinhHeritage@2026!"
+                                                class="w-full h-11 pl-11 pr-11 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 text-xs sm:text-sm text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary min-h-[44px]" />
+                                            <button type="button" onclick="window.ViVuApp.togglePasswordVisibility('newPass')"
+                                                class="absolute right-2 text-outline hover:text-on-surface p-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                                                <span class="material-symbols-outlined text-[18px]">visibility</span>
+                                            </button>
+                                        </div>
+                                        <!-- Password Strength Indicator -->
+                                        <div class="pt-1.5 space-y-1">
+                                            <div class="flex items-center justify-between text-[11px]">
+                                                <span class="font-bold text-secondary dark:text-emerald-400">ĐỘ MẠNH: 4/4 RẤT MẠNH</span>
+                                                <span class="text-outline">16 ký tự an toàn</span>
+                                            </div>
+                                            <div class="grid grid-cols-4 gap-1.5 h-1.5 w-full">
+                                                <div class="h-full rounded-full bg-secondary"></div>
+                                                <div class="h-full rounded-full bg-secondary"></div>
+                                                <div class="h-full rounded-full bg-secondary"></div>
+                                                <div class="h-full rounded-full bg-secondary"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Confirm Password -->
+                                    <div class="space-y-1.5">
+                                        <label class="text-xs font-semibold text-on-surface dark:text-zinc-200" for="confirmPass">XÁC NHẬN MẬT KHẨU MỚI</label>
+                                        <div class="relative flex items-center">
+                                            <span class="material-symbols-outlined absolute left-3.5 text-outline text-[18px] pointer-events-none">check_circle</span>
+                                            <input id="confirmPass" name="confirmPass" type="password" required placeholder="Nhập lại mật khẩu mới" value="TraVinhHeritage@2026!"
+                                                class="w-full h-11 pl-11 pr-11 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 text-xs sm:text-sm text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary min-h-[44px]" />
+                                            <span class="material-symbols-outlined absolute right-3 text-secondary text-[20px] pointer-events-none">task_alt</span>
+                                        </div>
+                                        <p class="text-[11px] text-secondary font-medium pt-1">Mật khẩu trùng khớp hoàn hảo</p>
+                                    </div>
+                                </div>
+
+                                <!-- Password Checklist -->
+                                <div class="p-3.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs border border-outline-variant/20 dark:border-zinc-700/50">
+                                    <div class="flex items-center gap-1.5 text-secondary dark:text-emerald-400 font-medium">
+                                        <span class="material-symbols-outlined text-[16px]">done</span>
+                                        <span>Tối thiểu 10 ký tự</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 text-secondary dark:text-emerald-400 font-medium">
+                                        <span class="material-symbols-outlined text-[16px]">done</span>
+                                        <span>Chữ hoa &amp; thường</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 text-secondary dark:text-emerald-400 font-medium">
+                                        <span class="material-symbols-outlined text-[16px]">done</span>
+                                        <span>Số (0-9)</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 text-secondary dark:text-emerald-400 font-medium">
+                                        <span class="material-symbols-outlined text-[16px]">done</span>
+                                        <span>Ký tự đặc biệt</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-end pt-2">
+                                    <button type="submit"
+                                        class="px-5 py-2.5 rounded-xl bg-primary-container hover:bg-secondary text-white font-semibold text-xs sm:text-sm transition-all shadow-sm flex items-center gap-2 min-h-[44px]">
+                                        <span class="material-symbols-outlined text-[18px]">save</span>
+                                        <span>Cập nhật mật khẩu</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- 3. Two-Factor Authentication Section -->
+                        <div class="bg-surface-container-low dark:bg-zinc-800 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/20 dark:border-zinc-700/60 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center">
+                                        <span class="material-symbols-outlined text-[22px]">phonelink_lock</span>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="text-sm sm:text-base font-bold text-on-surface dark:text-zinc-100">Xác thực 2 bước (2FA)</h3>
+                                            <span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-bold">Đang bảo vệ</span>
+                                        </div>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400">Bảo vệ tài khoản ngay cả khi mật khẩu của bạn bị lộ</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3 pt-1">
+                                <!-- Method A: Authenticator -->
+                                <div class="p-4 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div class="flex items-start gap-3.5">
+                                        <div class="w-10 h-10 rounded-xl bg-surface-container dark:bg-zinc-800 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                            <span class="material-symbols-outlined text-[20px]">security_update_good</span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2">
+                                                <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Ứng dụng xác thực (Authenticator)</h4>
+                                                <span class="px-2 py-0.5 rounded bg-secondary-container text-on-secondary-container text-[10px] font-bold">Mặc định</span>
+                                            </div>
+                                            <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">Google Authenticator, Microsoft Authenticator hoặc Authy</p>
+                                            <p class="text-[11px] text-outline font-mono mt-1">Mã TOTP đồng bộ: 7XKP-••••-•••• (Đang nhận tín hiệu an toàn)</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                        <button type="button" onclick="window.ViVuApp.openLink2FAModal()"
+                                            class="px-3 py-2 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[44px]">
+                                            <span class="material-symbols-outlined text-[18px] text-secondary">qr_code_2</span>
+                                            <span>Đổi mã QR</span>
+                                        </button>
+                                        <button type="button" onclick="window.ViVuApp.openLink2FAModal()"
+                                            class="px-3 py-2 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[44px]">
+                                            <span class="material-symbols-outlined text-[18px]">settings</span>
+                                            <span>Cấu hình</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Method B: SMS Backup -->
+                                <div class="p-4 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div class="flex items-start gap-3.5">
+                                        <div class="w-10 h-10 rounded-xl bg-surface-container dark:bg-zinc-800 text-primary dark:text-zinc-300 flex items-center justify-center shrink-0">
+                                            <span class="material-symbols-outlined text-[20px]">sms</span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Tin nhắn SMS bảo mật dự phòng</h4>
+                                            <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">Nhận mã OTP qua số di động viễn thông đăng ký</p>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <span class="text-xs font-semibold text-on-surface dark:text-zinc-200">${secState.smsPhone || '0918 ••• •89'}</span>
+                                                <span class="material-symbols-outlined text-secondary text-[14px]">verified</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                        <button type="button" role="switch" aria-checked="${secState.smsBackupActive ? 'true' : 'false'}"
+                                            onclick="window.ViVuApp.toggleSmsBackup(!${secState.smsBackupActive})"
+                                            class="w-12 h-7 rounded-full transition-colors relative p-0.5 focus:outline-none min-h-[44px] flex items-center ${secState.smsBackupActive ? 'bg-secondary' : 'bg-surface-container-highest dark:bg-zinc-700'}"
+                                            title="Bật/Tắt SMS bảo mật">
+                                            <span class="block w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${secState.smsBackupActive ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Method C: Backup Codes -->
+                                <div class="p-4 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div class="flex items-start gap-3.5">
+                                        <div class="w-10 h-10 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 flex items-center justify-center shrink-0">
+                                            <span class="material-symbols-outlined text-[20px]">pin</span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2">
+                                                <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Mã khôi phục dự phòng (Backup Codes)</h4>
+                                                <span class="px-2 py-0.5 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 text-[10px] font-bold">
+                                                    Còn ${secState.backupCodesRemaining || 8}/10 mã
+                                                </span>
+                                            </div>
+                                            <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">Sử dụng để đăng nhập khẩn cấp khi mất điện thoại hoặc không có mạng</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                        <button type="button" onclick="window.ViVuApp.openBackupCodesModal()"
+                                            class="px-3.5 py-2 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[44px]">
+                                            <span class="material-symbols-outlined text-[18px]">visibility</span>
+                                            <span>Xem 10 mã</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${activeTab === 'devices' ? `
+                        <!-- ================= TAB 2: ACTIVE DEVICES ================= -->
+                        <div class="space-y-5">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-outline-variant/20 dark:border-zinc-800">
+                                <div>
+                                    <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Thiết bị đáng tin cậy &amp; Phiên hoạt động</h3>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                        Các thiết bị đang duy trì trạng thái đăng nhập vào hệ sinh thái ViVuTraVinh
+                                    </p>
+                                </div>
+                                <button type="button" onclick="window.ViVuApp.revokeAllOtherSessions()"
+                                    class="px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900 font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] shrink-0 border border-rose-200 dark:border-rose-900/50">
+                                    <span class="material-symbols-outlined text-[18px]">logout</span>
+                                    <span>Đăng xuất tất cả thiết bị khác</span>
+                                </button>
+                            </div>
+
+                            <!-- Current Device Card -->
+                            <div class="flex flex-col gap-2">
+                                <span class="text-xs font-bold text-secondary dark:text-emerald-400 uppercase tracking-wider">Thiết bị hiện tại này</span>
+                                <div class="p-4 sm:p-5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border-2 border-secondary/30 dark:border-emerald-500/30 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-2xl bg-primary-container text-white flex items-center justify-center shrink-0 shadow-xs">
+                                            <span class="material-symbols-outlined text-[26px]">stay_current_portrait</span>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <h4 class="font-bold text-sm sm:text-base text-on-surface dark:text-zinc-100">${escapeHtml(currentDevice.name)}</h4>
+                                                <span class="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-bold">
+                                                    Thiết bị này • Đang hoạt động
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center gap-3 text-xs text-on-surface-variant dark:text-zinc-400 flex-wrap">
+                                                <span class="flex items-center gap-1">
+                                                    <span class="material-symbols-outlined text-[15px] text-secondary">location_on</span>
+                                                    <span>${escapeHtml(currentDevice.location)}</span>
+                                                </span>
+                                                <span>•</span>
+                                                <span>${escapeHtml(currentDevice.appVersion)}</span>
+                                                <span>•</span>
+                                                <span class="font-mono text-secondary dark:text-emerald-400">IP: ${escapeHtml(currentDevice.ipAddress)}</span>
+                                            </div>
+                                            <div class="text-[11px] text-outline dark:text-zinc-400 pt-0.5">
+                                                ${escapeHtml(currentDevice.authType)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 text-xs font-bold text-secondary dark:text-emerald-400 shrink-0 self-end md:self-center">
+                                        <span class="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
+                                        <span>Trực tuyến</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Other Devices Stack -->
+                            <div class="flex flex-col gap-3 pt-2">
+                                <span class="text-xs font-bold text-on-surface-variant dark:text-zinc-400 uppercase tracking-wider">
+                                    Phiên đăng nhập khác (${otherDevices.length})
+                                </span>
+                                ${otherDevices.length > 0 ? otherDevices.map(dev => `
+                                    <div class="device-card p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs" data-device-id="${dev.id}">
+                                        <div class="flex items-center gap-4">
+                                            <div class="w-11 h-11 rounded-2xl bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 flex items-center justify-center shrink-0">
+                                                <span class="material-symbols-outlined text-[24px]">
+                                                    ${dev.type === 'laptop' ? 'laptop_chromebook' : 'tablet_mac'}
+                                                </span>
+                                            </div>
+                                            <div class="space-y-0.5">
+                                                <h4 class="font-bold text-sm text-on-surface dark:text-zinc-100">${escapeHtml(dev.name)}</h4>
+                                                <div class="flex items-center gap-2.5 text-xs text-on-surface-variant dark:text-zinc-400 flex-wrap">
+                                                    <span class="flex items-center gap-1">
+                                                        <span class="material-symbols-outlined text-[14px]">location_on</span>
+                                                        <span>${escapeHtml(dev.location)}</span>
+                                                    </span>
+                                                    <span>•</span>
+                                                    <span>${escapeHtml(dev.appVersion)}</span>
+                                                    <span>•</span>
+                                                    <span>${escapeHtml(dev.lastActive)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" onclick="window.ViVuApp.revokeDeviceSession('${dev.id}')"
+                                            class="px-3.5 py-2 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950 text-rose-600 dark:text-rose-400 font-semibold text-xs flex items-center gap-1.5 transition-colors min-h-[44px] shrink-0 self-end md:self-center">
+                                            <span class="material-symbols-outlined text-[16px]">close</span>
+                                            <span>Thu hồi phiên</span>
+                                        </button>
+                                    </div>
+                                `).join('') : `
+                                    <div class="p-6 rounded-2xl bg-surface-container-low dark:bg-zinc-850 text-center text-xs text-on-surface-variant dark:text-zinc-400">
+                                        Không còn phiên đăng nhập nào khác đang hoạt động.
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${activeTab === 'notifications' ? `
+                        <!-- ================= TAB 3: NOTIFICATIONS & SOUNDS ================= -->
+                        <div class="space-y-6">
+                            <div class="flex items-center justify-between pb-2 border-b border-outline-variant/20 dark:border-zinc-800">
+                                <div>
+                                    <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Thông báo đẩy &amp; Tùy chọn âm thanh</h3>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">Tùy biến cảnh báo lễ hội, cập nhật bạn đồng hành và thời tiết Xứ Trà</p>
+                                </div>
+                                <button type="button" onclick="window.ViVuApp.resetDefaultNotificationPrefs()"
+                                    class="text-xs font-semibold text-secondary dark:text-emerald-400 hover:underline min-h-[44px] flex items-center">
+                                    Khôi phục mặc định
+                                </button>
+                            </div>
+
+                            <div class="p-4 sm:p-5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/20 dark:border-zinc-700/60 space-y-4">
+                                <!-- Toggle 1: Festivals & Events -->
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Lễ hội &amp; Sự kiện Xứ Trà</h4>
+                                            <span class="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold">Lễ hội</span>
+                                        </div>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                            Nhắc nhở ngày diễn ra Ok Om Bok, Chôl Chnăm Thmây, đua ghe Ngo trước 3 ngày.
+                                        </p>
+                                    </div>
+                                    <button type="button" role="switch" aria-checked="${notifs.pushEvents ? 'true' : 'false'}"
+                                        onclick="window.ViVuApp.toggleNotificationPref('pushEvents')"
+                                        class="w-12 h-7 rounded-full transition-colors relative p-0.5 focus:outline-none min-h-[44px] flex items-center shrink-0 ${notifs.pushEvents ? 'bg-secondary' : 'bg-surface-container-highest dark:bg-zinc-700'}">
+                                        <span class="block w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${notifs.pushEvents ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                    </button>
+                                </div>
+
+                                <div class="h-[1px] bg-outline-variant/20 dark:border-zinc-700"></div>
+
+                                <!-- Toggle 2: Clubs & Companions -->
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">CLB &amp; Bạn đồng hành</h4>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                            Thông báo khi có bài viết mới, lời mời tham gia tour đạp xe, phản hồi bình luận.
+                                        </p>
+                                    </div>
+                                    <button type="button" role="switch" aria-checked="${notifs.pushClubs ? 'true' : 'false'}"
+                                        onclick="window.ViVuApp.toggleNotificationPref('pushClubs')"
+                                        class="w-12 h-7 rounded-full transition-colors relative p-0.5 focus:outline-none min-h-[44px] flex items-center shrink-0 ${notifs.pushClubs ? 'bg-secondary' : 'bg-surface-container-highest dark:bg-zinc-700'}">
+                                        <span class="block w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${notifs.pushClubs ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                    </button>
+                                </div>
+
+                                <div class="h-[1px] bg-outline-variant/20 dark:border-zinc-700"></div>
+
+                                <!-- Toggle 3: Badges & Eco -->
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Thành tích &amp; Huy hiệu Eco</h4>
+                                            <span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold">+Xu Xứ Trà</span>
+                                        </div>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                            Chúc mừng mở khóa huy hiệu mới, cộng điểm thưởng Xu Xứ Trà khi hoàn thành km xanh.
+                                        </p>
+                                    </div>
+                                    <button type="button" role="switch" aria-checked="${notifs.pushBadges ? 'true' : 'false'}"
+                                        onclick="window.ViVuApp.toggleNotificationPref('pushBadges')"
+                                        class="w-12 h-7 rounded-full transition-colors relative p-0.5 focus:outline-none min-h-[44px] flex items-center shrink-0 ${notifs.pushBadges ? 'bg-secondary' : 'bg-surface-container-highest dark:bg-zinc-700'}">
+                                        <span class="block w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${notifs.pushBadges ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                    </button>
+                                </div>
+
+                                <div class="h-[1px] bg-outline-variant/20 dark:border-zinc-700"></div>
+
+                                <!-- Toggle 4: Weather & Tides -->
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Cảnh báo thời tiết &amp; Triều cường</h4>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                            Cảnh báo mưa dông, triều cường dâng cao vùng Cầu Kè, Duyên Hải để đi tour an toàn.
+                                        </p>
+                                    </div>
+                                    <button type="button" role="switch" aria-checked="${notifs.pushWeather ? 'true' : 'false'}"
+                                        onclick="window.ViVuApp.toggleNotificationPref('pushWeather')"
+                                        class="w-12 h-7 rounded-full transition-colors relative p-0.5 focus:outline-none min-h-[44px] flex items-center shrink-0 ${notifs.pushWeather ? 'bg-secondary' : 'bg-surface-container-highest dark:bg-zinc-700'}">
+                                        <span class="block w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${notifs.pushWeather ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                    </button>
+                                </div>
+
+                                <div class="h-[1px] bg-outline-variant/20 dark:border-zinc-700"></div>
+
+                                <!-- Toggle 5: Vouchers -->
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Ưu đãi sinh thái &amp; Voucher ẩm thực</h4>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                            Khuyến mãi trạm xe đạp điện, quán bún nước lèo và dừa sáp Cầu Kè đối tác.
+                                        </p>
+                                    </div>
+                                    <button type="button" role="switch" aria-checked="${notifs.pushVouchers ? 'true' : 'false'}"
+                                        onclick="window.ViVuApp.toggleNotificationPref('pushVouchers')"
+                                        class="w-12 h-7 rounded-full transition-colors relative p-0.5 focus:outline-none min-h-[44px] flex items-center shrink-0 ${notifs.pushVouchers ? 'bg-secondary' : 'bg-surface-container-highest dark:bg-zinc-700'}">
+                                        <span class="block w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${notifs.pushVouchers ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${activeTab === 'privacy' ? `
+                        <!-- ================= TAB 4: PRIVACY & DATA ================= -->
+                        <div class="space-y-6">
+                            <div class="pb-2 border-b border-outline-variant/20 dark:border-zinc-800">
+                                <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Quyền riêng tư &amp; Dữ liệu người dùng</h3>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">Kiểm soát dữ liệu hành trình, vị trí GPS và sao lưu hồ sơ</p>
+                            </div>
+
+                            <div class="p-4 sm:p-5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/20 dark:border-zinc-700/60 space-y-4">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Chia sẻ vị trí GPS khi khám phá</h4>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">Cho phép bản đồ định vị chính xác khoảng cách đến các chùa Khmer</p>
+                                    </div>
+                                    <button type="button" role="switch" aria-checked="${privacy.shareGpsLocation ? 'true' : 'false'}"
+                                        onclick="window.ViVuApp.togglePrivacyPref('shareGpsLocation')"
+                                        class="w-12 h-7 rounded-full transition-colors relative p-0.5 focus:outline-none min-h-[44px] flex items-center shrink-0 ${privacy.shareGpsLocation ? 'bg-secondary' : 'bg-surface-container-highest dark:bg-zinc-700'}">
+                                        <span class="block w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${privacy.shareGpsLocation ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                    </button>
+                                </div>
+
+                                <div class="h-[1px] bg-outline-variant/20 dark:border-zinc-700"></div>
+
+                                <div class="flex items-start justify-between gap-4">
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Chế độ riêng tư trong Câu Lạc Bộ</h4>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">Ẩn chỉ số km đạp xe và danh sách huy hiệu với thành viên khác</p>
+                                    </div>
+                                    <button type="button" role="switch" aria-checked="${privacy.anonymousInClubs ? 'true' : 'false'}"
+                                        onclick="window.ViVuApp.togglePrivacyPref('anonymousInClubs')"
+                                        class="w-12 h-7 rounded-full transition-colors relative p-0.5 focus:outline-none min-h-[44px] flex items-center shrink-0 ${privacy.anonymousInClubs ? 'bg-secondary' : 'bg-surface-container-highest dark:bg-zinc-700'}">
+                                        <span class="block w-6 h-6 rounded-full bg-white shadow-md transform transition-transform ${privacy.anonymousInClubs ? 'translate-x-5' : 'translate-x-0'}"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Data Export Box -->
+                            <div class="p-4 sm:p-5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/20 dark:border-zinc-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div class="space-y-0.5">
+                                    <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Xuất toàn bộ dữ liệu du lịch (.JSON)</h4>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400">Tải về danh sách điểm đã lưu, huy hiệu và bài đăng cộng đồng của bạn</p>
+                                </div>
+                                <button type="button" onclick="window.ViVuApp.exportUserData()"
+                                    class="px-4 py-2.5 rounded-xl bg-surface-container dark:bg-zinc-700 hover:bg-surface-container-high dark:hover:bg-zinc-600 text-on-surface dark:text-zinc-200 font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] shrink-0 self-end sm:self-center">
+                                    <span class="material-symbols-outlined text-[18px]">download</span>
+                                    <span>Tải xuống dữ liệu</span>
+                                </button>
+                            </div>
+                        </div>
+                    ` : ''}
+                </main>
+            </div>
+
+            <!-- Footer Save Notice Bar -->
+            <div class="p-4 sm:p-5 border-t border-outline-variant/20 dark:border-zinc-800 bg-surface-container-low dark:bg-zinc-850 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+                <div class="flex items-center gap-2 text-xs text-on-surface-variant dark:text-zinc-400">
+                    <span class="material-symbols-outlined text-[18px] text-secondary">shield_with_heart</span>
+                    <span>Mọi thay đổi bảo mật sẽ tự động đồng bộ ngay trên hệ thống Trà Vinh ID.</span>
+                </div>
+                <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                    <button type="button" onclick="window.ViVuApp.closeSecurityModal()"
+                        class="px-4 py-2 rounded-xl text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 font-semibold text-xs sm:text-sm min-h-[44px]">
+                        Đóng
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.showSavedToast('Đã lưu tất cả thiết lập an toàn!'); window.ViVuApp.closeSecurityModal();"
+                        class="px-5 py-2 rounded-xl bg-primary-container hover:bg-secondary text-white font-semibold text-xs sm:text-sm shadow-md flex items-center gap-1.5 min-h-[44px]">
+                        <span class="material-symbols-outlined text-[18px]">check</span>
+                        <span>Hoàn tất &amp; Lưu</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Link 2FA Authenticator Modal Content (3-Step setup with QR & Secret Key)
+ */
+export function renderLink2FAModalContent(secState) {
+    const secretKey = secState.secretKey || '7XKP 9N4M 2BVT 8HQZ 5WLC';
+
+    return `
+        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 border border-outline-variant/30 dark:border-zinc-800">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-[22px]">phonelink_setup</span>
+                    </div>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Liên kết Authenticator (2FA)</h3>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400">Bước 2/3: Quét mã QR hoặc nhập khóa</p>
+                    </div>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeLink2FAModal()"
+                    aria-label="Đóng"
+                    class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <!-- Stepper Progress Bar -->
+            <div class="grid grid-cols-3 gap-2 w-full h-1.5">
+                <div class="h-full rounded-full bg-secondary"></div>
+                <div class="h-full rounded-full bg-secondary"></div>
+                <div class="h-full rounded-full bg-surface-container-highest dark:bg-zinc-700"></div>
+            </div>
+
+            <!-- Notice Instructions -->
+            <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed bg-surface-container-low dark:bg-zinc-800 p-3 rounded-xl border border-outline-variant/20 dark:border-zinc-700">
+                Mở ứng dụng <strong>Google Authenticator</strong> hoặc <strong>Authy</strong>, chọn biểu tượng <strong>+</strong> và quét mã QR bên dưới để thêm tài khoản <strong>ViVuTraVinh</strong>:
+            </p>
+
+            <!-- QR Presentation Area (Pure SVG, Zero-CDN) -->
+            <div class="flex flex-col items-center justify-center p-4 bg-surface-container-low dark:bg-zinc-800/80 rounded-2xl border border-outline-variant/20 dark:border-zinc-700">
+                <div class="relative w-44 h-44 bg-white p-3 rounded-xl shadow-md flex items-center justify-center">
+                    <svg class="w-full h-full text-[#003527]" fill="currentColor" viewBox="0 0 160 160">
+                        <rect fill="currentColor" height="36" rx="4" width="36" x="10" y="10"></rect>
+                        <rect fill="#ffffff" height="24" rx="2" width="24" x="16" y="16"></rect>
+                        <rect fill="#003527" height="12" rx="1" width="12" x="22" y="22"></rect>
+                        <rect fill="currentColor" height="36" rx="4" width="36" x="114" y="10"></rect>
+                        <rect fill="#ffffff" height="24" rx="2" width="24" x="120" y="16"></rect>
+                        <rect fill="#003527" height="12" rx="1" width="12" x="126" y="22"></rect>
+                        <rect fill="currentColor" height="36" rx="4" width="36" x="10" y="114"></rect>
+                        <rect fill="#ffffff" height="24" rx="2" width="24" x="16" y="120"></rect>
+                        <rect fill="#003527" height="12" rx="1" width="12" x="22" y="126"></rect>
+                        <rect height="6" rx="1" width="6" x="52" y="12"></rect>
+                        <rect height="6" rx="1" width="12" x="64" y="12"></rect>
+                        <rect height="6" rx="1" width="18" x="88" y="24"></rect>
+                        <rect height="12" rx="1" width="6" x="12" y="52"></rect>
+                        <rect height="8" rx="1" width="8" x="48" y="48"></rect>
+                        <rect height="18" rx="1" width="6" x="82" y="48"></rect>
+                        <rect height="6" rx="1" width="18" x="12" y="70"></rect>
+                        <rect height="8" rx="1" width="18" x="100" y="68"></rect>
+                        <rect height="14" rx="1" width="8" x="12" y="88"></rect>
+                        <rect height="18" rx="1" width="6" x="110" y="82"></rect>
+                        <rect height="18" rx="1" width="6" x="72" y="98"></rect>
+                        <rect height="14" rx="1" width="8" x="52" y="120"></rect>
+                        <rect height="6" rx="1" width="18" x="66" y="126"></rect>
+                        <rect height="8" rx="1" width="12" x="76" y="136"></rect>
+                        <rect height="6" rx="1" width="18" x="122" y="144"></rect>
+                    </svg>
+                    <!-- Center Identity Leaf -->
+                    <div class="absolute inset-auto w-9 h-9 rounded-lg bg-emerald-900 text-white flex items-center justify-center shadow-md">
+                        <span class="material-symbols-outlined text-[18px]">spa</span>
+                    </div>
+                </div>
+                <span class="text-[11px] text-on-surface-variant dark:text-zinc-400 mt-2 font-mono">vivutravinh: tien.travinh@gmail.com</span>
+            </div>
+
+            <!-- Manual Secret Key Entry -->
+            <div class="space-y-1.5">
+                <span class="text-xs font-semibold text-on-surface dark:text-zinc-200">Không thể quét mã? Nhập khóa thủ công:</span>
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700">
+                    <span id="secretKeyText" class="font-mono text-xs font-bold text-primary dark:text-emerald-400 tracking-wider truncate select-all">
+                        ${escapeHtml(secretKey)}
+                    </span>
+                    <button type="button" onclick="window.ViVuApp.copySecretKey('${escapeHtml(secretKey)}')"
+                        class="px-3 py-1.5 rounded-lg bg-secondary hover:bg-primary text-white text-xs font-semibold flex items-center gap-1 transition-colors min-h-[44px]">
+                        <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                        <span>Sao chép</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 6-Digit OTP Entry Form -->
+            <div class="space-y-2">
+                <label class="text-xs font-semibold text-on-surface dark:text-zinc-200" for="otp1">Nhập 6 số xác thực từ ứng dụng:</label>
+                <div class="flex items-center justify-between gap-1.5" id="otpContainer">
+                    ${[1, 2, 3, 4, 5, 6].map(i => `
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" id="otp${i}"
+                            oninput="window.ViVuApp.handleOtpInput(this, ${i})"
+                            onkeydown="window.ViVuApp.handleOtpKeydown(this, event, ${i})"
+                            class="otp-input w-11 h-12 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-center font-bold text-base text-primary dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary min-h-[44px]" />
+                    `).join('')}
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-on-surface-variant dark:text-zinc-400 pt-1">
+                    <span class="flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-secondary inline-block animate-pulse"></span>
+                        <span>Mã tự động đổi mỗi 30 giây</span>
+                    </span>
+                    <button type="button" onclick="window.ViVuApp.pasteOtpCode()" class="text-secondary dark:text-emerald-400 font-semibold hover:underline min-h-[44px] flex items-center">
+                        Dán mã từ clipboard
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottom CTA -->
+            <div class="flex items-center justify-end gap-2.5 pt-2">
+                <button type="button" onclick="window.ViVuApp.closeLink2FAModal()"
+                    class="px-4 py-2.5 rounded-xl text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 text-xs sm:text-sm font-semibold min-h-[44px]">
+                    Hủy bỏ
+                </button>
+                <button type="button" onclick="window.ViVuApp.verify2FA()"
+                    class="px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5 shadow-md min-h-[44px]">
+                    <span class="material-symbols-outlined text-[18px]">verified</span>
+                    <span>Xác nhận &amp; Kích hoạt 2FA</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Backup Codes Modal Content
+ */
+export function renderBackupCodesModalContent(secState) {
+    const codes = secState.backupCodes || [];
+
+    return `
+        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 border border-outline-variant/30 dark:border-zinc-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-[22px]">pin</span>
+                    </div>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Mã Khôi Phục Dự Phòng</h3>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400">10 mã đăng nhập khẩn cấp 1 lần</p>
+                    </div>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeBackupCodesModal()"
+                    aria-label="Đóng"
+                    class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2 border border-amber-200 dark:border-amber-900/50">
+                <span class="material-symbols-outlined text-[18px] shrink-0 mt-0.5">warning</span>
+                <span>
+                    Mỗi mã chỉ sử dụng được <strong>1 lần duy nhất</strong>. Hãy lưu vào nơi an toàn (ghi vào sổ tay hoặc lưu trong trình quản lý mật khẩu).
+                </span>
+            </div>
+
+            <!-- Grid of 10 codes -->
+            <div class="grid grid-cols-2 gap-2.5 p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700">
+                ${codes.map((item, idx) => `
+                    <div class="p-2.5 rounded-xl font-mono text-xs font-bold flex items-center justify-between ${
+                        item.used
+                            ? 'bg-surface-container/50 dark:bg-zinc-900/50 text-outline dark:text-zinc-500 line-through'
+                            : 'bg-surface-container-lowest dark:bg-zinc-900 text-on-surface dark:text-zinc-100 shadow-2xs'
+                    }">
+                        <span>${idx + 1}. ${escapeHtml(item.code)}</span>
+                        ${item.used ? `
+                            <span class="text-[10px] text-outline font-normal">Đã dùng</span>
+                        ` : `
+                            <span class="material-symbols-outlined text-secondary text-[14px]">check</span>
+                        `}
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="flex items-center justify-between gap-3 pt-2">
+                <button type="button" onclick="window.ViVuApp.regenerateBackupCodes()"
+                    class="text-xs font-semibold text-secondary dark:text-emerald-400 hover:underline flex items-center gap-1 min-h-[44px]">
+                    <span class="material-symbols-outlined text-[16px]">refresh</span>
+                    <span>Tạo bộ mã mới</span>
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.ViVuApp.closeBackupCodesModal()"
+                        class="px-4 py-2 rounded-xl text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 text-xs sm:text-sm font-semibold min-h-[44px]">
+                        Đóng
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.copyBackupCodes()"
+                        class="px-4 py-2 rounded-xl bg-secondary hover:bg-primary text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm min-h-[44px]">
+                        <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                        <span>Sao chép tất cả</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+
 

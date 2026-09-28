@@ -38,7 +38,10 @@ import {
     renderRedeemGiftModalContent,
     renderEditProfileModalContent,
     renderCreateCollectionModalContent,
-    renderExportItineraryModalContent
+    renderExportItineraryModalContent,
+    renderSecurityModalContent,
+    renderLink2FAModalContent,
+    renderBackupCodesModalContent
 } from './ui.js';
 
 import {
@@ -77,6 +80,10 @@ import {
     SAVED_FOLDERS,
     REDEEMABLE_GIFTS
 } from './profile-data.js';
+import {
+    INITIAL_SECURITY_STATE,
+    SECURITY_AUDIT_LOGS
+} from './security-data.js';
 
 import { getSiteUrl, DEFAULT_SITE_URL } from './config.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
@@ -429,6 +436,24 @@ function saveStoredSavedFolders(folders) {
     } catch (e) {}
 }
 
+function getStoredSecuritySettings() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_security_settings');
+            if (raw) return JSON.parse(raw);
+        }
+    } catch (e) {}
+    return { ...INITIAL_SECURITY_STATE };
+}
+
+function saveStoredSecuritySettings(settings) {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('vivu_security_settings', JSON.stringify(settings));
+        }
+    } catch (e) {}
+}
+
 // Global Application State
 export const state = {
     allPlaces: [],
@@ -507,7 +532,12 @@ export const state = {
     savedSortMode: 'recent',
     savedViewMode: 'grid',
     profileActiveTab: 'overview',
-    profileBadgeCategory: 'all'
+    profileBadgeCategory: 'all',
+    // Settings, Security Center & 2FA (Phase 8)
+    securitySettings: getStoredSecuritySettings(),
+    securityActiveTab: 'security',
+    securityAuditLogs: SECURITY_AUDIT_LOGS,
+    otpBuffer: ['', '', '', '', '', '']
 };
 
 // Khởi chạy khi DOM tải xong
@@ -5038,6 +5068,260 @@ export function showSavedToast(msg) {
     }, 3200);
 }
 
+// =========================================================================
+// PHASE 8: CÀI ĐẶT TÀI KHOẢN & TRUNG TÂM BẢO MẬT (SECURITY CENTER & 2FA)
+// =========================================================================
+
+export function openSecurityModal(tab = 'security') {
+    state.securityActiveTab = tab;
+    const modal = document.getElementById('securityModal');
+    const content = document.getElementById('securityModalContent');
+    if (!modal || !content) return;
+    content.innerHTML = renderSecurityModalContent(state.securitySettings, state.securityActiveTab);
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+export function closeSecurityModal() {
+    const modal = document.getElementById('securityModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+export function switchSecurityTab(tab) {
+    state.securityActiveTab = tab;
+    const content = document.getElementById('securityModalContent');
+    if (content) {
+        content.innerHTML = renderSecurityModalContent(state.securitySettings, state.securityActiveTab);
+    }
+}
+
+export function togglePasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+export function submitChangePassword(form) {
+    const curr = form.currPass ? form.currPass.value.trim() : '';
+    const newPass = form.newPass ? form.newPass.value.trim() : '';
+    const confirm = form.confirmPass ? form.confirmPass.value.trim() : '';
+
+    if (!curr) {
+        showSavedToast('Vui lòng nhập mật khẩu hiện tại!');
+        return;
+    }
+    if (!newPass || newPass.length < 10) {
+        showSavedToast('Mật khẩu mới phải có tối thiểu 10 ký tự!');
+        return;
+    }
+    if (newPass !== confirm) {
+        showSavedToast('Mật khẩu xác nhận không khớp!');
+        return;
+    }
+
+    state.securitySettings.lastUpdated = 'Vừa xong';
+    saveStoredSecuritySettings(state.securitySettings);
+    showSavedToast('Đã cập nhật mật khẩu tài khoản thành công!');
+    form.reset();
+}
+
+export function toggleSmsBackup(checked) {
+    state.securitySettings.smsBackupActive = Boolean(checked);
+    saveStoredSecuritySettings(state.securitySettings);
+    const msg = state.securitySettings.smsBackupActive
+        ? 'Đã bật nhận mã OTP dự phòng qua tin nhắn SMS!'
+        : 'Đã tắt tính năng nhận OTP qua SMS.';
+    showSavedToast(msg);
+    switchSecurityTab('security');
+}
+
+export function openLink2FAModal() {
+    const modal = document.getElementById('link2faModal');
+    const content = document.getElementById('link2faModalContent');
+    if (!modal || !content) return;
+    content.innerHTML = renderLink2FAModalContent(state.securitySettings);
+    modal.classList.remove('hidden');
+}
+
+export function closeLink2FAModal() {
+    const modal = document.getElementById('link2faModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export function copySecretKey(key) {
+    try {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(key.replace(/\s+/g, ''));
+        }
+    } catch (e) {}
+    showSavedToast('Đã sao chép mã khóa bảo mật vào bộ nhớ tạm!');
+}
+
+export function handleOtpInput(input, index) {
+    const val = input.value.replace(/[^0-9]/g, '');
+    input.value = val ? val[val.length - 1] : '';
+    state.otpBuffer[index - 1] = input.value;
+    if (input.value && index < 6) {
+        const next = document.getElementById(`otp${index + 1}`);
+        if (next) next.focus();
+    }
+}
+
+export function handleOtpKeydown(input, event, index) {
+    if (event.key === 'Backspace' && !input.value && index > 1) {
+        const prev = document.getElementById(`otp${index - 1}`);
+        if (prev) {
+            prev.focus();
+            prev.value = '';
+            state.otpBuffer[index - 2] = '';
+        }
+    }
+}
+
+export function pasteOtpCode() {
+    const code = '654321';
+    for (let i = 1; i <= 6; i++) {
+        const input = document.getElementById(`otp${i}`);
+        if (input) input.value = code[i - 1];
+        state.otpBuffer[i - 1] = code[i - 1];
+    }
+    showSavedToast('Đã dán mã OTP từ clipboard!');
+}
+
+export function verify2FA() {
+    const code = state.otpBuffer.join('');
+    if (code.length < 6) {
+        let directCode = '';
+        for (let i = 1; i <= 6; i++) {
+            const input = document.getElementById(`otp${i}`);
+            directCode += input ? input.value : '';
+        }
+        if (directCode.length < 6) {
+            showSavedToast('Vui lòng nhập đủ 6 chữ số xác thực!');
+            return;
+        }
+    }
+
+    state.securitySettings.totpActive = true;
+    state.securitySettings.healthScore = 90;
+    state.securitySettings.healthLevel = 'Tối ưu';
+    state.securitySettings.protectionLayers = '4/4 lớp bảo vệ';
+    saveStoredSecuritySettings(state.securitySettings);
+
+    closeLink2FAModal();
+    showSavedToast('Kích hoạt xác thực 2 bước (2FA) thành công!');
+    switchSecurityTab('security');
+}
+
+export function openBackupCodesModal() {
+    const modal = document.getElementById('backupCodesModal');
+    const content = document.getElementById('backupCodesModalContent');
+    if (!modal || !content) return;
+    content.innerHTML = renderBackupCodesModalContent(state.securitySettings);
+    modal.classList.remove('hidden');
+}
+
+export function closeBackupCodesModal() {
+    const modal = document.getElementById('backupCodesModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export function copyBackupCodes() {
+    const codesText = (state.securitySettings.backupCodes || []).map((c, i) => `${i + 1}. ${c.code} ${c.used ? '(Đã dùng)' : ''}`).join('\n');
+    try {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(codesText);
+        }
+    } catch (e) {}
+    showSavedToast('Đã sao chép 10 mã khôi phục dự phòng!');
+}
+
+export function regenerateBackupCodes() {
+    const prefixes = ['TRV', 'ECO', 'KHM', 'VVT', 'TRA', 'VNH', 'OKO', 'ANG', 'AOB', 'CKK'];
+    const newCodes = prefixes.map(p => ({
+        code: `${p}-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`,
+        used: false
+    }));
+    state.securitySettings.backupCodes = newCodes;
+    state.securitySettings.backupCodesRemaining = 10;
+    saveStoredSecuritySettings(state.securitySettings);
+    openBackupCodesModal();
+    showSavedToast('Đã tạo mới 10 mã khôi phục dự phòng!');
+}
+
+export function revokeDeviceSession(deviceId) {
+    state.securitySettings.devices = (state.securitySettings.devices || []).filter(d => d.id !== deviceId);
+    saveStoredSecuritySettings(state.securitySettings);
+    showSavedToast('Đã thu hồi phiên đăng nhập thiết bị thành công!');
+    switchSecurityTab('devices');
+}
+
+export function revokeAllOtherSessions() {
+    state.securitySettings.devices = (state.securitySettings.devices || []).filter(d => d.isCurrent);
+    saveStoredSecuritySettings(state.securitySettings);
+    showSavedToast('Đã đăng xuất khỏi tất cả thiết bị khác!');
+    switchSecurityTab('devices');
+}
+
+export function toggleNotificationPref(key) {
+    if (!state.securitySettings.notifications) {
+        state.securitySettings.notifications = {};
+    }
+    state.securitySettings.notifications[key] = !state.securitySettings.notifications[key];
+    saveStoredSecuritySettings(state.securitySettings);
+    switchSecurityTab('notifications');
+    showSavedToast('Đã cập nhật tùy chọn thông báo!');
+}
+
+export function resetDefaultNotificationPrefs() {
+    state.securitySettings.notifications = {
+        pushEvents: true,
+        pushClubs: true,
+        pushBadges: true,
+        pushWeather: true,
+        pushVouchers: false,
+        soundChime: 'khmer_chime',
+        emailDigest: 'weekly'
+    };
+    saveStoredSecuritySettings(state.securitySettings);
+    switchSecurityTab('notifications');
+    showSavedToast('Đã khôi phục cài đặt thông báo mặc định!');
+}
+
+export function togglePrivacyPref(key) {
+    if (!state.securitySettings.privacy) {
+        state.securitySettings.privacy = {};
+    }
+    state.securitySettings.privacy[key] = !state.securitySettings.privacy[key];
+    saveStoredSecuritySettings(state.securitySettings);
+    switchSecurityTab('privacy');
+    showSavedToast('Đã cập nhật tùy chọn quyền riêng tư!');
+}
+
+export function exportUserData() {
+    const exportBundle = {
+        userProfile: state.userProfile,
+        savedCollections: state.savedCollections,
+        securitySettings: {
+            healthScore: state.securitySettings.healthScore,
+            lastUpdated: state.securitySettings.lastUpdated,
+            devicesCount: state.securitySettings.devices?.length || 0
+        },
+        exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(exportBundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vivutravinh-data-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showSavedToast('Đã xuất toàn bộ dữ liệu du lịch cá nhân!');
+}
+
 // Expose ra window để hỗ trợ inline HTML event handlers
 if (typeof window !== 'undefined') {
     window.ViVuApp = {
@@ -5181,6 +5465,30 @@ if (typeof window !== 'undefined') {
         openSavedDetail,
         showSavedToast,
         showNotification,
+        // Security Center & 2FA Methods (Phase 8)
+        openSecurityModal,
+        closeSecurityModal,
+        switchSecurityTab,
+        togglePasswordVisibility,
+        submitChangePassword,
+        toggleSmsBackup,
+        openLink2FAModal,
+        closeLink2FAModal,
+        copySecretKey,
+        handleOtpInput,
+        handleOtpKeydown,
+        pasteOtpCode,
+        verify2FA,
+        openBackupCodesModal,
+        closeBackupCodesModal,
+        copyBackupCodes,
+        regenerateBackupCodes,
+        revokeDeviceSession,
+        revokeAllOtherSessions,
+        toggleNotificationPref,
+        resetDefaultNotificationPrefs,
+        togglePrivacyPref,
+        exportUserData,
         getState: () => state,
         get state() { return state; }
     };
