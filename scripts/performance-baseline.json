@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-28T04:31:03.832Z",
+  "timestamp": "2026-09-28T05:07:27.183Z",
   "version": "2.9.0",
   "environment": {
     "server": "localhost",
@@ -9,10 +9,10 @@
   },
   "desktop": {
     "lcp": 196,
-    "cls": 0.044,
+    "cls": 0.0157,
     "shifts": [
       {
-        "value": 0.0075,
+        "value": 0.006029644268774704,
         "sources": [
           {
             "tag": "FOOTER",
@@ -24,59 +24,59 @@
         ]
       },
       {
-        "value": 0.033024253034729494,
+        "value": 0.008190982493672765,
         "sources": [
           {
             "tag": "DIV",
             "id": "",
-            "class": "relative z-10 p-6 sm:p-8 space-y-4 text-white",
-            "prev": {},
-            "curr": {}
-          },
-          {
-            "tag": "DIV",
-            "id": "smartSuggestionsContainer",
-            "class": "flex-1",
-            "prev": {},
-            "curr": {}
-          },
-          {
-            "tag": "DIV",
-            "id": "bentoMiniMap",
-            "class": "w-full h-36 rounded-2xl overflow-hidden shadow-inner border border-outline-variant/30 dark:border-zinc-700 z-0 leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom",
-            "prev": {},
-            "curr": {}
-          },
-          {
-            "tag": "DIV",
-            "id": "",
-            "class": "relative flex items-center w-full",
-            "prev": {},
-            "curr": {}
-          },
-          {
-            "tag": "DIV",
-            "id": "",
             "class": "flex items-center gap-1.5 sm:gap-3 shrink-0",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "A",
+            "id": "",
+            "class": "inline-flex items-center justify-center font-button text-xs sm:text-sm bg-transparent hover:bg-white/10 text-white px-5 py-2.5 rounded-[10px] border border-white/30 shadow-sm transition-all transform active:scale-95",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "SPAN",
+            "id": "",
+            "class": "",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "BUTTON",
+            "id": "",
+            "class": "hidden md:flex relative w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-700 items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700",
+            "prev": {},
+            "curr": {}
+          },
+          {
+            "tag": "SPAN",
+            "id": "",
+            "class": "material-symbols-outlined text-[20px]",
             "prev": {},
             "curr": {}
           }
         ]
       },
       {
-        "value": 0.0034257994969457426,
+        "value": 0.0014352517321782874,
         "sources": [
           {
             "tag": "DIV",
             "id": "",
-            "class": "relative flex items-center w-full",
+            "class": "flex items-center gap-1.5 sm:gap-3 shrink-0",
             "prev": {},
             "curr": {}
           },
           {
-            "tag": "DIV",
+            "tag": "SPAN",
             "id": "",
-            "class": "flex items-center gap-1.5 sm:gap-3 shrink-0",
+            "class": "hidden sm:inline-flex absolute right-3 px-2 py-0.5 text-[10px] font-bold bg-surface dark:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 rounded-full border border-outline-variant/50 dark:border-zinc-600 pointer-events-none",
             "prev": {},
             "curr": {}
           }
@@ -85,17 +85,17 @@
     ]
   },
   "mobile": {
-    "lcp": 204,
+    "lcp": 224,
     "cls": 0,
     "shifts": []
   },
   "bundle": {
-    "htmlBytes": 120723,
-    "htmlKb": 117.9,
-    "cssBytes": 92972,
-    "cssKb": 90.8,
-    "jsBytes": 542021,
-    "jsKb": 529.3,
-    "totalMb": 6.56
+    "htmlBytes": 147535,
+    "htmlKb": 144.1,
+    "cssBytes": 98402,
+    "cssKb": 96.1,
+    "jsBytes": 542503,
+    "jsKb": 529.8,
+    "totalMb": 6.59
   }
 }

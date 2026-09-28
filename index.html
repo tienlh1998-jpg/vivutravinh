@@ -337,142 +337,288 @@
     </script>
 </head>
 
-<body class="bg-surface dark:bg-dark-bg text-on-surface dark:text-zinc-100 font-sans antialiased min-h-screen flex flex-col pb-16 md:pb-0 transition-colors duration-300 overflow-x-hidden">
+<body class="bg-surface dark:bg-dark-bg text-on-surface dark:text-zinc-100 font-sans antialiased min-h-screen flex flex-col pb-20 lg:pb-0 transition-colors duration-300 overflow-x-hidden">
 
-    <!-- 1. DÒNG THÔNG BÁO / HUY HIỆU DI SẢN ĐẦU TRANG -->
-    <div class="bg-primary text-primary-fixed py-2 px-4 text-center text-xs font-medium border-b border-primary-container flex items-center justify-center gap-2">
-        <span class="material-symbols-outlined text-sm text-secondary-container" style="font-variation-settings: 'FILL' 1;">eco</span>
-        <span>Cẩm nang Khám phá Trà Vinh • Hơn 140 ngôi chùa Khmer cổ &amp; Ẩm thực trứ danh miền Tây Nam Bộ</span>
-        <span class="hidden md:inline-block text-primary-fixed-dim">• Cập nhật 2026</span>
-    </div>
+    <!-- ======================================================== -->
+    <!-- DESKTOP FIXED SIDEBAR NAVIGATION (STITCH DESIGN - lg+)  -->
+    <!-- ======================================================== -->
+    <aside class="hidden lg:flex fixed left-0 top-0 h-screen w-[248px] bg-surface-container-lowest dark:bg-zinc-900 border-r border-[#E4E4E7] dark:border-zinc-800 z-50 flex-col justify-between select-none">
+        <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar">
+            <!-- Brand Logo Header -->
+            <div class="p-space-lg border-b border-[#E4E4E7] dark:border-zinc-800 flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">eco</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-headline-sm text-base text-primary dark:text-emerald-400 font-bold leading-none tracking-tight">ViVuTraVinh</span>
+                    <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400 mt-1">Khám Phá &amp; Kết Nối Trà Vinh</span>
+                </div>
+            </div>
 
-    <!-- THANH TRẠNG THÁI NGOẠI TUYẾN (GLOBAL OFFLINE BANNER) -->
-    <div id="offlineStatusBar" class="hidden bg-amber-500 text-stone-950 py-1.5 px-4 text-center text-xs font-semibold border-b border-amber-600 flex items-center justify-center gap-2 z-50 transition-all" role="status" aria-live="polite">
-        <span class="material-symbols-outlined text-sm">cloud_off</span>
-        <span>Bạn đang ở chế độ ngoại tuyến. Dữ liệu và hình ảnh được phục vụ từ bộ nhớ đệm thiết bị.</span>
-    </div>
-
-    <!-- 2. THANH ĐIỀU HƯỚNG CHÍNH (TOP NAV & SEARCH PILL) -->
-    <header class="sticky top-0 z-40 bg-surface/90 dark:bg-dark-bg/90 backdrop-blur-md border-b border-outline-variant/40 dark:border-dark-border transition-colors">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-3">
-                <!-- Logo ViVuTraVinh: Icon gọn trên Mobile (< sm) -->
-                <a href="/" class="flex items-center sm:hidden shrink-0 group" aria-label="ViVuTraVinh - Trang chủ">
-                    <svg class="w-10 h-10" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="40" height="40" rx="12" fill="#064E3B" class="group-hover:fill-emerald-800 transition-colors"/>
-                        <path d="M12 28L20 14L28 28H12Z" fill="#10B981" opacity="0.9"/>
-                        <circle cx="20" cy="18" r="4" fill="#F59E0B"/>
-                        <path d="M16 26C18 24 22 24 24 26" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                </a>
-
-                <!-- Logo ViVuTraVinh: Đầy đủ trên Desktop (>= sm) -->
-                <a href="/" class="hidden sm:flex items-center gap-2.5 shrink-0 group" aria-label="ViVuTraVinh - Trang chủ">
-                    <svg class="h-10 w-auto" viewBox="0 0 200 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="40" height="40" rx="12" fill="#064E3B" class="group-hover:fill-emerald-800 transition-colors"/>
-                        <path d="M12 28L20 14L28 28H12Z" fill="#10B981" opacity="0.9"/>
-                        <circle cx="20" cy="18" r="4" fill="#F59E0B"/>
-                        <path d="M16 26C18 24 22 24 24 26" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
-                        <text x="50" y="26" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="20" font-weight="800" fill="#064E3B" class="dark:fill-emerald-400" letter-spacing="-0.5">ViVu<tspan fill="#10B981">TraVinh</tspan></text>
-                        <text x="51" y="37" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="9" font-weight="600" fill="#F59E0B" letter-spacing="1.5">DISCOVERY GUIDE</text>
-                    </svg>
-                </a>
-
-                <!-- Ô tìm kiếm dạng Pill nổi bật (chiếm toàn bộ không gian khả dụng) -->
-                <div class="flex-1 min-w-0 max-w-lg mx-1 sm:mx-6">
-                    <div class="relative flex items-center w-full">
-                        <span class="absolute left-3 text-secondary dark:text-emerald-400 pointer-events-none flex items-center">
-                            <span class="material-symbols-outlined text-lg">search</span>
-                        </span>
-                        <input id="discoverySearchInput" type="text"
-                            placeholder="Tìm chùa, món ngon, cafe chill..."
-                            aria-label="Tìm kiếm địa điểm Trà Vinh"
-                            class="w-full bg-surface-container-low dark:bg-zinc-800/80 text-on-surface dark:text-zinc-100 pl-9 sm:pl-10 pr-9 sm:pr-14 py-2.5 sm:py-3 min-h-[44px] rounded-full text-xs sm:text-sm border-0 ring-1 ring-outline-variant/40 dark:ring-zinc-700 focus:ring-2 focus:ring-primary dark:focus:ring-emerald-500 placeholder:text-outline dark:placeholder:text-zinc-400 transition-all">
-                        <!-- Nút Xóa tìm kiếm nhanh -->
-                        <button id="clearSearchBtn" type="button"
-                            class="hidden absolute right-2.5 sm:right-10 w-6 h-6 rounded-full bg-stone-200/80 dark:bg-zinc-700/80 text-stone-600 dark:text-zinc-300 hover:bg-stone-300 dark:hover:bg-zinc-600 flex items-center justify-center transition-colors"
-                            title="Xóa tìm kiếm" aria-label="Xóa từ khóa tìm kiếm">
-                            <span class="material-symbols-outlined text-sm">close</span>
-                        </button>
-                        <span class="hidden sm:inline-flex absolute right-3 px-2 py-0.5 text-[10px] font-bold bg-surface dark:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 rounded-full border border-outline-variant/50 dark:border-zinc-600 pointer-events-none">⌘K</span>
+            <!-- Navigation Links -->
+            <div class="py-space-md flex flex-col gap-6">
+                <!-- Group 1: Khám Phá & Kết Nối -->
+                <div class="px-space-md">
+                    <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Khám Phá &amp; Kết Nối</span>
+                    <div role="navigation" aria-label="Khám Phá & Kết Nối" class="mt-2 flex flex-col gap-1">
+                        <a href="/" onclick="window.ViVuApp?.navGoHome?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary-container text-white font-button text-xs font-semibold shadow-xs">
+                            <span class="material-symbols-outlined text-[20px]">home</span>
+                            <span>Trang chủ</span>
+                        </a>
+                        <a href="#discoverySection" onclick="window.ViVuApp?.openFullMapModal ? window.ViVuApp.openFullMapModal() : null; return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px]">map</span>
+                            <span>Bản đồ &amp; Địa điểm</span>
+                        </a>
+                        <a href="#stitchCommunitySection" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px]">groups</span>
+                            <span>Câu lạc bộ</span>
+                        </a>
+                        <a href="#festivalsPortalSection" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px]">event</span>
+                            <span>Sự kiện &amp; Gặp gỡ</span>
+                        </a>
                     </div>
                 </div>
 
-                <!-- Các nút hành động bên phải: tối ưu cho mobile, tránh tràn ngang -->
-                <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
-                    <!-- Nút PWA Install (ẩn mặc định, hiện khi browser trigger prompt) -->
-                    <button id="pwaInstallHeaderBtn" onclick="window.ViVuApp.promptPwaInstall()"
-                        class="hidden px-3 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 text-xs font-bold transition-all items-center gap-1.5 shadow-xs"
-                        aria-label="Cài đặt ứng dụng">
-                        <span class="material-symbols-outlined text-base">install_mobile</span>
-                        <span class="hidden md:inline">Cài App</span>
-                    </button>
+                <!-- Group 2: Cá Nhân -->
+                <div class="px-space-md">
+                    <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Cá Nhân</span>
+                    <div role="navigation" aria-label="Cá Nhân" class="mt-2 flex flex-col gap-1">
+                        <a href="#discoverySection" onclick="document.querySelector('[data-category=saved]')?.click(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px] text-rose-500">bookmark</span>
+                            <span>Đã lưu</span>
+                        </a>
+                        <a href="#tourItinerariesSection" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px]">route</span>
+                            <span>Lịch trình tour 1 ngày</span>
+                        </a>
+                    </div>
+                </div>
 
-                    <!-- Nút Bookmark yêu thích (ẩn trên mobile vì đã có sẵn ở Bottom Nav) -->
-                    <button onclick="document.querySelector('[data-category=saved]').click()"
-                        class="hidden md:flex relative w-10 h-10 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-700 items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
-                        title="Địa điểm đã lưu" aria-label="Xem địa điểm đã lưu">
-                        <span class="material-symbols-outlined text-lg text-rose-500">favorite</span>
-                        <span id="savedHeaderCount" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">0</span>
-                    </button>
-
-                    <!-- Nút Đổi Dark/Light Mode (vùng chạm 44x44 chuẩn) -->
-                    <button onclick="window.ViVuApp.toggleTheme()"
-                        class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-amber-400 hover:bg-surface-container dark:hover:bg-zinc-700 flex items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
-                        title="Đổi giao diện" aria-label="Chuyển đổi chế độ sáng tối">
-                        <span id="themeToggleIcon" class="material-symbols-outlined text-lg">dark_mode</span>
-                    </button>
-
-                    <!-- Nút Facebook Fanpage (ẩn trên mobile để nhường chỗ cho ô tìm kiếm) -->
-                    <a href="https://www.facebook.com/vivutravinh.official" target="_blank" rel="noopener noreferrer"
-                        class="hidden md:flex w-10 h-10 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-[#1877F2] hover:bg-blue-50 dark:hover:bg-zinc-700 items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
-                        title="Theo dõi Fanpage Facebook ViVuTraVinh" aria-label="Fanpage Facebook ViVuTraVinh">
-                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                        </svg>
-                    </a>
-
-                    <!-- Nút Đóng góp địa điểm: Icon-only trên mobile, kèm nhãn trên sm+ -->
-                    <button onclick="window.ViVuApp.openContributeModal()"
-                        class="bg-primary hover:bg-primary-container dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white w-10 h-10 sm:w-auto sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5 transition-all shadow-sm active:scale-95"
-                        title="Đóng góp địa điểm mới" aria-label="Đóng góp địa điểm mới">
-                        <span class="material-symbols-outlined text-base">add_location_alt</span>
-                        <span class="hidden sm:inline">+ Đóng góp</span>
-                    </button>
+                <!-- Group 3: Hỗ Trợ Dự Án -->
+                <div class="px-space-md">
+                    <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Hỗ Trợ Dự Án</span>
+                    <div role="navigation" aria-label="Hỗ Trợ Dự Án" class="mt-2 flex flex-col gap-1">
+                        <a href="#" onclick="window.ViVuApp?.openContributeModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px]">volunteer_activism</span>
+                            <span>Tường Admin &amp; Đóng góp</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-    </header>
 
-    <!-- KHU VỰC LOADING SKELETON (Khi đang tải dữ liệu ban đầu) -->
-    <div id="pageLoadingSkeleton" class="max-w-7xl mx-auto px-4 py-12 w-full min-h-[85vh] flex items-center justify-center">
-        <div class="flex flex-col items-center justify-center py-12 text-center">
-            <div class="w-12 h-12 border-4 border-emerald-200 border-t-primary dark:border-zinc-700 dark:border-t-emerald-400 rounded-full animate-spin mb-4"></div>
-            <p class="text-sm font-semibold text-primary dark:text-emerald-400 animate-pulse">Đang tải cẩm nang khám phá Trà Vinh...</p>
-        </div>
-    </div>
-
-    <!-- KHU VỰC THÔNG BÁO LỖI -->
-    <div id="pageErrorMessage" class="hidden max-w-xl mx-auto my-12 p-6 rounded-3xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-center">
-        <span class="material-symbols-outlined text-4xl text-rose-500 mb-2">cloud_off</span>
-        <h3 class="text-base font-bold text-slate-800 dark:text-zinc-100">Không thể nạp dữ liệu</h3>
-        <p id="pageErrorText" class="text-xs text-slate-600 dark:text-zinc-400 my-3">Vui lòng kiểm tra lại kết nối mạng.</p>
-        <button id="pageRetryBtn" class="px-5 py-2 rounded-xl bg-primary text-white font-bold text-xs">Thử lại</button>
-    </div>
-
-    <!-- NỘI DUNG CHÍNH (MAIN CONTAINER) -->
-    <main id="mainContentArea" class="hidden flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-8 w-full">
-
-        <!-- 3. HÀNG STORY BUBBLES TRƯỢT NGANG (INSTAGRAM/TIKTOK STYLE) -->
-        <section class="w-full pt-1 pb-2">
-            <div id="storyBubblesContainer" class="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-2 px-1">
-                <!-- Stories injected via ui.js -->
+        <!-- Bottom Profile Widget (Sidebar) -->
+        <div class="p-space-md border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-xl">person</span>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <span class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">ViVu Trà Vinh</span>
+                    <span class="font-caption text-[10px] text-outline dark:text-zinc-400">Khách du lịch</span>
+                </div>
             </div>
-        </section>
+            <button onclick="window.ViVuApp?.toggleTheme?.()" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0" title="Chuyển chế độ giao diện" type="button">
+                <span class="material-symbols-outlined text-[20px]">dark_mode</span>
+            </button>
+        </div>
+    </aside>
 
-        <!-- 4. HERO BENTO GRID (SPOTLIGHT + MINI MAP + WEATHER WIDGET) -->
-        <section class="space-y-4">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- ======================================================== -->
+    <!-- APP MAIN CONTENT WRAPPER (Shifted by 248px on lg+)       -->
+    <!-- ======================================================== -->
+    <div class="lg:pl-[248px] flex flex-col flex-1 min-w-0 w-full transition-all">
+
+        <!-- 1. DÒNG THÔNG BÁO / HUY HIỆU DI SẢN ĐẦU TRANG -->
+        <div class="bg-primary text-primary-fixed py-2 px-4 text-center text-xs font-medium border-b border-primary-container flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-sm text-secondary-container" style="font-variation-settings: 'FILL' 1;">eco</span>
+            <span>Cẩm nang Khám phá Trà Vinh • Hơn 140 ngôi chùa Khmer cổ &amp; Ẩm thực trứ danh miền Tây Nam Bộ</span>
+            <span class="hidden md:inline-block text-primary-fixed-dim">• Cập nhật 2026</span>
+        </div>
+
+        <!-- THANH TRẠNG THÁI NGOẠI TUYẾN (GLOBAL OFFLINE BANNER) -->
+        <div id="offlineStatusBar" class="hidden bg-amber-500 text-stone-950 py-1.5 px-4 text-center text-xs font-semibold border-b border-amber-600 flex items-center justify-center gap-2 z-50 transition-all" role="status" aria-live="polite">
+            <span class="material-symbols-outlined text-sm">cloud_off</span>
+            <span>Bạn đang ở chế độ ngoại tuyến. Dữ liệu và hình ảnh được phục vụ từ bộ nhớ đệm thiết bị.</span>
+        </div>
+
+        <!-- 2. THANH ĐIỀU HƯỚNG CHÍNH (TOP NAV & SEARCH PILL) -->
+        <header class="sticky top-0 z-40 bg-surface/90 dark:bg-dark-bg/90 backdrop-blur-md border-b border-outline-variant/40 dark:border-dark-border transition-colors">
+            <div class="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
+                    <!-- Mobile Brand Logo (< lg) -->
+                    <a href="/" class="flex items-center lg:hidden shrink-0 group gap-2" aria-label="ViVuTraVinh - Trang chủ">
+                        <div class="w-9 h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">eco</span>
+                        </div>
+                        <div class="flex flex-col justify-center leading-tight">
+                            <span class="font-headline-sm text-sm text-primary dark:text-emerald-400 tracking-tight font-bold">ViVuTraVinh</span>
+                            <span class="font-caption text-[10px] text-on-surface-variant dark:text-zinc-400">Xứ Trà</span>
+                        </div>
+                    </a>
+
+                    <!-- Ô tìm kiếm dạng Pill nổi bật (chiếm toàn bộ không gian khả dụng, touch target min 44px) -->
+                    <div class="flex-1 min-w-0 max-w-xl mx-1 sm:mx-4">
+                        <div class="relative flex items-center w-full">
+                            <span class="material-symbols-outlined absolute left-3.5 text-secondary dark:text-emerald-400 pointer-events-none text-[20px]">search</span>
+                            <input id="discoverySearchInput" type="text"
+                                placeholder="Tìm chùa Khmer, bún nước lèo, vườn dừa..."
+                                aria-label="Tìm kiếm địa điểm Trà Vinh"
+                                class="w-full h-11 sm:h-12 min-h-[44px] pl-10 pr-9 sm:pr-14 rounded-full bg-surface-container-low dark:bg-zinc-800/90 text-on-surface dark:text-zinc-100 font-body-md text-xs sm:text-sm border-0 ring-1 ring-outline-variant/40 dark:ring-zinc-700 focus:ring-2 focus:ring-primary dark:focus:ring-emerald-500 placeholder:text-outline dark:placeholder:text-zinc-400 transition-all shadow-xs">
+                            <!-- Nút Xóa tìm kiếm nhanh -->
+                            <button id="clearSearchBtn" type="button"
+                                class="hidden absolute right-2.5 sm:right-10 w-6 h-6 rounded-full bg-stone-200/80 dark:bg-zinc-700/80 text-stone-600 dark:text-zinc-300 hover:bg-stone-300 dark:hover:bg-zinc-600 flex items-center justify-center transition-colors"
+                                title="Xóa tìm kiếm" aria-label="Xóa từ khóa tìm kiếm">
+                                <span class="material-symbols-outlined text-sm">close</span>
+                            </button>
+                            <span class="hidden sm:inline-flex absolute right-3 px-2 py-0.5 text-[10px] font-bold bg-surface dark:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 rounded-full border border-outline-variant/50 dark:border-zinc-600 pointer-events-none">⌘K</span>
+                        </div>
+                    </div>
+
+                    <!-- Các nút hành động bên phải: touch targets >= 44x44px chuẩn W3C -->
+                    <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                        <!-- Nút PWA Install (ẩn mặc định, hiện khi browser trigger prompt) -->
+                        <button id="pwaInstallHeaderBtn" onclick="window.ViVuApp.promptPwaInstall()"
+                            class="hidden px-3 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 text-xs font-bold transition-all items-center gap-1.5 shadow-xs"
+                            aria-label="Cài đặt ứng dụng">
+                            <span class="material-symbols-outlined text-base">install_mobile</span>
+                            <span class="hidden md:inline">Cài App</span>
+                        </button>
+
+                        <!-- Nút Bookmark yêu thích -->
+                        <button onclick="document.querySelector('[data-category=saved]')?.click()"
+                            class="hidden md:flex relative w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-700 items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
+                            title="Địa điểm đã lưu" aria-label="Xem địa điểm đã lưu">
+                            <span class="material-symbols-outlined text-lg text-rose-500">favorite</span>
+                            <span id="savedHeaderCount" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">0</span>
+                        </button>
+
+                        <!-- Nút Đổi Dark/Light Mode (Touch target >= 44x44px chuẩn W3C) -->
+                        <button id="themeToggleBtn" onclick="window.ViVuApp.toggleTheme()"
+                            class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-amber-400 hover:bg-surface-container dark:hover:bg-zinc-700 flex items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
+                            title="Đổi giao diện" aria-label="Chuyển đổi chế độ sáng tối">
+                            <span id="themeToggleIcon" class="material-symbols-outlined text-lg">dark_mode</span>
+                        </button>
+
+                        <!-- Nút Facebook Fanpage -->
+                        <a href="https://www.facebook.com/vivutravinh.official" target="_blank" rel="noopener noreferrer"
+                            class="hidden md:flex w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-low dark:bg-zinc-800 text-[#1877F2] hover:bg-blue-50 dark:hover:bg-zinc-700 items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
+                            title="Theo dõi Fanpage Facebook ViVuTraVinh" aria-label="Fanpage Facebook ViVuTraVinh">
+                            <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                            </svg>
+                        </a>
+
+                        <!-- Nút Đóng góp địa điểm -->
+                        <button onclick="window.ViVuApp.openContributeModal()"
+                            class="bg-primary hover:bg-primary-container dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white min-h-[44px] px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-button font-bold flex items-center justify-center sm:justify-start gap-1.5 transition-all shadow-xs active:scale-95"
+                            title="Đóng góp địa điểm mới" aria-label="Đóng góp địa điểm mới">
+                            <span class="material-symbols-outlined text-base">add_location_alt</span>
+                            <span class="hidden sm:inline">+ Đóng góp</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- KHU VỰC LOADING SKELETON (Khi đang tải dữ liệu ban đầu) -->
+        <div id="pageLoadingSkeleton" class="max-w-[1200px] mx-auto px-4 py-12 w-full min-h-[85vh] flex items-center justify-center">
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="w-12 h-12 border-4 border-emerald-200 border-t-primary dark:border-zinc-700 dark:border-t-emerald-400 rounded-full animate-spin mb-4"></div>
+                <p class="text-sm font-semibold text-primary dark:text-emerald-400 animate-pulse">Đang tải cẩm nang khám phá Trà Vinh...</p>
+            </div>
+        </div>
+
+        <!-- KHU VỰC THÔNG BÁO LỖI -->
+        <div id="pageErrorMessage" class="hidden max-w-xl mx-auto my-12 p-6 rounded-3xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-center">
+            <span class="material-symbols-outlined text-4xl text-rose-500 mb-2">cloud_off</span>
+            <h3 class="text-base font-bold text-slate-800 dark:text-zinc-100">Không thể nạp dữ liệu</h3>
+            <p id="pageErrorText" class="text-xs text-slate-600 dark:text-zinc-400 my-3">Vui lòng kiểm tra lại kết nối mạng.</p>
+            <button id="pageRetryBtn" class="px-5 py-2 rounded-xl bg-primary text-white font-bold text-xs">Thử lại</button>
+        </div>
+
+        <!-- NỘI DUNG CHÍNH (MAIN CONTAINER) -->
+        <main id="mainContentArea" class="hidden flex-1 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-8 w-full">
+
+            <!-- GREETING SECTION (MOBILE FIRST - lg:hidden) -->
+            <section class="lg:hidden px-1 pt-1 pb-1">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-body-md text-xs text-on-surface-variant dark:text-zinc-400">Chào buổi sáng, bạn</span>
+                            <span class="inline-block animate-bounce text-sm">👋</span>
+                        </div>
+                        <h1 class="font-headline-lg-mobile text-xl text-primary dark:text-emerald-400 font-bold tracking-tight">Hôm nay bạn du hí đâu?</h1>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-secondary-fixed/50 dark:bg-emerald-950/60 flex items-center justify-center text-secondary dark:text-emerald-400">
+                        <span class="material-symbols-outlined text-[22px]">wb_sunny</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 1: HERO CARD (Stitch Bento Hero) -->
+            <section id="heroBanner" class="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-primary-container via-[#004d38] to-secondary p-6 sm:p-8 md:p-10 shadow-lg text-on-primary">
+                <!-- Ambient Khmer architectural contour & fluid organic wave decor -->
+                <div class="pointer-events-none absolute -right-12 -top-24 w-96 h-96 rounded-full bg-secondary-fixed/10 blur-3xl"></div>
+                <div class="pointer-events-none absolute right-12 bottom-0 w-80 h-80 rounded-t-[120px] bg-white/[0.04]"></div>
+                <svg class="pointer-events-none absolute bottom-0 right-0 w-1/2 h-full opacity-15" fill="none" preserveAspectRatio="none" viewBox="0 0 400 300">
+                    <path d="M0,280 C120,240 180,310 260,250 C320,200 360,220 400,180 L400,300 L0,300 Z" fill="currentColor"></path>
+                </svg>
+                <div class="relative z-10 flex flex-col max-w-3xl">
+                    <div class="inline-flex items-center gap-2 mb-3">
+                        <span class="w-2 h-2 rounded-full bg-secondary-fixed animate-pulse"></span>
+                        <span class="font-caption text-caption text-primary-fixed uppercase tracking-wider font-semibold">Chào buổi sáng • ViVu Trà Vinh</span>
+                    </div>
+                    <h1 class="font-headline-xl text-2xl sm:text-3xl lg:text-4xl text-white font-bold tracking-tight mb-3">
+                        Khám phá vùng đất văn hóa &amp; kết nối cộng đồng
+                    </h1>
+                    <p class="font-body-lg text-sm sm:text-base text-white/90 max-w-2xl mb-6 leading-relaxed">
+                        Cẩm nang du lịch tự túc, ẩm thực bản địa, chùa Khmer và những hoạt động cộng đồng đáng trải nghiệm tại Trà Vinh.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-3.5 mb-6">
+                        <a href="#discoverySection" class="inline-flex items-center justify-center font-button text-xs sm:text-sm bg-accent hover:bg-accent-hover text-white px-5 py-2.5 rounded-[10px] shadow-sm transition-all transform active:scale-95">
+                            <span class="material-symbols-outlined text-[19px] mr-2">explore</span>
+                            Khám phá địa điểm
+                        </a>
+                        <a href="#stitchCommunitySection" class="inline-flex items-center justify-center font-button text-xs sm:text-sm bg-transparent hover:bg-white/10 text-white px-5 py-2.5 rounded-[10px] border border-white/30 shadow-sm transition-all transform active:scale-95">
+                            <span class="material-symbols-outlined text-[19px] mr-2">group_add</span>
+                            Tham gia cộng đồng
+                        </a>
+                    </div>
+                    <!-- Hero stats bar -->
+                    <div class="flex flex-wrap items-center justify-between sm:justify-start gap-6 sm:gap-10 p-4 rounded-xl bg-primary/40 backdrop-blur-md max-w-xl border border-white/10">
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">128+</span>
+                            <span class="font-caption text-xs text-white/80">Địa điểm</span>
+                        </div>
+                        <div class="h-6 w-px bg-white/20 hidden sm:block"></div>
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">18</span>
+                            <span class="font-caption text-xs text-white/80">CLB</span>
+                        </div>
+                        <div class="h-6 w-px bg-white/20 hidden sm:block"></div>
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">05</span>
+                            <span class="font-caption text-xs text-white/80">Sự kiện</span>
+                        </div>
+                        <div class="ml-auto text-[11px] font-caption text-white/60 tracking-wide uppercase self-center hidden md:inline-block">
+                            Eco-Khmer Life
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. HÀNG STORY BUBBLES TRƯỢT NGANG (INSTAGRAM/TIKTOK STYLE) -->
+            <section class="w-full pt-1 pb-2">
+                <div id="storyBubblesContainer" class="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-2 px-1">
+                    <!-- Stories injected via ui.js -->
+                </div>
+            </section>
+
+            <!-- 4. HERO BENTO GRID (SPOTLIGHT + MINI MAP + WEATHER WIDGET) -->
+            <section class="space-y-4">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <!-- Bento Cột Trái: Spotlight Lớn (8 Cols) -->
                 <div id="heroSpotlightContainer" class="lg:col-span-8">
                     <!-- Hero Spotlight injected via ui.js -->
@@ -513,6 +659,156 @@
                     <div id="smartSuggestionsContainer" class="flex-1">
                         <!-- Injected via ui.js -->
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4B. HAI CỘT BENTO SẮP DIỄN RA & CỘNG ĐỒNG CLB (STITCH DESIGN SECTION 4 & 5) -->
+        <section id="stitchCommunitySection" class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+            <!-- LEFT: UPCOMING WORKSHOP & EVENTS (Col 7) -->
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="font-headline-md text-base sm:text-lg text-on-surface dark:text-zinc-100 font-bold">Sắp diễn ra</h2>
+                        <p class="font-caption text-xs text-outline dark:text-zinc-400">Sự kiện &amp; gặp gỡ kết nối văn hóa</p>
+                    </div>
+                    <a href="#festivalsPortalSection" class="font-button text-xs text-secondary dark:text-emerald-400 hover:text-primary transition-colors font-semibold">Tất cả sự kiện →</a>
+                </div>
+                <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col justify-between gap-5 relative overflow-hidden">
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container/50 text-on-secondary-container font-badge text-badge font-semibold text-xs">
+                            Workshop Văn hóa &amp; Nhiếp ảnh
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 text-[11px] font-caption font-semibold uppercase text-accent bg-orange-50 dark:bg-orange-950/40 px-2.5 py-1 rounded-full">
+                            <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                            Cần đăng ký
+                        </span>
+                    </div>
+                    <div>
+                        <h3 class="font-headline-md text-base sm:text-lg text-on-surface dark:text-zinc-100 font-bold leading-snug">
+                            Workshop: Nhiếp ảnh di sản &amp; Du lịch xanh Trà Vinh
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-on-surface-variant dark:text-zinc-400 font-body-md text-xs sm:text-sm">
+                            <div class="flex items-center gap-2.5">
+                                <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">calendar_month</span>
+                                <span>Chủ Nhật, 15/10 • 08:00 - 11:30</span>
+                            </div>
+                            <div class="flex items-center gap-2.5">
+                                <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">pin_drop</span>
+                                <span class="truncate">TT Văn hóa Tỉnh Trà Vinh</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Attendance widget & Progress ring -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 bg-surface-container-low/60 dark:bg-zinc-800/60 -mx-5 -mb-5 sm:-mx-6 sm:-mb-6 p-5 sm:p-6 rounded-b-2xl">
+                        <div class="flex items-center gap-3">
+                            <div class="relative w-10 h-10 flex-shrink-0">
+                                <svg class="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                    <circle class="stroke-surface-container-highest dark:stroke-zinc-700" cx="18" cy="18" fill="none" r="14" stroke-width="3"></circle>
+                                    <circle class="stroke-secondary dark:stroke-emerald-400" cx="18" cy="18" fill="none" r="14" stroke-dasharray="88" stroke-dashoffset="26" stroke-linecap="round" stroke-width="3"></circle>
+                                </svg>
+                                <span class="absolute inset-0 flex items-center justify-center font-badge text-[10px] font-bold text-secondary dark:text-emerald-400">70%</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-button text-xs font-semibold text-on-surface dark:text-zinc-200">28/40 người tham gia</span>
+                                <span class="font-caption text-[11px] text-outline dark:text-zinc-400">Còn lại 12 suất đặt chỗ</span>
+                            </div>
+                        </div>
+                        <button type="button" onclick="document.getElementById('festivalsPortalSection')?.scrollIntoView({ behavior: 'smooth' })" class="inline-flex items-center justify-center font-button text-xs font-bold bg-primary-container hover:bg-primary text-white px-5 py-2.5 rounded-lg shadow-xs transition-all text-center">
+                            Xem sự kiện
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- RIGHT: POPULAR CLUBS (Col 5) -->
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="font-headline-md text-base sm:text-lg text-on-surface dark:text-zinc-100 font-bold">Cộng đồng đang hoạt động</h2>
+                        <p class="font-caption text-xs text-outline dark:text-zinc-400">Gắn kết người địa phương &amp; lữ khách</p>
+                    </div>
+                    <a href="https://www.facebook.com/vivutravinh.official" target="_blank" rel="noopener noreferrer" class="font-button text-xs text-secondary dark:text-emerald-400 hover:text-primary transition-colors font-semibold">Tất cả CLB →</a>
+                </div>
+                <div class="flex flex-col gap-3">
+                    <!-- Club 1 -->
+                    <div class="flex items-center justify-between p-3.5 bg-surface-container-lowest dark:bg-zinc-900 rounded-xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 hover:shadow-sm transition-all">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-11 h-11 rounded-lg bg-secondary/10 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-[24px]">hiking</span>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <span class="font-button text-xs font-semibold text-on-surface dark:text-zinc-200 truncate">CLB Phượt &amp; Check-in Trà Vinh</span>
+                                <span class="font-caption text-[11px] text-outline dark:text-zinc-400 truncate">Du lịch trải nghiệm • 340 thành viên</span>
+                            </div>
+                        </div>
+                        <a href="https://www.facebook.com/vivutravinh.official" target="_blank" rel="noopener noreferrer" class="ml-3 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-secondary hover:text-white dark:bg-zinc-800 dark:hover:bg-emerald-700 text-on-surface-variant dark:text-zinc-300 font-button text-xs font-semibold transition-colors shrink-0">
+                            Tham gia
+                        </a>
+                    </div>
+                    <!-- Club 2 -->
+                    <div class="flex items-center justify-between p-3.5 bg-surface-container-lowest dark:bg-zinc-900 rounded-xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 hover:shadow-sm transition-all">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-11 h-11 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-[24px]">camera_enhance</span>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <span class="font-button text-xs font-semibold text-on-surface dark:text-zinc-200 truncate">CLB Nhiếp Ảnh &amp; Văn Hóa Khmer</span>
+                                <span class="font-caption text-[11px] text-outline dark:text-zinc-400 truncate">Nhiếp ảnh &amp; Bản sắc • 215 thành viên</span>
+                            </div>
+                        </div>
+                        <a href="https://www.facebook.com/vivutravinh.official" target="_blank" rel="noopener noreferrer" class="ml-3 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-secondary hover:text-white dark:bg-zinc-800 dark:hover:bg-emerald-700 text-on-surface-variant dark:text-zinc-300 font-button text-xs font-semibold transition-colors shrink-0">
+                            Tham gia
+                        </a>
+                    </div>
+                    <!-- Club 3 -->
+                    <div class="flex items-center justify-between p-3.5 bg-surface-container-lowest dark:bg-zinc-900 rounded-xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 hover:shadow-sm transition-all">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-11 h-11 rounded-lg bg-emerald-600/10 text-emerald-800 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-[24px]">directions_run</span>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <span class="font-button text-xs font-semibold text-on-surface dark:text-zinc-200 truncate">CLB Chạy Bộ Bờ Kè Long Bình</span>
+                                <span class="font-caption text-[11px] text-outline dark:text-zinc-400 truncate">Thể thao &amp; Sức khỏe • 510 thành viên</span>
+                            </div>
+                        </div>
+                        <a href="https://www.facebook.com/vivutravinh.official" target="_blank" rel="noopener noreferrer" class="ml-3 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-secondary hover:text-white dark:bg-zinc-800 dark:hover:bg-emerald-700 text-on-surface-variant dark:text-zinc-300 font-button text-xs font-semibold transition-colors shrink-0">
+                            Tham gia
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4C. KHÁM PHÁ QUANH BẠN 5KM (STITCH DESIGN SECTION 6) -->
+        <section id="stitchNearbySection" class="w-full pt-1">
+            <div class="relative overflow-hidden rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-800 p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div class="flex items-start gap-4 z-10 max-w-xl">
+                    <div class="w-12 h-12 rounded-xl bg-secondary/10 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-[28px]">near_me</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <div class="flex items-center gap-2">
+                            <span class="font-headline-sm text-base sm:text-lg text-on-surface dark:text-zinc-100 font-bold">Khám phá quanh bạn</span>
+                            <span class="inline-flex px-2 py-0.5 rounded-full bg-secondary-container/50 text-on-secondary-container font-badge text-[11px] font-semibold">Bán kính 5km</span>
+                        </div>
+                        <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-1">
+                            Tìm nhanh các điểm đến văn hóa, di tích chùa Khmer và ẩm thực đặc sản gần vị trí của bạn nhất.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 z-10 shrink-0">
+                    <button onclick="window.ViVuApp.toggleNearMeFilter()" class="w-full md:w-auto inline-flex items-center justify-center gap-2 font-button text-xs sm:text-sm bg-secondary hover:bg-primary-container text-white px-5 py-2.5 rounded-[10px] shadow-xs transition-all active:scale-95" type="button">
+                        <span class="material-symbols-outlined text-[18px]">my_location</span>
+                        <span>Bật định vị tìm gần tôi</span>
+                    </button>
+                </div>
+                <!-- Subtle Map Decor Background Outline -->
+                <div class="pointer-events-none absolute right-0 top-0 bottom-0 w-80 opacity-5 dark:opacity-10">
+                    <svg class="w-full h-full" fill="currentColor" viewBox="0 0 200 100">
+                        <circle cx="150" cy="50" r="40"></circle>
+                        <circle cx="150" cy="50" r="25"></circle>
+                        <circle cx="150" cy="50" r="10"></circle>
+                    </svg>
                 </div>
             </div>
         </section>
@@ -1528,27 +1824,37 @@
         </div>
     </footer>
 
-    <!-- 13. BOTTOM NAVIGATION BAR CHUẨN MOBILE-FIRST (< 768px) -->
-    <nav id="mobileBottomNav" aria-label="Thanh điều hướng ngón tay cái cho di động"
-        class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 dark:bg-dark-bg/95 backdrop-blur-xl border-t border-outline-variant/40 dark:border-dark-border shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-2 py-1 pb-safe flex items-center justify-around transition-colors">
+    </div>
+    <!-- END APP MAIN CONTENT WRAPPER (Shifted by 248px on lg+) -->
 
-        <!-- Tab 1: Khám phá (Home & Bento Grid) -->
+    <!-- 13. BOTTOM NAVIGATION BAR CHUẨN MOBILE-FIRST (STITCH DESIGN - lg:hidden) -->
+    <nav id="mobileBottomNav" aria-label="Thanh điều hướng ngón tay cái cho di động"
+        class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 dark:bg-dark-bg/95 backdrop-blur-xl border-t border-outline-variant/40 dark:border-dark-border shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-2 py-1 pb-safe flex items-center justify-around transition-colors">
+
+        <!-- Tab 1: Khám phá / Trang chủ (Home & Bento Grid) -->
         <button id="tabNavHome" onclick="window.ViVuApp.navGoHome()"
-            class="bottom-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-primary dark:text-emerald-400 font-bold relative transition-colors focus:outline-none">
-            <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1, 'wght' 600;">explore</span>
-            <span class="bottom-nav-label text-[10px] tracking-tight mt-0.5">Khám phá</span>
+            class="bottom-nav-btn min-h-[48px] h-14 flex-1 flex flex-col items-center justify-center py-1 text-primary dark:text-emerald-400 font-bold relative transition-colors focus:outline-none">
+            <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1, 'wght' 600;">temple_buddhist</span>
+            <span class="bottom-nav-label text-[10px] tracking-tight mt-0.5">Trang chủ</span>
         </button>
 
         <!-- Tab 2: Bản đồ (Full Map & Gần tôi) -->
         <button id="tabNavMap" onclick="window.ViVuApp.navGoMap()"
-            class="bottom-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none">
-            <span class="material-symbols-outlined text-2xl">map</span>
+            class="bottom-nav-btn min-h-[48px] h-14 flex-1 flex flex-col items-center justify-center py-1 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none">
+            <span class="material-symbols-outlined text-2xl">explore</span>
             <span class="bottom-nav-label text-[10px] tracking-tight mt-0.5">Bản đồ</span>
         </button>
 
-        <!-- Tab 3: Đã lưu & Vừa xem (Favorites) -->
+        <!-- Tab 3: Câu lạc bộ (Clubs & Community) -->
+        <button id="tabNavClubs" onclick="window.ViVuApp.navGoClubs()"
+            class="bottom-nav-btn min-h-[48px] h-14 flex-1 flex flex-col items-center justify-center py-1 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none">
+            <span class="material-symbols-outlined text-2xl">groups</span>
+            <span class="bottom-nav-label text-[10px] tracking-tight mt-0.5">Câu lạc bộ</span>
+        </button>
+
+        <!-- Tab 4: Đã lưu (Favorites) -->
         <button id="tabNavSaved" onclick="window.ViVuApp.navGoSaved()"
-            class="bottom-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none">
+            class="bottom-nav-btn min-h-[48px] h-14 flex-1 flex flex-col items-center justify-center py-1 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none">
             <div class="relative">
                 <span class="material-symbols-outlined text-2xl text-rose-500">favorite</span>
                 <span id="savedBottomNavBadge" class="hidden absolute -top-1 -right-2 min-w-[16px] h-4 px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs">0</span>
@@ -1556,9 +1862,9 @@
             <span class="bottom-nav-label text-[10px] tracking-tight mt-0.5">Đã lưu</span>
         </button>
 
-        <!-- Tab 4: Tìm kiếm (Search Auto-Focus) -->
+        <!-- Tab 5: Tìm kiếm (Search Auto-Focus) -->
         <button id="tabNavSearch" onclick="window.ViVuApp.navGoSearch()"
-            class="bottom-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none">
+            class="bottom-nav-btn min-h-[48px] h-14 flex-1 flex flex-col items-center justify-center py-1 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none">
             <span class="material-symbols-outlined text-2xl">search</span>
             <span class="bottom-nav-label text-[10px] tracking-tight mt-0.5">Tìm kiếm</span>
         </button>

@@ -2842,6 +2842,9 @@ export function updateSearchModeUI() {
 
     // Tạm ẩn/thu gọn các khối khám phá dài dòng khi người dùng đang chủ động tìm kiếm món/quán (Issue M9)
     const discoveryDecorations = [
+        document.getElementById('heroBanner'),
+        document.getElementById('stitchCommunitySection'),
+        document.getElementById('stitchNearbySection'),
         document.getElementById('tourItinerariesSection'),
         document.getElementById('festivalsPortalSection'),
         document.getElementById('travelStoriesSection'),
@@ -3125,7 +3128,7 @@ function hideError() {
 // BOTTOM NAVIGATION CONTROLLER (MOBILE FIRST)
 // ==========================================
 export function setBottomNavActive(activeId) {
-    const tabs = ['tabNavHome', 'tabNavMap', 'tabNavSaved', 'tabNavSearch'];
+    const tabs = ['tabNavHome', 'tabNavMap', 'tabNavClubs', 'tabNavSaved', 'tabNavSearch'];
     tabs.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -3133,10 +3136,10 @@ export function setBottomNavActive(activeId) {
         const icon = el.querySelector('.material-symbols-outlined');
 
         if (isActive) {
-            el.className = 'bottom-nav-btn flex-1 flex flex-col items-center justify-center py-1.5 text-primary dark:text-emerald-400 font-bold relative transition-colors focus:outline-none';
+            el.className = 'bottom-nav-btn min-h-[48px] h-14 flex-1 flex flex-col items-center justify-center py-1 text-primary dark:text-emerald-400 font-bold relative transition-colors focus:outline-none';
             if (icon) icon.style.fontVariationSettings = "'FILL' 1, 'wght' 600";
         } else {
-            el.className = 'bottom-nav-btn flex-1 flex flex-col items-center justify-center py-1.5 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none';
+            el.className = 'bottom-nav-btn min-h-[48px] h-14 flex-1 flex flex-col items-center justify-center py-1 text-on-surface-variant dark:text-zinc-400 font-medium relative hover:text-primary dark:hover:text-emerald-400 transition-colors focus:outline-none';
             if (icon) icon.style.fontVariationSettings = "'FILL' 0, 'wght' 400";
         }
     });
@@ -3151,6 +3154,14 @@ export function navGoHome() {
 export function navGoMap() {
     setBottomNavActive('tabNavMap');
     openFullMapModal();
+}
+
+export function navGoClubs() {
+    setBottomNavActive('tabNavClubs');
+    const clubSection = document.getElementById('stitchCommunitySection');
+    if (clubSection) {
+        clubSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 export function navGoSaved() {
@@ -3369,6 +3380,7 @@ if (typeof window !== 'undefined') {
         promptPwaInstall,
         navGoHome,
         navGoMap,
+        navGoClubs,
         navGoSaved,
         navGoSearch,
         setBottomNavActive,

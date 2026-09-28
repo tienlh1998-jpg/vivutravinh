@@ -216,6 +216,37 @@ async function runG7BrowserTests() {
         // CA THỬ 1: Dynamic SEO, Canonical & Điều Hướng URL (/place/{slug} vs ?)
         console.log('--- Ca thử 1: Dynamic SEO & Điều Hướng URL (/place/{slug} thay cho ?place=) ---');
         {
+            // Chuẩn bị các bản ghi test với hợp đồng verified approved để thử nghiệm direct routing G9.3C
+            await cdp.eval(`(() => {
+                const places = window.ViVuApp.state.allPlaces;
+                if (!places.some(p => p.slug === 'bun-nuoc-leo-tho-dia-tra-vinh')) {
+                    places.push({
+                        id: 'bun-nuoc-leo-tho-dia-tra-vinh',
+                        slug: 'bun-nuoc-leo-tho-dia-tra-vinh',
+                        name: 'Bún Nước Lèo Thổ Địa Trà Vinh',
+                        category: 'Ẩm Thực',
+                        status: 'approved',
+                        _source: 'supabase',
+                        images: []
+                    });
+                }
+                if (!places.some(p => p.slug === 'resort-sinh-thai-dua-xanh')) {
+                    places.push({
+                        id: 'resort-sinh-thai-dua-xanh',
+                        slug: 'resort-sinh-thai-dua-xanh',
+                        name: 'Resort Sinh Thái Dừa Xanh',
+                        category: 'Lưu Trú',
+                        status: 'approved',
+                        _source: 'supabase',
+                        images: []
+                    });
+                }
+                places.forEach(p => {
+                    p._source = 'supabase';
+                    p.status = 'approved';
+                });
+            })()`);
+
             // 1.1. Luồng 1: Mở địa điểm từ trang chủ -> Cập nhật URL thành /place/{slug}, Nút Back quay về /
             console.log('  -> 1.1. Luồng mở từ trang chủ:');
             await cdp.eval(`(() => {
