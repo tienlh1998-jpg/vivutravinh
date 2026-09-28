@@ -2717,6 +2717,41 @@
         </div>
     </div>
 
+    <!-- 34. MODAL CHI TIẾT ĐỊA ĐIỂM DI SẢN CHUYÊN SÂU (DEEP PLACE DETAIL MODAL - PHASE 11) -->
+    <div id="deepPlaceDetailModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="deepPlaceDetailModalTitle">
+        <div class="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeDeepPlaceDetail()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-0 text-center">
+                <div class="relative transform overflow-hidden bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full min-h-screen">
+                    <span id="deepPlaceDetailModalTitle" class="sr-only">Chi tiết địa điểm di sản chuyên sâu</span>
+                    <div id="deepPlaceDetailModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 35. MODAL CHI TIẾT THƯ MỤC HÀNH TRÌNH ĐÃ LƯU (SAVED ITINERARY FOLDER DETAIL MODAL - PHASE 11) -->
+    <div id="itineraryFolderDetailModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="itineraryFolderDetailModalTitle">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeItineraryFolderDetail()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-0 text-center">
+                <div class="relative transform overflow-hidden bg-[#FBF8FC] dark:bg-zinc-950 text-left shadow-2xl transition-all w-full min-h-screen">
+                    <span id="itineraryFolderDetailModalTitle" class="sr-only">Chi tiết Thư mục Hành trình đã lưu</span>
+                    <div id="itineraryFolderDetailModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 36. MODAL THƯ VIỆN ẢNH DI SẢN (PHOTO GALLERY LIGHTBOX MODAL - PHASE 11) -->
+    <div id="placePhotoGalleryModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="placePhotoGalleryModalTitle">
+        <div class="fixed inset-0 bg-black/95 transition-opacity" onclick="window.ViVuApp.closePlacePhotoGallery()"></div>
+        <div class="relative z-10 w-full h-full">
+            <span id="placePhotoGalleryModalTitle" class="sr-only">Thư viện ảnh di sản độ nét cao</span>
+            <div id="placePhotoGalleryModalContent"></div>
+        </div>
+    </div>
+
 </body>
 
 </html>

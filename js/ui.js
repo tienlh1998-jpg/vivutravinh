@@ -9047,7 +9047,839 @@ export function renderAdminActionReasonModalContent({
     `;
 }
 
+/**
+ * =========================================================================
+ * PHASE 11: CHI TIẾT ĐỊA ĐIỂM DI SẢN CHUYÊN SÂU (DEEP CULTURAL HERITAGE)
+ * STITCH: chi_ti_t_a_i_m_ch_a_ng_vivutravinh & chi_ti_t_ch_a_ng_vivutravinh_mobile
+ * =========================================================================
+ */
+export function renderDeepPlaceDetailModalContent(place, isAudioPlaying = false, audioCurrentTime = '01:24', isSaved = false) {
+    if (!place) return '';
 
+    const audioGuide = place.audioGuide || {};
+    const photos = place.photos || [];
+    const mainPhoto = photos[0] || { src: place.heroImage || 'chùa âng.jpg', title: place.name, tag: 'Toàn cảnh' };
+    const sec1 = photos[1] || photos[0] || {};
+    const sec2 = photos[2] || photos[0] || {};
+    const sec3 = photos[3] || photos[0] || {};
+    const sec4 = photos[4] || photos[0] || {};
 
+    const timerDisplay = isAudioPlaying ? (audioCurrentTime || '01:24') : '00:00';
+    const totalDuration = audioGuide.duration || '04:45';
 
+    return `
+        <div class="w-full bg-[#F8F9FA] dark:bg-zinc-950 font-body-md text-on-surface dark:text-zinc-100 antialiased min-h-screen">
+            <!-- Top Breadcrumb & Quick Actions Bar (Sticky) -->
+            <section class="w-full bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-4 sm:px-6 py-3 sticky top-0 z-40 border-b border-outline-variant/30 dark:border-zinc-800 shadow-xs">
+                <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.ViVuApp.closeDeepPlaceDetail()"
+                            class="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 flex items-center justify-center text-primary dark:text-zinc-200 transition-colors"
+                            aria-label="Quay lại">
+                            <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                        </button>
+                        <nav aria-label="Đường dẫn trang" class="hidden sm:flex items-center gap-2 text-xs">
+                            <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">home</span>
+                                Trang chủ
+                            </span>
+                            <span class="material-symbols-outlined text-[14px] text-outline dark:text-zinc-500">chevron_right</span>
+                            <span class="text-on-surface-variant dark:text-zinc-400">Bản đồ &amp; Địa điểm</span>
+                            <span class="material-symbols-outlined text-[14px] text-outline dark:text-zinc-500">chevron_right</span>
+                            <span class="font-bold text-primary dark:text-zinc-100 truncate max-w-[220px]">
+                                ${escapeHtml(place.name)}
+                            </span>
+                        </nav>
+                        <span class="sm:hidden font-headline-sm text-sm font-bold text-primary dark:text-zinc-100 truncate max-w-[190px]">
+                            ${escapeHtml(place.name)}
+                        </span>
+                    </div>
 
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.ViVuApp.toggleSaveDeepPlace('${escapeHtml(place.id)}')"
+                            id="deepSavePlaceBtn"
+                            class="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl ${isSaved ? 'bg-secondary text-white' : 'bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:text-secondary'} font-semibold text-xs shadow-xs transition-colors"
+                            aria-label="Lưu địa điểm">
+                            <span class="material-symbols-outlined text-[18px]">${isSaved ? 'bookmark' : 'bookmark_border'}</span>
+                            <span id="deepSaveText">${isSaved ? 'Đã lưu' : 'Lưu điểm'}</span>
+                        </button>
+
+                        <button type="button" onclick="window.ViVuApp.shareDeepPlace('${escapeHtml(place.id)}')"
+                            class="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:text-on-surface font-semibold text-xs shadow-xs transition-colors"
+                            aria-label="Chia sẻ địa điểm">
+                            <span class="material-symbols-outlined text-[18px]">share</span>
+                            <span class="hidden sm:inline">Chia sẻ</span>
+                        </button>
+
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' Trà Vinh')}"
+                            target="_blank" rel="noopener noreferrer"
+                            class="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl bg-secondary hover:bg-primary-container text-white font-semibold text-xs shadow-xs transition-colors"
+                            aria-label="Chỉ đường Google Maps">
+                            <span class="material-symbols-outlined text-[18px]">directions</span>
+                            <span>Chỉ đường</span>
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Main Showcase Container -->
+            <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-6">
+                <!-- Title & Heritage Header Banner -->
+                <header class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-xs font-semibold">
+                                <span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+                                ${escapeHtml(place.heritageRank || 'Di tích Lịch sử - Văn hóa Quốc gia')}
+                            </span>
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#EA580C]/10 dark:bg-amber-950/50 text-[#EA580C] dark:text-amber-300 text-xs font-semibold">
+                                ${escapeHtml(place.establishedText || 'Thành lập năm 990')}
+                            </span>
+                        </div>
+                        <h1 class="font-headline-xl text-2xl sm:text-3xl lg:text-4xl text-primary dark:text-zinc-100 font-bold tracking-tight">
+                            ${escapeHtml(place.name)}
+                            <span class="block md:inline font-headline-md text-base sm:text-lg text-on-surface-variant dark:text-zinc-400 font-normal tracking-normal md:ml-2">
+                                ${escapeHtml(place.nativeName || '')}
+                            </span>
+                        </h1>
+                        <div class="flex flex-wrap items-center gap-3 sm:gap-4 text-on-surface-variant dark:text-zinc-400 text-xs sm:text-sm pt-0.5">
+                            <div class="flex items-center gap-1 text-[#EA580C]">
+                                <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                <span class="font-bold text-on-surface dark:text-zinc-200">${place.rating || '4.9'}</span>
+                                <span class="text-outline dark:text-zinc-500">(${place.reviewsCount || 386} đánh giá)</span>
+                            </div>
+                            <span class="text-outline dark:text-zinc-600">•</span>
+                            <div class="flex items-center gap-1 text-on-surface dark:text-zinc-300">
+                                <span class="material-symbols-outlined text-[18px] text-secondary">location_on</span>
+                                <span>${escapeHtml(place.address)}</span>
+                            </div>
+                            <span class="text-outline dark:text-zinc-600">•</span>
+                            <span class="px-2.5 py-0.5 rounded-lg bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-medium">
+                                ${escapeHtml(place.openHours)}
+                            </span>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Photo Mosaic Grid (5-tile grid) -->
+                <section class="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-3 h-[380px] sm:h-[440px] md:h-[480px] w-full rounded-3xl overflow-hidden shadow-md">
+                    <!-- Main Photo (2x2) -->
+                    <div class="md:col-span-2 md:row-span-2 relative group overflow-hidden bg-surface-container-highest cursor-pointer"
+                        onclick="window.ViVuApp.openPlacePhotoGallery(0)">
+                        <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                            src="${escapeHtml(mainPhoto.src)}"
+                            alt="${escapeHtml(mainPhoto.title)}"/>
+                        <div class="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent"></div>
+                        <div class="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[20px] text-secondary-fixed">temple_buddhist</span>
+                                <span class="font-headline-sm text-sm sm:text-base font-semibold drop-shadow-sm">${escapeHtml(mainPhoto.title)}</span>
+                            </div>
+                            <span class="text-[11px] bg-primary-container/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-primary-fixed">
+                                ${escapeHtml(mainPhoto.tag || 'Toàn cảnh')}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Secondary Photo 1 -->
+                    <div class="relative group overflow-hidden bg-surface-container-highest cursor-pointer"
+                        onclick="window.ViVuApp.openPlacePhotoGallery(1)">
+                        <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                            src="${escapeHtml(sec1.src)}"
+                            alt="${escapeHtml(sec1.title)}"/>
+                        <div class="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent"></div>
+                        <span class="absolute bottom-2 left-3 text-xs text-white drop-shadow font-medium truncate max-w-[90%]">
+                            ${escapeHtml(sec1.title || 'Bích họa Phật tích')}
+                        </span>
+                    </div>
+
+                    <!-- Secondary Photo 2 -->
+                    <div class="relative group overflow-hidden bg-surface-container-highest cursor-pointer"
+                        onclick="window.ViVuApp.openPlacePhotoGallery(2)">
+                        <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                            src="${escapeHtml(sec2.src)}"
+                            alt="${escapeHtml(sec2.title)}"/>
+                        <div class="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent"></div>
+                        <span class="absolute bottom-2 left-3 text-xs text-white drop-shadow font-medium truncate max-w-[90%]">
+                            ${escapeHtml(sec2.title || 'Kiến trúc điêu khắc')}
+                        </span>
+                    </div>
+
+                    <!-- Secondary Photo 3 -->
+                    <div class="relative group overflow-hidden bg-surface-container-highest cursor-pointer"
+                        onclick="window.ViVuApp.openPlacePhotoGallery(3)">
+                        <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                            src="${escapeHtml(sec3.src)}"
+                            alt="${escapeHtml(sec3.title)}"/>
+                        <div class="absolute inset-0 bg-gradient-to-t from-primary/60 to-transparent"></div>
+                        <span class="absolute bottom-2 left-3 text-xs text-white drop-shadow font-medium truncate max-w-[90%]">
+                            ${escapeHtml(sec3.title || 'Cây sao dầu cổ thụ')}
+                        </span>
+                    </div>
+
+                    <!-- Secondary Photo 4 / Gallery Opener -->
+                    <div class="relative group overflow-hidden bg-surface-container-highest cursor-pointer"
+                        onclick="window.ViVuApp.openPlacePhotoGallery(0)">
+                        <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                            src="${escapeHtml(sec4.src)}"
+                            alt="${escapeHtml(sec4.title)}"/>
+                        <div class="absolute inset-0 bg-primary/70 backdrop-blur-xs flex flex-col items-center justify-center text-center p-3 group-hover:bg-primary/60 transition-colors">
+                            <span class="material-symbols-outlined text-[30px] text-white mb-1">photo_library</span>
+                            <span class="font-bold text-white text-xs sm:text-sm">Xem tất cả ${place.totalPhotosCount || 48} ảnh</span>
+                            <span class="text-[11px] text-emerald-200">Góc chụp du khách &amp; di sản</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Two Columns Layout: Main Content (65%) & Aside Widgets (35%) -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-12">
+                    <!-- LEFT COLUMN: Deep cultural story, Audio guide, Architecture, Etiquette, Reviews (8 Cols) -->
+                    <main class="lg:col-span-8 flex flex-col gap-8">
+                        <!-- Audio Guide Player Banner (Khmer Cultural Immersion) -->
+                        <div class="rounded-3xl bg-primary-container text-white p-5 sm:p-6 shadow-md relative overflow-hidden">
+                            <div class="absolute -right-8 -bottom-8 w-44 h-44 rounded-full bg-secondary/30 blur-2xl pointer-events-none"></div>
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                                <div class="flex items-center gap-4">
+                                    <button type="button" id="deepAudioPlayBtn" onclick="window.ViVuApp.toggleAudioGuidePlayback()"
+                                        aria-label="${isAudioPlaying ? 'Tạm dừng thuyết minh' : 'Phát thuyết minh âm thanh'}"
+                                        class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-full ${isAudioPlaying ? 'bg-secondary' : 'bg-[#EA580C] hover:bg-[#C2410C]'} text-white flex items-center justify-center shadow-lg transition-transform active:scale-95 shrink-0">
+                                        <span class="material-symbols-outlined text-[28px]">${isAudioPlaying ? 'pause' : 'play_arrow'}</span>
+                                    </button>
+                                    <div class="flex flex-col">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[11px] font-bold text-secondary-fixed bg-secondary-fixed/20 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                                Audio Guide Bản Địa
+                                            </span>
+                                            <span class="text-xs text-emerald-200">Thời lượng: ${escapeHtml(totalDuration)}</span>
+                                        </div>
+                                        <h2 class="font-headline-sm text-base sm:text-lg text-white font-bold mt-1">
+                                            ${escapeHtml(audioGuide.title || 'Thuyết minh huyền tích Chùa Âng ngàn năm')}
+                                        </h2>
+                                        <p class="text-xs text-emerald-100/80">
+                                            ${escapeHtml(audioGuide.narrator || 'Giọng đọc văn hóa Khmer Thạch Chanh Đa')}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Waveform Mock Visualizer -->
+                                <div class="flex items-center gap-1.5 bg-black/25 px-4 py-2.5 rounded-2xl self-start md:self-center">
+                                    <span class="w-1 h-3 bg-secondary-fixed rounded-full ${isAudioPlaying ? 'animate-pulse' : 'opacity-40'}"></span>
+                                    <span class="w-1 h-6 bg-secondary-fixed rounded-full ${isAudioPlaying ? 'animate-pulse' : 'opacity-40'}" style="animation-delay: 150ms;"></span>
+                                    <span class="w-1 h-4 bg-secondary-fixed rounded-full ${isAudioPlaying ? 'animate-pulse' : 'opacity-40'}" style="animation-delay: 300ms;"></span>
+                                    <span class="w-1 h-7 bg-secondary-fixed rounded-full ${isAudioPlaying ? 'animate-pulse' : 'opacity-40'}" style="animation-delay: 75ms;"></span>
+                                    <span class="w-1 h-5 bg-secondary-fixed rounded-full ${isAudioPlaying ? 'animate-pulse' : 'opacity-40'}" style="animation-delay: 200ms;"></span>
+                                    <span class="w-1 h-3 bg-secondary-fixed rounded-full ${isAudioPlaying ? 'animate-pulse' : 'opacity-40'}" style="animation-delay: 350ms;"></span>
+                                    <span class="w-1 h-6 bg-secondary-fixed rounded-full ${isAudioPlaying ? 'animate-pulse' : 'opacity-40'}" style="animation-delay: 120ms;"></span>
+                                    <span class="ml-2 text-xs text-primary-fixed font-mono font-bold" id="deepAudioTimer">
+                                        ${timerDisplay} / ${escapeHtml(totalDuration)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section: Overview & 1000-Year History -->
+                        <article class="bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-4">
+                            <div class="flex items-center justify-between">
+                                <h2 class="font-headline-lg text-lg sm:text-xl text-primary dark:text-zinc-100 font-bold flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-secondary text-[26px]">history_edu</span>
+                                    Hơn một thiên niên kỷ soi bóng cổ thụ
+                                </h2>
+                                <span class="text-xs text-outline dark:text-zinc-500 font-medium">Khai sơn: 990 SCN</span>
+                            </div>
+
+                            ${(place.historyOverview || []).map(p => `
+                                <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                    ${p}
+                                </p>
+                            `).join('')}
+
+                            <!-- Historical Milestones Callout -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
+                                ${(place.historyMilestones || []).map(m => `
+                                    <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 flex flex-col gap-1 border border-outline-variant/10 dark:border-zinc-700/50">
+                                        <span class="font-headline-sm text-sm sm:text-base text-secondary dark:text-emerald-400 font-bold">${escapeHtml(m.year)}</span>
+                                        <span class="text-xs text-on-surface-variant dark:text-zinc-400 leading-snug">${escapeHtml(m.desc)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </article>
+
+                        <!-- Section: Unique Khmer Architectural Highlights -->
+                        <article class="bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-5">
+                            <div class="flex flex-col gap-1">
+                                <h2 class="font-headline-lg text-lg sm:text-xl text-primary dark:text-zinc-100 font-bold flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-secondary text-[26px]">architecture</span>
+                                    Đỉnh cao kiến trúc điêu khắc Angkor
+                                </h2>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-400">
+                                    Từng đường nét chạm trổ là một chương sử thi về triết lý nhân sinh quan và cõi Phật
+                                </p>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                ${(place.architecturalHighlights || []).map(arch => `
+                                    <div class="flex flex-col rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 p-4 gap-2.5 border border-outline-variant/10 dark:border-zinc-700/50">
+                                        <div class="w-10 h-10 rounded-xl bg-secondary/10 dark:bg-emerald-950/60 flex items-center justify-center text-secondary dark:text-emerald-300">
+                                            <span class="material-symbols-outlined text-[24px]">${escapeHtml(arch.icon)}</span>
+                                        </div>
+                                        <h3 class="font-headline-sm text-xs sm:text-sm font-bold text-primary dark:text-zinc-100">${escapeHtml(arch.title)}</h3>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">${escapeHtml(arch.desc)}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+
+                            <!-- Highlight Quotation from Culture Specialist -->
+                            ${place.specialistQuote ? `
+                                <div class="p-4 rounded-2xl bg-secondary-container/20 dark:bg-zinc-800/80 flex items-start gap-3 border border-secondary/20">
+                                    <span class="material-symbols-outlined text-secondary text-[24px] mt-0.5 shrink-0">format_quote</span>
+                                    <div class="flex flex-col">
+                                        <p class="text-xs sm:text-sm text-on-surface dark:text-zinc-200 italic font-medium leading-relaxed">
+                                            "${escapeHtml(place.specialistQuote.quote)}"
+                                        </p>
+                                        <span class="text-[11px] text-outline dark:text-zinc-400 mt-1 font-semibold">
+                                            — ${escapeHtml(place.specialistQuote.author)}
+                                        </span>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </article>
+
+                        <!-- Section: Cultural Etiquette & Visitor Conduct Rules -->
+                        <article class="bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-4">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[#EA580C] text-[26px]">shield</span>
+                                <h2 class="font-headline-lg text-lg sm:text-xl text-primary dark:text-zinc-100 font-bold">
+                                    Quy tắc văn hóa &amp; Trang phục khi viếng chùa
+                                </h2>
+                            </div>
+                            <p class="text-xs text-on-surface-variant dark:text-zinc-400">
+                                Để bảo tồn tính tôn nghiêm nơi thiền tự và tôn trọng bản sắc cộng đồng Khmer, du khách vui lòng tuân thủ:
+                            </p>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                                ${(place.culturalEtiquettes || []).map(et => `
+                                    <div class="flex items-start gap-3 p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/10 dark:border-zinc-700/50">
+                                        <span class="material-symbols-outlined text-secondary text-[20px] shrink-0 mt-0.5">${escapeHtml(et.icon)}</span>
+                                        <div class="flex flex-col">
+                                            <strong class="text-xs font-bold text-on-surface dark:text-zinc-200">${escapeHtml(et.title)}</strong>
+                                            <span class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5 leading-snug">${escapeHtml(et.desc)}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </article>
+
+                        <!-- Section: Local Guide's Insider Tips -->
+                        <article class="bg-emerald-50/80 dark:bg-emerald-950/20 p-6 sm:p-8 rounded-3xl border border-secondary/20 flex flex-col gap-4">
+                            <div class="flex items-center gap-3">
+                                <span class="material-symbols-outlined text-secondary text-[26px]">lightbulb</span>
+                                <h2 class="font-headline-lg text-lg sm:text-xl text-primary dark:text-zinc-100 font-bold">
+                                    Mẹo du ngoạn từ người bản địa Trà Vinh
+                                </h2>
+                            </div>
+                            <div class="space-y-3 text-xs sm:text-sm text-on-surface dark:text-zinc-200 leading-relaxed">
+                                ${(place.insiderTips || []).map(tip => `
+                                    <div class="flex items-start gap-3">
+                                        <span class="font-bold text-secondary dark:text-emerald-400 shrink-0">${escapeHtml(tip.num)}.</span>
+                                        <div>
+                                            <strong>${escapeHtml(tip.title)}:</strong> ${escapeHtml(tip.desc)}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </article>
+
+                        <!-- Section: Community Reviews & Breakdown -->
+                        <section class="bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-6">
+                            <div class="flex flex-wrap items-center justify-between gap-4">
+                                <div>
+                                    <h2 class="font-headline-lg text-lg sm:text-xl text-primary dark:text-zinc-100 font-bold">
+                                        Đánh giá từ cộng đồng vi vu (${place.reviewsCount || 386})
+                                    </h2>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400">Những cảm xúc chân thực của du khách ghé thăm</p>
+                                </div>
+                                <button type="button" onclick="alert('Cảm ơn bạn! Tính năng gửi đánh giá sẽ mở ngay sau chuyến viếng thăm.')"
+                                    class="px-4 py-2 min-h-[44px] rounded-xl bg-secondary hover:bg-primary-container text-white font-semibold text-xs transition-colors shadow-xs">
+                                    Viết cảm nhận của bạn
+                                </button>
+                            </div>
+
+                            <!-- Overall Rating Breakdown Bar -->
+                            <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 flex flex-col sm:flex-row items-center gap-6">
+                                <div class="flex flex-col items-center justify-center sm:pr-6 sm:border-r border-outline-variant/30 dark:border-zinc-700">
+                                    <span class="font-headline-xl text-3xl font-bold text-primary dark:text-zinc-100">${place.rating || '4.9'}</span>
+                                    <div class="flex text-[#EA580C] my-1">
+                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                    </div>
+                                    <span class="text-[11px] text-outline dark:text-zinc-400 font-medium">98% khen ngợi cảnh quan</span>
+                                </div>
+
+                                <div class="flex-1 w-full space-y-2 text-xs">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-10 text-on-surface dark:text-zinc-300">5 sao</span>
+                                        <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                            <div class="bg-secondary h-full rounded-full w-[92%]"></div>
+                                        </div>
+                                        <span class="w-8 text-right text-outline dark:text-zinc-400">92%</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-10 text-on-surface dark:text-zinc-300">4 sao</span>
+                                        <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                            <div class="bg-secondary h-full rounded-full w-[6%]"></div>
+                                        </div>
+                                        <span class="w-8 text-right text-outline dark:text-zinc-400">6%</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-10 text-on-surface dark:text-zinc-300">3 sao</span>
+                                        <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                            <div class="bg-secondary h-full rounded-full w-[2%]"></div>
+                                        </div>
+                                        <span class="w-8 text-right text-outline dark:text-zinc-400">2%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Review List -->
+                            <div class="flex flex-col gap-4 divide-y divide-outline-variant/20 dark:divide-zinc-800">
+                                ${(place.reviews || []).map(r => `
+                                    <div class="flex flex-col gap-2.5 pt-4 first:pt-0">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-3">
+                                                <img class="w-10 h-10 rounded-full object-cover shadow-xs" src="${escapeHtml(r.avatar)}" alt="${escapeHtml(r.author)}"/>
+                                                <div class="flex flex-col">
+                                                    <span class="text-xs font-bold text-on-surface dark:text-zinc-200">${escapeHtml(r.author)}</span>
+                                                    <span class="text-[11px] text-outline dark:text-zinc-400">${escapeHtml(r.location)}</span>
+                                                </div>
+                                            </div>
+                                            <div class="flex text-[#EA580C]">
+                                                ${Array.from({ length: r.rating || 5 }).map(() => `
+                                                    <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                        <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                            ${escapeHtml(r.comment)}
+                                        </p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </section>
+                    </main>
+
+                    <!-- RIGHT COLUMN: Fast Action Sidebar (35% width, Sticky) -->
+                    <aside class="lg:col-span-4 flex flex-col gap-6 sticky top-20">
+                        <!-- Quick Info Card -->
+                        <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-4">
+                            <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-secondary text-[22px]">info</span>
+                                Thông tin tham quan nhanh
+                            </h3>
+                            <div class="flex flex-col gap-3 text-xs">
+                                <div class="flex items-center justify-between py-2 border-b border-outline-variant/20 dark:border-zinc-800">
+                                    <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-[18px] text-outline">schedule</span>
+                                        Giờ mở cửa
+                                    </span>
+                                    <span class="font-bold text-primary dark:text-zinc-200">${escapeHtml(place.openHours)}</span>
+                                </div>
+                                <div class="flex items-center justify-between py-2 border-b border-outline-variant/20 dark:border-zinc-800">
+                                    <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-[18px] text-outline">confirmation_number</span>
+                                        Vé vào cổng
+                                    </span>
+                                    <span class="font-bold text-secondary dark:text-emerald-400 px-2 py-0.5 rounded bg-secondary-container/50 dark:bg-emerald-950/60">
+                                        ${escapeHtml(place.ticketPrice || 'Miễn phí hoàn toàn')}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between py-2 border-b border-outline-variant/20 dark:border-zinc-800">
+                                    <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-[18px] text-outline">timelapse</span>
+                                        Thời gian khuyên nghị
+                                    </span>
+                                    <span class="font-bold text-primary dark:text-zinc-200">${escapeHtml(place.suggestedDuration || '1.5 - 2.0 giờ')}</span>
+                                </div>
+                                <div class="flex items-center justify-between py-2">
+                                    <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-[18px] text-outline">local_parking</span>
+                                        Bãi đỗ xe
+                                    </span>
+                                    <span class="font-medium text-on-surface dark:text-zinc-300">${escapeHtml(place.parking || 'Có')}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weather Status Card (Tra Vinh Live) -->
+                        <div class="bg-white dark:bg-zinc-900 p-5 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="material-symbols-outlined text-[#EA580C] text-[34px]">sunny</span>
+                                <div class="flex flex-col">
+                                    <span class="text-[11px] text-outline dark:text-zinc-400">Thời tiết hôm nay tại Trà Vinh</span>
+                                    <span class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-200">
+                                        ${escapeHtml(place.weather?.temp || '29°C')} • ${escapeHtml(place.weather?.desc || 'Nắng nhẹ ráo trời')}
+                                    </span>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full bg-secondary/10 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 text-[11px] font-semibold">
+                                ${escapeHtml(place.weather?.note || 'Lý tưởng viếng chùa')}
+                            </span>
+                        </div>
+
+                        <!-- Map & GPS Widget -->
+                        <div class="bg-white dark:bg-zinc-900 p-5 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5 font-bold text-xs text-primary dark:text-zinc-200">
+                                    <span class="material-symbols-outlined text-secondary text-[20px]">explore</span>
+                                    Tọa độ thực địa GPS
+                                </div>
+                                <button type="button" id="copyDeepCoordsBtn" onclick="window.ViVuApp.copyDeepPlaceCoords('${escapeHtml(place.coordinates)}')"
+                                    class="text-[11px] text-secondary dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">content_copy</span>
+                                    Sao chép
+                                </button>
+                            </div>
+                            <p class="font-mono text-xs text-on-surface-variant dark:text-zinc-400 bg-surface-container-low dark:bg-zinc-800/80 p-2.5 rounded-xl border border-outline-variant/20 dark:border-zinc-700" id="deepPlaceCoords">
+                                ${escapeHtml(place.coordinates)}
+                            </p>
+                            <button type="button" onclick="window.ViVuApp.addDeepPlaceToTripPlanner('${escapeHtml(place.id)}')"
+                                class="w-full py-2.5 min-h-[44px] rounded-xl bg-secondary hover:bg-primary-container text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors">
+                                <span class="material-symbols-outlined text-[18px]">add_location_alt</span>
+                                + Thêm vào Lịch trình Khám phá
+                            </button>
+                        </div>
+
+                        <!-- Nearby Attractions in Walking Distance -->
+                        <div class="bg-white dark:bg-zinc-900 p-5 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-3.5">
+                            <h4 class="text-xs font-bold text-primary dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-secondary text-[18px]">directions_walk</span>
+                                Điểm tham quan lân cận
+                            </h4>
+                            <div class="flex flex-col gap-2.5">
+                                ${(place.nearbyPlaces || []).map(np => `
+                                    <div class="flex items-center gap-3 p-2 rounded-2xl hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors">
+                                        <img src="${escapeHtml(np.image)}" alt="${escapeHtml(np.name)}" class="w-12 h-12 rounded-xl object-cover shrink-0 shadow-xs"/>
+                                        <div class="flex flex-col min-w-0 flex-1">
+                                            <span class="text-xs font-bold text-on-surface dark:text-zinc-200 truncate">${escapeHtml(np.name)}</span>
+                                            <span class="text-[11px] text-outline dark:text-zinc-400">${escapeHtml(np.distance)}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Local Cuisine Nearby -->
+                        <div class="bg-white dark:bg-zinc-900 p-5 rounded-3xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-3.5">
+                            <h4 class="text-xs font-bold text-primary dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-[#EA580C] text-[18px]">restaurant</span>
+                                Ẩm thực đặc sản kề cận
+                            </h4>
+                            <div class="flex flex-col gap-2.5">
+                                ${(place.nearbyFood || []).map(nf => `
+                                    <div class="flex items-center gap-3 p-2 rounded-2xl hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors">
+                                        <img src="${escapeHtml(nf.image)}" alt="${escapeHtml(nf.name)}" class="w-12 h-12 rounded-xl object-cover shrink-0 shadow-xs"/>
+                                        <div class="flex flex-col min-w-0 flex-1">
+                                            <span class="text-xs font-bold text-on-surface dark:text-zinc-200 truncate">${escapeHtml(nf.name)}</span>
+                                            <span class="text-[11px] text-outline dark:text-zinc-400 line-clamp-1">${escapeHtml(nf.desc)}</span>
+                                            <span class="text-[11px] text-secondary font-semibold">${escapeHtml(nf.distance)}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- Mobile Fixed Bottom Action Bar -->
+            <div class="sm:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-outline-variant/30 dark:border-zinc-800 z-40 flex items-center gap-2 shadow-lg">
+                <button type="button" onclick="window.ViVuApp.addDeepPlaceToTripPlanner('${escapeHtml(place.id)}')"
+                    class="flex-1 py-3 min-h-[46px] rounded-2xl bg-surface-container dark:bg-zinc-800 text-primary dark:text-zinc-100 font-bold text-xs flex items-center justify-center gap-1.5">
+                    <span class="material-symbols-outlined text-[18px]">add_location_alt</span>
+                    + Thêm Lộ Trình
+                </button>
+                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' Trà Vinh')}"
+                    target="_blank" rel="noopener noreferrer"
+                    class="flex-1 py-3 min-h-[46px] rounded-2xl bg-secondary text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md">
+                    <span class="material-symbols-outlined text-[18px]">directions</span>
+                    Chỉ đường Maps
+                </a>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * =========================================================================
+ * PHASE 11: CHI TIẾT THƯ MỤC HÀNH TRÌNH ĐÃ LƯU (SAVED ITINERARY FOLDER DETAIL)
+ * STITCH: chi_ti_t_th_m_c_h_nh_tr_nh_vivutravinh_mobile
+ * =========================================================================
+ */
+export function renderItineraryFolderDetailModalContent(folder) {
+    if (!folder) return '';
+
+    const stops = folder.stops || [];
+
+    return `
+        <div class="w-full bg-[#FBF8FC] dark:bg-zinc-950 font-body-md text-on-surface dark:text-zinc-100 antialiased min-h-screen pb-16">
+            <!-- Sub-Header / Top Navigation -->
+            <div class="w-full bg-white dark:bg-zinc-900 border-b border-outline-variant/30 dark:border-zinc-800 shadow-xs sticky top-0 z-40">
+                <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="window.ViVuApp.closeItineraryFolderDetail()"
+                            class="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full flex items-center justify-center text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-800 transition-colors"
+                            aria-label="Quay lại danh sách đã lưu">
+                            <span class="material-symbols-outlined text-[22px]">arrow_back</span>
+                        </button>
+                        <div class="flex flex-col">
+                            <span class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 leading-tight">
+                                Chi tiết Thư mục
+                            </span>
+                            <span class="text-xs text-secondary dark:text-emerald-400 font-medium">
+                                ${escapeHtml(folder.tagline || 'Lộ trình khám phá')}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1">
+                        <button type="button" onclick="window.ViVuApp.shareItineraryFolder('${escapeHtml(folder.id)}')"
+                            class="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:text-primary transition-colors"
+                            aria-label="Chia sẻ hành trình">
+                            <span class="material-symbols-outlined text-[20px]">share</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.optimizeFolderRoute()"
+                            class="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full flex items-center justify-center text-secondary hover:text-primary transition-colors"
+                            aria-label="Tối ưu lộ trình">
+                            <span class="material-symbols-outlined text-[20px]">auto_fix_high</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="max-w-4xl mx-auto px-4 py-5 flex flex-col gap-4">
+                <!-- Folder Hero & Metadata Banner -->
+                <div class="relative overflow-hidden rounded-3xl bg-primary-container text-white p-5 sm:p-6 shadow-md">
+                    <div class="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-secondary/20 blur-xl pointer-events-none"></div>
+                    <div class="relative z-10 flex flex-col gap-3">
+                        <div class="flex items-start gap-3 sm:gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-secondary/30 flex items-center justify-center text-secondary-fixed shadow-xs shrink-0">
+                                <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">temple_buddhist</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap mb-1">
+                                    <span class="px-2.5 py-0.5 rounded-full bg-secondary text-white text-[11px] font-semibold flex items-center gap-1 shadow-xs">
+                                        <span class="material-symbols-outlined text-[13px]">offline_pin</span>
+                                        Tự tạo • Offline sẵn sàng
+                                    </span>
+                                    <span class="px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-medium">
+                                        ${escapeHtml(folder.duration || '1 Ngày')}
+                                    </span>
+                                </div>
+                                <h1 class="font-headline-lg text-lg sm:text-2xl text-white font-bold tracking-tight">
+                                    ${escapeHtml(folder.name)}
+                                </h1>
+                            </div>
+                        </div>
+
+                        <p class="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
+                            ${escapeHtml(folder.description)}
+                        </p>
+
+                        <!-- Stats row & Author -->
+                        <div class="pt-2 mt-1 flex items-center justify-between flex-wrap gap-2 border-t border-white/10 text-xs">
+                            <div class="flex items-center gap-1.5 text-white">
+                                <span class="material-symbols-outlined text-[16px] text-secondary-fixed">near_me</span>
+                                <span>${folder.stopsCount || stops.length} địa điểm • ${escapeHtml(folder.totalDistance || '~12.5 km')}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full backdrop-blur-xs text-[11px]">
+                                <span class="w-2 h-2 rounded-full bg-secondary-fixed"></span>
+                                <span>${escapeHtml(folder.creator)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Toolbar -->
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="window.ViVuApp.openFullMapModal()"
+                        class="flex flex-col items-center justify-center py-3 px-2 min-h-[48px] bg-white dark:bg-zinc-900 rounded-2xl shadow-xs border border-outline-variant/20 dark:border-zinc-800 hover:bg-surface-container transition-colors text-center">
+                        <span class="material-symbols-outlined text-[22px] text-secondary mb-1">map</span>
+                        <span class="text-xs font-semibold text-primary dark:text-zinc-200">Xem bản đồ</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.openTripPlannerModal()"
+                        class="flex flex-col items-center justify-center py-3 px-2 min-h-[48px] bg-white dark:bg-zinc-900 rounded-2xl shadow-xs border border-outline-variant/20 dark:border-zinc-800 hover:bg-surface-container transition-colors text-center">
+                        <span class="material-symbols-outlined text-[22px] text-primary dark:text-zinc-200 mb-1">add_location_alt</span>
+                        <span class="text-xs font-semibold text-primary dark:text-zinc-200">+ Thêm điểm</span>
+                    </button>
+                    <div class="flex flex-col items-center justify-center py-3 px-2 min-h-[48px] bg-white dark:bg-zinc-900 rounded-2xl shadow-xs border border-outline-variant/20 dark:border-zinc-800 text-center">
+                        <span class="material-symbols-outlined text-[22px] text-secondary mb-1">cloud_done</span>
+                        <span class="text-xs font-semibold text-primary dark:text-zinc-200">Đã tải ${escapeHtml(folder.offlineSize || '18MB')}</span>
+                    </div>
+                </div>
+
+                <!-- Smart Route Optimization Card -->
+                <div class="bg-secondary-container/30 dark:bg-emerald-950/40 p-3.5 sm:p-4 rounded-2xl flex items-start justify-between gap-3 border border-secondary/20 shadow-xs">
+                    <div class="flex items-start gap-2.5 min-w-0">
+                        <div class="w-8 h-8 rounded-full bg-secondary text-white flex items-center justify-center shrink-0 mt-0.5">
+                            <span class="material-symbols-outlined text-[18px]">alt_route</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs font-bold text-primary dark:text-emerald-300">Tối ưu lộ trình AI</span>
+                            <span class="text-xs text-on-surface-variant dark:text-zinc-300 leading-snug">
+                                ${escapeHtml(folder.optimizationSummary || 'Lộ trình đã được tối ưu hóa: tiết kiệm 2.4 km')}
+                            </span>
+                        </div>
+                    </div>
+                    <button type="button" onclick="window.ViVuApp.optimizeFolderRoute()"
+                        class="px-3 py-1.5 min-h-[36px] rounded-xl bg-secondary text-white font-semibold text-xs shrink-0 shadow-xs">
+                        Tối ưu
+                    </button>
+                </div>
+
+                <!-- Sequential Stops Timeline -->
+                <div class="flex flex-col gap-3">
+                    <h3 class="text-xs font-bold text-primary dark:text-zinc-200 uppercase tracking-wider px-1">
+                        Danh sách chặng dừng (${stops.length})
+                    </h3>
+
+                    <div class="flex flex-col gap-3">
+                        ${stops.map((stop, idx) => `
+                            <!-- Stop Card -->
+                            <div class="folder-stop-card bg-white dark:bg-zinc-900 rounded-3xl p-4 sm:p-5 shadow-xs border border-outline-variant/20 dark:border-zinc-800 flex flex-col gap-3">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-7 h-7 rounded-full bg-secondary text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                                        ${idx + 1}
+                                    </div>
+                                    <img src="${escapeHtml(stop.image)}" alt="${escapeHtml(stop.name)}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover shrink-0 shadow-xs"/>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="text-[11px] font-bold text-secondary dark:text-emerald-400 bg-secondary/10 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                                                ${escapeHtml(stop.timeWindow)}
+                                            </span>
+                                            <span class="text-[11px] text-outline dark:text-zinc-400">
+                                                ${stop.durationMinutes} phút
+                                            </span>
+                                        </div>
+                                        <h4 class="font-bold text-xs sm:text-sm text-primary dark:text-zinc-100 mt-1 truncate">
+                                            ${escapeHtml(stop.name)}
+                                        </h4>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 mt-0.5">
+                                            ${escapeHtml(stop.note)}
+                                        </p>
+                                    </div>
+                                    <div class="flex flex-col gap-1 shrink-0">
+                                        <button type="button" onclick="window.ViVuApp.openDeepPlaceDetail('${escapeHtml(stop.placeId)}')"
+                                            class="w-9 h-9 min-w-[36px] min-h-[36px] rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-secondary hover:text-white flex items-center justify-center text-primary dark:text-zinc-200 transition-colors"
+                                            title="Xem chi tiết di sản">
+                                            <span class="material-symbols-outlined text-[18px]">info</span>
+                                        </button>
+                                        <button type="button" onclick="window.ViVuApp.removeStopFromFolder('${escapeHtml(stop.id)}')"
+                                            class="w-9 h-9 min-w-[36px] min-h-[36px] rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-error hover:text-white flex items-center justify-center text-outline dark:text-zinc-400 transition-colors"
+                                            title="Xóa khỏi thư mục">
+                                            <span class="material-symbols-outlined text-[18px]">delete</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Transfer indicator to next stop -->
+                                ${stop.transferToNext ? `
+                                    <div class="flex items-center gap-2 pt-2 border-t border-dashed border-outline-variant/30 dark:border-zinc-800 text-[11px] text-outline dark:text-zinc-400">
+                                        <span class="material-symbols-outlined text-[16px] text-secondary">${escapeHtml(stop.transferToNext.mode || 'directions_walk')}</span>
+                                        <span>${escapeHtml(stop.transferToNext.modeLabel)} • ${escapeHtml(stop.transferToNext.distance)} (${escapeHtml(stop.transferToNext.time)})</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Footer Action Buttons -->
+                <div class="flex flex-col sm:flex-row items-center gap-3 pt-3">
+                    <button type="button" onclick="window.ViVuApp.startNavigationFromPlanner()"
+                        class="w-full sm:flex-1 py-3.5 min-h-[48px] rounded-2xl bg-secondary hover:bg-primary text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-colors">
+                        <span class="material-symbols-outlined text-[20px]">navigation</span>
+                        Bắt đầu dẫn đường GPS Turn-by-Turn
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.openStoryCardModal()"
+                        class="w-full sm:w-auto px-5 py-3.5 min-h-[48px] rounded-2xl bg-white dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 text-primary dark:text-zinc-100 font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors">
+                        <span class="material-symbols-outlined text-[20px]">photo_camera_back</span>
+                        Tạo Story 9:16
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * =========================================================================
+ * PHASE 11: PHOTO GALLERY LIGHTBOX MODAL
+ * =========================================================================
+ */
+export function renderPlacePhotoGalleryModalContent(place, activeIndex = 0) {
+    if (!place || !place.photos || place.photos.length === 0) return '';
+
+    const photos = place.photos;
+    const current = photos[activeIndex] || photos[0];
+
+    return `
+        <div class="fixed inset-0 z-50 bg-black/95 flex flex-col justify-between p-4 sm:p-6 text-white select-none">
+            <!-- Header -->
+            <div class="flex items-center justify-between z-10">
+                <div class="flex items-center gap-3">
+                    <span class="font-bold text-sm sm:text-base text-white truncate max-w-[240px]">
+                        ${escapeHtml(place.name)}
+                    </span>
+                    <span class="text-xs bg-white/20 px-2.5 py-1 rounded-full font-mono">
+                        ${activeIndex + 1} / ${photos.length}
+                    </span>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closePlacePhotoGallery()"
+                    class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-colors"
+                    aria-label="Đóng thư viện ảnh">
+                    <span class="material-symbols-outlined text-[24px]">close</span>
+                </button>
+            </div>
+
+            <!-- Main Image Showcase -->
+            <div class="relative flex-1 flex items-center justify-center my-4 overflow-hidden">
+                <img src="${escapeHtml(current.src)}" alt="${escapeHtml(current.title)}"
+                    class="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-2xl transition-all duration-300"/>
+
+                <!-- Navigation Controls -->
+                <button type="button" onclick="window.ViVuApp.switchGalleryPhoto(${(activeIndex - 1 + photos.length) % photos.length})"
+                    class="absolute left-2 sm:left-4 w-12 h-12 min-w-[44px] min-h-[44px] rounded-full bg-black/50 hover:bg-black/80 flex items-center justify-center text-white transition-colors"
+                    aria-label="Ảnh trước">
+                    <span class="material-symbols-outlined text-[28px]">chevron_left</span>
+                </button>
+
+                <button type="button" onclick="window.ViVuApp.switchGalleryPhoto(${(activeIndex + 1) % photos.length})"
+                    class="absolute right-2 sm:right-4 w-12 h-12 min-w-[44px] min-h-[44px] rounded-full bg-black/50 hover:bg-black/80 flex items-center justify-center text-white transition-colors"
+                    aria-label="Ảnh tiếp">
+                    <span class="material-symbols-outlined text-[28px]">chevron_right</span>
+                </button>
+            </div>
+
+            <!-- Footer Caption & Thumbnails -->
+            <div class="flex flex-col items-center gap-3 z-10">
+                <div class="text-center max-w-xl">
+                    <p class="font-bold text-xs sm:text-sm text-white">${escapeHtml(current.title)}</p>
+                    <p class="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">${escapeHtml(current.desc || '')}</p>
+                </div>
+
+                <!-- Thumbnails strip -->
+                <div class="flex items-center gap-2 overflow-x-auto max-w-full py-1">
+                    ${photos.map((p, idx) => `
+                        <button type="button" onclick="window.ViVuApp.switchGalleryPhoto(${idx})"
+                            class="w-12 h-12 min-w-[44px] min-h-[44px] rounded-xl overflow-hidden border-2 ${idx === activeIndex ? 'border-secondary scale-105' : 'border-transparent opacity-60 hover:opacity-100'} transition-all shrink-0">
+                            <img src="${escapeHtml(p.src)}" alt="" class="w-full h-full object-cover"/>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+}

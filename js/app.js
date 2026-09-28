@@ -49,8 +49,19 @@ import {
     renderAdminSupportModalContent,
     renderAdminModerationModalContent,
     renderAdminActionReasonModalContent,
+    renderDeepPlaceDetailModalContent,
+    renderItineraryFolderDetailModalContent,
+    renderPlacePhotoGalleryModalContent,
     escapeHtml
 } from './ui.js';
+
+import {
+    DEEP_HERITAGE_PLACES,
+    SAVED_ITINERARY_FOLDER_DETAIL,
+    getDeepPlaceDetail,
+    getSavedItineraryFolderDetail,
+    saveSavedItineraryFolderDetail
+} from './place-detail-data.js';
 
 import {
     saveOfflineReview,
@@ -616,7 +627,14 @@ export const state = {
     moderationFilterCategory: 'all',
     moderationRiskFilter: 'all',
     moderationSearchQuery: '',
-    actionReasonModalState: { type: '', targetId: '', targetTitle: '' }
+    actionReasonModalState: { type: '', targetId: '', targetTitle: '' },
+    // Deep Cultural Heritage & Saved Itinerary Folder (Phase 11)
+    deepPlaceId: 'chua-ang',
+    isDeepAudioPlaying: false,
+    deepAudioTimerInterval: null,
+    deepAudioCurrentSeconds: 84,
+    activePhotoGalleryIndex: 0,
+    activeItineraryFolder: getSavedItineraryFolderDetail('folder-heritage-01')
 };
 
 // Khởi chạy khi DOM tải xong
@@ -6246,6 +6264,225 @@ export function quickApproveHighTrust() {
     }
 }
 
+/**
+ * =========================================================================
+ * PHASE 11: CHI TIẾT ĐỊA ĐIỂM DI SẢN CHUYÊN SÂU & THƯ MỤC HÀNH TRÌNH ĐÃ LƯU
+ * =========================================================================
+ */
+export function openDeepPlaceDetail(placeId = 'chua-ang') {
+    state.deepPlaceId = placeId || 'chua-ang';
+    const place = getDeepPlaceDetail(state.deepPlaceId);
+    if (!place) return;
+
+    const modal = document.getElementById('deepPlaceDetailModal');
+    const content = document.getElementById('deepPlaceDetailModalContent');
+    if (!modal || !content) return;
+
+    const isSaved = state.favorites && state.favorites.includes(state.deepPlaceId);
+    const m = Math.floor(state.deepAudioCurrentSeconds / 60);
+    const s = state.deepAudioCurrentSeconds % 60;
+    const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+    content.innerHTML = renderDeepPlaceDetailModalContent(
+        place,
+        state.isDeepAudioPlaying,
+        timeStr,
+        isSaved
+    );
+
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+export function closeDeepPlaceDetail() {
+    const modal = document.getElementById('deepPlaceDetailModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    document.body.classList.remove('overflow-hidden');
+
+    if (state.deepAudioTimerInterval) {
+        clearInterval(state.deepAudioTimerInterval);
+        state.deepAudioTimerInterval = null;
+    }
+    state.isDeepAudioPlaying = false;
+}
+
+export function toggleAudioGuidePlayback() {
+    state.isDeepAudioPlaying = !state.isDeepAudioPlaying;
+    const playBtn = document.getElementById('deepAudioPlayBtn');
+    const place = getDeepPlaceDetail(state.deepPlaceId);
+    const totalDuration = place?.audioGuide?.duration || '04:45';
+    const totalSecs = place?.audioGuide?.durationSeconds || 285;
+
+    if (state.isDeepAudioPlaying) {
+        if (playBtn) {
+            playBtn.innerHTML = '<span class="material-symbols-outlined text-[28px]">pause</span>';
+            playBtn.classList.remove('bg-[#EA580C]', 'hover:bg-[#C2410C]');
+            playBtn.classList.add('bg-secondary');
+        }
+        if (state.deepAudioTimerInterval) clearInterval(state.deepAudioTimerInterval);
+
+        state.deepAudioTimerInterval = setInterval(() => {
+            state.deepAudioCurrentSeconds++;
+            if (state.deepAudioCurrentSeconds >= totalSecs) {
+                state.deepAudioCurrentSeconds = 0;
+                toggleAudioGuidePlayback();
+                return;
+            }
+            const timerEl = document.getElementById('deepAudioTimer');
+            if (timerEl) {
+                const m = Math.floor(state.deepAudioCurrentSeconds / 60);
+                const s = state.deepAudioCurrentSeconds % 60;
+                const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                timerEl.textContent = `${timeStr} / ${totalDuration}`;
+            }
+        }, 1000);
+        showSavedToast('▶ Đang phát Audio thuyết minh bản địa...');
+    } else {
+        if (playBtn) {
+            playBtn.innerHTML = '<span class="material-symbols-outlined text-[28px]">play_arrow</span>';
+            playBtn.classList.remove('bg-secondary');
+            playBtn.classList.add('bg-[#EA580C]', 'hover:bg-[#C2410C]');
+        }
+        if (state.deepAudioTimerInterval) {
+            clearInterval(state.deepAudioTimerInterval);
+            state.deepAudioTimerInterval = null;
+        }
+        showSavedToast('⏸ Đã tạm dừng Audio thuyết minh.');
+    }
+}
+
+export function toggleSaveDeepPlace(placeId) {
+    if (!placeId) placeId = state.deepPlaceId;
+    const isSavedBefore = (state.favorites || []).includes(placeId);
+    if (isSavedBefore) {
+        state.favorites = (state.favorites || []).filter(id => id !== placeId);
+    } else {
+        if (!state.favorites) state.favorites = [];
+        state.favorites.push(placeId);
+    }
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('vivu_favorites', JSON.stringify(state.favorites));
+        }
+    } catch (e) {}
+    updateFavoritesCount();
+
+    const isSaved = (state.favorites || []).includes(placeId);
+    const saveBtn = document.getElementById('deepSavePlaceBtn');
+    if (saveBtn) {
+        if (isSaved) {
+            saveBtn.className = 'flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl bg-secondary text-white font-semibold text-xs shadow-xs transition-colors';
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">bookmark</span><span id="deepSaveText">Đã lưu</span>';
+        } else {
+            saveBtn.className = 'flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:text-secondary font-semibold text-xs shadow-xs transition-colors';
+            saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">bookmark_border</span><span id="deepSaveText">Lưu điểm</span>';
+        }
+    }
+    showSavedToast(isSaved ? '✓ Đã lưu địa điểm vào bộ sưu tập yêu thích!' : 'Đã bỏ lưu địa điểm.');
+}
+
+export function shareDeepPlace(placeId) {
+    const place = getDeepPlaceDetail(placeId || state.deepPlaceId);
+    const shareUrl = `${window.location.origin}/?place=${encodeURIComponent(place?.id || 'chua-ang')}`;
+    copyToClipboard(shareUrl);
+    showSavedToast(`✓ Đã sao chép liên kết chia sẻ ${place?.name || 'địa điểm'}!`);
+}
+
+export function copyDeepPlaceCoords(coords) {
+    copyToClipboard(coords || '9.9405° N, 106.3126° E');
+    showSavedToast('✓ Đã sao chép tọa độ GPS vào bộ nhớ tạm!');
+}
+
+export function addDeepPlaceToTripPlanner(placeId) {
+    const place = getDeepPlaceDetail(placeId || state.deepPlaceId);
+    closeDeepPlaceDetail();
+    openTripPlannerModal();
+    showSavedToast(`✓ Đã thêm ${place?.name || 'địa điểm'} vào Lịch trình khám phá!`);
+}
+
+export function openPlacePhotoGallery(initialIndex = 0) {
+    state.activePhotoGalleryIndex = initialIndex || 0;
+    const place = getDeepPlaceDetail(state.deepPlaceId);
+    const modal = document.getElementById('placePhotoGalleryModal');
+    const content = document.getElementById('placePhotoGalleryModalContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = renderPlacePhotoGalleryModalContent(place, state.activePhotoGalleryIndex);
+    modal.classList.remove('hidden');
+}
+
+export function closePlacePhotoGallery() {
+    const modal = document.getElementById('placePhotoGalleryModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+export function switchGalleryPhoto(index) {
+    state.activePhotoGalleryIndex = index;
+    const place = getDeepPlaceDetail(state.deepPlaceId);
+    const content = document.getElementById('placePhotoGalleryModalContent');
+    if (content && place) {
+        content.innerHTML = renderPlacePhotoGalleryModalContent(place, state.activePhotoGalleryIndex);
+    }
+}
+
+export function openItineraryFolderDetail(folderId = 'folder-heritage-01') {
+    const folder = getSavedItineraryFolderDetail(folderId);
+    state.activeItineraryFolder = folder;
+
+    const modal = document.getElementById('itineraryFolderDetailModal');
+    const content = document.getElementById('itineraryFolderDetailModalContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = renderItineraryFolderDetailModalContent(folder);
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+export function closeItineraryFolderDetail() {
+    const modal = document.getElementById('itineraryFolderDetailModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    document.body.classList.remove('overflow-hidden');
+}
+
+export function shareItineraryFolder(folderId) {
+    const shareUrl = `${window.location.origin}/?folder=${encodeURIComponent(folderId || 'folder-heritage-01')}`;
+    copyToClipboard(shareUrl);
+    showSavedToast('✓ Đã sao chép liên kết chia sẻ Thư mục Hành trình!');
+}
+
+export function optimizeFolderRoute() {
+    if (!state.activeItineraryFolder) {
+        state.activeItineraryFolder = getSavedItineraryFolderDetail('folder-heritage-01');
+    }
+    state.activeItineraryFolder.optimizationSummary = 'AI Route: Lộ trình đã được tối ưu tuyệt đối theo chuỗi thời gian (tiết kiệm 2.4 km).';
+    saveSavedItineraryFolderDetail(state.activeItineraryFolder);
+
+    const content = document.getElementById('itineraryFolderDetailModalContent');
+    if (content) {
+        content.innerHTML = renderItineraryFolderDetailModalContent(state.activeItineraryFolder);
+    }
+    showSavedToast('✓ Lộ trình đã được AI Route tối ưu hóa thành công!');
+}
+
+export function removeStopFromFolder(stopId) {
+    if (!state.activeItineraryFolder || !state.activeItineraryFolder.stops) return;
+    state.activeItineraryFolder.stops = state.activeItineraryFolder.stops.filter(s => s.id !== stopId);
+    state.activeItineraryFolder.stopsCount = state.activeItineraryFolder.stops.length;
+    saveSavedItineraryFolderDetail(state.activeItineraryFolder);
+
+    const content = document.getElementById('itineraryFolderDetailModalContent');
+    if (content) {
+        content.innerHTML = renderItineraryFolderDetailModalContent(state.activeItineraryFolder);
+    }
+    showSavedToast('Đã xóa chặng dừng khỏi thư mục hành trình.');
+}
+
 // Expose ra window để hỗ trợ inline HTML event handlers
 if (typeof window !== 'undefined') {
     window.ViVuApp = {
@@ -6462,6 +6699,22 @@ if (typeof window !== 'undefined') {
         closeActionReasonModal,
         submitActionReason,
         quickApproveHighTrust,
+        // Deep Cultural Heritage & Saved Itinerary Folder Methods (Phase 11)
+        openDeepPlaceDetail,
+        closeDeepPlaceDetail,
+        toggleAudioGuidePlayback,
+        toggleSaveDeepPlace,
+        shareDeepPlace,
+        copyDeepPlaceCoords,
+        addDeepPlaceToTripPlanner,
+        openPlacePhotoGallery,
+        closePlacePhotoGallery,
+        switchGalleryPhoto,
+        openItineraryFolderDetail,
+        closeItineraryFolderDetail,
+        shareItineraryFolder,
+        optimizeFolderRoute,
+        removeStopFromFolder,
         getState: () => state,
         get state() { return state; }
     };
