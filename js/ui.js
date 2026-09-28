@@ -3439,3 +3439,294 @@ export function renderMapCategoryPills(categories, activeCategory = 'all', onSel
         `;
     }).join('');
 }
+
+/**
+ * Render Category Pills cho Câu Lạc Bộ (Stitch Design System - Phase 5)
+ */
+export function renderClubCategoryPills(categories, activeCategory = 'all', onSelectCallback = 'window.ViVuApp.filterClubsByCategory') {
+    return categories.map(cat => {
+        const isActive = cat.id === activeCategory;
+        const safeId = escapeHtml(cat.id);
+        const safeLabel = escapeHtml(cat.label);
+        const icon = cat.icon || 'groups';
+
+        return `
+            <button type="button" onclick="${onSelectCallback}('${safeId}')"
+                class="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+                    isActive
+                        ? 'bg-[#003527] text-white shadow-sm ring-1 ring-[#003527]'
+                        : 'bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 border border-outline-variant/30 dark:border-zinc-700'
+                }">
+                <span class="material-symbols-outlined text-[16px]">${icon}</span>
+                <span>${safeLabel}</span>
+                ${cat.count !== undefined ? `
+                    <span class="px-1.5 py-0.2 rounded-full text-[10px] ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-surface-container dark:bg-zinc-700 text-slate-500 dark:text-zinc-400'
+                    }">${cat.count}</span>
+                ` : ''}
+            </button>
+        `;
+    }).join('');
+}
+
+/**
+ * Render Feed Filter Tabs cho Thảo Luận Cộng Đồng (Stitch Design System - Phase 5)
+ */
+export function renderCommunityFeedFilters(filters, activeFilter = 'all', onSelectCallback = 'window.ViVuApp.filterCommunityFeed') {
+    return filters.map(f => {
+        const isActive = f.id === activeFilter;
+        const safeId = escapeHtml(f.id);
+        const safeLabel = escapeHtml(f.label);
+
+        return `
+            <button type="button" onclick="${onSelectCallback}('${safeId}')"
+                class="px-4 py-2 min-h-[44px] rounded-full text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+                    isActive
+                        ? 'bg-primary-container text-white shadow-xs'
+                        : 'bg-surface-container-lowest dark:bg-zinc-900 text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-800'
+                }">
+                ${safeLabel}
+            </button>
+        `;
+    }).join('');
+}
+
+/**
+ * Render Danh Sách Câu Lạc Bộ Bento Grid (Stitch Design System - Phase 5)
+ */
+export function renderClubsBentoGrid(clubs, joinedClubIds = []) {
+    if (!Array.isArray(clubs) || clubs.length === 0) {
+        return `
+            <div class="col-span-full p-8 text-center text-slate-500 dark:text-zinc-400 bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl border border-outline-variant/40 dark:border-zinc-800">
+                <span class="material-symbols-outlined text-4xl mb-2 text-slate-400">group_off</span>
+                <p class="font-bold text-sm">Chưa có câu lạc bộ trong danh mục này</p>
+            </div>
+        `;
+    }
+
+    return clubs.map(club => {
+        const safeId = escapeHtml(club.id);
+        const safeName = escapeHtml(club.name);
+        const safeBadge = escapeHtml(club.badge || club.categoryName || 'Cộng đồng');
+        const safeDesc = escapeHtml(club.description || '');
+        const safeLastAct = escapeHtml(club.lastActivity || 'Hoạt động hàng tuần');
+        const safeImage = escapeHtml(club.image || NEUTRAL_PLACEHOLDER_IMAGE);
+        const isJoined = joinedClubIds.includes(club.id);
+
+        return `
+            <article class="flex flex-col bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all border border-outline-variant/40 dark:border-zinc-800 group">
+                <div class="relative aspect-[16/10] w-full overflow-hidden bg-surface-container-high dark:bg-zinc-800">
+                    <img src="${safeImage}" alt="${safeName}"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onerror="this.onerror=null; this.src='${NEUTRAL_PLACEHOLDER_IMAGE}';">
+                    <span class="absolute top-3 left-3 px-3 py-1 rounded-full bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur-md text-primary dark:text-emerald-400 text-xs font-semibold shadow-sm">
+                        ${safeBadge}
+                    </span>
+                    <button type="button" onclick="window.ViVuApp.toggleBookmarkClub('${safeId}', this)"
+                        class="absolute top-3 right-3 w-11 h-11 min-h-[44px] min-w-[44px] rounded-full bg-surface-container-lowest/85 dark:bg-zinc-800/85 backdrop-blur-md flex items-center justify-center text-slate-600 dark:text-zinc-300 hover:text-red-500 dark:hover:text-red-400 transition-colors shadow-sm"
+                        title="Lưu câu lạc bộ" aria-label="Lưu ${safeName}">
+                        <span class="material-symbols-outlined text-[18px]">favorite</span>
+                    </button>
+                </div>
+                <div class="p-5 flex flex-col flex-1 justify-between gap-4">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-secondary"></span>
+                            <span class="text-xs text-on-surface-variant dark:text-zinc-400">${club.membersCount} thành viên • ${club.activitiesCount} hoạt động</span>
+                        </div>
+                        <h3 class="font-bold text-base text-on-surface dark:text-zinc-100 group-hover:text-secondary dark:group-hover:text-emerald-400 transition-colors">
+                            ${safeName}
+                        </h3>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                            ${safeDesc}
+                        </p>
+                    </div>
+                    <div class="pt-3 flex flex-col gap-3 bg-surface-container-low/60 dark:bg-zinc-800/60 -mx-5 -mb-5 p-5 mt-auto border-t border-outline-variant/30 dark:border-zinc-700/60">
+                        <div class="flex items-center gap-2 text-on-surface-variant dark:text-zinc-300 text-xs">
+                            <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400 shrink-0">verified</span>
+                            <span class="truncate">${safeLastAct}</span>
+                        </div>
+                        <button type="button" onclick="window.ViVuApp.toggleJoinClub('${safeId}')"
+                            class="w-full min-h-[44px] py-2.5 px-4 rounded-xl font-semibold text-xs transition-all text-center ${
+                                isJoined
+                                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 dark:bg-emerald-950/80 dark:hover:bg-emerald-900/80 dark:text-emerald-300 border border-emerald-500/40'
+                                    : 'bg-secondary hover:bg-primary-container text-white shadow-sm'
+                            }">
+                            ${isJoined ? '✓ Đã tham gia' : 'Tham gia CLB'}
+                        </button>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+/**
+ * Render Bảng Tin Thảo Luận Cộng Đồng (Stitch Discussion Feed)
+ */
+export function renderCommunityPostsFeed(posts, likedPostIds = []) {
+    if (!Array.isArray(posts) || posts.length === 0) {
+        return `
+            <div class="p-8 text-center text-slate-500 dark:text-zinc-400 bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl border border-outline-variant/40 dark:border-zinc-800">
+                <span class="material-symbols-outlined text-4xl mb-2 text-slate-400">forum</span>
+                <p class="font-bold text-sm">Chưa có bài viết nào trong chủ đề này</p>
+                <p class="text-xs mt-1">Hãy là người đầu tiên chia sẻ cảm nhận về xứ Trà!</p>
+            </div>
+        `;
+    }
+
+    return posts.map(post => {
+        const safeId = escapeHtml(post.id);
+        const safeAuthor = escapeHtml(post.author);
+        const safeAvatar = escapeHtml(post.avatarText || 'TV');
+        const safeBadge = escapeHtml(post.badge || 'Thành viên');
+        const safeTime = escapeHtml(post.timeAgo || 'Vừa xong');
+        const safeLoc = escapeHtml(post.location || 'Trà Vinh');
+        const safeContent = escapeHtml(post.content || '');
+        const safeImage = post.image ? escapeHtml(post.image) : null;
+        const isLiked = likedPostIds.includes(post.id);
+        const likesCount = (post.likes || 0) + (isLiked ? 1 : 0);
+
+        return `
+            <article class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
+                <!-- Author Row -->
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-full bg-primary-container text-white flex items-center justify-center font-bold text-sm uppercase shrink-0">
+                            ${safeAvatar}
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-bold text-sm text-on-surface dark:text-zinc-100">${safeAuthor}</span>
+                                <span class="px-2 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-[11px] font-semibold">
+                                    ${safeBadge}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-1.5 text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                <span>${safeTime}</span>
+                                <span>•</span>
+                                <span class="inline-flex items-center gap-0.5 text-secondary dark:text-emerald-400 font-medium truncate max-w-[200px]">
+                                    <span class="material-symbols-outlined text-[14px]">pin_drop</span>
+                                    ${safeLoc}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="window.ViVuApp.shareCommunityPost('${safeId}')" class="text-outline dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 p-2 rounded-full hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Chia sẻ bài viết" aria-label="Chia sẻ bài viết">
+                        <span class="material-symbols-outlined text-[20px]">share</span>
+                    </button>
+                </div>
+
+                <!-- Post Text -->
+                <p class="text-xs sm:text-sm text-on-surface dark:text-zinc-200 leading-relaxed">
+                    ${safeContent}
+                </p>
+
+                <!-- Optional Media -->
+                ${safeImage ? `
+                    <div class="rounded-xl overflow-hidden bg-surface-container-high dark:bg-zinc-800 aspect-[16/9] border border-outline-variant/30 dark:border-zinc-700/60">
+                        <img src="${safeImage}" alt="${safeLoc}" class="w-full h-full object-cover hover:scale-102 transition-transform duration-300"
+                            onerror="this.onerror=null; this.src='${NEUTRAL_PLACEHOLDER_IMAGE}';">
+                    </div>
+                ` : ''}
+
+                <!-- Stats Row -->
+                <div class="pt-2 flex items-center justify-between text-xs text-on-surface-variant dark:text-zinc-400">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-secondary text-white flex items-center justify-center text-[10px]">
+                            <span class="material-symbols-outlined text-[13px]">thumb_up</span>
+                        </span>
+                        <span>${likesCount} Thích</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span>${post.commentsCount || 0} Bình luận</span>
+                        <span>${post.shares || 0} Chia sẻ</span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="pt-2 flex items-center justify-between border-t border-outline-variant/30 dark:border-zinc-800 text-on-surface-variant dark:text-zinc-400">
+                    <button type="button" onclick="window.ViVuApp.toggleLikePost('${safeId}')"
+                        class="flex-1 min-h-[44px] py-2 flex items-center justify-center gap-2 rounded-xl hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors text-xs font-semibold ${
+                            isLiked ? 'text-secondary dark:text-emerald-400' : 'text-on-surface dark:text-zinc-200'
+                        }">
+                        <span class="material-symbols-outlined text-[20px] ${isLiked ? 'fill-current text-secondary' : ''}">thumb_up</span>
+                        <span>${isLiked ? 'Đã thích' : 'Thích'}</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.handleCommentPrompt('${safeId}')"
+                        class="flex-1 min-h-[44px] py-2 flex items-center justify-center gap-2 rounded-xl hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors text-xs font-semibold text-on-surface dark:text-zinc-200">
+                        <span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+                        <span>Bình luận</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.shareCommunityPost('${safeId}')"
+                        class="flex-1 min-h-[44px] py-2 flex items-center justify-center gap-2 rounded-xl hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors text-xs font-semibold text-on-surface dark:text-zinc-200">
+                        <span class="material-symbols-outlined text-[20px]">share</span>
+                        <span>Chia sẻ</span>
+                    </button>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+/**
+ * Render Widget Hoạt Động Tuần Này
+ */
+export function renderWeeklyActivitiesWidget(activities, registeredActivityIds = []) {
+    if (!Array.isArray(activities) || activities.length === 0) {
+        return `<p class="text-xs text-slate-500">Đang cập nhật lịch hoạt động mới.</p>`;
+    }
+
+    return activities.map(act => {
+        const safeId = escapeHtml(act.id);
+        const safeTitle = escapeHtml(act.title);
+        const safeTime = escapeHtml(act.time);
+        const isRegistered = registeredActivityIds.includes(act.id);
+        const currentCount = act.attendeesCount + (isRegistered ? 1 : 0);
+
+        return `
+            <div class="p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 hover:bg-surface-container dark:hover:bg-zinc-800 transition-colors flex flex-col gap-2 group border border-outline-variant/20 dark:border-zinc-700/40">
+                <span class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 group-hover:text-secondary dark:group-hover:text-emerald-400 transition-colors leading-snug">
+                    ${safeTitle}
+                </span>
+                <div class="flex items-center justify-between text-xs text-on-surface-variant dark:text-zinc-400">
+                    <span class="inline-flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[15px] text-outline">schedule</span>
+                        ${safeTime}
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-secondary dark:text-emerald-400 font-semibold">
+                        <span class="material-symbols-outlined text-[15px]">group</span>
+                        ${currentCount} người đi
+                    </span>
+                </div>
+                <div class="pt-1.5 flex items-center justify-between border-t border-outline-variant/20 dark:border-zinc-700/40">
+                    <span class="text-[11px] text-slate-500 dark:text-zinc-400 truncate max-w-[160px]">${escapeHtml(act.location)}</span>
+                    <button type="button" onclick="window.ViVuApp.toggleRsvpActivity('${safeId}')"
+                        class="px-3.5 py-2 min-h-[44px] rounded-xl text-xs font-semibold transition-all ${
+                            isRegistered
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                : 'bg-secondary hover:bg-primary-container text-white shadow-xs'
+                        }">
+                        ${isRegistered ? '✓ Đã đặt chỗ' : 'Đặt chỗ'}
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Render Widget Quy Tắc Cộng Đồng
+ */
+export function renderCommunityGuidelinesWidget(guidelines) {
+    if (!Array.isArray(guidelines)) return '';
+    return guidelines.map(g => `
+        <li class="flex items-start gap-2.5 text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+            <span class="w-5 h-5 rounded-full bg-primary-container dark:bg-emerald-900 text-white flex items-center justify-center shrink-0 text-[11px] font-bold">
+                ${g.num}
+            </span>
+            <span>${escapeHtml(g.rule)}</span>
+        </li>
+    `).join('');
+}
+

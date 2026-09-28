@@ -24,7 +24,13 @@ import {
     updateModalBookmarkButton,
     createCustomMapMarker,
     renderMapPlacesList,
-    renderMapCategoryPills
+    renderMapCategoryPills,
+    renderClubsBentoGrid,
+    renderClubCategoryPills,
+    renderCommunityFeedFilters,
+    renderCommunityPostsFeed,
+    renderWeeklyActivitiesWidget,
+    renderCommunityGuidelinesWidget
 } from './ui.js';
 
 import {
@@ -44,6 +50,15 @@ import {
 
 import { TRA_VINH_FESTIVALS } from './festivals-data.js';
 import { TRA_VINH_ARTICLES } from './articles-data.js';
+import {
+    TRA_VINH_CLUBS,
+    TRA_VINH_CLUB_CATEGORIES,
+    TRA_VINH_WEEKLY_ACTIVITIES,
+    TRA_VINH_COMMUNITY_POSTS,
+    COMMUNITY_GUIDELINES,
+    COMMUNITY_FEED_FILTERS
+} from './clubs-data.js';
+
 import { getSiteUrl, DEFAULT_SITE_URL } from './config.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
 import {
@@ -282,6 +297,43 @@ export function clearRecentHistory() {
     }
 }
 
+// Lưu trữ Câu lạc bộ & Thảo luận cộng đồng (Phase 5)
+function getStoredJoinedClubs() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_joined_clubs');
+            return raw ? JSON.parse(raw) : ['clb-nhiep-anh-khmer'];
+        }
+    } catch (e) {
+        return ['clb-nhiep-anh-khmer'];
+    }
+    return ['clb-nhiep-anh-khmer'];
+}
+
+function getStoredLikedPosts() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_liked_posts');
+            return raw ? JSON.parse(raw) : ['post-1'];
+        }
+    } catch (e) {
+        return ['post-1'];
+    }
+    return ['post-1'];
+}
+
+function getStoredRegisteredActivities() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_registered_activities');
+            return raw ? JSON.parse(raw) : [];
+        }
+    } catch (e) {
+        return [];
+    }
+    return [];
+}
+
 // Global Application State
 export const state = {
     allPlaces: [],
@@ -332,7 +384,19 @@ export const state = {
     mapFilterOpenOnly: false,
     mapFilterFreeOnly: false,
     mapMobileView: 'map',
-    userGpsMarker: null
+    userGpsMarker: null,
+    // Community Clubs & Discussion State (Phase 5)
+    clubs: TRA_VINH_CLUBS,
+    communityPosts: TRA_VINH_COMMUNITY_POSTS,
+    weeklyActivities: TRA_VINH_WEEKLY_ACTIVITIES,
+    communityGuidelines: COMMUNITY_GUIDELINES,
+    joinedClubs: getStoredJoinedClubs(),
+    likedCommunityPosts: getStoredLikedPosts(),
+    registeredActivities: getStoredRegisteredActivities(),
+    activeClubCategory: 'all',
+    activeCommunityFeedFilter: 'all',
+    newPostAttachment: null,
+    newPostLocation: null
 };
 
 // Khởi chạy khi DOM tải xong
@@ -442,6 +506,9 @@ async function initApp() {
             state.articles,
             openArticleModal
         );
+
+        // Render Section Câu Lạc Bộ & Hoạt Động Cộng Đồng Xứ Trà (Phase 5)
+        initCommunitySection();
 
         populateAreaDropdown();
         renderMainDiscoveryGrid();
@@ -3931,6 +3998,430 @@ export function showOfflineMapOverlay(container, options = {}) {
     container.appendChild(overlay);
 }
 
+// ==========================================
+// CÂU LẠC BỘ & THẢO LUẬN CỘNG ĐỒNG (PHASE 5)
+// ==========================================
+
+export function showNotification(message, title = 'ViVuTraVinh') {
+    showNoticeToast(title, message);
+}
+
+/**
+ * Khởi tạo Section Câu Lạc Bộ & Thảo Luận Cộng Đồng (Phase 5)
+ */
+export function initCommunitySection() {
+    // 1. Render Club Category Filter Pills
+    const pillsContainer = document.getElementById('clubCategoryPills');
+    if (pillsContainer) {
+        pillsContainer.innerHTML = renderClubCategoryPills(
+            TRA_VINH_CLUB_CATEGORIES,
+            state.activeClubCategory,
+            'window.ViVuApp.filterClubsByCategory'
+        );
+    }
+
+    // 2. Render Featured Clubs Bento Grid
+    renderClubsGrid();
+
+    // 3. Render Feed Filter Tabs
+    const feedFilterTabs = document.getElementById('feedFilterTabs');
+    if (feedFilterTabs) {
+        feedFilterTabs.innerHTML = renderCommunityFeedFilters(
+            COMMUNITY_FEED_FILTERS,
+            state.activeCommunityFeedFilter,
+            'window.ViVuApp.filterCommunityFeed'
+        );
+    }
+
+    // 4. Render Community Discussion Feed
+    renderCommunityFeed();
+
+    // 5. Render Weekly Activities Widget
+    const weeklyActivitiesContainer = document.getElementById('weeklyActivitiesList');
+    if (weeklyActivitiesContainer) {
+        weeklyActivitiesContainer.innerHTML = renderWeeklyActivitiesWidget(
+            state.weeklyActivities,
+            state.registeredActivities
+        );
+    }
+
+    // 6. Render Community Rules Widget
+    const rulesContainer = document.getElementById('communityGuidelinesList');
+    if (rulesContainer) {
+        rulesContainer.innerHTML = renderCommunityGuidelinesWidget(state.communityGuidelines);
+    }
+
+    // 7. Update Badges
+    const clubsBadge = document.getElementById('communityClubsCountBadge');
+    if (clubsBadge) {
+        clubsBadge.textContent = state.clubs.length;
+    }
+    const weeklyBadge = document.getElementById('weeklyActivitiesCountBadge');
+    if (weeklyBadge) {
+        weeklyBadge.textContent = `${state.weeklyActivities.length} sự kiện`;
+    }
+}
+
+/**
+ * Render Clubs Bento Grid theo bộ lọc danh mục
+ */
+export function renderClubsGrid() {
+    const grid = document.getElementById('featuredClubsGrid');
+    if (!grid) return;
+
+    let filtered = state.clubs;
+    if (state.activeClubCategory && state.activeClubCategory !== 'all') {
+        filtered = state.clubs.filter(c => c.category === state.activeClubCategory);
+    }
+
+    grid.innerHTML = renderClubsBentoGrid(filtered, state.joinedClubs);
+}
+
+/**
+ * Lọc Câu Lạc Bộ theo danh mục
+ */
+export function filterClubsByCategory(catId) {
+    state.activeClubCategory = catId;
+    const pillsContainer = document.getElementById('clubCategoryPills');
+    if (pillsContainer) {
+        pillsContainer.innerHTML = renderClubCategoryPills(
+            TRA_VINH_CLUB_CATEGORIES,
+            state.activeClubCategory,
+            'window.ViVuApp.filterClubsByCategory'
+        );
+    }
+    renderClubsGrid();
+}
+
+/**
+ * Tham gia hoặc Rời Câu Lạc Bộ
+ */
+export function toggleJoinClub(clubId) {
+    if (!clubId) return;
+    const club = state.clubs.find(c => c.id === clubId);
+    const isCurrentlyJoined = state.joinedClubs.includes(clubId);
+
+    if (isCurrentlyJoined) {
+        state.joinedClubs = state.joinedClubs.filter(id => id !== clubId);
+        showNotification(club ? `Đã rời khỏi "${club.name}"` : 'Đã rời câu lạc bộ');
+    } else {
+        state.joinedClubs.push(clubId);
+        showNotification(club ? `Chào mừng bạn gia nhập "${club.name}"!` : 'Tham gia câu lạc bộ thành công!');
+    }
+
+    try {
+        localStorage.setItem('vivu_joined_clubs', JSON.stringify(state.joinedClubs));
+    } catch (e) {
+        console.warn('Lỗi lưu joined clubs:', e);
+    }
+
+    renderClubsGrid();
+}
+
+/**
+ * Lưu / Bỏ lưu Câu Lạc Bộ yêu thích
+ */
+export function toggleBookmarkClub(clubId, btnEl) {
+    if (!clubId) return;
+    const club = state.clubs.find(c => c.id === clubId);
+    showNotification(club ? `Đã lưu "${club.name}" vào danh sách quan tâm!` : 'Đã lưu câu lạc bộ!');
+    if (btnEl) {
+        const icon = btnEl.querySelector('.material-symbols-outlined');
+        if (icon) {
+            icon.classList.toggle('text-red-500');
+            icon.classList.toggle('dark:text-red-400');
+        }
+    }
+}
+
+/**
+ * Render Bảng tin thảo luận cộng đồng theo bộ lọc
+ */
+export function renderCommunityFeed() {
+    const feedContainer = document.getElementById('communityPostsFeed');
+    if (!feedContainer) return;
+
+    let filtered = [...state.communityPosts];
+    if (state.activeCommunityFeedFilter === 'featured') {
+        filtered = filtered.filter(p => (p.likes || 0) >= 50 || (p.shares || 0) >= 6);
+    } else if (state.activeCommunityFeedFilter === 'upcoming') {
+        filtered = filtered.filter(p => /workshop|thứ bảy|chủ nhật|tuần tới|hẹn|gặp/i.test(p.content));
+    } else if (state.activeCommunityFeedFilter === 'photos') {
+        filtered = filtered.filter(p => !!p.image);
+    }
+
+    feedContainer.innerHTML = renderCommunityPostsFeed(filtered, state.likedCommunityPosts);
+}
+
+/**
+ * Lọc Thảo Luận Cộng Đồng
+ */
+export function filterCommunityFeed(filterId) {
+    state.activeCommunityFeedFilter = filterId;
+    const feedFilterTabs = document.getElementById('feedFilterTabs');
+    if (feedFilterTabs) {
+        feedFilterTabs.innerHTML = renderCommunityFeedFilters(
+            COMMUNITY_FEED_FILTERS,
+            state.activeCommunityFeedFilter,
+            'window.ViVuApp.filterCommunityFeed'
+        );
+    }
+    renderCommunityFeed();
+}
+
+/**
+ * Thích / Bỏ thích Bài Viết Cộng Đồng
+ */
+export function toggleLikePost(postId) {
+    if (!postId) return;
+    const isLiked = state.likedCommunityPosts.includes(postId);
+
+    if (isLiked) {
+        state.likedCommunityPosts = state.likedCommunityPosts.filter(id => id !== postId);
+    } else {
+        state.likedCommunityPosts.push(postId);
+    }
+
+    try {
+        localStorage.setItem('vivu_liked_posts', JSON.stringify(state.likedCommunityPosts));
+    } catch (e) {
+        console.warn('Lỗi lưu liked posts:', e);
+    }
+
+    renderCommunityFeed();
+}
+
+/**
+ * Đăng ký / Hủy chỗ Hoạt Động Tuần Này
+ */
+export function toggleRsvpActivity(actId) {
+    if (!actId) return;
+    const act = state.weeklyActivities.find(a => a.id === actId);
+    const isRegistered = state.registeredActivities.includes(actId);
+
+    if (isRegistered) {
+        state.registeredActivities = state.registeredActivities.filter(id => id !== actId);
+        showNotification(act ? `Đã hủy đặt chỗ cho: "${act.title}"` : 'Đã hủy đặt chỗ');
+    } else {
+        state.registeredActivities.push(actId);
+        showNotification(act ? `Đặt chỗ thành công: "${act.title}"!` : 'Đặt chỗ thành công!');
+    }
+
+    try {
+        localStorage.setItem('vivu_registered_activities', JSON.stringify(state.registeredActivities));
+    } catch (e) {
+        console.warn('Lỗi lưu registered activities:', e);
+    }
+
+    const weeklyActivitiesContainer = document.getElementById('weeklyActivitiesList');
+    if (weeklyActivitiesContainer) {
+        weeklyActivitiesContainer.innerHTML = renderWeeklyActivitiesWidget(
+            state.weeklyActivities,
+            state.registeredActivities
+        );
+    }
+}
+
+/**
+ * Chia sẻ Bài Viết Cộng Đồng
+ */
+export function shareCommunityPost(postId) {
+    try {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(window.location.href);
+            showNotification('Đã sao chép liên kết bài viết để chia sẻ!');
+        } else {
+            showNotification('Đã sẵn sàng chia sẻ bài viết này!');
+        }
+    } catch (e) {
+        showNotification('Đã sẵn sàng chia sẻ bài viết này!');
+    }
+}
+
+/**
+ * Gợi ý bình luận cho bài viết
+ */
+export function handleCommentPrompt(postId) {
+    const post = state.communityPosts.find(p => p.id === postId);
+    showNotification(post ? `Bình luận tương tác cho bài viết của ${post.author}` : 'Tính năng bình luận đang hoạt động');
+}
+
+/**
+ * Đính kèm ảnh cho bài viết mới
+ */
+export function promptAddPostPhoto() {
+    const samplePhotos = ['./chùa âng.jpg', './ao bà om.jpg', './cồn chim.jpg', './chùa hang.jpg', './cù lao tân qui.jpg'];
+    const chosen = samplePhotos[Math.floor(Math.random() * samplePhotos.length)];
+    state.newPostAttachment = chosen;
+
+    const preview = document.getElementById('newPostMediaPreview');
+    const previewText = document.getElementById('newPostMediaPreviewText');
+    if (preview && previewText) {
+        previewText.textContent = `📷 Đã đính kèm ảnh: ${chosen.replace(/^\.\//, '')}`;
+        preview.classList.remove('hidden');
+    }
+    showNotification('Đã đính kèm hình ảnh di sản Trà Vinh!');
+}
+
+/**
+ * Đính kèm địa điểm check-in cho bài viết mới
+ */
+export function promptAddPostLocation() {
+    const sampleLocs = ['Wat Angkor Borey (Chùa Âng)', 'Thắng cảnh Ao Bà Om', 'Khu du lịch Cồn Chim', 'Chùa Hang (Wat Kompong Nikroth)', 'Cù lao Tân Quy'];
+    const chosen = sampleLocs[Math.floor(Math.random() * sampleLocs.length)];
+    state.newPostLocation = chosen;
+
+    const preview = document.getElementById('newPostMediaPreview');
+    const previewText = document.getElementById('newPostMediaPreviewText');
+    if (preview && previewText) {
+        previewText.textContent = `📍 Đã check-in: ${chosen}`;
+        preview.classList.remove('hidden');
+    }
+    showNotification(`Đã gắn thẻ địa điểm: ${chosen}`);
+}
+
+/**
+ * Xóa đính kèm bài viết mới
+ */
+export function clearCommunityPostAttachment() {
+    state.newPostAttachment = null;
+    state.newPostLocation = null;
+    const preview = document.getElementById('newPostMediaPreview');
+    if (preview) preview.classList.add('hidden');
+}
+
+/**
+ * Đăng bài viết cộng đồng mới
+ */
+export function submitNewCommunityPost() {
+    const textarea = document.getElementById('newCommunityPostContent');
+    const topicSelect = document.getElementById('newCommunityPostTopic');
+    const content = textarea?.value?.trim();
+
+    if (!content) {
+        showNotification('Vui lòng nhập nội dung chia sẻ trước khi đăng bài!');
+        textarea?.focus();
+        return;
+    }
+
+    const topic = topicSelect?.value || '🏷️ Chủ đề: Tự do';
+    const newPost = {
+        id: 'post-' + Date.now(),
+        author: 'Trần Tiến',
+        avatarText: 'TT',
+        badge: 'Thành viên tích cực',
+        timeAgo: 'Vừa xong',
+        location: state.newPostLocation || 'Trà Vinh',
+        content,
+        image: state.newPostAttachment || null,
+        likes: 1,
+        commentsCount: 0,
+        shares: 0,
+        topic
+    };
+
+    state.communityPosts.unshift(newPost);
+    state.likedCommunityPosts.push(newPost.id);
+
+    // Reset Form
+    if (textarea) textarea.value = '';
+    clearCommunityPostAttachment();
+
+    renderCommunityFeed();
+    showNotification('Bài viết của bạn đã được đăng thành công lên cộng đồng xứ Trà!');
+}
+
+/**
+ * Mở modal Tạo CLB mới
+ */
+export function openCreateClubModal() {
+    const modal = document.getElementById('createClubModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    const nameInput = document.getElementById('newClubName');
+    if (nameInput) setTimeout(() => nameInput.focus(), 100);
+}
+
+/**
+ * Đóng modal Tạo CLB mới
+ */
+export function closeCreateClubModal() {
+    const modal = document.getElementById('createClubModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+/**
+ * Xử lý gửi biểu mẫu Tạo CLB mới
+ */
+export function submitCreateClub(formEl) {
+    const nameInput = document.getElementById('newClubName');
+    const catSelect = document.getElementById('newClubCategory');
+    const placeInput = document.getElementById('newClubMeetingPlace');
+    const descInput = document.getElementById('newClubDesc');
+
+    const name = nameInput?.value?.trim();
+    const category = catSelect?.value || 'di-san';
+    const place = placeInput?.value?.trim() || 'TP. Trà Vinh';
+    const desc = descInput?.value?.trim();
+
+    if (!name || !desc) {
+        showNotification('Vui lòng điền đầy đủ thông tin tên và mô tả CLB!');
+        return;
+    }
+
+    const catObj = TRA_VINH_CLUB_CATEGORIES.find(c => c.id === category);
+    const categoryName = catObj ? catObj.label : 'Cộng đồng';
+
+    const newClub = {
+        id: 'clb-' + Date.now(),
+        name,
+        category,
+        categoryName,
+        badge: categoryName,
+        membersCount: 1,
+        activitiesCount: 1,
+        image: './ao bà om.jpg',
+        description: desc,
+        lastActivity: 'Vừa thành lập: Đang mở đăng ký thành viên mới',
+        scheduleInfo: 'Sinh hoạt định kỳ hàng tuần',
+        meetingPlace: place,
+        icon: catObj?.icon || 'groups',
+        color: 'emerald'
+    };
+
+    state.clubs.unshift(newClub);
+    state.joinedClubs.push(newClub.id);
+
+    try {
+        localStorage.setItem('vivu_joined_clubs', JSON.stringify(state.joinedClubs));
+    } catch (e) {
+        console.warn('Lỗi lưu joined clubs:', e);
+    }
+
+    closeCreateClubModal();
+    if (formEl && typeof formEl.reset === 'function') formEl.reset();
+
+    // Re-render
+    renderClubsGrid();
+    const clubsBadge = document.getElementById('communityClubsCountBadge');
+    if (clubsBadge) clubsBadge.textContent = state.clubs.length;
+
+    showNotification(`Đăng ký CLB "${newClub.name}" thành công! Bạn đã trở thành Trưởng nhóm sáng lập.`);
+}
+
+/**
+ * Di chuyển tiêu điểm tới tìm kiếm câu lạc bộ
+ */
+export function focusClubSearch() {
+    const pills = document.getElementById('clubCategoryPills');
+    if (pills) {
+        pills.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
 // Expose ra window để hỗ trợ inline HTML event handlers
 if (typeof window !== 'undefined') {
     window.ViVuApp = {
@@ -4015,6 +4506,27 @@ if (typeof window !== 'undefined') {
         updatePlaceMetaTags,
         restoreDefaultMetaTags,
         handleTripShareParam,
+        // Community & Clubs Methods (Phase 5)
+        initCommunitySection,
+        renderClubsGrid,
+        filterClubsByCategory,
+        toggleJoinClub,
+        toggleBookmarkClub,
+        renderCommunityFeed,
+        filterCommunityFeed,
+        toggleLikePost,
+        toggleRsvpActivity,
+        shareCommunityPost,
+        handleCommentPrompt,
+        promptAddPostPhoto,
+        promptAddPostLocation,
+        clearCommunityPostAttachment,
+        submitNewCommunityPost,
+        openCreateClubModal,
+        closeCreateClubModal,
+        submitCreateClub,
+        focusClubSearch,
+        showNotification,
         getState: () => state,
         get state() { return state; }
     };
@@ -4025,4 +4537,5 @@ if (typeof window !== 'undefined') {
         }
     };
 }
+
 
