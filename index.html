@@ -384,11 +384,15 @@
                 <div class="px-space-md">
                     <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Cá Nhân</span>
                     <div role="navigation" aria-label="Cá Nhân" class="mt-2 flex flex-col gap-1">
-                        <a href="#discoverySection" onclick="document.querySelector('[data-category=saved]')?.click(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <a href="#savedCollectionsModal" onclick="window.ViVuApp?.openSavedCollectionsModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px] text-rose-500">bookmark</span>
-                            <span>Đã lưu</span>
+                            <span>Bộ sưu tập đã lưu</span>
                         </a>
-                        <a href="#tourItinerariesSection" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <a href="#userProfileModal" onclick="window.ViVuApp?.openProfileModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-amber-500">military_tech</span>
+                            <span>Hồ sơ &amp; Thành tích</span>
+                        </a>
+                        <a href="#tourItinerariesSection" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px]">route</span>
                             <span>Lịch trình tour 1 ngày</span>
                         </a>
@@ -399,7 +403,7 @@
                 <div class="px-space-md">
                     <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Hỗ Trợ Dự Án</span>
                     <div role="navigation" aria-label="Hỗ Trợ Dự Án" class="mt-2 flex flex-col gap-1">
-                        <a href="#" onclick="window.ViVuApp?.openContributeModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <a href="#" onclick="window.ViVuApp?.openContributeModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px]">volunteer_activism</span>
                             <span>Tường Admin &amp; Đóng góp</span>
                         </a>
@@ -410,16 +414,16 @@
 
         <!-- Bottom Profile Widget (Sidebar) -->
         <div class="p-space-md border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between">
-            <div class="flex items-center gap-3 min-w-0">
-                <div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined text-xl">person</span>
+            <button type="button" onclick="window.ViVuApp?.openProfileModal?.()" class="flex items-center gap-3 min-w-0 text-left hover:opacity-85 transition-opacity min-h-[44px] flex-1">
+                <div class="w-9 h-9 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
+                    <img src="chùa âng.jpg" alt="Nguyễn Văn Tiến" class="w-full h-full object-cover" />
                 </div>
                 <div class="flex flex-col min-w-0">
-                    <span class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">ViVu Trà Vinh</span>
-                    <span class="font-caption text-[10px] text-outline dark:text-zinc-400">Khách du lịch</span>
+                    <span class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">Nguyễn Văn Tiến</span>
+                    <span class="font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium">Thành viên Xanh</span>
                 </div>
-            </div>
-            <button onclick="window.ViVuApp?.toggleTheme?.()" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0" title="Chuyển chế độ giao diện" type="button">
+            </button>
+            <button onclick="window.ViVuApp?.toggleTheme?.()" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Chuyển chế độ giao diện" type="button">
                 <span class="material-symbols-outlined text-[20px]">dark_mode</span>
             </button>
         </div>
@@ -487,11 +491,18 @@
                         </button>
 
                         <!-- Nút Bookmark yêu thích -->
-                        <button onclick="document.querySelector('[data-category=saved]')?.click()"
+                        <button id="headerSavedBtn" onclick="window.ViVuApp.openSavedCollectionsModal()"
                             class="hidden md:flex relative w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-700 items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
-                            title="Địa điểm đã lưu" aria-label="Xem địa điểm đã lưu">
+                            title="Bộ sưu tập đã lưu" aria-label="Xem bộ sưu tập đã lưu">
                             <span class="material-symbols-outlined text-lg text-rose-500">favorite</span>
                             <span id="savedHeaderCount" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">0</span>
+                        </button>
+
+                        <!-- Nút Hồ sơ cá nhân & Thành tích (Header Profile) -->
+                        <button id="headerProfileBtn" onclick="window.ViVuApp.openProfileModal()"
+                            class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full p-0.5 border border-outline-variant/40 dark:border-zinc-700 hover:ring-2 hover:ring-secondary transition-all flex items-center justify-center shrink-0"
+                            title="Hồ sơ &amp; Thành tích Xứ Trà" aria-label="Xem hồ sơ và huy hiệu cá nhân">
+                            <img src="chùa âng.jpg" alt="Avatar" class="w-8 h-8 rounded-full object-cover" />
                         </button>
 
                         <!-- Nút Đổi Dark/Light Mode (Touch target >= 44x44px chuẩn W3C) -->
@@ -2493,6 +2504,78 @@
             <button id="dismissUpdateBtn2" type="button" class="px-3 py-1.5 rounded-xl text-xs text-emerald-200 hover:text-white">Để sau</button>
             <button id="applyUpdateBtn" type="button" class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold transition-all shadow-xs active:scale-95">Cập nhật ngay</button>
         </div>
+    </div>
+
+    <!-- 17. MODAL HỒ SƠ CÁ NHÂN & THÀNH TÍCH (USER PROFILE MODAL - PHASE 7) -->
+    <div id="userProfileModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="userProfileModalTitle">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeProfileModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-0 sm:p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full max-w-6xl min-h-screen sm:min-h-0 my-0 sm:my-6 border-0 sm:border border-outline-variant/30 dark:border-zinc-800">
+                    <span id="userProfileModalTitle" class="sr-only">Hồ sơ cá nhân và thành tích</span>
+                    <!-- Close button >= 44x44px -->
+                    <button type="button" onclick="window.ViVuApp.closeProfileModal()"
+                        class="absolute top-4 right-4 z-30 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-transform active:scale-95 shadow-md"
+                        aria-label="Đóng hồ sơ">
+                        <span class="material-symbols-outlined text-[22px]">close</span>
+                    </button>
+                    <!-- Injected profile content -->
+                    <div id="userProfileModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 18. MODAL BỘ SƯU TẬP ĐÃ LƯU (SAVED COLLECTIONS MODAL - PHASE 7) -->
+    <div id="savedCollectionsModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="savedCollectionsModalTitle">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeSavedCollectionsModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-0 sm:p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full max-w-6xl min-h-screen sm:min-h-0 my-0 sm:my-6 border-0 sm:border border-outline-variant/30 dark:border-zinc-800">
+                    <span id="savedCollectionsModalTitle" class="sr-only">Bộ sưu tập đã lưu của tôi</span>
+                    <!-- Close button >= 44x44px -->
+                    <button type="button" onclick="window.ViVuApp.closeSavedCollectionsModal()"
+                        class="absolute top-4 right-4 z-30 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 flex items-center justify-center transition-transform active:scale-95 shadow-md border border-outline-variant/30 dark:border-zinc-700"
+                        aria-label="Đóng bộ sưu tập">
+                        <span class="material-symbols-outlined text-[22px]">close</span>
+                    </button>
+                    <!-- Injected saved collections content -->
+                    <div id="savedCollectionsModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 19. MODAL ĐỔI QUÀ XU XỨ TRÀ (REDEEM GIFT MODAL - PHASE 7) -->
+    <div id="redeemGiftModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="redeemGiftModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeRedeemGiftModal()"></div>
+        <div class="relative z-10 w-full max-w-lg" id="redeemGiftModalContent"></div>
+    </div>
+
+    <!-- 20. MODAL CHỈNH SỬA HỒ SƠ (EDIT PROFILE MODAL - PHASE 7) -->
+    <div id="editProfileModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="editProfileModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeEditProfileModal()"></div>
+        <div class="relative z-10 w-full max-w-md" id="editProfileModalContent"></div>
+    </div>
+
+    <!-- 21. MODAL TẠO BỘ SƯU TẬP MỚI (CREATE COLLECTION MODAL - PHASE 7) -->
+    <div id="createCollectionModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="createCollectionModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeCreateCollectionModal()"></div>
+        <div class="relative z-10 w-full max-w-md" id="createCollectionModalContent"></div>
+    </div>
+
+    <!-- 22. MODAL XUẤT LỊCH TRÌNH (EXPORT ITINERARY MODAL - PHASE 7) -->
+    <div id="exportItineraryModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="exportItineraryModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeExportItineraryModal()"></div>
+        <div class="relative z-10 w-full max-w-lg" id="exportItineraryModalContent"></div>
+    </div>
+
+    <!-- 23. TOAST THÔNG BÁO TƯƠNG TÁC (SAVED NOTICE TOAST - PHASE 7) -->
+    <div id="savedNoticeToast" class="fixed bottom-20 md:bottom-6 right-6 z-50 transform translate-y-16 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 px-4 py-3 rounded-2xl bg-primary text-white shadow-2xl border border-emerald-500/40">
+        <span class="material-symbols-outlined text-[20px] text-secondary-fixed">bookmark_check</span>
+        <span class="font-body-md text-xs sm:text-sm font-semibold" id="savedNoticeToastText">Đã cập nhật bộ sưu tập</span>
     </div>
 
 </body>

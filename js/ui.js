@@ -4773,3 +4773,1139 @@ export function renderCommunityGuidelinesWidget(guidelines) {
     `).join('');
 }
 
+/**
+ * ========================================================
+ * PHASE 7: USER PROFILE, ACHIEVEMENTS & SAVED COLLECTIONS
+ * ========================================================
+ */
+
+/**
+ * Render Profile Modal Content (Stitch Desktop & Mobile Design)
+ */
+export function renderUserProfileModalContent(profile, activeTab = 'overview', badgeCategory = 'all') {
+    if (!profile) return '';
+
+    const safeName = escapeHtml(profile.name || 'Người dùng');
+    const safeHandle = escapeHtml(profile.handle || '@tien.travinh');
+    const safeRole = escapeHtml(profile.role || 'Đại sứ Khám phá Xanh Trà Vinh');
+    const safeBio = escapeHtml(profile.bio || '');
+    const safeLocation = escapeHtml(profile.location || 'TP. Trà Vinh, Trà Vinh');
+    const safeJoinDate = escapeHtml(profile.joinDate || 'Tháng 03, 2023');
+    const avatarImg = escapeHtml(profile.avatar || 'chùa âng.jpg');
+    const coverImg = escapeHtml(profile.coverImage || 'ao bà om.jpg');
+    const coins = (profile.coins || 0).toLocaleString();
+    const stats = profile.stats || { tripsCompleted: 48, pagodasVisited: 18, cyclingKm: 642, co2ReducedKg: 128 };
+    const level = profile.level || { current: 4, max: 5, title: 'Bảo tồn Di sản', currentXp: 3750, progressPercent: 93.7 };
+
+    // Filter badges
+    const allBadges = profile.badges || [];
+    const filteredBadges = badgeCategory === 'all' 
+        ? allBadges 
+        : allBadges.filter(b => b.category === badgeCategory);
+
+    const unlockedCount = allBadges.filter(b => b.unlocked).length;
+
+    return `
+        <!-- Immersive Profile Header & Banner -->
+        <div class="relative w-full">
+            <!-- Cover Landscape Background -->
+            <div class="h-60 sm:h-72 w-full bg-cover bg-center relative" style="background-image: url('${coverImg}')">
+                <div class="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/40 to-transparent"></div>
+                <!-- Top Badges in Banner -->
+                <div class="absolute top-4 sm:top-6 right-4 sm:right-8 flex items-center gap-2">
+                    <span class="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-surface-container-lowest/80 dark:bg-zinc-900/80 backdrop-blur-md text-on-surface dark:text-zinc-100 font-bold text-[11px] sm:text-xs flex items-center gap-1.5 shadow-sm">
+                        <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400" style="font-variation-settings: 'FILL' 1;">eco</span>
+                        <span>Thành viên Xanh</span>
+                    </span>
+                    <span class="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-primary-container/80 backdrop-blur-md text-emerald-200 font-bold text-[11px] sm:text-xs flex items-center gap-1.5 shadow-sm">
+                        <span class="material-symbols-outlined text-[16px]">verified</span>
+                        <span>Đã xác minh</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Profile Summary Container Overlapping Banner -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-8 -mt-16 sm:-mt-20 relative z-10 pb-4">
+                <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-4 sm:p-6 shadow-md border border-outline-variant/30 dark:border-zinc-800 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <!-- Left: Avatar & Identity -->
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                        <div class="relative shrink-0">
+                            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shadow-lg p-1 bg-surface-container-lowest dark:bg-zinc-800 border-2 border-amber-400/40">
+                                <img src="${avatarImg}" alt="${safeName}" class="w-full h-full object-cover rounded-xl" />
+                            </div>
+                            <div class="absolute -bottom-2 -right-2 bg-secondary text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md ring-2 ring-surface-container-lowest dark:ring-zinc-900" title="Bảo tồn Di sản">
+                                <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1 min-w-0">
+                            <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+                                <h1 class="font-headline-lg text-xl sm:text-2xl lg:text-3xl text-on-surface dark:text-zinc-100 font-bold tracking-tight">${safeName}</h1>
+                                <span class="text-xs text-outline dark:text-zinc-400 font-mono">${safeHandle}</span>
+                                <span class="px-2.5 py-0.5 rounded-full bg-secondary-container/80 dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-semibold text-[11px]">
+                                    ${safeRole}
+                                </span>
+                            </div>
+                            <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 max-w-xl mt-1 leading-relaxed">
+                                ${safeBio}
+                            </p>
+                            <div class="flex items-center gap-3 sm:gap-4 mt-2 text-xs text-outline dark:text-zinc-400 flex-wrap">
+                                <span class="flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[15px] text-secondary">location_on</span>
+                                    <span>${safeLocation}</span>
+                                </span>
+                                <span>•</span>
+                                <span class="flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[15px] text-secondary">calendar_today</span>
+                                    <span>Tham gia ${safeJoinDate}</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Action CTAs -->
+                    <div class="flex items-center gap-2.5 sm:gap-3 flex-wrap lg:flex-nowrap shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-outline-variant/30 dark:border-zinc-800">
+                        <button type="button" onclick="window.ViVuApp.shareProfileStory()"
+                            class="px-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px]">share</span>
+                            <span>Chia sẻ</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.openEditProfileModal()"
+                            class="px-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px]">edit_note</span>
+                            <span>Chỉnh sửa</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.openRedeemGiftModal()"
+                            class="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#EA580C] to-amber-600 hover:from-[#C2410C] hover:to-amber-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">redeem</span>
+                            <span>Đổi Xu Nhận Quà</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Metrics Ribbon -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mt-4">
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-xl p-3.5 sm:p-4 shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex items-center gap-3 sm:gap-4">
+                        <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 flex items-center justify-center text-secondary dark:text-emerald-400 shrink-0">
+                            <span class="material-symbols-outlined text-[24px] sm:text-[26px]">hiking</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-bold text-lg sm:text-xl text-on-surface dark:text-zinc-100">${stats.tripsCompleted || 48}</span>
+                            <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Chuyến đi hoàn thành</span>
+                        </div>
+                    </div>
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-xl p-3.5 sm:p-4 shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex items-center gap-3 sm:gap-4">
+                        <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-amber-500/10 dark:bg-amber-950/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                            <span class="material-symbols-outlined text-[24px] sm:text-[26px]">temple_buddhist</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-bold text-lg sm:text-xl text-on-surface dark:text-zinc-100">${stats.pagodasVisited || 18}</span>
+                            <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Chùa Khmer đã viếng</span>
+                        </div>
+                    </div>
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-xl p-3.5 sm:p-4 shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex items-center gap-3 sm:gap-4">
+                        <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-teal-500/10 dark:bg-teal-950/40 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+                            <span class="material-symbols-outlined text-[24px] sm:text-[26px]">directions_bike</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-bold text-lg sm:text-xl text-on-surface dark:text-zinc-100">${stats.cyclingKm || 642} <span class="text-xs font-normal text-outline">km</span></span>
+                            <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Đạp xe khám phá</span>
+                        </div>
+                    </div>
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-xl p-3.5 sm:p-4 shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex items-center gap-3 sm:gap-4">
+                        <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-amber-500/20 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[24px] sm:text-[26px]" style="font-variation-settings: 'FILL' 1;">monetization_on</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-bold text-lg sm:text-xl text-amber-600 dark:text-amber-400">${coins}</span>
+                            <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Xu Xứ Trà tích lũy</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Primary Content Area -->
+        <div class="max-w-7xl mx-auto w-full px-4 sm:px-8 pb-12 flex flex-col gap-6 sm:gap-8">
+            <!-- Tab Navigation Bar -->
+            <div class="flex items-center gap-2 bg-surface-container-lowest dark:bg-zinc-900 p-1.5 rounded-2xl shadow-sm border border-outline-variant/20 dark:border-zinc-800 self-start overflow-x-auto max-w-full no-scrollbar" role="tablist" aria-label="Các mục hồ sơ">
+                <button type="button" role="tab" aria-selected="${activeTab === 'overview' ? 'true' : 'false'}"
+                    onclick="window.ViVuApp.switchProfileTab('overview')"
+                    class="px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px] shrink-0 ${
+                        activeTab === 'overview'
+                            ? 'bg-primary-container text-white shadow-sm dark:bg-emerald-800'
+                            : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 hover:bg-surface-container-low dark:hover:bg-zinc-800'
+                    }">
+                    <span class="material-symbols-outlined text-[18px]">dashboard</span>
+                    <span>Tổng quan &amp; Huy hiệu</span>
+                </button>
+                <button type="button" role="tab" aria-selected="${activeTab === 'trips' ? 'true' : 'false'}"
+                    onclick="window.ViVuApp.switchProfileTab('trips')"
+                    class="px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px] shrink-0 ${
+                        activeTab === 'trips'
+                            ? 'bg-primary-container text-white shadow-sm dark:bg-emerald-800'
+                            : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 hover:bg-surface-container-low dark:hover:bg-zinc-800'
+                    }">
+                    <span class="material-symbols-outlined text-[18px]">route</span>
+                    <span>Chuyến đi &amp; Nhật ký GPS</span>
+                </button>
+                <button type="button" role="tab" aria-selected="${activeTab === 'reviews' ? 'true' : 'false'}"
+                    onclick="window.ViVuApp.switchProfileTab('reviews')"
+                    class="px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px] shrink-0 ${
+                        activeTab === 'reviews'
+                            ? 'bg-primary-container text-white shadow-sm dark:bg-emerald-800'
+                            : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 hover:bg-surface-container-low dark:hover:bg-zinc-800'
+                    }">
+                    <span class="material-symbols-outlined text-[18px]">rate_review</span>
+                    <span>Bài viết &amp; Đánh giá (18)</span>
+                </button>
+                <button type="button" role="tab" aria-selected="${activeTab === 'saved' ? 'true' : 'false'}"
+                    onclick="window.ViVuApp.openSavedCollectionsModal()"
+                    class="px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px] shrink-0 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 hover:bg-surface-container-low dark:hover:bg-zinc-800">
+                    <span class="material-symbols-outlined text-[18px] text-rose-500">bookmarks</span>
+                    <span>Bộ sưu tập đã lưu</span>
+                </button>
+            </div>
+
+            ${activeTab === 'overview' ? `
+            <!-- Dashboard Bento Grid Layout -->
+            <div class="grid grid-cols-12 gap-6 sm:gap-8">
+                <!-- Left Column (8 Columns): Badges, Footprint Heatmap & Impact -->
+                <div class="col-span-12 lg:col-span-8 flex flex-col gap-6 sm:gap-8">
+                    <!-- Section: Badges & Ecology Milestones -->
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-5">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex flex-col">
+                                <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Hệ Thống Huy Hiệu Sinh Thái</span>
+                                <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 mt-0.5">Bảng Vinh Danh Xứ Trà (${unlockedCount}/${allBadges.length})</h2>
+                            </div>
+                            <!-- Category Filter Chips -->
+                            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1" role="toolbar" aria-label="Bộ lọc huy hiệu">
+                                ${['all', 'temple', 'eco', 'food', 'community'].map(cat => {
+                                    const labels = {
+                                        all: 'Tất cả',
+                                        temple: 'Chùa Cổ',
+                                        eco: 'Eco Xanh',
+                                        food: 'Ẩm thực',
+                                        community: 'Cộng đồng'
+                                    };
+                                    const isSel = badgeCategory === cat;
+                                    return `
+                                        <button type="button" onclick="window.ViVuApp.filterProfileBadges('${cat}')"
+                                            class="px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap min-h-[44px] flex items-center justify-center transition-all ${
+                                                isSel
+                                                    ? 'bg-primary-container text-white dark:bg-emerald-800'
+                                                    : 'bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
+                                            }">
+                                            ${labels[cat]}
+                                        </button>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Badges Grid Layout -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="profileBadgesGrid">
+                            ${filteredBadges.map(badge => {
+                                const isUnlocked = badge.unlocked;
+                                const tierColors = {
+                                    'Bạch kim': 'bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-300',
+                                    'Vàng': 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300',
+                                    'Bạc': 'bg-slate-200 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200',
+                                    'Đồng': 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400'
+                                };
+                                const tierClass = tierColors[badge.tier] || 'bg-slate-100 text-slate-800';
+
+                                return `
+                                    <div class="p-4 rounded-xl ${isUnlocked ? 'bg-surface-container-low dark:bg-zinc-800/70' : 'bg-surface-container/50 dark:bg-zinc-800/40 opacity-80'} flex items-start gap-4 hover:shadow-md transition-all border border-outline-variant/20 dark:border-zinc-700/50">
+                                        <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl ${
+                                            isUnlocked
+                                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                                : 'bg-stone-300/30 text-stone-400 dark:text-zinc-500'
+                                        } flex items-center justify-center shrink-0">
+                                            <span class="material-symbols-outlined text-[28px] sm:text-[32px]" style="${isUnlocked ? "font-variation-settings: 'FILL' 1;" : ''}">${badge.icon}</span>
+                                        </div>
+                                        <div class="flex flex-col flex-1 min-w-0">
+                                            <div class="flex items-center justify-between gap-1">
+                                                <h3 class="font-bold text-sm sm:text-base text-on-surface dark:text-zinc-100 leading-tight truncate">${escapeHtml(badge.name)}</h3>
+                                                <span class="px-2 py-0.5 rounded-full font-bold text-[10px] shrink-0 ${tierClass}">${badge.tier}</span>
+                                            </div>
+                                            <p class="text-xs text-on-surface-variant dark:text-zinc-300 mt-1 line-clamp-2 leading-relaxed">
+                                                ${escapeHtml(badge.desc)}
+                                            </p>
+                                            ${isUnlocked ? `
+                                                <div class="mt-2.5 flex items-center justify-between text-[11px] text-secondary dark:text-emerald-400 font-medium">
+                                                    <span class="flex items-center gap-1">
+                                                        <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                                        <span>Mở khóa: ${badge.unlockedDate || 'Gần đây'}</span>
+                                                    </span>
+                                                    <span class="font-bold text-amber-600 dark:text-amber-400">+${badge.xp || 300} XP</span>
+                                                </div>
+                                            ` : `
+                                                <div class="mt-2.5 flex flex-col gap-1">
+                                                    <div class="w-full h-1.5 bg-surface-container-highest dark:bg-zinc-700 rounded-full overflow-hidden">
+                                                        <div class="h-full bg-secondary dark:bg-emerald-500 rounded-full" style="width: ${badge.progress || 30}%;"></div>
+                                                    </div>
+                                                    <div class="flex justify-between text-[10px] text-outline dark:text-zinc-400">
+                                                        <span>Đang khóa (${badge.progress || 30}%)</span>
+                                                        <span class="text-amber-600 dark:text-amber-400 font-semibold">${badge.remaining || 'Chưa hoàn thành'}</span>
+                                                    </div>
+                                                </div>
+                                            `}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Section: Footprint Heatmap across Tra Vinh Districts -->
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Dấu Chân Du Ký</span>
+                                <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 mt-0.5">Bản Đồ Vùng Khám Phá Trà Vinh</h2>
+                            </div>
+                            <div class="flex items-center gap-3 text-xs text-on-surface-variant dark:text-zinc-400">
+                                <span class="inline-flex items-center gap-1">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-secondary"></span> Đã đến nhiều (&gt;5 lần)
+                                </span>
+                                <span class="inline-flex items-center gap-1">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-secondary-container"></span> Đã ghé (1-4 lần)
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Heatmap Visual Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- District Coverage Image / Preview -->
+                            <div class="md:col-span-2 relative h-64 sm:h-72 rounded-xl overflow-hidden shadow-inner border border-outline-variant/30 dark:border-zinc-800 bg-cover bg-center" style="background-image: url('ao bà om.jpg')">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none"></div>
+                                <div class="absolute bottom-3 left-3 bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-lg shadow-sm text-xs font-semibold text-on-surface dark:text-zinc-100 flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[16px] text-secondary">explore</span>
+                                    <span>Tỷ lệ phủ rộng: <strong>7/9 Huyện &amp; Thị xã</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- District Density Breakdown -->
+                            <div class="flex flex-col justify-between gap-3 bg-surface-container-low dark:bg-zinc-800/70 p-4 rounded-xl border border-outline-variant/20 dark:border-zinc-700/50">
+                                <h4 class="font-bold text-sm text-on-surface dark:text-zinc-100">Tần suất theo địa bàn:</h4>
+                                <div class="flex flex-col gap-3">
+                                    <div>
+                                        <div class="flex justify-between text-xs text-on-surface-variant dark:text-zinc-400 mb-1">
+                                            <span>TP. Trà Vinh &amp; Châu Thành</span>
+                                            <span class="font-bold text-secondary dark:text-emerald-400">16 Chuyến (92%)</span>
+                                        </div>
+                                        <div class="w-full h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                            <div class="h-full rounded-full bg-secondary dark:bg-emerald-500 w-[92%]"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs text-on-surface-variant dark:text-zinc-400 mb-1">
+                                            <span>Cầu Kè (Vườn Dừa &amp; Cù Lao)</span>
+                                            <span class="font-bold text-secondary dark:text-emerald-400">11 Chuyến (70%)</span>
+                                        </div>
+                                        <div class="w-full h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                            <div class="h-full rounded-full bg-secondary dark:bg-emerald-500 w-[70%]"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs text-on-surface-variant dark:text-zinc-400 mb-1">
+                                            <span>Tiểu Cần &amp; Trà Cú</span>
+                                            <span class="font-bold text-secondary dark:text-emerald-400">9 Chuyến (58%)</span>
+                                        </div>
+                                        <div class="w-full h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                            <div class="h-full rounded-full bg-secondary dark:bg-emerald-500 w-[58%]"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-xs text-on-surface-variant dark:text-zinc-400 mb-1">
+                                            <span>Duyên Hải &amp; Càng Long</span>
+                                            <span class="font-bold text-on-secondary-container">5 Chuyến (32%)</span>
+                                        </div>
+                                        <div class="w-full h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                            <div class="h-full rounded-full bg-teal-400 w-[32%]"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="pt-2 text-xs text-outline dark:text-zinc-400 border-t border-outline-variant/20 dark:border-zinc-700">
+                                    <span class="text-secondary dark:text-emerald-400 font-semibold">Chưa khám phá:</span> Huyện Cầu Ngang (Dự kiến tham gia Ok Om Bok).
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Recent Contributions & Eco Stories -->
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100">Đóng Góp Cộng Đồng Gần Đây</h2>
+                            <button type="button" class="text-xs text-secondary dark:text-emerald-400 font-semibold hover:underline">Xem thêm lịch sử</button>
+                        </div>
+                        <div class="space-y-3">
+                            ${(profile.recentContributions || []).map(item => `
+                                <div class="p-3.5 sm:p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/70 flex items-center justify-between gap-4 border border-outline-variant/20 dark:border-zinc-700/50">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-10 h-10 rounded-xl bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                            <span class="material-symbols-outlined text-[20px]">${item.icon}</span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 truncate">${escapeHtml(item.title)}</div>
+                                            <div class="text-[11px] text-outline dark:text-zinc-400 truncate mt-0.5">${escapeHtml(item.desc)} • ${item.time}</div>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded-md bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-bold text-xs whitespace-nowrap shrink-0">
+                                        ${item.reward}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column (4 Columns): Tier Status, Eco Impact, & Certificates -->
+                <div class="col-span-12 lg:col-span-4 flex flex-col gap-6 sm:gap-8">
+                    <!-- Member Level Card -->
+                    <div class="bg-primary-container text-white rounded-2xl p-6 shadow-md relative overflow-hidden flex flex-col justify-between border border-emerald-900">
+                        <div class="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-white/5 pointer-events-none"></div>
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <span class="px-3 py-1 rounded-full bg-white/10 text-emerald-200 font-bold text-xs">
+                                    ${level.tier || 'Cấp 4 / 5'}
+                                </span>
+                                <span class="text-xs text-emerald-200">Điểm: ${level.currentXp || 3750} XP</span>
+                            </div>
+                            <h3 class="text-2xl font-bold text-white mt-4 tracking-tight">${level.title || 'Bảo tồn Di sản'}</h3>
+                            <p class="text-xs text-emerald-100/80 mt-1 leading-relaxed">
+                                Danh hiệu dành riêng cho các thành viên có đóng góp nổi bật về bảo tồn nếp sống và cổ kính miền Tây.
+                            </p>
+                            <!-- Progress Bar -->
+                            <div class="mt-6 flex flex-col gap-2">
+                                <div class="flex justify-between text-xs text-emerald-200">
+                                    <span>Tiến trình cấp bậc</span>
+                                    <span class="font-bold">${level.progressPercent || 93.7}%</span>
+                                </div>
+                                <div class="w-full h-3 rounded-full bg-white/10 overflow-hidden p-0.5">
+                                    <div class="h-full rounded-full bg-secondary-fixed w-[${level.progressPercent || 93.7}%] transition-all"></div>
+                                </div>
+                                <span class="text-[11px] text-emerald-200/80 mt-1">
+                                    Chỉ còn <strong class="text-white">250 XP</strong> nữa để vinh danh <strong>Tinh hoa Xứ Trà (Cấp 5)</strong>!
+                                </span>
+                            </div>
+                        </div>
+                        <div class="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-emerald-200">Đặc quyền cấp bậc:</span>
+                            <span class="text-xs font-semibold text-secondary-fixed hover:underline flex items-center gap-1 cursor-pointer">
+                                Xem 6 quyền lợi
+                                <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Eco Impact Stats Ring & Metrics -->
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-5">
+                        <div class="flex flex-col">
+                            <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Tác Động Môi Trường</span>
+                            <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 mt-0.5">Dấu Chân Xanh 2024</h2>
+                        </div>
+                        <!-- Circular Chart Preview SVG -->
+                        <div class="flex items-center gap-5">
+                            <div class="relative w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center shrink-0">
+                                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle class="text-surface-container-high dark:text-zinc-800" cx="50" cy="50" fill="none" r="40" stroke="currentColor" stroke-width="8"></circle>
+                                    <circle class="text-secondary dark:text-emerald-400" cx="50" cy="50" fill="none" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="55" stroke-linecap="round" stroke-width="8"></circle>
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                    <span class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 leading-none">${stats.co2ReducedKg || 128}</span>
+                                    <span class="text-[10px] text-outline dark:text-zinc-400 uppercase mt-0.5">kg CO₂</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <div class="text-sm font-bold text-secondary dark:text-emerald-400 leading-snug">Giảm phát thải hiệu quả</div>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                    Nhờ sử dụng xe đạp trên 642 km đường làng Trà Vinh thay vì xe máy.
+                                </p>
+                            </div>
+                        </div>
+                        <!-- Impact breakdown list -->
+                        <div class="space-y-2.5 pt-2">
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs">
+                                <span class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary">park</span>
+                                    <span>Cây xanh bảo trợ:</span>
+                                </span>
+                                <span class="font-bold text-on-surface dark:text-zinc-100">${stats.treesSponsored || 14} Cây Sao Đen</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs">
+                                <span class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary">no_drinks</span>
+                                    <span>Chai nhựa từ chối:</span>
+                                </span>
+                                <span class="font-bold text-on-surface dark:text-zinc-100">${stats.plasticBottlesRefused || 240} Chai dùng 1 lần</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cultural & Community Certificates Widget -->
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Chứng Nhận Cộng Đồng</h3>
+                            <span class="px-2 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-bold text-xs">
+                                ${(profile.certificates || []).length} Chứng chỉ
+                            </span>
+                        </div>
+                        <div class="space-y-3">
+                            ${(profile.certificates || []).map(cert => `
+                                <div class="p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/70 flex gap-3 border border-outline-variant/20 dark:border-zinc-700/50">
+                                    <div class="w-11 h-11 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                                        <span class="material-symbols-outlined text-[22px]">${cert.icon}</span>
+                                    </div>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 leading-snug">${escapeHtml(cert.title)}</span>
+                                        <span class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5 truncate">${escapeHtml(cert.issuer)}</span>
+                                        <span class="text-[11px] text-outline dark:text-zinc-500 mt-1">Cấp ngày: ${cert.date}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ` : activeTab === 'trips' ? `
+            <!-- Trips & GPS Logs Tab -->
+            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-on-surface dark:text-zinc-100">Nhật Ký Hành Trình GPS Gần Đây</h2>
+                        <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-0.5">Các tuyến đường đạp xe xanh và tọa độ văn hóa bạn đã chinh phục</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-bold text-xs">
+                        48 Chuyến hoàn thành
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex flex-col gap-3 border border-outline-variant/20 dark:border-zinc-700">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-sm text-on-surface dark:text-zinc-100">Cung đường Di sản: Ao Bà Om - Chùa Âng - Chùa Hang</span>
+                            <span class="text-xs font-semibold text-secondary dark:text-emerald-400">14.8 km</span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                            Khởi hành sáng sớm 06:30, qua rặng cây cổ thụ Ao Bà Om và chiêm bái nghệ thuật điêu khắc tượng gỗ Chùa Hang.
+                        </p>
+                        <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-700 text-xs text-outline dark:text-zinc-400">
+                            <span>Hoàn thành 25/10/2024 • 3 giờ 45 phút</span>
+                            <button type="button" onclick="window.ViVuApp.shareProfileStory()" class="text-secondary dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">share</span> Chia sẻ
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex flex-col gap-3 border border-outline-variant/20 dark:border-zinc-700">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-sm text-on-surface dark:text-zinc-100">Vòng quanh Miệt vườn Cù Lao Tân Quy</span>
+                            <span class="text-xs font-semibold text-secondary dark:text-emerald-400">22.5 km</span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                            Đạp xe dọc bờ sông Hậu rợp bóng dừa nước, thưởng thức chôm chôm chín cây và dừa sáp Cầu Kè.
+                        </p>
+                        <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-700 text-xs text-outline dark:text-zinc-400">
+                            <span>Hoàn thành 12/10/2024 • 4 giờ 15 phút</span>
+                            <button type="button" onclick="window.ViVuApp.shareProfileStory()" class="text-secondary dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">share</span> Chia sẻ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ` : `
+            <!-- Reviews & Contributions Tab -->
+            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-on-surface dark:text-zinc-100">Bài Viết &amp; Đánh Giá Đã Đăng (18)</h2>
+                        <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-0.5">Chia sẻ cảm nhận ẩm thực và hướng dẫn văn hóa cho du khách phương xa</p>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex flex-col gap-2.5 border border-outline-variant/20 dark:border-zinc-700">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-sm text-on-surface dark:text-zinc-100">Đánh giá 5 sao cho Bún Nước Lèo Cô Ba Xứ Trà</span>
+                            <span class="text-xs text-outline dark:text-zinc-400">3 ngày trước</span>
+                        </div>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                            "Nước lèo nấu từ cá lóc đồng và mắm bò hóc thơm lừng, thịt quay giòn rụm không ngấy, ăn kèm đĩa rau ghém hoa chuối tươi ngon tuyệt đỉnh!"
+                        </p>
+                        <div class="flex items-center gap-2 text-xs text-secondary dark:text-emerald-400 font-semibold">
+                            <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">thumb_up</span>
+                            <span>42 lượt cảm ơn từ cộng đồng</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `}
+        </div>
+    `;
+}
+
+/**
+ * Render Saved Collections Modal / Screen Content (Stitch Desktop & Mobile Design)
+ */
+export function renderSavedCollectionsModalContent(savedItems = [], folders = [], activeCategory = 'all', sortMode = 'recent', viewMode = 'grid') {
+    const totalCount = savedItems.length;
+
+    // Filter items
+    let filtered = activeCategory === 'all'
+        ? savedItems
+        : savedItems.filter(item => item.category === activeCategory);
+
+    // Sort items
+    if (sortMode === 'distance') {
+        filtered = [...filtered].sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    } else if (sortMode === 'rating') {
+        filtered = [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    }
+
+    const categoryCounts = {
+        all: savedItems.length,
+        heritage: savedItems.filter(i => i.category === 'heritage').length,
+        culinary: savedItems.filter(i => i.category === 'culinary').length,
+        event: savedItems.filter(i => i.category === 'event').length,
+        culture: savedItems.filter(i => i.category === 'culture').length
+    };
+
+    return `
+        <div class="max-w-[1240px] w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
+            <!-- TOP HERITAGE HEADER & ACTIONS -->
+            <section class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
+                <div class="flex flex-col gap-2 max-w-2xl">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/60 dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-bold text-xs uppercase tracking-wider">
+                            <span class="material-symbols-outlined text-[16px]">folder_special</span>
+                            <span>Kho lưu trữ khám phá</span>
+                        </span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+                        <span class="text-on-surface-variant dark:text-zinc-400 text-xs font-medium">Cập nhật hôm nay</span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-black text-primary dark:text-zinc-100 tracking-tight">Bộ sưu tập của tôi</h1>
+                    <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                        Những địa điểm và trải nghiệm bạn muốn khám phá sau. Hệ thống tự động gợi ý quãng đường và tối ưu cung đường di chuyển theo ngày.
+                    </p>
+                </div>
+
+                <!-- Action Buttons & Trip Summary -->
+                <div class="flex flex-col items-start md:items-end gap-3 shrink-0">
+                    <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-surface-container dark:bg-zinc-800 text-xs text-on-surface-variant dark:text-zinc-300 border border-outline-variant/20 dark:border-zinc-700">
+                        <span class="material-symbols-outlined text-[18px] text-secondary">explore</span>
+                        <span class="font-bold text-primary dark:text-emerald-400" id="savedTotalBadge">${totalCount} mục đã lưu</span>
+                        <span>cho chuyến đi Trà Vinh sắp tới</span>
+                    </div>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <button type="button" onclick="window.ViVuApp.openCreateCollectionModal()"
+                            class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-colors shadow-sm font-semibold text-xs sm:text-sm border border-outline-variant/30 dark:border-zinc-700 min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px] text-secondary">add_circle</span>
+                            <span>Tạo danh sách mới</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.openExportItineraryModal()"
+                            class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#EA580C] to-amber-600 hover:from-[#C2410C] hover:to-amber-700 text-white transition-colors shadow-sm font-semibold text-xs sm:text-sm min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px]">alt_route</span>
+                            <span>Xuất lịch trình tự túc</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SMART ITINERARY BANNER (Khmer Curved Eco-Banner) -->
+            <section class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-[#043325] to-primary text-white p-5 sm:p-7 shadow-md border border-emerald-900">
+                <!-- Decorative Khmer Motif Overlay -->
+                <div class="absolute right-0 top-0 bottom-0 w-80 opacity-10 pointer-events-none flex items-center justify-center">
+                    <svg class="w-full h-full text-white" fill="currentColor" viewBox="0 0 200 200">
+                        <path d="M100,10 C120,40 160,50 190,50 C160,80 170,120 150,150 C120,130 80,170 50,150 C70,120 40,80 50,50 C80,60 80,20 100,10 Z"></path>
+                        <circle cx="100" cy="100" fill="none" r="30" stroke="currentColor" stroke-width="4"></circle>
+                    </svg>
+                </div>
+                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-secondary-fixed shrink-0">
+                            <span class="material-symbols-outlined text-[28px]">route</span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed text-[11px] font-bold tracking-wide uppercase">
+                                    Gợi ý lộ trình 1 ngày
+                                </span>
+                                <span class="text-emerald-200/80 text-xs">• Tối ưu theo vị trí các điểm đã lưu</span>
+                            </div>
+                            <p class="text-xs sm:text-sm text-emerald-100/90 max-w-3xl leading-relaxed">
+                                <strong class="text-white font-semibold">1. Bún Nước Lèo Cô Ba</strong> (07:30) 
+                                <span class="text-white/40 mx-1.5">→</span>
+                                <strong class="text-white font-semibold">2. Thắng cảnh Ao Bà Om &amp; Chùa Âng</strong> (08:30 - 11:30) 
+                                <span class="text-white/40 mx-1.5">→</span>
+                                <strong class="text-white font-semibold">3. Cà Phê Vườn Xứ Trà</strong> (12:00) 
+                                <span class="text-white/40 mx-1.5">→</span>
+                                <strong class="text-white font-semibold">4. Chùa Hang</strong> (14:30)
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <button type="button" onclick="window.ViVuApp.closeSavedCollectionsModal(); window.ViVuApp.navGoMap();"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-secondary-fixed hover:bg-secondary-fixed-dim text-on-secondary-fixed font-bold text-xs sm:text-sm transition-colors min-h-[44px]">
+                            <span class="material-symbols-outlined text-[19px]">map</span>
+                            <span>Mở trên bản đồ hành trình</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CURATED COLLECTION FOLDERS SLIDER -->
+            <section class="flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[20px] text-secondary">folder_special</span>
+                        <h2 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Thư Mục Cá Nhân</h2>
+                    </div>
+                    <button type="button" onclick="window.ViVuApp.openCreateCollectionModal()" class="text-xs font-semibold text-secondary dark:text-emerald-400 hover:underline min-h-[44px] flex items-center">
+                        + Tạo thư mục mới
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    ${(folders || []).map(folder => `
+                        <div class="flex flex-col rounded-2xl overflow-hidden bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all">
+                            <div class="relative h-28 w-full overflow-hidden bg-surface-container">
+                                <img src="${folder.coverImage || 'ao bà om.jpg'}" alt="${escapeHtml(folder.title)}" class="w-full h-full object-cover" />
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                <div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white text-[11px] font-semibold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[13px] text-amber-400">bookmark</span>
+                                    <span>${folder.count || 4} ${folder.unit || 'mục'}</span>
+                                </div>
+                            </div>
+                            <div class="p-3.5 flex flex-col justify-between flex-1 gap-2">
+                                <div>
+                                    <h3 class="font-bold text-sm text-on-surface dark:text-zinc-100 leading-tight">${escapeHtml(folder.title)}</h3>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5 line-clamp-1">${escapeHtml(folder.desc)}</p>
+                                </div>
+                                <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-800 text-[11px] text-secondary dark:text-emerald-400 font-medium">
+                                    <span>${folder.tag || 'Tự động đồng bộ'}</span>
+                                    <span class="material-symbols-outlined text-[16px]">${folder.offlineReady ? 'check_circle' : 'arrow_forward'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </section>
+
+            <!-- FILTER BAR & VIEW TOGGLE -->
+            <section class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 py-2 border-y border-outline-variant/20 dark:border-zinc-800">
+                <!-- Category Tabs with dynamic counters -->
+                <div class="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 no-scrollbar" role="toolbar" aria-label="Bộ lọc danh mục đã lưu">
+                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('all')"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                            activeCategory === 'all'
+                                ? 'bg-primary-container text-white dark:bg-emerald-800'
+                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
+                        }">
+                        <span>Tất cả</span>
+                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'all' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.all}</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('heritage')"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                            activeCategory === 'heritage'
+                                ? 'bg-primary-container text-white dark:bg-emerald-800'
+                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
+                        }">
+                        <span>Địa điểm di tích</span>
+                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'heritage' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.heritage}</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('culinary')"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                            activeCategory === 'culinary'
+                                ? 'bg-primary-container text-white dark:bg-emerald-800'
+                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
+                        }">
+                        <span>Ẩm thực &amp; Quán</span>
+                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'culinary' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.culinary}</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('event')"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                            activeCategory === 'event'
+                                ? 'bg-primary-container text-white dark:bg-emerald-800'
+                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
+                        }">
+                        <span>Sự kiện &amp; Lễ hội</span>
+                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'event' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.event}</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('culture')"
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                            activeCategory === 'culture'
+                                ? 'bg-primary-container text-white dark:bg-emerald-800'
+                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
+                        }">
+                        <span>Chùa &amp; Làng nghề</span>
+                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'culture' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.culture}</span>
+                    </button>
+                </div>
+
+                <!-- Secondary Controls: Sorting & Grid/List switches -->
+                <div class="flex items-center gap-3 shrink-0 flex-wrap">
+                    <!-- Sort Dropdown -->
+                    <div class="relative">
+                        <select onchange="window.ViVuApp.sortSavedItems(this.value)"
+                            aria-label="Sắp xếp danh sách đã lưu"
+                            class="h-11 pl-3.5 pr-8 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 text-on-surface dark:text-zinc-200 text-xs sm:text-sm appearance-none cursor-pointer focus:outline-none border border-outline-variant/30 dark:border-zinc-700 shadow-sm min-h-[44px]">
+                            <option value="recent" ${sortMode === 'recent' ? 'selected' : ''}>Mới lưu gần đây</option>
+                            <option value="distance" ${sortMode === 'distance' ? 'selected' : ''}>Gần tôi nhất (km)</option>
+                            <option value="rating" ${sortMode === 'rating' ? 'selected' : ''}>Đánh giá cao nhất</option>
+                        </select>
+                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant dark:text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+                    </div>
+
+                    <!-- View Switcher -->
+                    <div class="flex items-center p-1 rounded-xl bg-surface-container dark:bg-zinc-800 border border-outline-variant/20 dark:border-zinc-700">
+                        <button type="button" onclick="window.ViVuApp.setSavedViewMode('grid')"
+                            class="p-2.5 rounded-lg ${viewMode === 'grid' ? 'bg-surface-container-lowest dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs' : 'text-on-surface-variant dark:text-zinc-400'} min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title="Dạng lưới ảnh" aria-label="Xem dạng lưới ảnh">
+                            <span class="material-symbols-outlined text-[18px]">grid_view</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.setSavedViewMode('list')"
+                            class="p-2.5 rounded-lg ${viewMode === 'list' ? 'bg-surface-container-lowest dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs' : 'text-on-surface-variant dark:text-zinc-400'} min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title="Dạng danh sách thu gọn" aria-label="Xem dạng danh sách thu gọn">
+                            <span class="material-symbols-outlined text-[18px]">view_list</span>
+                        </button>
+                    </div>
+
+                    <button type="button" onclick="window.ViVuApp.clearAllSavedItems()"
+                        class="text-on-surface-variant dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold px-2 py-2 transition-colors flex items-center gap-1 min-h-[44px]">
+                        <span class="material-symbols-outlined text-[16px]">delete_sweep</span>
+                        <span>Xóa tất cả</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- SAVED ITEMS LIST / GRID -->
+            ${filtered.length > 0 ? `
+                <div class="${
+                    viewMode === 'grid'
+                        ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+                        : 'flex flex-col gap-4'
+                }" id="savedGridContainer">
+                    ${filtered.map(item => {
+                        const safeId = escapeHtml(item.id);
+                        const safeTitle = escapeHtml(item.title);
+                        const safeCategoryLabel = escapeHtml(item.categoryLabel || 'ĐỊA ĐIỂM');
+                        const safeAddress = escapeHtml(item.address || 'Trà Vinh');
+                        const safeNote = escapeHtml(item.note || '');
+                        const img = escapeHtml(item.image || 'ao bà om.jpg');
+                        const isEvent = item.category === 'event';
+
+                        if (viewMode === 'list') {
+                            return `
+                                <article class="saved-card p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" data-id="${safeId}">
+                                    <div class="flex items-center gap-4 min-w-0 flex-1">
+                                        <div class="w-20 h-20 rounded-xl overflow-hidden bg-surface-container shrink-0">
+                                            <img src="${img}" alt="${safeTitle}" class="w-full h-full object-cover" />
+                                        </div>
+                                        <div class="flex flex-col min-w-0">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-[10px] font-bold uppercase tracking-wider text-secondary dark:text-emerald-400">${safeCategoryLabel}</span>
+                                                <span class="text-xs text-outline">•</span>
+                                                <span class="text-xs text-outline dark:text-zinc-400">Cách ${item.distance || 3.2} km</span>
+                                            </div>
+                                            <h3 class="font-bold text-sm sm:text-base text-on-surface dark:text-zinc-100 truncate">${safeTitle}</h3>
+                                            <p class="text-xs text-on-surface-variant dark:text-zinc-400 truncate mt-0.5">${safeAddress}</p>
+                                            ${safeNote ? `<p class="text-xs text-amber-700 dark:text-amber-400 italic mt-1 line-clamp-1">"${safeNote}"</p>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                        <button type="button" onclick="window.ViVuApp.openSavedDetail('${safeId}')"
+                                            class="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-secondary transition-colors min-h-[44px]">
+                                            Xem chi tiết
+                                        </button>
+                                        <button type="button" onclick="window.ViVuApp.removeSavedItem('${safeId}', '${safeTitle}')"
+                                            class="p-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950 text-on-surface-variant dark:text-zinc-400 hover:text-rose-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                            title="Bỏ lưu">
+                                            <span class="material-symbols-outlined text-[20px]">bookmark_remove</span>
+                                        </button>
+                                    </div>
+                                </article>
+                            `;
+                        }
+
+                        return `
+                            <article class="saved-card group flex flex-col bg-surface-container-lowest dark:bg-zinc-900 rounded-[18px] overflow-hidden border border-outline-variant/30 dark:border-zinc-800 shadow-sm hover:shadow-lg transition-all duration-300" data-id="${safeId}">
+                                <!-- Media Container -->
+                                <div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
+                                    <img src="${img}" alt="${safeTitle}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none"></div>
+                                    <!-- Category Badge -->
+                                    <div class="absolute top-3.5 left-3.5">
+                                        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed text-[11px] font-bold tracking-wide uppercase shadow-xs">
+                                            <span class="material-symbols-outlined text-[13px]">${item.categoryIcon || 'place'}</span>
+                                            <span>${safeCategoryLabel}</span>
+                                        </span>
+                                    </div>
+                                    <!-- Unbookmark Quick Button -->
+                                    <button type="button" onclick="window.ViVuApp.removeSavedItem('${safeId}', '${safeTitle}')"
+                                        class="absolute top-3.5 right-3.5 w-10 h-10 min-w-[44px] min-h-[44px] rounded-full bg-white/90 dark:bg-zinc-800/90 hover:bg-white dark:hover:bg-zinc-700 text-rose-500 backdrop-blur-md flex items-center justify-center shadow-md transition-transform active:scale-90"
+                                        title="Bỏ lưu khỏi danh sách">
+                                        <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">bookmark</span>
+                                    </button>
+                                    <!-- Distance Pill Overlay -->
+                                    <div class="absolute bottom-3 left-3.5 flex items-center gap-1 text-white text-xs font-medium">
+                                        <span class="material-symbols-outlined text-[15px] text-secondary-fixed">near_me</span>
+                                        <span>Cách bạn ${item.distance || 3.2} km</span>
+                                    </div>
+                                </div>
+                                <!-- Content Body -->
+                                <div class="p-5 flex flex-col flex-1 justify-between gap-4">
+                                    <div class="flex flex-col gap-2.5">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <h2 class="font-bold text-base sm:text-lg text-on-surface dark:text-zinc-100 group-hover:text-secondary dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                                                ${safeTitle}
+                                            </h2>
+                                            <div class="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-bold shrink-0">
+                                                <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                <span>${item.rating || 4.9}</span>
+                                                <span class="text-outline dark:text-zinc-500 font-normal">(${item.reviewsCount || 400})</span>
+                                            </div>
+                                        </div>
+                                        <!-- Address Pin -->
+                                        <div class="flex items-center gap-1.5 text-on-surface-variant dark:text-zinc-400 text-xs line-clamp-1">
+                                            <span class="material-symbols-outlined text-[16px] text-outline shrink-0">location_on</span>
+                                            <span>${safeAddress}</span>
+                                        </div>
+                                        <!-- User Personal Note Box -->
+                                        ${safeNote ? `
+                                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/40 flex items-start gap-2.5">
+                                                <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400 shrink-0 mt-0.5">edit_note</span>
+                                                <p class="text-xs text-on-surface-variant dark:text-zinc-300 italic leading-relaxed">
+                                                    “${safeNote}”
+                                                </p>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    <!-- Bottom Actions -->
+                                    <div class="pt-3 flex items-center justify-between gap-2 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <button type="button" onclick="window.ViVuApp.openSavedDetail('${safeId}')"
+                                            class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm transition-colors min-h-[44px]">
+                                            <span class="material-symbols-outlined text-[18px]">${isEvent ? 'event_available' : 'explore'}</span>
+                                            <span>${isEvent ? 'Chi tiết lễ hội' : 'Xem chi tiết'}</span>
+                                        </button>
+                                        <button type="button" onclick="window.ViVuApp.removeSavedItem('${safeId}', '${safeTitle}')"
+                                            class="p-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950 text-on-surface-variant dark:text-zinc-400 hover:text-rose-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                            title="Bỏ lưu">
+                                            <span class="material-symbols-outlined text-[20px]">bookmark_remove</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </article>
+                        `;
+                    }).join('')}
+                </div>
+            ` : `
+                <!-- EMPTY STATE -->
+                <div class="flex flex-col items-center justify-center py-16 px-4 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl shadow-sm border border-outline-variant/30 dark:border-zinc-800" id="savedEmptyState">
+                    <div class="w-16 h-16 rounded-full bg-surface-container dark:bg-zinc-800 flex items-center justify-center text-on-surface-variant dark:text-zinc-400 mb-4">
+                        <span class="material-symbols-outlined text-[32px]">bookmark_border</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-on-surface dark:text-zinc-100 mb-1">Bộ sưu tập đang trống</h3>
+                    <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-sm mb-6 leading-relaxed">
+                        Hãy dạo quanh Bản đồ &amp; Điểm đến hoặc Lễ hội Trà Vinh để lưu lại những điểm đến yêu thích nhé!
+                    </p>
+                    <button type="button" onclick="window.ViVuApp.closeSavedCollectionsModal(); window.ViVuApp.navGoMap();"
+                        class="px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm transition-colors inline-flex items-center gap-2 min-h-[44px]">
+                        <span class="material-symbols-outlined text-[18px]">map</span>
+                        <span>Khám phá bản đồ ngay</span>
+                    </button>
+                </div>
+            `}
+        </div>
+    `;
+}
+
+/**
+ * Render Redeem Gift Modal Content
+ */
+export function renderRedeemGiftModalContent(gifts = [], userCoins = 1250) {
+    return `
+        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 border border-outline-variant/30 dark:border-zinc-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">redeem</span>
+                    </div>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Đổi Quà Xứ Trà</h3>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400">Số dư hiện tại: <strong class="text-amber-600 dark:text-amber-400">${userCoins.toLocaleString()} Xu</strong></p>
+                    </div>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeRedeemGiftModal()"
+                    class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-3 max-h-[60vh] overflow-y-auto no-scrollbar">
+                ${gifts.map(gift => `
+                    <div class="p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex items-center justify-between gap-3 border border-outline-variant/20 dark:border-zinc-700">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-[20px]">${gift.icon}</span>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 truncate">${escapeHtml(gift.name)}</div>
+                                <div class="text-[11px] text-outline dark:text-zinc-400 line-clamp-1">${escapeHtml(gift.desc)}</div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="window.ViVuApp.redeemGift('${gift.id}')"
+                            class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#EA580C] to-amber-600 hover:from-[#C2410C] hover:to-amber-700 text-white font-bold text-xs shrink-0 min-h-[44px]">
+                            ${gift.cost} Xu
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Edit Profile Modal Content
+ */
+export function renderEditProfileModalContent(profile) {
+    return `
+        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 border border-outline-variant/30 dark:border-zinc-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-secondary-container text-secondary flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">manage_accounts</span>
+                    </div>
+                    <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Chỉnh sửa hồ sơ</h3>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeEditProfileModal()"
+                    class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <form id="editProfileForm" onsubmit="event.preventDefault(); window.ViVuApp.submitEditProfile(this);" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1" for="editProfileName">Họ và tên *</label>
+                    <input type="text" id="editProfileName" required value="${escapeHtml(profile.name || '')}"
+                        class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm border border-outline-variant/40 dark:border-zinc-700 focus:outline-none min-h-[44px]" />
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1" for="editProfileRole">Danh hiệu / Danh phận</label>
+                    <input type="text" id="editProfileRole" value="${escapeHtml(profile.role || '')}"
+                        class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm border border-outline-variant/40 dark:border-zinc-700 focus:outline-none min-h-[44px]" />
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1" for="editProfileBio">Tiểu sử cá nhân</label>
+                    <textarea id="editProfileBio" rows="3"
+                        class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm border border-outline-variant/40 dark:border-zinc-700 focus:outline-none resize-none">${escapeHtml(profile.bio || '')}</textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1" for="editProfileLocation">Nơi sinh sống</label>
+                    <input type="text" id="editProfileLocation" value="${escapeHtml(profile.location || '')}"
+                        class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm border border-outline-variant/40 dark:border-zinc-700 focus:outline-none min-h-[44px]" />
+                </div>
+                <div class="flex items-center justify-end gap-2.5 pt-2">
+                    <button type="button" onclick="window.ViVuApp.closeEditProfileModal()"
+                        class="px-4 py-2.5 rounded-xl text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 text-xs sm:text-sm font-semibold min-h-[44px]">
+                        Hủy
+                    </button>
+                    <button type="submit"
+                        class="px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm min-h-[44px]">
+                        Lưu thay đổi
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+/**
+ * Render Create Collection Modal Content
+ */
+export function renderCreateCollectionModalContent() {
+    return `
+        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 border border-outline-variant/30 dark:border-zinc-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-secondary-container text-secondary flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">create_new_folder</span>
+                    </div>
+                    <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Tạo danh sách mới</h3>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeCreateCollectionModal()"
+                    class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <form id="createCollectionForm" onsubmit="event.preventDefault(); window.ViVuApp.submitCreateCollection(this);" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1" for="newCollectionName">Tên bộ sưu tập *</label>
+                    <input type="text" id="newCollectionName" required placeholder="Ví dụ: Cà phê ngắm hoàng hôn, Tour chùa 2 ngày..."
+                        class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm border border-outline-variant/40 dark:border-zinc-700 focus:outline-none min-h-[44px]" />
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1" for="newCollectionDesc">Mô tả (tùy chọn)</label>
+                    <textarea id="newCollectionDesc" rows="3" placeholder="Ghi chú về nhóm bạn, mục tiêu chuyến đi..."
+                        class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm border border-outline-variant/40 dark:border-zinc-700 focus:outline-none resize-none"></textarea>
+                </div>
+                <div class="flex items-center justify-end gap-2.5 pt-2">
+                    <button type="button" onclick="window.ViVuApp.closeCreateCollectionModal()"
+                        class="px-4 py-2.5 rounded-xl text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 text-xs sm:text-sm font-semibold min-h-[44px]">
+                        Hủy
+                    </button>
+                    <button type="submit"
+                        class="px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm min-h-[44px]">
+                        Tạo danh sách
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+}
+
+/**
+ * Render Export Itinerary Modal Content
+ */
+export function renderExportItineraryModalContent(savedItems = []) {
+    const textLines = savedItems.map((item, idx) => `${idx + 1}. ${item.title} (${item.categoryLabel || 'Địa điểm'}) - ${item.address || 'Trà Vinh'}${item.note ? `\n   Ghi chú: "${item.note}"` : ''}`).join('\n\n');
+
+    return `
+        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 border border-outline-variant/30 dark:border-zinc-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-secondary-container text-secondary flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">alt_route</span>
+                    </div>
+                    <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Xuất lịch trình tự túc</h3>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeExportItineraryModal()"
+                    class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <p class="text-xs text-on-surface-variant dark:text-zinc-400">
+                Toàn bộ các địa điểm đã lưu được định dạng sẵn để bạn sao chép gửi vào Zalo, Messenger hoặc in ra giấy cầm tay:
+            </p>
+
+            <textarea id="exportItineraryText" readonly rows="8"
+                class="w-full p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-mono text-xs border border-outline-variant/30 dark:border-zinc-700 focus:outline-none resize-none leading-relaxed">${escapeHtml(textLines || 'Chưa có địa điểm nào trong bộ sưu tập.')}</textarea>
+
+            <div class="flex items-center justify-end gap-2.5 pt-2">
+                <button type="button" onclick="window.ViVuApp.closeExportItineraryModal()"
+                    class="px-4 py-2.5 rounded-xl text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 text-xs sm:text-sm font-semibold min-h-[44px]">
+                    Đóng
+                </button>
+                <button type="button" onclick="window.ViVuApp.copyExportItinerary()"
+                    class="px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5 min-h-[44px]">
+                    <span class="material-symbols-outlined text-[18px]">content_copy</span>
+                    <span>Sao chép văn bản</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+

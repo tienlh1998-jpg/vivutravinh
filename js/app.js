@@ -32,7 +32,13 @@ import {
     renderWeeklyActivitiesWidget,
     renderCommunityGuidelinesWidget,
     renderEventRsvpModal,
-    renderHostEventModal
+    renderHostEventModal,
+    renderUserProfileModalContent,
+    renderSavedCollectionsModalContent,
+    renderRedeemGiftModalContent,
+    renderEditProfileModalContent,
+    renderCreateCollectionModalContent,
+    renderExportItineraryModalContent
 } from './ui.js';
 
 import {
@@ -65,6 +71,12 @@ import {
     COMMUNITY_GUIDELINES,
     COMMUNITY_FEED_FILTERS
 } from './clubs-data.js';
+import {
+    USER_PROFILE,
+    INITIAL_SAVED_ITEMS,
+    SAVED_FOLDERS,
+    REDEEMABLE_GIFTS
+} from './profile-data.js';
 
 import { getSiteUrl, DEFAULT_SITE_URL } from './config.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
@@ -363,6 +375,60 @@ function saveStoredBookmarkedEvents(set) {
     }
 }
 
+function getStoredUserProfile() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_user_profile');
+            if (raw) return JSON.parse(raw);
+        }
+    } catch (e) {}
+    return { ...USER_PROFILE };
+}
+
+function saveStoredUserProfile(profile) {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('vivu_user_profile', JSON.stringify(profile));
+        }
+    } catch (e) {}
+}
+
+function getStoredSavedCollections() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_saved_collections');
+            if (raw) return JSON.parse(raw);
+        }
+    } catch (e) {}
+    return [...INITIAL_SAVED_ITEMS];
+}
+
+function saveStoredSavedCollections(items) {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('vivu_saved_collections', JSON.stringify(items));
+        }
+    } catch (e) {}
+}
+
+function getStoredSavedFolders() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_saved_folders');
+            if (raw) return JSON.parse(raw);
+        }
+    } catch (e) {}
+    return [...SAVED_FOLDERS];
+}
+
+function saveStoredSavedFolders(folders) {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('vivu_saved_folders', JSON.stringify(folders));
+        }
+    } catch (e) {}
+}
+
 // Global Application State
 export const state = {
     allPlaces: [],
@@ -431,7 +497,17 @@ export const state = {
     activeClubCategory: 'all',
     activeCommunityFeedFilter: 'all',
     newPostAttachment: null,
-    newPostLocation: null
+    newPostLocation: null,
+    // User Profile, Achievements & Badges (Phase 7)
+    userProfile: getStoredUserProfile(),
+    savedCollections: getStoredSavedCollections(),
+    savedFolders: getStoredSavedFolders(),
+    redeemableGifts: REDEEMABLE_GIFTS,
+    savedActiveCategory: 'all',
+    savedSortMode: 'recent',
+    savedViewMode: 'grid',
+    profileActiveTab: 'overview',
+    profileBadgeCategory: 'all'
 };
 
 // Khởi chạy khi DOM tải xong
@@ -4011,11 +4087,7 @@ export function navGoClubs() {
 
 export function navGoSaved() {
     setBottomNavActive('tabNavSaved');
-    handleCategoryTabClick('saved');
-    const discoverySection = document.getElementById('discoverySection');
-    if (discoverySection) {
-        discoverySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    openSavedCollectionsModal();
 }
 
 export function navGoSearch() {
@@ -4629,6 +4701,343 @@ export function focusClubSearch() {
     }
 }
 
+/**
+ * ========================================================
+ * PHASE 7: PROFILE, ACHIEVEMENTS & SAVED COLLECTIONS HANDLERS
+ * ========================================================
+ */
+
+export function openProfileModal(tab = 'overview') {
+    state.profileActiveTab = tab;
+    const modal = document.getElementById('userProfileModal');
+    const content = document.getElementById('userProfileModalContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+export function closeProfileModal() {
+    const modal = document.getElementById('userProfileModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+export function switchProfileTab(tab) {
+    state.profileActiveTab = tab;
+    const content = document.getElementById('userProfileModalContent');
+    if (content) {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
+export function filterProfileBadges(cat) {
+    state.profileBadgeCategory = cat;
+    const content = document.getElementById('userProfileModalContent');
+    if (content) {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
+export function openRedeemGiftModal() {
+    const modal = document.getElementById('redeemGiftModal');
+    const content = document.getElementById('redeemGiftModalContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = renderRedeemGiftModalContent(state.redeemableGifts, state.userProfile.coins);
+    modal.classList.remove('hidden');
+}
+
+export function closeRedeemGiftModal() {
+    const modal = document.getElementById('redeemGiftModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export function redeemGift(giftId) {
+    const gift = (state.redeemableGifts || []).find(g => g.id === giftId);
+    if (!gift) return;
+
+    if ((state.userProfile.coins || 0) < gift.cost) {
+        showSavedToast('Bạn chưa đủ Xu Xứ Trà để đổi phần quà này!');
+        return;
+    }
+
+    state.userProfile.coins -= gift.cost;
+    saveStoredUserProfile(state.userProfile);
+    closeRedeemGiftModal();
+    showSavedToast(`Đổi thành công: ${gift.name}! Mã voucher đã được lưu.`);
+
+    // Re-render profile modal if open
+    const content = document.getElementById('userProfileModalContent');
+    if (content && !document.getElementById('userProfileModal')?.classList.contains('hidden')) {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
+export function openEditProfileModal() {
+    const modal = document.getElementById('editProfileModal');
+    const content = document.getElementById('editProfileModalContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = renderEditProfileModalContent(state.userProfile);
+    modal.classList.remove('hidden');
+}
+
+export function closeEditProfileModal() {
+    const modal = document.getElementById('editProfileModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export function submitEditProfile(form) {
+    const name = form.querySelector('#editProfileName')?.value?.trim();
+    const role = form.querySelector('#editProfileRole')?.value?.trim();
+    const bio = form.querySelector('#editProfileBio')?.value?.trim();
+    const location = form.querySelector('#editProfileLocation')?.value?.trim();
+
+    if (name) state.userProfile.name = name;
+    if (role) state.userProfile.role = role;
+    if (bio !== undefined) state.userProfile.bio = bio;
+    if (location) state.userProfile.location = location;
+
+    saveStoredUserProfile(state.userProfile);
+    closeEditProfileModal();
+    showSavedToast('Hồ sơ của bạn đã được cập nhật thành công!');
+
+    // Re-render profile modal
+    const content = document.getElementById('userProfileModalContent');
+    if (content) {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
+export function openSavedCollectionsModal() {
+    const modal = document.getElementById('savedCollectionsModal');
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = renderSavedCollectionsModalContent(
+        state.savedCollections,
+        state.savedFolders,
+        state.savedActiveCategory,
+        state.savedSortMode,
+        state.savedViewMode
+    );
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+export function closeSavedCollectionsModal() {
+    const modal = document.getElementById('savedCollectionsModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+export function filterSavedCategory(cat) {
+    state.savedActiveCategory = cat;
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode
+        );
+    }
+}
+
+export function sortSavedItems(mode) {
+    state.savedSortMode = mode;
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode
+        );
+    }
+}
+
+export function setSavedViewMode(mode) {
+    state.savedViewMode = mode;
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode
+        );
+    }
+}
+
+export function removeSavedItem(id, title) {
+    state.savedCollections = (state.savedCollections || []).filter(item => item.id !== id);
+    saveStoredSavedCollections(state.savedCollections);
+
+    // Update modal view
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode
+        );
+    }
+
+    updateFavoritesCount();
+    showSavedToast(`Đã bỏ lưu "${title || 'mục này'}"`);
+}
+
+export function clearAllSavedItems() {
+    if (!confirm('Bạn có chắc muốn xóa tất cả các địa điểm đã lưu trong danh sách?')) return;
+    state.savedCollections = [];
+    saveStoredSavedCollections([]);
+
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode
+        );
+    }
+    updateFavoritesCount();
+    showSavedToast('Đã xóa tất cả địa điểm trong danh sách lưu.');
+}
+
+export function openCreateCollectionModal() {
+    const modal = document.getElementById('createCollectionModal');
+    const content = document.getElementById('createCollectionModalContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = renderCreateCollectionModalContent();
+    modal.classList.remove('hidden');
+}
+
+export function closeCreateCollectionModal() {
+    const modal = document.getElementById('createCollectionModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export function submitCreateCollection(form) {
+    const name = form.querySelector('#newCollectionName')?.value?.trim();
+    const desc = form.querySelector('#newCollectionDesc')?.value?.trim();
+
+    if (!name) return;
+
+    const newFolder = {
+        id: 'folder-' + Date.now(),
+        title: name,
+        count: 0,
+        unit: 'mục',
+        desc: desc || 'Danh sách yêu thích cá nhân',
+        coverImage: 'ao bà om.jpg',
+        offlineReady: false,
+        tag: 'Mới tạo'
+    };
+
+    state.savedFolders = [newFolder, ...(state.savedFolders || [])];
+    saveStoredSavedFolders(state.savedFolders);
+    closeCreateCollectionModal();
+    showSavedToast(`Đã tạo bộ sưu tập "${name}" thành công!`);
+
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode
+        );
+    }
+}
+
+export function openExportItineraryModal() {
+    const modal = document.getElementById('exportItineraryModal');
+    const content = document.getElementById('exportItineraryModalContent');
+    if (!modal || !content) return;
+
+    content.innerHTML = renderExportItineraryModalContent(state.savedCollections);
+    modal.classList.remove('hidden');
+}
+
+export function closeExportItineraryModal() {
+    const modal = document.getElementById('exportItineraryModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+export function copyExportItinerary() {
+    const textarea = document.getElementById('exportItineraryText');
+    if (textarea) {
+        textarea.select();
+        try {
+            navigator.clipboard?.writeText(textarea.value);
+        } catch (e) {}
+        showSavedToast('Đã sao chép lịch trình vào clipboard!');
+        closeExportItineraryModal();
+    }
+}
+
+export function shareProfileStory() {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+        navigator.share({
+            title: `${state.userProfile.name} - ViVuTraVinh Explorer`,
+            text: `Khám phá hành trình du lịch xanh Trà Vinh của ${state.userProfile.name} với ${state.userProfile.stats.tripsCompleted} chuyến đi và huy hiệu văn hóa!`,
+            url: window.location.href
+        }).catch(() => {});
+    } else {
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(window.location.href);
+        }
+        showSavedToast('Đã sao chép liên kết hồ sơ của bạn!');
+    }
+}
+
+export function openSavedDetail(savedId) {
+    const item = (state.savedCollections || []).find(i => i.id === savedId);
+    if (!item) return;
+
+    closeSavedCollectionsModal();
+    if (item.placeId) {
+        const place = (state.allPlaces || []).find(p => p.id === item.placeId || p.slug === item.placeId);
+        if (place) {
+            openDetailModal(place);
+            return;
+        }
+    }
+    if (item.eventId) {
+        openFestivalModal(item.eventId);
+        return;
+    }
+    // Fallback: search place
+    handleSearchKeyword(item.title);
+}
+
+export function showSavedToast(msg) {
+    const toast = document.getElementById('savedNoticeToast');
+    const toastText = document.getElementById('savedNoticeToastText');
+    if (!toast) return;
+    if (toastText) toastText.textContent = msg;
+    toast.classList.remove('translate-y-16', 'opacity-0', 'pointer-events-none');
+    setTimeout(() => {
+        if (toast) toast.classList.add('translate-y-16', 'opacity-0', 'pointer-events-none');
+    }, 3200);
+}
+
 // Expose ra window để hỗ trợ inline HTML event handlers
 if (typeof window !== 'undefined') {
     window.ViVuApp = {
@@ -4744,6 +5153,33 @@ if (typeof window !== 'undefined') {
         closeHostEventModal,
         submitHostEvent,
         handleGrandstandRsvp,
+        // Profile & Saved Collections Methods (Phase 7)
+        openProfileModal,
+        closeProfileModal,
+        switchProfileTab,
+        filterProfileBadges,
+        openRedeemGiftModal,
+        closeRedeemGiftModal,
+        redeemGift,
+        openEditProfileModal,
+        closeEditProfileModal,
+        submitEditProfile,
+        openSavedCollectionsModal,
+        closeSavedCollectionsModal,
+        filterSavedCategory,
+        sortSavedItems,
+        setSavedViewMode,
+        removeSavedItem,
+        clearAllSavedItems,
+        openCreateCollectionModal,
+        closeCreateCollectionModal,
+        submitCreateCollection,
+        openExportItineraryModal,
+        closeExportItineraryModal,
+        copyExportItinerary,
+        shareProfileStory,
+        openSavedDetail,
+        showSavedToast,
         showNotification,
         getState: () => state,
         get state() { return state; }
@@ -4755,5 +5191,6 @@ if (typeof window !== 'undefined') {
         }
     };
 }
+
 
 
