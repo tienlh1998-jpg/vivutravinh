@@ -3200,3 +3200,242 @@ export function renderArticleReaderModal(article, comments = [], allPlaces = [],
         </div>
     `;
 }
+
+/**
+ * Phân tích thuộc tính biểu tượng & màu sắc theo danh mục địa điểm (Stitch Design System)
+ */
+export function getMarkerVisualProps(place) {
+    const cat = String(place?.category || '').toLowerCase();
+    if (/chùa|tâm linh|tôn giáo|khmer|di tích|lịch sử|bảo tàng/.test(cat)) {
+        return {
+            icon: 'temple_buddhist',
+            bgClass: 'bg-[#EA580C]',
+            color: '#EA580C'
+        };
+    }
+    if (/cafe|cà phê|trà sữa/.test(cat)) {
+        return {
+            icon: 'local_cafe',
+            bgClass: 'bg-[#006c4a]',
+            color: '#006c4a'
+        };
+    }
+    if (/món|ẩm thực|đặc sản|ăn uống|quán/.test(cat)) {
+        return {
+            icon: 'ramen_dining',
+            bgClass: 'bg-[#006c4a]',
+            color: '#006c4a'
+        };
+    }
+    if (/sinh thái|biển|cồn|vườn|thiên nhiên|du lịch/.test(cat)) {
+        return {
+            icon: 'park',
+            bgClass: 'bg-[#059669]',
+            color: '#059669'
+        };
+    }
+    return {
+        icon: 'place',
+        bgClass: 'bg-[#006c4a]',
+        color: '#006c4a'
+    };
+}
+
+/**
+ * Tạo Leaflet Custom DivIcon theo Stitch Design System (Phase 4)
+ * - Văn hóa / Chùa Khmer: Cam #EA580C (temple_buddhist)
+ * - Ẩm thực / Đặc sản: Lục đậm #006c4a (ramen_dining / restaurant)
+ * - Cafe: Lục đậm #006c4a (local_cafe)
+ * - Sinh thái / Cồn / Biển: Xanh ngọc #059669 (park / eco)
+ * - Địa điểm đang chọn: Kích thước lớn, radar ping tỏa tròn, tooltip badge
+ */
+export function createCustomMapMarker(place, isSelected = false) {
+    if (typeof L === 'undefined') return null;
+
+    const { icon, bgClass } = getMarkerVisualProps(place);
+    const rating = Number.parseFloat(place.rating) || 0;
+    const safeName = escapeHtml(place.name || 'Địa điểm');
+
+    let html = '';
+    let iconSize = [32, 32];
+    let iconAnchor = [16, 16];
+
+    if (isSelected) {
+        iconSize = [180, 48];
+        iconAnchor = [22, 24];
+        html = `
+            <div class="relative flex items-center justify-start cursor-pointer group select-none pointer-events-auto">
+                <!-- Expanding Radar Pulse -->
+                <div class="absolute left-0 top-0 w-11 h-11 rounded-full bg-emerald-500/40 animate-ping pointer-events-none"></div>
+                <div class="relative flex items-center">
+                    <div class="w-11 h-11 rounded-full bg-[#003527] text-white shadow-2xl flex items-center justify-center border-2 border-white ring-2 ring-[#003527]/30 shrink-0">
+                        <span class="material-symbols-outlined text-[22px] text-emerald-300">${icon}</span>
+                    </div>
+                    <!-- Marker Tooltip Label -->
+                    <div class="ml-2 px-2.5 py-1 bg-[#003527]/95 backdrop-blur-md text-white rounded-xl shadow-xl font-sans text-[11px] font-semibold whitespace-nowrap flex items-center gap-1.5 border border-white/20">
+                        <span class="max-w-[110px] truncate">${safeName}</span>
+                        ${rating > 0 ? `<span class="text-amber-300 font-bold flex items-center gap-0.5">★ ${rating.toFixed(1)}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        html = `
+            <div class="relative flex items-center justify-center cursor-pointer group select-none hover:scale-110 transition-transform pointer-events-auto" title="${safeName}">
+                <div class="w-8 h-8 rounded-full ${bgClass} text-white shadow-md flex items-center justify-center border-2 border-white">
+                    <span class="material-symbols-outlined text-[16px]">${icon}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    return L.divIcon({
+        className: 'custom-stitch-marker',
+        html,
+        iconSize,
+        iconAnchor,
+        popupAnchor: [0, -18]
+    });
+}
+
+/**
+ * Render Danh Sách Thẻ Địa Điểm Trên Side Panel Bản Đồ (Desktop & Drawer)
+ */
+export function renderMapPlacesList(places, selectedPlaceId = null) {
+    if (!Array.isArray(places) || places.length === 0) {
+        return `
+            <div class="p-8 text-center text-slate-500 dark:text-zinc-400 flex flex-col items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-4xl text-slate-400 dark:text-zinc-500">search_off</span>
+                <p class="font-bold text-sm text-slate-700 dark:text-zinc-200">Không tìm thấy địa điểm phù hợp</p>
+                <p class="text-xs">Hãy thử đổi từ khóa tìm kiếm hoặc chọn danh mục khác.</p>
+            </div>
+        `;
+    }
+
+    return places.map(p => {
+        const isSelected = selectedPlaceId && String(p.id) === String(selectedPlaceId);
+        const safeId = escapeHtml(p.id);
+        const safeName = escapeHtml(p.name);
+        const safeCategory = escapeHtml(p.category || 'Địa điểm');
+        const safeArea = escapeHtml(p.area || p.address || 'Trà Vinh');
+        const safeImage = escapeHtml(p.imageLink || NEUTRAL_PLACEHOLDER_IMAGE);
+        const rating = Number.parseFloat(p.rating) || 0;
+        const openStatus = getPlaceOpenStatus(p);
+
+        // Coordinates for Google Maps Directions
+        const rawCoords = p.coordinates || '';
+        const match = String(rawCoords).match(/([-+]?\d+\.?\d*)\s*,\s*([-+]?\d+\.?\d*)/);
+        const lat = match ? match[1] : '9.9347';
+        const lng = match ? match[2] : '106.3449';
+        const googleDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+        return `
+            <article data-id="${safeId}" onclick="window.ViVuApp.selectMapPlaceById('${safeId}')"
+                class="group relative bg-surface-container-lowest dark:bg-zinc-800/80 rounded-2xl p-3 shadow-sm hover:shadow-md transition-all cursor-pointer border ${
+                    isSelected
+                        ? 'border-emerald-600 dark:border-emerald-500 ring-2 ring-emerald-500/20 bg-gradient-to-r from-emerald-50/60 dark:from-emerald-950/30 to-surface-container-lowest dark:to-zinc-800'
+                        : 'border-outline-variant/30 dark:border-zinc-700/60 hover:border-emerald-600/50'
+                }">
+                <div class="flex gap-3">
+                    <!-- Thumbnail Media -->
+                    <div class="relative w-28 h-24 sm:w-32 sm:h-28 rounded-xl overflow-hidden shrink-0 shadow-inner bg-surface-container-low dark:bg-zinc-700">
+                        <img src="${safeImage}" alt="${safeName}"
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onerror="this.onerror=null; this.src='${NEUTRAL_PLACEHOLDER_IMAGE}';">
+                        <span class="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-primary-container/90 text-on-primary text-[10px] font-bold backdrop-blur-sm truncate max-w-[90px]">
+                            ${safeCategory}
+                        </span>
+                        <button onclick="event.stopPropagation(); window.ViVuApp.toggleBookmark('${safeId}', this)"
+                            class="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-surface-container-lowest/90 dark:bg-zinc-800/90 backdrop-blur-sm flex items-center justify-center text-slate-600 dark:text-zinc-200 shadow-sm hover:scale-110 transition-transform"
+                            title="Lưu địa điểm" aria-label="Lưu ${safeName}">
+                            <span class="material-symbols-outlined text-[16px]">bookmark</span>
+                        </button>
+                        <div class="absolute bottom-1.5 left-1.5 px-1.5 py-0.2 rounded bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur-sm text-[10px] font-semibold flex items-center gap-1 text-${openStatus.color}-600 dark:text-${openStatus.color}-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-${openStatus.color}-500"></span>
+                            <span class="truncate max-w-[80px]">${openStatus.label}</span>
+                        </div>
+                    </div>
+
+                    <!-- Card Body -->
+                    <div class="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-start justify-between gap-1">
+                                <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 group-hover:text-secondary dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
+                                    ${safeName}
+                                </h4>
+                                ${isSelected ? `
+                                    <span class="px-1.5 py-0.2 rounded bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-[10px] font-bold shrink-0">
+                                        Đang chọn
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            <!-- Rating & Distance -->
+                            <div class="flex items-center gap-1.5 mt-1 text-[11px] text-on-surface-variant dark:text-zinc-400 flex-wrap">
+                                <span class="text-amber-500 font-bold flex items-center">
+                                    ★ ${rating > 0 ? rating.toFixed(1) : 'Mới'}
+                                </span>
+                                <span class="text-outline-variant">•</span>
+                                <span class="truncate">${safeArea}</span>
+                                ${p.distanceKm !== undefined ? `
+                                    <span class="text-outline-variant">•</span>
+                                    <span class="text-secondary dark:text-emerald-400 font-semibold flex items-center gap-0.5">
+                                        <span class="material-symbols-outlined text-[13px]">near_me</span>${p.distanceKm.toFixed(1)} km
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            <!-- Highlights / Short description snippet -->
+                            <p class="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1 mt-1">
+                                ${escapeHtml(p.description || p.address || 'Điểm đến đặc sắc tại Trà Vinh')}
+                            </p>
+                        </div>
+
+                        <!-- Card Action Buttons -->
+                        <div class="flex items-center justify-end gap-1.5 pt-2 border-t border-outline-variant/20 dark:border-zinc-700/60 mt-2">
+                            <button onclick="event.stopPropagation(); window.ViVuApp.openDetailFromMap('${safeId}')"
+                                class="px-2.5 py-1 min-h-[36px] rounded-lg bg-surface-container-low dark:bg-zinc-700/60 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 text-[11px] font-semibold flex items-center gap-1 transition-colors">
+                                <span class="material-symbols-outlined text-[15px]">info</span>
+                                <span>Chi tiết</span>
+                            </button>
+                            <a href="${googleDirectionsUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"
+                                class="px-3 py-1 min-h-[36px] rounded-lg bg-secondary hover:bg-primary-container text-white text-[11px] font-semibold flex items-center gap-1 transition-colors shadow-sm">
+                                <span class="material-symbols-outlined text-[15px]">directions</span>
+                                <span>Chỉ đường</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+/**
+ * Render Category Pills cho Bản Đồ (Stitch Style)
+ */
+export function renderMapCategoryPills(categories, activeCategory = 'all', onSelectCallback = 'window.ViVuApp.setMapCategory') {
+    return categories.map(cat => {
+        const isActive = cat.id === activeCategory;
+        const safeId = escapeHtml(cat.id);
+        const safeLabel = escapeHtml(cat.label);
+        const icon = cat.icon || 'explore';
+
+        return `
+            <button onclick="${onSelectCallback}('${safeId}')"
+                class="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+                    isActive
+                        ? 'bg-[#003527] text-white shadow-sm ring-1 ring-[#003527]'
+                        : 'bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 border border-outline-variant/30 dark:border-zinc-700'
+                }">
+                <span class="material-symbols-outlined text-[16px]">${icon}</span>
+                <span>${safeLabel}</span>
+                ${cat.count !== undefined ? `
+                    <span class="px-1.5 py-0.2 rounded-full text-[10px] ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-surface-container dark:bg-zinc-700 text-slate-500 dark:text-zinc-400'
+                    }">${cat.count}</span>
+                ` : ''}
+            </button>
+        `;
+    }).join('');
+}

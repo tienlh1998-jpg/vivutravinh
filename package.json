@@ -15,6 +15,7 @@
     "test:g3": "node scripts/test-g3.js",
     "test:g3:browser": "node --experimental-websocket scripts/verify-g3-browser.cjs",
     "test:ui": "node --experimental-websocket scripts/verify-ui.cjs",
+    "test:map": "node --experimental-websocket scripts/verify-phase4-map.cjs",
     "test:sw": "node scripts/test-sw-upgrade.js",
     "test:g4:browser": "node --experimental-websocket scripts/verify-g4-offline.cjs",
     "test:g5": "node scripts/test-g5-supabase.js",

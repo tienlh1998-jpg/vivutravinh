@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-28T06:03:25.091Z",
+  "timestamp": "2026-09-28T06:32:37.985Z",
   "version": "2.9.0",
   "environment": {
     "server": "localhost",
@@ -8,7 +8,7 @@
     "browser": "Chrome Headless"
   },
   "desktop": {
-    "lcp": 204,
+    "lcp": 224,
     "cls": 0.0157,
     "shifts": [
       {
@@ -85,17 +85,17 @@
     ]
   },
   "mobile": {
-    "lcp": 184,
+    "lcp": 188,
     "cls": 0,
     "shifts": []
   },
   "bundle": {
-    "htmlBytes": 169609,
-    "htmlKb": 165.6,
-    "cssBytes": 101411,
-    "cssKb": 99,
-    "jsBytes": 567777,
-    "jsKb": 554.5,
-    "totalMb": 6.64
+    "htmlBytes": 189047,
+    "htmlKb": 184.6,
+    "cssBytes": 104382,
+    "cssKb": 101.9,
+    "jsBytes": 599340,
+    "jsKb": 585.3,
+    "totalMb": 6.69
   }
 }

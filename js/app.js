@@ -11,6 +11,7 @@ import {
     renderCommentsError,
     NEUTRAL_PLACEHOLDER_IMAGE,
     isPlaceOpen,
+    getPlaceOpenStatus,
     calculateDistanceKm,
     renderTourItineraries,
     SAMPLE_TOURS,
@@ -20,7 +21,10 @@ import {
     renderFestivalDetailModal,
     renderArticlesSection,
     renderArticleReaderModal,
-    updateModalBookmarkButton
+    updateModalBookmarkButton,
+    createCustomMapMarker,
+    renderMapPlacesList,
+    renderMapCategoryPills
 } from './ui.js';
 
 import {
@@ -319,7 +323,16 @@ export const state = {
     // Góc Chuyện Xứ Trà (Travel Stories) State
     articles: TRA_VINH_ARTICLES,
     currentArticle: null,
-    selectedArticleCommentPhoto: null
+    selectedArticleCommentPhoto: null,
+    // Interactive Map State (Phase 4)
+    mapMarkersMap: new Map(),
+    selectedMapPlace: null,
+    mapCategory: 'all',
+    mapSearchTerm: '',
+    mapFilterOpenOnly: false,
+    mapFilterFreeOnly: false,
+    mapMobileView: 'map',
+    userGpsMarker: null
 };
 
 // Khởi chạy khi DOM tải xong
@@ -2295,19 +2308,173 @@ function initModalMap(place) {
 }
 
 /**
- * Bản Đồ Toàn Màn Hình (Full Map Modal)
+ * Bản Đồ Tương Tác Toàn Tỉnh Trà Vinh (Interactive Map & Place Discovery - Phase 4)
  */
+
+export const MAP_CATEGORIES = [
+    { id: 'all', label: 'Tất cả', icon: 'explore' },
+    { id: 'chua-khmer', label: 'Chùa Khmer', icon: 'temple_buddhist' },
+    { id: 'am-thuc', label: 'Ẩm thực', icon: 'ramen_dining' },
+    { id: 'cafe', label: 'Cafe sân vườn', icon: 'local_cafe' },
+    { id: 'sinh-thai', label: 'Cồn & Biển', icon: 'park' },
+    { id: 'lang-nghe', label: 'Làng nghề', icon: 'outdoor_garden' }
+];
+
+export function filterPlacesForMap() {
+    return (state.allPlaces || []).filter(p => {
+        // 1. Category filter
+        if (state.mapCategory && state.mapCategory !== 'all') {
+            const cat = String(p.category || '').toLowerCase();
+            if (state.mapCategory === 'chua-khmer') {
+                if (!/chùa|tâm linh|tôn giáo|khmer|di tích|lịch sử|bảo tàng/.test(cat)) return false;
+            } else if (state.mapCategory === 'am-thuc') {
+                if (!/món|ẩm thực|đặc sản|ăn uống|quán/.test(cat)) return false;
+            } else if (state.mapCategory === 'cafe') {
+                if (!/cafe|cà phê|trà sữa/.test(cat)) return false;
+            } else if (state.mapCategory === 'sinh-thai') {
+                if (!/sinh thái|biển|cồn|vườn|thiên nhiên|du lịch/.test(cat)) return false;
+            } else if (state.mapCategory === 'lang-nghe') {
+                if (!/làng nghề|di sản|lịch sử|nghệ thuật|truyền thống/.test(cat)) return false;
+            }
+        }
+
+        // 2. Search term
+        if (state.mapSearchTerm) {
+            const term = state.mapSearchTerm.toLowerCase();
+            const matchName = String(p.name || '').toLowerCase().includes(term);
+            const matchArea = String(p.area || '').toLowerCase().includes(term);
+            const matchCat = String(p.category || '').toLowerCase().includes(term);
+            const matchDesc = String(p.description || '').toLowerCase().includes(term);
+            if (!matchName && !matchArea && !matchCat && !matchDesc) return false;
+        }
+
+        // 3. Open only
+        if (state.mapFilterOpenOnly) {
+            if (!isPlaceOpen(p)) return false;
+        }
+
+        // 4. Free only
+        if (state.mapFilterFreeOnly) {
+            const isFree = p.priceParsed?.isFree || /miễn phí|free|^0/i.test(String(p.price || p.priceRange || ''));
+            if (!isFree) return false;
+        }
+
+        return true;
+    });
+}
+
+export function updateFullMapContent() {
+    const filtered = filterPlacesForMap();
+
+    // 1. Update Category Pills with real counts
+    const categoriesWithCount = MAP_CATEGORIES.map(c => {
+        let count = 0;
+        if (c.id === 'all') {
+            count = (state.allPlaces || []).length;
+        } else {
+            count = (state.allPlaces || []).filter(p => {
+                const cat = String(p.category || '').toLowerCase();
+                if (c.id === 'chua-khmer') return /chùa|tâm linh|tôn giáo|khmer|di tích|lịch sử|bảo tàng/.test(cat);
+                if (c.id === 'am-thuc') return /món|ẩm thực|đặc sản|ăn uống|quán/.test(cat);
+                if (c.id === 'cafe') return /cafe|cà phê|trà sữa/.test(cat);
+                if (c.id === 'sinh-thai') return /sinh thái|biển|cồn|vườn|thiên nhiên|du lịch/.test(cat);
+                if (c.id === 'lang-nghe') return /làng nghề|di sản|lịch sử|nghệ thuật|truyền thống/.test(cat);
+                return false;
+            }).length;
+        }
+        return { ...c, count };
+    });
+
+    const pillsHtml = renderMapCategoryPills(categoriesWithCount, state.mapCategory, 'window.ViVuApp.setMapCategory');
+    const sidePillsContainer = document.getElementById('mapSideCategoryPills');
+    if (sidePillsContainer) sidePillsContainer.innerHTML = pillsHtml;
+
+    const mobilePillsContainer = document.getElementById('mapMobileCategoryPills');
+    if (mobilePillsContainer) mobilePillsContainer.innerHTML = pillsHtml;
+
+    // 2. Update Place Counter Badges
+    const headerCounter = document.getElementById('mapPlacesHeaderCounter');
+    if (headerCounter) {
+        headerCounter.textContent = `${filtered.length} địa điểm`;
+    }
+    const sideCountBadge = document.getElementById('mapPlacesCountBadge');
+    if (sideCountBadge) {
+        sideCountBadge.textContent = `${filtered.length} địa điểm`;
+    }
+
+    // 3. Render Place Cards Stack in Side Panel
+    const listContainer = document.getElementById('mapPlacesListContainer');
+    if (listContainer) {
+        listContainer.innerHTML = renderMapPlacesList(filtered, state.selectedMapPlace?.id);
+    }
+
+    // 4. Update Leaflet Markers
+    if (state.fullMap && typeof L !== 'undefined') {
+        const currentFilteredIds = new Set(filtered.map(p => String(p.id)));
+
+        // Remove markers not in filtered list
+        for (const [id, marker] of state.mapMarkersMap.entries()) {
+            if (!currentFilteredIds.has(String(id))) {
+                state.fullMap.removeLayer(marker);
+                state.mapMarkersMap.delete(id);
+            }
+        }
+
+        // Add or update markers for filtered places
+        filtered.forEach(p => {
+            const coords = p.hasValidGps && p.parsedCoordinates
+                ? p.parsedCoordinates
+                : parseCoordinates(p.coordinates);
+            if (!coords) return;
+
+            const isSelected = state.selectedMapPlace && String(state.selectedMapPlace.id) === String(p.id);
+            const customIcon = createCustomMapMarker(p, isSelected);
+
+            if (state.mapMarkersMap.has(String(p.id))) {
+                const marker = state.mapMarkersMap.get(String(p.id));
+                if (customIcon) marker.setIcon(customIcon);
+                marker.setZIndexOffset(isSelected ? 1000 : 0);
+            } else {
+                const marker = L.marker(coords, {
+                    icon: customIcon || undefined,
+                    zIndexOffset: isSelected ? 1000 : 0
+                }).addTo(state.fullMap);
+
+                marker.on('click', (e) => {
+                    if (e && e.originalEvent) e.originalEvent.stopPropagation();
+                    selectMapPlace(p);
+                });
+
+                state.mapMarkersMap.set(String(p.id), marker);
+            }
+        });
+    }
+}
+
 export function openFullMapModal() {
     const modal = document.getElementById('fullMapModal');
-    if (!modal || typeof L === 'undefined') return;
+    if (!modal) return;
 
     modal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
 
+    // Reset mobile view to map
+    state.mapMobileView = 'map';
+    const sidePanel = document.getElementById('mapSidePanel');
+    if (sidePanel) {
+        sidePanel.classList.add('hidden');
+        sidePanel.classList.add('lg:flex');
+        sidePanel.classList.remove('flex');
+    }
+    const mobileToggleText = document.getElementById('mapMobileToggleViewText');
+    if (mobileToggleText) mobileToggleText.textContent = 'Danh sách';
+    const mobileToggleIcon = document.getElementById('mapMobileToggleViewIcon');
+    if (mobileToggleIcon) mobileToggleIcon.textContent = 'view_list';
+
     setTimeout(() => {
-        if (!state.fullMap) {
+        if (!state.fullMap && typeof L !== 'undefined') {
             state.fullMap = L.map('fullScreenMap', {
-                zoomControl: true,
+                zoomControl: false,
                 attributionControl: false
             }).setView([9.9347, 106.3449], 11);
 
@@ -2321,22 +2488,15 @@ export function openFullMapModal() {
                 showOfflineMapOverlay(fullScreenMapEl, { googleMapsUrl: 'https://www.google.com/maps?q=9.9347,106.3449' });
             }
 
-            // Ghim toàn bộ địa điểm
-            state.allPlaces.forEach(p => {
-                const coords = parseCoordinates(p.coordinates);
-                if (coords) {
-                    const marker = L.marker(coords).addTo(state.fullMap);
-                    marker.bindPopup(`
-                        <div class="p-2 max-w-[200px]">
-                            <img src="${p.imageLink || NEUTRAL_PLACEHOLDER_IMAGE}" class="w-full h-24 object-cover rounded-lg mb-1" onerror="this.onerror=null; this.src='${NEUTRAL_PLACEHOLDER_IMAGE}';">
-                            <h4 class="font-bold text-xs line-clamp-1">${p.name}</h4>
-                            <p class="text-[10px] text-slate-500 line-clamp-1">${p.area} • ${p.category}</p>
-                            <button onclick="window.openDetailFromMap('${p.id}')" class="mt-2 w-full py-1 bg-emerald-800 text-white rounded text-[11px] font-bold">Xem chi tiết</button>
-                        </div>
-                    `);
-                }
+            // Click canvas to close active place card
+            state.fullMap.on('click', () => {
+                closeMapActiveCard();
             });
-        } else {
+        }
+
+        updateFullMapContent();
+
+        if (state.fullMap) {
             state.fullMap.invalidateSize();
         }
     }, 200);
@@ -2346,6 +2506,253 @@ export function closeFullMapModal() {
     const modal = document.getElementById('fullMapModal');
     if (modal) modal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
+    closeMapActiveCard();
+}
+
+export function selectMapPlace(place) {
+    if (!place) return;
+    state.selectedMapPlace = place;
+
+    const coords = place.hasValidGps && place.parsedCoordinates
+        ? place.parsedCoordinates
+        : parseCoordinates(place.coordinates);
+
+    // Pan map to place
+    if (coords && state.fullMap) {
+        state.fullMap.setView(coords, Math.max(state.fullMap.getZoom(), 14), { animate: true });
+    }
+
+    // Refresh marker icons
+    for (const [id, marker] of state.mapMarkersMap.entries()) {
+        const p = (state.allPlaces || []).find(item => String(item.id) === String(id));
+        if (p) {
+            const isSelected = String(p.id) === String(place.id);
+            const icon = createCustomMapMarker(p, isSelected);
+            if (icon) marker.setIcon(icon);
+            marker.setZIndexOffset(isSelected ? 1000 : 0);
+        }
+    }
+
+    // Populate and show #mapActivePlaceCard
+    const cardEl = document.getElementById('mapActivePlaceCard');
+    if (cardEl) {
+        const imgEl = document.getElementById('mapCardImage');
+        if (imgEl) {
+            imgEl.src = place.imageLink || NEUTRAL_PLACEHOLDER_IMAGE;
+            imgEl.onerror = () => { imgEl.src = NEUTRAL_PLACEHOLDER_IMAGE; };
+        }
+        const badgeEl = document.getElementById('mapCardBadge');
+        if (badgeEl) badgeEl.textContent = place.category || 'Địa điểm';
+
+        const statusEl = document.getElementById('mapCardStatus');
+        if (statusEl) {
+            const openStatus = getPlaceOpenStatus(place);
+            statusEl.textContent = openStatus.label;
+            statusEl.className = `text-[11px] font-semibold text-${openStatus.color}-600 dark:text-${openStatus.color}-400 truncate`;
+        }
+
+        const titleEl = document.getElementById('mapCardTitle');
+        if (titleEl) titleEl.textContent = place.name;
+
+        const ratingEl = document.getElementById('mapCardRating');
+        if (ratingEl) {
+            const r = Number.parseFloat(place.rating) || 0;
+            ratingEl.textContent = r > 0 ? `★ ${r.toFixed(1)}` : 'Mới';
+        }
+
+        const addressEl = document.getElementById('mapCardAddress');
+        if (addressEl) addressEl.textContent = place.address || place.area || 'Trà Vinh';
+
+        const distEl = document.getElementById('mapCardDistance');
+        const distDotEl = document.getElementById('mapCardDistanceDot');
+        if (distEl && distDotEl) {
+            if (place.distanceKm !== undefined) {
+                distEl.textContent = `Cách bạn ${place.distanceKm.toFixed(1)} km`;
+                distEl.classList.remove('hidden');
+                distDotEl.classList.remove('hidden');
+            } else {
+                distEl.classList.add('hidden');
+                distDotEl.classList.add('hidden');
+            }
+        }
+
+        const dirLink = document.getElementById('mapCardDirectionsLink');
+        if (dirLink) {
+            const lat = coords ? coords[0] : '9.9347';
+            const lng = coords ? coords[1] : '106.3449';
+            dirLink.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+        }
+
+        const detailBtn = document.getElementById('mapCardDetailBtn');
+        if (detailBtn) {
+            detailBtn.setAttribute('onclick', `window.ViVuApp.openDetailFromMap('${place.id}')`);
+        }
+
+        const shareBtn = document.getElementById('mapCardShareBtn');
+        if (shareBtn) {
+            shareBtn.setAttribute('onclick', `window.ViVuApp.shareMapPlace('${place.id}')`);
+        }
+
+        cardEl.classList.remove('hidden');
+    }
+
+    // Highlight card in side panel list
+    const activeCardEl = document.querySelector(`#mapPlacesListContainer [data-id="${place.id}"]`);
+    if (activeCardEl) {
+        document.querySelectorAll('#mapPlacesListContainer article').forEach(el => {
+            el.classList.remove('border-emerald-600', 'dark:border-emerald-500', 'ring-2', 'ring-emerald-500/20', 'bg-gradient-to-r');
+        });
+        activeCardEl.classList.add('border-emerald-600', 'dark:border-emerald-500', 'ring-2', 'ring-emerald-500/20', 'bg-gradient-to-r');
+        activeCardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+export function selectMapPlaceById(id) {
+    const place = findPlaceByAnyId(id, state.allPlaces);
+    if (place) {
+        selectMapPlace(place);
+    }
+}
+
+export function closeMapActiveCard() {
+    state.selectedMapPlace = null;
+    const cardEl = document.getElementById('mapActivePlaceCard');
+    if (cardEl) cardEl.classList.add('hidden');
+
+    // Reset markers to normal
+    for (const [id, marker] of state.mapMarkersMap.entries()) {
+        const p = (state.allPlaces || []).find(item => String(item.id) === String(id));
+        if (p) {
+            const icon = createCustomMapMarker(p, false);
+            if (icon) marker.setIcon(icon);
+            marker.setZIndexOffset(0);
+        }
+    }
+
+    // Reset side panel card styles
+    document.querySelectorAll('#mapPlacesListContainer article').forEach(el => {
+        el.classList.remove('border-emerald-600', 'dark:border-emerald-500', 'ring-2', 'ring-emerald-500/20', 'bg-gradient-to-r');
+    });
+}
+
+export function handleMapSearch(term) {
+    state.mapSearchTerm = String(term || '').trim();
+
+    // Sync input values
+    const sideInput = document.getElementById('mapSideSearchInput');
+    const mobileInput = document.getElementById('mapMobileSearchInput');
+    if (sideInput && sideInput.value !== term) sideInput.value = term;
+    if (mobileInput && mobileInput.value !== term) mobileInput.value = term;
+
+    // Toggle clear buttons
+    const sideClear = document.getElementById('mapSideSearchClearBtn');
+    const mobileClear = document.getElementById('mapMobileSearchClearBtn');
+    if (sideClear) {
+        if (state.mapSearchTerm) sideClear.classList.remove('hidden');
+        else sideClear.classList.add('hidden');
+    }
+    if (mobileClear) {
+        if (state.mapSearchTerm) mobileClear.classList.remove('hidden');
+        else mobileClear.classList.add('hidden');
+    }
+
+    updateFullMapContent();
+}
+
+export function clearMapSearch() {
+    handleMapSearch('');
+}
+
+export function setMapCategory(catId) {
+    state.mapCategory = catId || 'all';
+    updateFullMapContent();
+}
+
+export function toggleMapFilter(filterType) {
+    if (filterType === 'openOnly') {
+        state.mapFilterOpenOnly = !state.mapFilterOpenOnly;
+        const btn = document.getElementById('mapFilterOpenOnlyBtn');
+        if (btn) {
+            if (state.mapFilterOpenOnly) {
+                btn.classList.add('bg-secondary', 'text-white', 'border-secondary');
+                btn.classList.remove('bg-surface-container-low', 'dark:bg-zinc-800', 'text-on-surface-variant');
+            } else {
+                btn.classList.remove('bg-secondary', 'text-white', 'border-secondary');
+                btn.classList.add('bg-surface-container-low', 'dark:bg-zinc-800', 'text-on-surface-variant');
+            }
+        }
+    } else if (filterType === 'freeOnly') {
+        state.mapFilterFreeOnly = !state.mapFilterFreeOnly;
+        const btn = document.getElementById('mapFilterFreeBtn');
+        if (btn) {
+            if (state.mapFilterFreeOnly) {
+                btn.classList.add('bg-secondary', 'text-white', 'border-secondary');
+                btn.classList.remove('bg-surface-container-low', 'dark:bg-zinc-800', 'text-on-surface-variant');
+            } else {
+                btn.classList.remove('bg-secondary', 'text-white', 'border-secondary');
+                btn.classList.add('bg-surface-container-low', 'dark:bg-zinc-800', 'text-on-surface-variant');
+            }
+        }
+    }
+    updateFullMapContent();
+}
+
+export function toggleMapMobileView() {
+    const sidePanel = document.getElementById('mapSidePanel');
+    const mobileToggleText = document.getElementById('mapMobileToggleViewText');
+    const mobileToggleIcon = document.getElementById('mapMobileToggleViewIcon');
+
+    if (state.mapMobileView === 'map') {
+        state.mapMobileView = 'list';
+        if (sidePanel) {
+            sidePanel.classList.remove('hidden');
+            sidePanel.classList.add('flex');
+        }
+        if (mobileToggleText) mobileToggleText.textContent = 'Bản đồ';
+        if (mobileToggleIcon) mobileToggleIcon.textContent = 'map';
+    } else {
+        state.mapMobileView = 'map';
+        if (sidePanel) {
+            sidePanel.classList.add('hidden');
+            sidePanel.classList.remove('flex');
+        }
+        if (mobileToggleText) mobileToggleText.textContent = 'Danh sách';
+        if (mobileToggleIcon) mobileToggleIcon.textContent = 'view_list';
+        if (state.fullMap) {
+            state.fullMap.invalidateSize();
+        }
+    }
+}
+
+export function mapZoomIn() {
+    if (state.fullMap) state.fullMap.zoomIn();
+}
+
+export function mapZoomOut() {
+    if (state.fullMap) state.fullMap.zoomOut();
+}
+
+export function recenterMapToTraVinh() {
+    if (state.fullMap) {
+        state.fullMap.setView([9.9347, 106.3449], 11, { animate: true });
+    }
+}
+
+export function shareMapPlace(placeId) {
+    const place = findPlaceByAnyId(placeId, state.allPlaces);
+    if (!place) return;
+    const url = `${window.location.origin}/place/${place.slug || place.id}`;
+    if (navigator.share) {
+        navigator.share({
+            title: place.name,
+            text: `Khám phá ${place.name} trên ViVuTraVinh`,
+            url
+        }).catch(() => {});
+    } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+            showNoticeToast('Đã sao chép liên kết', place.name);
+        }).catch(() => {});
+    }
 }
 
 /**
@@ -2360,15 +2767,39 @@ export function locateUserPosition() {
     navigator.geolocation.getCurrentPosition(
         (pos) => {
             const userCoords = [pos.coords.latitude, pos.coords.longitude];
-            if (state.fullMap) {
-                state.fullMap.setView(userCoords, 14);
-                L.circleMarker(userCoords, {
-                    radius: 8,
-                    fillColor: '#3b82f6',
-                    color: '#ffffff',
-                    weight: 3,
-                    fillOpacity: 1
-                }).addTo(state.fullMap).bindPopup('Vị trí hiện tại của bạn').openPopup();
+            state.userCoords = userCoords;
+            calculatePlacesDistance(pos.coords.latitude, pos.coords.longitude);
+
+            if (state.fullMap && typeof L !== 'undefined') {
+                state.fullMap.setView(userCoords, 14, { animate: true });
+
+                if (state.userGpsMarker) {
+                    state.userGpsMarker.setLatLng(userCoords);
+                } else {
+                    const userGpsIcon = L.divIcon({
+                        className: 'custom-stitch-marker',
+                        html: `
+                            <div class="relative flex flex-col items-center select-none pointer-events-auto">
+                                <div class="relative flex items-center justify-center">
+                                    <span class="absolute w-8 h-8 rounded-full bg-blue-500/40 animate-ping"></span>
+                                    <span class="w-4 h-4 rounded-full bg-blue-600 border-2 border-white shadow-md"></span>
+                                </div>
+                                <span class="mt-1 px-1.5 py-0.5 bg-surface-container-lowest/90 dark:bg-zinc-900/90 text-on-surface dark:text-zinc-200 rounded text-[10px] font-bold shadow-sm whitespace-nowrap">
+                                    Vị trí của bạn
+                                </span>
+                            </div>
+                        `,
+                        iconSize: [80, 40],
+                        iconAnchor: [40, 8]
+                    });
+                    state.userGpsMarker = L.marker(userCoords, { icon: userGpsIcon, zIndexOffset: 2000 }).addTo(state.fullMap);
+                }
+            }
+
+            // Update places distances in side panel and active card
+            updateFullMapContent();
+            if (state.selectedMapPlace) {
+                selectMapPlace(state.selectedMapPlace);
             }
         },
         (err) => {
@@ -2376,6 +2807,7 @@ export function locateUserPosition() {
         }
     );
 }
+
 
 /**
  * Tính khoảng cách cho tất cả các địa điểm từ tọa độ người dùng
@@ -3563,6 +3995,19 @@ if (typeof window !== 'undefined') {
             closeFullMapModal();
             openDetailModal(id);
         },
+        selectMapPlace,
+        selectMapPlaceById,
+        closeMapActiveCard,
+        handleMapSearch,
+        clearMapSearch,
+        setMapCategory,
+        toggleMapFilter,
+        toggleMapMobileView,
+        mapZoomIn,
+        mapZoomOut,
+        recenterMapToTraVinh,
+        shareMapPlace,
+        updateFullMapContent,
         openReportModal,
         closeReportModal,
         submitReportPlace,
@@ -3573,4 +4018,11 @@ if (typeof window !== 'undefined') {
         getState: () => state,
         get state() { return state; }
     };
+
+    window.openDetailFromMap = (id) => {
+        if (window.ViVuApp?.openDetailFromMap) {
+            window.ViVuApp.openDetailFromMap(id);
+        }
+    };
 }
+

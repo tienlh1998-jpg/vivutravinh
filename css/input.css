@@ -39,3 +39,9 @@ html, body {
   transform-origin: bottom;
 }
 
+/* Leaflet Custom Stitch Marker Styling */
+.custom-stitch-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
