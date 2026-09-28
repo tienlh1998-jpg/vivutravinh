@@ -50,6 +50,163 @@ export const TRA_VINH_FESTIVALS = [
                 icon: 'local_fire_department'
             }
         ],
+        // Cấu trúc nâng cao Stitch: 2 ngày diễn biến chi tiết
+        timelineDays: {
+            day1: {
+                label: 'Ngày 14/11',
+                events: [
+                    {
+                        time: '07:30 - 11:30',
+                        title: 'Khai Mạc Giải Đua Ghe Ngo Truyền Thống',
+                        location: 'Sông Long Bình, TP. Trà Vinh',
+                        icon: 'kayaking',
+                        desc: 'Màn so tài nảy lửa giữa 36 đội ghe Ngo nam nữ đến từ các chùa Khmer Trà Vinh, Sóc Trăng, Bạc Liêu, Kiên Giang. Hàng ngàn tay bơi vạm vỡ rẽ sóng trong tiếng cồng chiêng rộn rã và tiếng reo hò của hơn 5 vạn cổ động viên rợp hai bờ kè sông Long Bình.',
+                        image: '/chùa hang.jpg',
+                        highlight: 'Khoảnh khắc kịch tính chặng nước rút 800m',
+                        actionLinkText: 'Xem vị trí khán đài A & B'
+                    },
+                    {
+                        time: '14:00 - 17:00',
+                        title: 'Triển Lãm & Hội Thi Giã Cốm Dẹp Truyền Thống',
+                        location: 'Quảng trường Ao Bà Om',
+                        icon: 'soup_kitchen',
+                        desc: 'Chứng kiến nghệ nhân 9 huyện thị phô diễn kỹ nghệ quết chày đôi nhịp nhàng, thưởng thức cốm dẹp mới trộn tại chỗ thơm bùi, cùng không gian trưng bày trang phục truyền thống, nhạc cụ Ngũ Âm và ghe Ngo mini chạm khắc tinh xảo.',
+                        tags: ['Miễn phí nếm thử', 'Giao lưu nghệ nhân Khmer']
+                    },
+                    {
+                        time: '18:30 - 21:30',
+                        title: 'Khai Mạc Tuần Lễ Văn Hóa Du Lịch & Biểu Diễn Nghệ Thuật Dân Tộc',
+                        location: 'Sân khấu Trung tâm Ao Bà Om',
+                        icon: 'theater_comedy',
+                        desc: 'Chương trình nghệ thuật tổng hợp với các tiết mục ca múa nhạc dân tộc Khmer đặc sắc, trình diễn trang phục truyền thống và hòa tấu dàn nhạc Ngũ âm Pinpeat.'
+                    }
+                ]
+            },
+            day2: {
+                label: 'Ngày 15/11',
+                events: [
+                    {
+                        time: '08:00 - 11:30',
+                        title: 'Chung Kết Giải Đua Ghe Ngo & Lễ Trao Thưởng Cúp Vô Địch',
+                        location: 'Sông Long Bình, TP. Trà Vinh',
+                        icon: 'emoji_events',
+                        desc: 'Các trận tranh tài bán kết và chung kết tranh Cúp vô địch tỉnh Trà Vinh. Trao giải thưởng và lễ diễu hành mừng chiến thắng của đội ghe vô địch.'
+                    },
+                    {
+                        time: '14:00 - 17:00',
+                        title: 'Không Gian Trò Chơi Dân Gian & Hội Quết Cốm Giao Lưu',
+                        location: 'Khuôn viên Rừng Cổ Thụ Ao Bà Om',
+                        icon: 'sports_kabaddi',
+                        desc: 'Các trò chơi kéo co, đẩy gậy, đập nồi đất cùng không gian workshop tự tay làm lồng đèn sen và chạm khắc gáo dừa cho du khách trải nghiệm.'
+                    },
+                    {
+                        time: '18:30 - 21:30',
+                        title: 'Đại Lễ Cúng Trăng, Biểu Diễn Dù Kê & Thả Hoa Đăng Nước',
+                        location: 'Khán đài Mặt hồ Ao Bà Om',
+                        icon: 'night_sight_auto',
+                        desc: 'Thời khắc trăng tròn đỉnh đầu, lễ tạ ơn thiêng liêng bắt đầu với nghi thức tụng kinh cầu an của chư Tăng. Sau đó là các trích đoạn sân khấu Dù Kê đặc sắc, cùng nghi thức thả hàng ngàn chiếc đèn hoa đăng sen và đèn gió Lôi Protip bừng sáng mặt hồ phẳng lặng.',
+                        tip: 'Gợi ý: Du khách nên đến khu vực bờ hồ trước 17:45 để nhận hoa đăng miễn phí tại chốt đón tiếp ViVuTraVinh.'
+                    }
+                ]
+            }
+        },
+        // Ý nghĩa nét văn hóa Cốm Dẹp
+        culturalHighlights: [
+            {
+                title: 'Hương Vị Cốm Dẹp (Om Bok)',
+                desc: 'Lúa nếp vừa chín đỏ đuôi được gặt về rang vừa độ chín trong nồi đất, giã nhuyễn bằng chày gỗ và sàng sảy khéo léo. Cốm dẹp trộn đều với đường thốt nốt, dừa nạo nồng thơm dâng cúng tổ tiên.',
+                icon: 'bakery_dining'
+            },
+            {
+                title: 'Nghi Lễ Đút Cốm Trẻ Nhỏ',
+                desc: 'Sau lễ cúng thiêng, các vị trưởng bối chọn các em nhỏ trong phum sóc đút từng vốc cốm dẹp vào miệng, vỗ lưng nhẹ và hỏi ước nguyện tương lai, gửi gắm chúc phúc cho sự đỗ đạt, trường thọ.',
+                icon: 'sentiment_satisfied'
+            }
+        ],
+        // Sơ đồ & Dịch vụ hậu cần
+        logistics: {
+            sectors: [
+                { id: 'sec-a', name: 'Khán đài A', desc: 'Khán đài bờ hồ Ao Bà Om (Lễ Cúng Trăng)', color: 'bg-secondary' },
+                { id: 'sec-b', name: 'Khán đài B', desc: 'Bờ kè Sông Long Bình (Xem Đua Ghe Ngo)', color: 'bg-[#EA580C]' },
+                { id: 'sec-p', name: 'Bãi xe P1-P4', desc: '4.000 xe máy & 300 ô tô đường Nguyễn Thị Minh Khai', color: 'bg-on-tertiary-container' },
+                { id: 'sec-m', name: 'Y tế & An ninh', desc: '3 trạm trực chiến cạnh Bảo tàng Khmer', color: 'bg-primary' }
+            ],
+            notices: [
+                {
+                    icon: 'local_parking',
+                    title: 'Bãi đỗ xe tập trung',
+                    desc: 'Sức chứa 4.000 xe máy & 300 ô tô tại đường Nguyễn Thị Minh Khai kéo dài.',
+                    color: 'text-secondary'
+                },
+                {
+                    icon: 'emergency',
+                    title: 'Trạm Y tế trực chiến',
+                    desc: '3 trạm cấp cứu lưu động bố trí cạnh Bảo tàng Văn hóa Khmer.',
+                    color: 'text-on-tertiary-container'
+                },
+                {
+                    icon: 'restaurant',
+                    title: 'Phố ẩm thực 120 gian',
+                    desc: 'Phục vụ bún nước lèo, bánh tét Trà Cuôn, bánh canh Bến Có nóng hổi.',
+                    color: 'text-primary'
+                }
+            ]
+        },
+        // Thảo luận trực tiếp / Hỏi đáp
+        faqDiscussions: [
+            {
+                id: 1,
+                author: 'Lê Thuỳ Linh',
+                role: 'Du khách TP.HCM • 2 giờ trước',
+                avatarText: 'LT',
+                avatarBg: 'bg-secondary-fixed text-on-secondary-fixed',
+                likes: 14,
+                question: 'Mọi người cho mình hỏi nếu đi xe khách từ Sài Gòn sáng sớm 14/11 xuống thì tới bến xe Trà Vinh có xe buýt hay trung chuyển ra sông Long Bình xem đua ghe kịp không ạ?',
+                reply: {
+                    author: 'Ban Quản Trị ViVuTraVinh',
+                    time: '1 giờ trước',
+                    text: 'Chào Thuỳ Linh! Từ bến xe mới Trà Vinh vào bờ kè sông Long Bình chỉ 2.5km. Có tuyến xe điện trung chuyển lễ hội miễn phí xuất phát mỗi 15 phút tại cổng bến xe bạn nhé!'
+                }
+            },
+            {
+                id: 2,
+                author: 'Thạch Sô Phol',
+                role: 'Người bản địa Cầu Kè • 5 giờ trước',
+                avatarText: 'TT',
+                avatarBg: 'bg-tertiary-fixed text-on-tertiary-fixed',
+                likes: 29,
+                question: 'Năm nay đội ghe Ngo chùa Kos Ke (Càng Long) và chùa Pitu (Trà Cú) tập luyện rất hăng say. Khuyên bà con nên đứng ở đoạn cầu Long Bình 2 để thấy rõ pha bứt tốc chung kết nhé!',
+                reply: null
+            }
+        ],
+        // Sự kiện vệ tinh cùng kỳ
+        satelliteEvents: [
+            {
+                title: 'Tuần Lễ Ẩm Thực Xứ Trà 2026',
+                time: '12 - 16/11 • 80 gian hàng đặc sản OCOP',
+                icon: 'restaurant'
+            },
+            {
+                title: 'Hội Chợ Xúc Tiến Thương Mại ĐBSCL',
+                time: '10 - 17/11 • Trung tâm Hội chợ Triển lãm Trà Vinh',
+                icon: 'storefront'
+            }
+        ],
+        // Lưu trú sinh thái gợi ý
+        ecoStays: [
+            {
+                name: 'Mekong Garden Eco-resort',
+                location: 'Cách Ao Bà Om 3.2km • 4.9 ★',
+                price: 'Từ 650.000đ / đêm',
+                image: '/ao bà om.jpg'
+            },
+            {
+                name: 'Suonsia Homestay Trà Vinh',
+                location: 'Cách Sông Long Bình 1.5km • 4.8 ★',
+                price: 'Từ 420.000đ / đêm',
+                image: '/cù lao tân qui.jpg'
+            }
+        ],
         localTips: [
             'Chỗ xem đua ghe Ngo đẹp nhất: Khu vực cầu Long Bình 1 & 2 hoặc dọc bờ kè đường Lê Lợi. Nên đến trước 11h trưa để chọn được vị trí mát mẻ.',
             'Gửi xe dự lễ Ao Bà Om: Các điểm trông giữ xe của Thành đoàn và người dân xung quanh đường Nguyễn Thị Minh Khai hoặc cổng Chùa Âng. Tránh chen lấn bằng cách đi bộ vào hồ.',
@@ -284,3 +441,149 @@ export const TRA_VINH_FESTIVALS = [
         traditionalFood: 'Bánh tét ba nhân, bánh dừa nướng, canh xiêm-lo truyền thống, chè đậu đen nước cốt dừa.'
     }
 ];
+
+// Danh mục phân loại sự kiện & gặp gỡ (Stitch design categories)
+export const EVENT_CATEGORIES = [
+    { id: 'all', label: 'Tất cả sự kiện', count: 12 },
+    { id: 'upcoming', label: 'Sắp diễn ra', count: 5 },
+    { id: 'traditional', label: 'Lễ hội truyền thống', count: 3 },
+    { id: 'workshop', label: 'Workshop văn hóa', count: 2 },
+    { id: 'sports', label: 'Thể thao & Trải nghiệm', count: 3 },
+    { id: 'community', label: 'Giao lưu cộng đồng', count: 2 }
+];
+
+// Danh sách khu vực lọc địa bàn Trà Vinh
+export const EVENT_REGIONS = [
+    { id: 'all', label: 'Toàn tỉnh Trà Vinh' },
+    { id: 'tp-tra-vinh', label: 'TP. Trà Vinh' },
+    { id: 'chau-thanh', label: 'Huyện Châu Thành' },
+    { id: 'cau-ke', label: 'Huyện Cầu Kè' },
+    { id: 'cang-long', label: 'Huyện Càng Long' },
+    { id: 'duyen-hai', label: 'Huyện Duyên Hải' }
+];
+
+// Danh sách sự kiện, workshop và gặp gỡ cộng đồng (Stitch design events grid)
+export const TRA_VINH_EVENTS_AND_MEETUPS = [
+    {
+        id: 'dua-ghe-ngo-2024',
+        title: 'Giải Đua Ghe Ngo Tranh Cúp Sông Long Bình 2026',
+        month: 'Tháng 11',
+        day: '15',
+        timeSchedule: 'Sáng 15/11 • 07:30 - 12:00',
+        location: 'Bờ kè Sông Long Bình, TP. Trà Vinh',
+        region: 'tp-tra-vinh',
+        regionName: 'TP. Trà Vinh',
+        category: 'Thể thao & Lễ hội',
+        categoryKey: 'sports',
+        fee: 'Mở cửa tự do',
+        feeType: 'free',
+        attendees: '1,800+ khán giả',
+        image: '/ao bà om.jpg',
+        ctaText: 'Chi tiết & Điểm xem',
+        actionType: 'modal',
+        targetModalId: 'ok-om-bok',
+        summary: 'Màn tranh tài nảy lửa giữa 36 đội ghe Ngo nam nữ đại diện cho các chùa Khmer trên dòng sông Long Bình.'
+    },
+    {
+        id: 'workshop-den-sen',
+        title: 'Workshop: Tự tay làm lồng đèn hoa sen & Chạm khắc gáo dừa Khmer',
+        month: 'Tháng 10',
+        day: '20',
+        timeSchedule: 'Chủ Nhật • 08:30 - 11:30',
+        location: 'Không gian văn hóa Khmer Xứ Trà, Gần Ao Bà Om',
+        region: 'tp-tra-vinh',
+        regionName: 'TP. Trà Vinh',
+        category: 'Workshop văn hóa',
+        categoryKey: 'workshop',
+        fee: '50.000đ',
+        feeDetail: '(gồm trà)',
+        feeType: 'paid',
+        statusBadge: 'Còn 12/35 vé',
+        attendees: '35 người',
+        image: '/ao bà om.jpg',
+        ctaText: 'Đăng ký giữ chỗ',
+        actionType: 'rsvp',
+        summary: 'Trải nghiệm tự tay làm lồng đèn hoa sen lung linh và chạm khắc hoa văn Khmer tinh tế trên gáo dừa cùng nghệ nhân.'
+    },
+    {
+        id: 'dap-xe-chua-co',
+        title: 'Cuối tuần đạp xe: Cung đường Chùa Cổ & Rừng dừa Cù lao Tân Quy',
+        month: 'Tháng 10',
+        day: '27',
+        timeSchedule: 'Chủ Nhật • 06:00 - 11:00',
+        location: 'Tập trung: Quảng trường TP. Trà Vinh',
+        region: 'cau-ke',
+        regionName: 'Huyện Cầu Kè',
+        category: 'Dã ngoại & Sinh thái',
+        categoryKey: 'sports',
+        fee: 'Miễn phí',
+        feeType: 'free',
+        statusBadge: '24/40 người',
+        attendees: '40 người',
+        image: '/cù lao tân qui.jpg',
+        ctaText: 'Tham gia đoàn xe',
+        actionType: 'rsvp',
+        summary: 'Đoàn xe đạp trẻ khám phá cung đường rợp bóng dừa, viếng chùa cổ Khmer và trải nghiệm phà qua miệt vườn sông nước.'
+    },
+    {
+        id: 'photo-tour-chua-hang',
+        title: 'Photo Tour Bình Minh: Đàn Chim Về Tổ & Kiến Trúc Chùa Hang',
+        month: 'Tháng 11',
+        day: '03',
+        timeSchedule: 'Thứ Bảy • 05:30 - 09:00',
+        location: 'Wat Kompong Nikrodha, Châu Thành, Trà Vinh',
+        region: 'chau-thanh',
+        regionName: 'Huyện Châu Thành',
+        category: 'Di sản & Nhiếp ảnh',
+        categoryKey: 'traditional',
+        fee: 'Miễn phí',
+        feeType: 'free',
+        statusBadge: 'Sắp diễn ra',
+        attendees: '25 nhiếp ảnh gia',
+        image: '/chùa hang.jpg',
+        ctaText: 'Xem lịch trình',
+        actionType: 'rsvp',
+        summary: 'Săn bình minh xuyên qua vòm cây sao trăm tuổi, ngắm đàn chim ríu rít về tổ và khám phá xưởng điêu khắc gỗ nghệ thuật.'
+    },
+    {
+        id: 'don-ca-tai-tu-co-chien',
+        title: 'Đêm Trà & Đờn Ca Tài Tử Nam Bộ Bên Sông Cổ Chiên',
+        month: 'Tháng 11',
+        day: '08',
+        timeSchedule: 'Thứ Sáu • 19:00 - 21:30',
+        location: 'Quán Cà Phê Vườn Xứ Trà, Huyện Châu Thành',
+        region: 'chau-thanh',
+        regionName: 'Huyện Châu Thành',
+        category: 'Giao lưu cộng đồng',
+        categoryKey: 'community',
+        fee: 'Gọi nước tự túc',
+        feeType: 'drink',
+        statusBadge: 'Còn 15 chỗ',
+        attendees: '30 người',
+        image: '/nhà cổ huỳnh kỳ.jpg',
+        ctaText: 'Đăng ký tham gia',
+        actionType: 'rsvp',
+        summary: 'Thưởng thức trà thảo mộc thơm lành và lắng nghe giai điệu vọng cổ ngọt ngào, tiếng đờn kìm réo rắt bên dòng Cổ Chiên.'
+    },
+    {
+        id: 'don-dep-ao-ba-om',
+        title: 'Ngày hội Trồng Cây Cổ Thụ & Dọn Dẹp Xanh Rừng Ao Bà Om',
+        month: 'Tháng 11',
+        day: '22',
+        timeSchedule: 'Thứ Bảy • 07:00 - 10:30',
+        location: 'Khuôn viên Rừng Cổ Thụ Ao Bà Om, Trà Vinh',
+        region: 'tp-tra-vinh',
+        regionName: 'TP. Trà Vinh',
+        category: 'Môi trường & Sinh thái',
+        categoryKey: 'community',
+        fee: 'Cộng đồng tự do',
+        feeType: 'free',
+        statusBadge: 'Tình nguyện',
+        attendees: '120 tình nguyện viên',
+        image: '/ao bà om.jpg',
+        ctaText: 'Đăng ký tình nguyện',
+        actionType: 'rsvp',
+        summary: 'Cùng thanh niên và người dân chăm sóc vườn cây sao dầu cổ thụ, nhặt rác bảo vệ cảnh quan mặt hồ danh thắng Ao Bà Om.'
+    }
+];
+

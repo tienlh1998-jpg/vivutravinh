@@ -17,6 +17,7 @@
     "test:ui": "node --experimental-websocket scripts/verify-ui.cjs",
     "test:map": "node --experimental-websocket scripts/verify-phase4-map.cjs",
     "test:clubs": "node --experimental-websocket scripts/verify-phase5-clubs.cjs",
+    "test:events": "node --experimental-websocket scripts/verify-phase6-events.cjs",
     "test:sw": "node scripts/test-sw-upgrade.js",
     "test:g4:browser": "node --experimental-websocket scripts/verify-g4-offline.cjs",
     "test:g5": "node scripts/test-g5-supabase.js",

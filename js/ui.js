@@ -1,6 +1,7 @@
 // ViVuTraVinh - UI Component Module (Stitch & Eco-Khmer Design System)
 
 import { parsePrice } from './data.js';
+import { EVENT_CATEGORIES, EVENT_REGIONS, TRA_VINH_EVENTS_AND_MEETUPS } from './festivals-data.js';
 
 /**
  * Ảnh placeholder trung tính local chuẩn SVG (Data URI độc lập, không phụ thuộc mạng)
@@ -2386,7 +2387,8 @@ export function renderCheckinAndTikTokTab(place) {
 }
 
 /**
- * Quản lý đồng hồ đếm ngược cho sự kiện lễ hội
+/**
+ * Quản lý đồng hồ đếm ngược cho sự kiện lễ hội (Hỗ trợ cả ID camelCase và kebab-case)
  */
 export function startFestivalCountdown(targetDateStr) {
     if (window._festivalCountdownInterval) {
@@ -2394,29 +2396,26 @@ export function startFestivalCountdown(targetDateStr) {
         window._festivalCountdownInterval = null;
     }
 
-    const daysEl = document.getElementById('cdDays');
-    const hoursEl = document.getElementById('cdHours');
-    const minutesEl = document.getElementById('cdMinutes');
-    const secondsEl = document.getElementById('cdSeconds');
-    const statusBadgeEl = document.getElementById('cdStatusBadge');
-
-    if (!daysEl || !hoursEl || !minutesEl || !secondsEl) return;
-
     const targetDate = new Date(targetDateStr).getTime();
 
     function updateTimer() {
         const now = new Date().getTime();
         const difference = targetDate - now;
 
+        const dayElements = document.querySelectorAll('#cd-days, #cdDays, .cd-days-val');
+        const hourElements = document.querySelectorAll('#cd-hours, #cdHours, .cd-hours-val');
+        const minElements = document.querySelectorAll('#cd-minutes, #cdMinutes, .cd-minutes-val');
+        const secElements = document.querySelectorAll('#cd-seconds, #cdSeconds, .cd-seconds-val');
+        const statusBadgeEl = document.getElementById('cdStatusBadge');
+
         if (difference <= 0) {
-            // Lễ hội đang diễn ra hoặc vừa kết thúc
-            daysEl.textContent = '00';
-            hoursEl.textContent = '00';
-            minutesEl.textContent = '00';
-            secondsEl.textContent = '00';
+            dayElements.forEach(el => { el.textContent = '00'; });
+            hourElements.forEach(el => { el.textContent = '00'; });
+            minElements.forEach(el => { el.textContent = '00'; });
+            secElements.forEach(el => { el.textContent = '00'; });
             if (statusBadgeEl) {
                 statusBadgeEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping mr-1"></span> Đang diễn ra hội lớn!';
-                statusBadgeEl.className = 'px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-sm flex items-center';
+                statusBadgeEl.className = 'px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-xs flex items-center';
             }
             if (window._festivalCountdownInterval) {
                 clearInterval(window._festivalCountdownInterval);
@@ -2430,10 +2429,15 @@ export function startFestivalCountdown(targetDateStr) {
         const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
-        daysEl.textContent = String(days).padStart(2, '0');
-        hoursEl.textContent = String(hours).padStart(2, '0');
-        minutesEl.textContent = String(minutes).padStart(2, '0');
-        secondsEl.textContent = String(seconds).padStart(2, '0');
+        const daysStr = String(days).padStart(2, '0');
+        const hoursStr = String(hours).padStart(2, '0');
+        const minsStr = String(minutes).padStart(2, '0');
+        const secsStr = String(seconds).padStart(2, '0');
+
+        dayElements.forEach(el => { el.textContent = daysStr; });
+        hourElements.forEach(el => { el.textContent = hoursStr; });
+        minElements.forEach(el => { el.textContent = minsStr; });
+        secElements.forEach(el => { el.textContent = secsStr; });
     }
 
     updateTimer();
@@ -2441,443 +2445,1482 @@ export function startFestivalCountdown(targetDateStr) {
 }
 
 /**
- * Render Cổng Sự Kiện & Lễ Hội Văn Hóa Trà Vinh
+ * Render Cổng Sự Kiện & Lễ Hội Văn Hóa Trà Vinh (Stitch Design System)
  */
-export function renderFestivalsSection(containerId, festivals = [], activeSeason = 'all', onOpenFestivalModal, onSelectPlace, onFilterSeason) {
+export function renderFestivalsSection(
+    containerId,
+    festivals = [],
+    activeSeason = 'all',
+    onOpenFestivalModal,
+    onSelectPlace,
+    onFilterSeason,
+    eventsAndMeetups = [],
+    activeCategory = 'all',
+    activeRegion = 'all',
+    onFilterCategory,
+    onFilterRegion,
+    onRsvpEvent,
+    onToggleBookmark,
+    bookmarkedIds = new Set(),
+    onOpenHostModal
+) {
     const container = document.getElementById(containerId);
     if (!container) return;
+
+    // Danh sách sự kiện & gặp gỡ (fallback từ TRA_VINH_EVENTS_AND_MEETUPS)
+    const allMeetups = (eventsAndMeetups && eventsAndMeetups.length > 0) ? eventsAndMeetups : TRA_VINH_EVENTS_AND_MEETUPS;
 
     // Chọn Lễ hội tâm điểm (Spotlight) - mặc định là Ok Om Bok hoặc lễ hội đầu tiên
     const spotlightFestival = festivals.find(f => f.id === 'ok-om-bok') || festivals[0];
 
-    // Lọc theo mùa
-    const filteredFestivals = activeSeason === 'all'
-        ? festivals
-        : festivals.filter(f => f.season === activeSeason);
+    // Lọc sự kiện theo danh mục
+    let filteredEvents = allMeetups;
+    if (activeCategory === 'upcoming') {
+        filteredEvents = allMeetups.filter(e => e.statusBadge === 'Sắp diễn ra' || e.month === 'Tháng 10' || e.month === 'Tháng 11');
+    } else if (activeCategory === 'traditional') {
+        filteredEvents = allMeetups.filter(e => e.categoryKey === 'traditional' || e.categoryKey === 'sports');
+    } else if (activeCategory === 'workshop') {
+        filteredEvents = allMeetups.filter(e => e.categoryKey === 'workshop');
+    } else if (activeCategory === 'sports') {
+        filteredEvents = allMeetups.filter(e => e.categoryKey === 'sports');
+    } else if (activeCategory === 'community') {
+        filteredEvents = allMeetups.filter(e => e.categoryKey === 'community');
+    }
 
-    const seasons = [
-        { id: 'all', label: `Tất cả mùa (${festivals.length})`, icon: 'calendar_month' },
-        { id: 'spring', label: '🌸 Xuân (Chôl Chnăm Thmây)', icon: 'local_florist' },
-        { id: 'summer', label: '☀️ Hạ (Trái Cây & Cúng Biển)', icon: 'wb_sunny' },
-        { id: 'autumn', label: '🍂 Thu (Vu Lan & Sêne Đôlta)', icon: 'eco' },
-        { id: 'winter', label: '❄️ Đông (Ok Om Bok Cúng Trăng)', icon: 'ac_unit' },
-    ];
+    // Lọc thêm theo khu vực (nếu có chọn)
+    if (activeRegion && activeRegion !== 'all') {
+        filteredEvents = filteredEvents.filter(e => e.region === activeRegion);
+    }
+
+    // Các lễ hội mùa khác (ngoài Ok Om Bok đã lên Spotlight)
+    const otherFestivals = festivals.filter(f => f.id !== spotlightFestival?.id);
 
     container.innerHTML = `
-        <div class="space-y-6 pt-3">
-            <!-- Header Section -->
-            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-                <div>
-                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-black uppercase tracking-wider mb-2">
-                        <span class="material-symbols-outlined text-sm text-amber-600 animate-spin" style="animation-duration: 6s;">celebration</span>
-                        CỔNG TRA CỨU SỰ KIỆN & LỄ HỘI TRÀ VINH
+        <div class="flex flex-col w-full gap-8 pt-3">
+            <!-- 1. PAGE HEADER & ACTION CONTROLS (STITCH TOP BAR) -->
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2 border-b border-outline-variant/30 dark:border-zinc-800">
+                <div class="flex flex-col max-w-2xl">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-secondary dark:bg-emerald-400"></span>
+                        <span class="font-caption text-xs uppercase tracking-wider text-secondary dark:text-emerald-400 font-bold">
+                            LỄ HỘI &amp; GẶP GỠ BẢN ĐỊA • VIVUTRAVINH
+                        </span>
                     </div>
-                    <h2 class="text-2xl sm:text-3xl font-black font-serif text-primary dark:text-zinc-100 leading-tight">
-                        Mùa Lễ Hội & Di Sản Sống Động
+                    <h2 class="font-headline-xl text-2xl sm:text-3xl lg:text-4xl text-primary dark:text-zinc-100 font-bold tracking-tight">
+                        Sự kiện &amp; Gặp gỡ
                     </h2>
-                    <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-1 max-w-2xl">
-                        Khám phá vẻ đẹp giao thoa văn hóa Kinh – Khmer – Hoa qua những ngày hội rực rỡ sắc màu quanh năm.
+                    <p class="font-body-lg text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-2 leading-relaxed">
+                        Cùng hòa mình vào dòng chảy văn hóa Khmer, lễ hội truyền thống sông nước và các hoạt động kết nối cộng đồng tại Trà Vinh.
                     </p>
                 </div>
-
-                <!-- Live Status Tag -->
-                <div class="hidden sm:flex items-center gap-2">
-                    <span class="px-3 py-1.5 rounded-full text-xs font-bold bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 border border-outline-variant/40 dark:border-zinc-700 flex items-center gap-1.5 shadow-xs">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        Thông tin mùa lễ hội 2026
-                    </span>
+                <div class="flex items-center gap-3 shrink-0 flex-wrap">
+                    <button id="btnOpenHostEvent" type="button"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-surface-container-lowest dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-700 shadow-xs border border-outline-variant/40 dark:border-zinc-700 transition-all font-button text-xs sm:text-sm font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">handshake</span>
+                        <span>Đăng ký tổ chức</span>
+                    </button>
+                    <button id="btnCreateNewEvent" type="button"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#EA580C] hover:bg-[#C2410C] text-white shadow-xs transition-all font-button text-xs sm:text-sm font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px]">add</span>
+                        <span>Tạo sự kiện mới</span>
+                    </button>
                 </div>
             </div>
 
-            <!-- 1. SPOTLIGHT FESTIVAL CARD KÈM LIVE COUNTDOWN TIMER -->
+            <!-- 2. FEATURED CULTURAL BANNER (OK OM BOK SPOTLIGHT) -->
             ${spotlightFestival ? `
-                <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-950 via-stone-900 to-emerald-950 text-white shadow-xl border border-amber-500/30 group">
-                    <!-- Ảnh nền mờ nghệ thuật -->
-                    <div class="absolute inset-0 z-0 opacity-30 group-hover:opacity-40 transition-opacity duration-700">
-                        <img src="${spotlightFestival.heroImage}" alt="${spotlightFestival.name}" class="w-full h-full object-cover">
-                    </div>
-                    <!-- Lớp phủ gradient -->
-                    <div class="absolute inset-0 z-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent"></div>
+                <div class="relative w-full rounded-2xl overflow-hidden bg-primary-container text-white shadow-xl">
+                    <!-- Background Media Layer with Overlay -->
+                    <div class="relative w-full min-h-[440px] lg:min-h-[480px] flex flex-col justify-end">
+                        <img alt="${escapeHtml(spotlightFestival.name)}"
+                            class="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-40 transition-transform duration-700 hover:scale-105"
+                            src="${spotlightFestival.heroImage}"/>
+                        <div class="absolute inset-0 bg-gradient-to-t from-primary via-primary/80 to-transparent"></div>
+                        <div class="absolute inset-0 bg-gradient-to-r from-primary via-primary/60 to-transparent"></div>
 
-                    <div class="relative z-10 p-6 sm:p-10 flex flex-col justify-between space-y-6">
-                        <!-- Top Badges -->
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-black shadow-md uppercase tracking-wider flex items-center gap-1">
-                                    <span class="material-symbols-outlined text-sm">stars</span>
-                                    ĐẠI LỄ HỘI TÂM ĐIỂM XỨ TRÀ
-                                </span>
-                                <span class="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-amber-200 text-xs font-bold">
-                                    ${spotlightFestival.badge}
-                                </span>
-                            </div>
-
-                            <span id="cdStatusBadge" class="px-3 py-1 rounded-full text-xs font-black bg-rose-600/90 text-white backdrop-blur-md shadow-sm flex items-center">
-                                <span class="w-2 h-2 rounded-full bg-rose-300 animate-ping mr-1.5"></span> Sắp Khai Mạc
-                            </span>
-                        </div>
-
-                        <!-- Main Festival Title & Intro -->
-                        <div class="space-y-2 max-w-3xl">
-                            <span class="text-xs sm:text-sm font-medium text-amber-300/90 italic tracking-wide block">
-                                ${spotlightFestival.originalName}
-                            </span>
-                            <h3 class="text-2xl sm:text-4xl font-black font-serif text-white leading-tight drop-shadow-md">
-                                ${spotlightFestival.name}
-                            </h3>
-                            <p class="text-xs sm:text-sm text-stone-200 line-clamp-2 leading-relaxed font-normal">
-                                ${spotlightFestival.summary}
-                            </p>
-                        </div>
-
-                        <!-- COUNTDOWN TIMER WIDGET -->
-                        <div class="p-4 sm:p-5 rounded-2xl bg-black/40 backdrop-blur-md border border-white/15 max-w-2xl">
-                            <div class="flex items-center justify-between mb-3 text-xs">
-                                <span class="font-bold text-amber-300 flex items-center gap-1.5 uppercase tracking-wider">
-                                    <span class="material-symbols-outlined text-base">timer</span>
-                                    ĐẾM NGƯỢC THỜI GIAN KHAI HỘI
-                                </span>
-                                <span class="text-[11px] text-stone-300">
-                                    ${spotlightFestival.lunarDate}
-                                </span>
-                            </div>
-
-                            <!-- 4 Digit Boxes -->
-                            <div class="grid grid-cols-4 gap-2 sm:gap-4 text-center">
-                                <div class="p-2.5 sm:p-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 flex flex-col items-center">
-                                    <span id="cdDays" class="text-2xl sm:text-4xl font-black font-mono text-white drop-shadow">00</span>
-                                    <span class="text-[9px] sm:text-[11px] uppercase font-bold text-amber-300/90 mt-0.5 tracking-wider">NGÀY</span>
+                        <!-- Banner Content Inside -->
+                        <div class="relative z-10 p-6 sm:p-8 lg:p-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+                            <div class="max-w-3xl">
+                                <!-- Badges -->
+                                <div class="flex flex-wrap items-center gap-2 mb-4">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/90 text-on-secondary-container font-badge text-xs font-semibold backdrop-blur-xs">
+                                        <span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">award_star</span>
+                                        ${escapeHtml(spotlightFestival.badge || 'Di sản phi vật thể quốc gia')}
+                                    </span>
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/20 text-white font-badge text-xs backdrop-blur-xs">
+                                        Miễn phí tham dự
+                                    </span>
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full bg-[#EA580C]/90 text-white font-badge text-xs backdrop-blur-xs">
+                                        Lễ hội truyền thống
+                                    </span>
                                 </div>
-                                <div class="p-2.5 sm:p-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 flex flex-col items-center">
-                                    <span id="cdHours" class="text-2xl sm:text-4xl font-black font-mono text-white drop-shadow">00</span>
-                                    <span class="text-[9px] sm:text-[11px] uppercase font-bold text-amber-300/90 mt-0.5 tracking-wider">GIỜ</span>
+
+                                <!-- Title & Sub -->
+                                <h3 class="font-headline-lg text-2xl sm:text-3xl lg:text-4xl text-white font-bold leading-tight drop-shadow-xs">
+                                    ${escapeHtml(spotlightFestival.name)} &amp; Lễ Thả Đèn Hoa Đăng 2026
+                                </h3>
+
+                                <!-- Details Grid -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-6 mt-4 text-emerald-100 font-body-md text-xs sm:text-sm">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="material-symbols-outlined text-secondary-fixed text-[20px] shrink-0">calendar_month</span>
+                                        <span>${escapeHtml(spotlightFestival.lunarDate)} • Bắt đầu 18:30</span>
+                                    </div>
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="material-symbols-outlined text-secondary-fixed text-[20px] shrink-0">location_on</span>
+                                        <span class="truncate">${escapeHtml(spotlightFestival.locationName)}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2.5 sm:col-span-2">
+                                        <span class="material-symbols-outlined text-secondary-fixed text-[20px] shrink-0">supervised_user_circle</span>
+                                        <span>Đơn vị đồng hành: Sở VHTT&amp;DL Trà Vinh &amp; Cộng đồng ViVuTraVinh</span>
+                                    </div>
                                 </div>
-                                <div class="p-2.5 sm:p-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 flex flex-col items-center">
-                                    <span id="cdMinutes" class="text-2xl sm:text-4xl font-black font-mono text-white drop-shadow">00</span>
-                                    <span class="text-[9px] sm:text-[11px] uppercase font-bold text-amber-300/90 mt-0.5 tracking-wider">PHÚT</span>
-                                </div>
-                                <div class="p-2.5 sm:p-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 flex flex-col items-center">
-                                    <span id="cdSeconds" class="text-2xl sm:text-4xl font-black font-mono text-amber-400 drop-shadow">00</span>
-                                    <span class="text-[9px] sm:text-[11px] uppercase font-bold text-amber-300/90 mt-0.5 tracking-wider">GIÂY</span>
+
+                                <!-- Social proof & Avatars -->
+                                <div class="flex items-center gap-4 mt-6 pt-5 border-t border-white/15">
+                                    <div class="flex -space-x-2 overflow-hidden">
+                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-white text-[11px] font-semibold ring-2 ring-primary">TV</span>
+                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#EA580C] text-white text-[11px] font-semibold ring-2 ring-primary">TH</span>
+                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#006C4A] text-white text-[11px] font-semibold ring-2 ring-primary">LN</span>
+                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/20 text-white text-[11px] font-semibold ring-2 ring-primary">+3k</span>
+                                    </div>
+                                    <span class="font-body-sm text-xs sm:text-sm text-emerald-100">
+                                        <strong class="text-white font-semibold">3,450+</strong> người dự kiến tham gia
+                                    </span>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Action Buttons & Quick Info -->
-                        <div class="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-white/10">
-                            <div class="flex items-center gap-2 text-xs text-stone-300">
-                                <span class="material-symbols-outlined text-base text-amber-400">location_on</span>
-                                <span>${spotlightFestival.locationName}</span>
-                            </div>
+                            <!-- Countdown Card & CTA Area -->
+                            <div class="flex flex-col gap-4 shrink-0 w-full lg:w-auto">
+                                <!-- Countdown timer block -->
+                                <div class="bg-black/40 backdrop-blur-md rounded-2xl p-4 flex flex-col gap-2 border border-white/10">
+                                    <span class="font-caption text-xs uppercase text-emerald-200 tracking-wider font-semibold flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-sm text-[#FFB599]">timer</span>
+                                        Thời gian đếm ngược khai hội
+                                    </span>
+                                    <div class="flex items-center justify-center gap-2 text-center" id="countdown-timer">
+                                        <div class="flex flex-col items-center bg-primary/80 rounded-xl px-3 py-2 min-w-[58px] border border-white/10">
+                                            <span class="font-headline-md text-xl sm:text-2xl font-bold text-white tracking-tight" id="cd-days">18</span>
+                                            <span class="font-caption text-[10px] text-emerald-200 uppercase">Ngày</span>
+                                        </div>
+                                        <span class="text-white font-bold text-lg">:</span>
+                                        <div class="flex flex-col items-center bg-primary/80 rounded-xl px-3 py-2 min-w-[58px] border border-white/10">
+                                            <span class="font-headline-md text-xl sm:text-2xl font-bold text-white tracking-tight" id="cd-hours">06</span>
+                                            <span class="font-caption text-[10px] text-emerald-200 uppercase">Giờ</span>
+                                        </div>
+                                        <span class="text-white font-bold text-lg">:</span>
+                                        <div class="flex flex-col items-center bg-primary/80 rounded-xl px-3 py-2 min-w-[58px] border border-white/10">
+                                            <span class="font-headline-md text-xl sm:text-2xl font-bold text-white tracking-tight" id="cd-minutes">42</span>
+                                            <span class="font-caption text-[10px] text-emerald-200 uppercase">Phút</span>
+                                        </div>
+                                        <span class="text-white font-bold text-lg">:</span>
+                                        <div class="flex flex-col items-center bg-primary/80 rounded-xl px-3 py-2 min-w-[58px] border border-white/10">
+                                            <span class="font-headline-md text-xl sm:text-2xl font-bold text-[#FFB599] tracking-tight" id="cd-seconds">15</span>
+                                            <span class="font-caption text-[10px] text-emerald-200 uppercase">Giây</span>
+                                        </div>
+                                    </div>
+                                </div>
 
-                            <div class="flex items-center gap-2.5 w-full sm:w-auto">
-                                <button type="button" data-festival-id="${spotlightFestival.id}" class="festival-view-detail-btn flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5">
-                                    <span class="material-symbols-outlined text-base">auto_stories</span>
-                                    <span>Xem Cẩm Nang Diễn Biến</span>
-                                </button>
-                                ${spotlightFestival.locationPlaceId ? `
-                                    <button type="button" data-place-id="${spotlightFestival.locationPlaceId}" class="festival-goto-place-btn px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs backdrop-blur-md transition-all active:scale-95 flex items-center justify-center gap-1.5" title="Khám phá địa danh này">
-                                        <span class="material-symbols-outlined text-base text-amber-300">map</span>
-                                        <span>Ao Bà Om</span>
+                                <!-- Action buttons -->
+                                <div class="flex flex-col sm:flex-row lg:flex-col gap-2.5">
+                                    <button id="btnRemindFestival" type="button"
+                                        class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-button text-xs sm:text-sm font-semibold shadow-md transition-all min-h-[44px]">
+                                        <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">notifications_active</span>
+                                        <span>Nhận thông báo &amp; Lưu lịch</span>
                                     </button>
-                                ` : ''}
+                                    <button type="button" data-festival-id="${spotlightFestival.id}"
+                                        class="festival-view-detail-btn inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-button text-xs sm:text-sm font-semibold backdrop-blur-xs transition-colors min-h-[44px]">
+                                        <span class="material-symbols-outlined text-[18px]">info</span>
+                                        <span>Xem chi tiết chương trình lễ hội</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             ` : ''}
 
-            <!-- 2. BỘ LỌC THEO MÙA (SEASONAL TABS) -->
-            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-                ${seasons.map(s => `
-                    <button type="button" data-season-id="${s.id}" class="festival-season-tab-btn px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                        activeSeason === s.id
-                            ? 'bg-primary dark:bg-emerald-700 text-white shadow-xs scale-102'
-                            : 'bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-high dark:hover:bg-zinc-700'
-                    }">
-                        <span class="material-symbols-outlined text-sm">${s.icon}</span>
-                        <span>${s.label}</span>
-                    </button>
-                `).join('')}
-            </div>
+            <!-- 3. FILTER & SUB-CATEGORY NAVIGATION BAR (STITCH TOOLBAR) -->
+            <div role="toolbar" aria-label="Bộ lọc sự kiện và gặp gỡ"
+                class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-4 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+                
+                <!-- Category Tabs -->
+                <div id="eventCategoryTabs" class="flex items-center gap-2 overflow-x-auto pb-1 xl:pb-0 scrollbar-none">
+                    ${EVENT_CATEGORIES.map(cat => {
+                        const isActive = activeCategory === cat.id;
+                        return `
+                            <button type="button" data-category-id="${cat.id}"
+                                class="event-category-tab-btn px-4 py-2 rounded-full font-button text-xs font-semibold shrink-0 flex items-center gap-1.5 transition-all min-h-[44px] ${
+                                    isActive
+                                        ? 'bg-primary-container text-white shadow-xs'
+                                        : 'bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 hover:text-on-surface'
+                                }">
+                                <span>${escapeHtml(cat.label)}</span>
+                                <span class="text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                                    isActive
+                                        ? 'bg-secondary-fixed/30 text-secondary-fixed'
+                                        : 'bg-surface-container-highest dark:bg-zinc-700 text-on-surface dark:text-zinc-200'
+                                }">${cat.count}</span>
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
 
-            <!-- 3. LƯỚI THẺ LỄ HỘI (FESTIVALS GRID) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                ${filteredFestivals.map(fest => `
-                    <div class="festival-card group rounded-3xl bg-surface-container-lowest dark:bg-dark-card border border-outline-variant/40 dark:border-dark-border overflow-hidden shadow-xs hover:shadow-lg hover:border-primary/50 dark:hover:border-emerald-500/50 transition-all duration-300 flex flex-col justify-between">
-                        <!-- Ảnh đại diện -->
-                        <div class="relative w-full aspect-[16/10] overflow-hidden bg-stone-100 dark:bg-zinc-800">
-                            <img src="${fest.heroImage}" alt="${fest.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20"></div>
-
-                            <!-- Top badge -->
-                            <div class="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${fest.badgeColor}">
-                                    ${fest.seasonName}
-                                </span>
-                            </div>
-
-                            <!-- Thời gian Âm lịch nổi bật -->
-                            <div class="absolute bottom-3 left-3 right-3 text-white">
-                                <span class="inline-flex items-center gap-1 text-xs font-extrabold drop-shadow">
-                                    <span class="material-symbols-outlined text-sm text-amber-300">calendar_today</span>
-                                    ${fest.lunarDate}
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Nội dung thẻ -->
-                        <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
-                            <div class="space-y-1.5">
-                                <span class="text-[10px] font-semibold text-secondary dark:text-emerald-400 block line-clamp-1 italic">
-                                    ${fest.originalName}
-                                </span>
-                                <h4 class="text-base sm:text-lg font-bold font-serif text-primary dark:text-zinc-100 group-hover:text-secondary dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
-                                    ${fest.name}
-                                </h4>
-                                <p class="text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 leading-relaxed">
-                                    ${fest.summary}
-                                </p>
-                            </div>
-
-                            <!-- Địa điểm -->
-                            <div class="flex items-center gap-1 text-xs text-on-surface-variant dark:text-zinc-400 pt-2 border-t border-outline-variant/30 dark:border-zinc-800">
-                                <span class="material-symbols-outlined text-sm text-secondary dark:text-emerald-400 shrink-0">pin_drop</span>
-                                <span class="truncate text-[11px] font-medium">${fest.locationName}</span>
-                            </div>
-
-                            <!-- Nút thao tác -->
-                            <div class="pt-1 flex items-center gap-2">
-                                <button type="button" data-festival-id="${fest.id}" class="festival-view-detail-btn flex-1 py-2 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 dark:hover:bg-zinc-700 text-primary dark:text-emerald-300 font-bold text-xs border border-outline-variant/30 dark:border-zinc-700 transition-all active:scale-95 flex items-center justify-center gap-1.5">
-                                    <span class="material-symbols-outlined text-sm text-secondary dark:text-emerald-400">menu_book</span>
-                                    <span>Cẩm Nang Diễn Biến</span>
-                                </button>
-                            </div>
-                        </div>
+                <!-- Controls: Location, Timing, View Mode -->
+                <div class="flex items-center gap-3 shrink-0 self-end xl:self-auto flex-wrap">
+                    <!-- Region Filter -->
+                    <div class="relative">
+                        <select id="eventRegionSelect" aria-label="Lọc theo khu vực"
+                            class="h-11 pl-3 pr-8 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 font-button text-xs appearance-none focus:outline-none focus:bg-surface-container dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700 cursor-pointer transition-colors min-h-[44px]">
+                            ${EVENT_REGIONS.map(reg => `
+                                <option value="${reg.id}" ${activeRegion === reg.id ? 'selected' : ''}>
+                                    ${escapeHtml(reg.label)}
+                                </option>
+                            `).join('')}
+                        </select>
+                        <span class="material-symbols-outlined absolute right-2.5 top-3 text-[18px] text-on-surface-variant dark:text-zinc-400 pointer-events-none">expand_more</span>
                     </div>
-                `).join('')}
+
+                    <!-- Timeframe Filter -->
+                    <div class="relative">
+                        <select id="eventTimeframeSelect" aria-label="Lọc theo thời gian"
+                            class="h-11 pl-3 pr-8 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 font-button text-xs appearance-none focus:outline-none focus:bg-surface-container dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700 cursor-pointer transition-colors min-h-[44px]">
+                            <option value="all">Tất cả thời gian</option>
+                            <option value="weekend">Cuối tuần này</option>
+                            <option value="october">Tháng 10/2026</option>
+                            <option value="november">Tháng 11/2026</option>
+                        </select>
+                        <span class="material-symbols-outlined absolute right-2.5 top-3 text-[18px] text-on-surface-variant dark:text-zinc-400 pointer-events-none">expand_more</span>
+                    </div>
+
+                    <!-- View Switcher -->
+                    <div class="flex items-center bg-surface-container-low dark:bg-zinc-800 p-1 rounded-xl border border-outline-variant/30 dark:border-zinc-700">
+                        <button id="viewGridModeBtn" class="p-2 rounded-lg bg-surface-container-lowest dark:bg-zinc-700 text-on-surface dark:text-zinc-100 shadow-xs min-h-[44px] min-w-[44px] flex items-center justify-center" title="Xem dạng lưới" type="button">
+                            <span class="material-symbols-outlined text-[20px]">grid_view</span>
+                        </button>
+                        <button id="viewCalendarModeBtn" class="p-2 rounded-lg text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Xem dạng lịch biểu" type="button">
+                            <span class="material-symbols-outlined text-[20px]">calendar_view_month</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <!-- Nguồn dữ liệu lễ hội minh bạch -->
-            <div class="pt-4 border-t border-outline-variant/30 dark:border-zinc-800 text-center text-xs text-on-surface-variant/80 dark:text-zinc-500">
-                <span>Nguồn dữ liệu lễ hội: Tổng hợp từ Trung tâm Thông tin Xúc tiến Du lịch & Sở VHTT&DL tỉnh Trà Vinh (Mùa lễ hội 2026).</span>
+            <!-- 4. EVENTS & MEETUPS GRID (STITCH CARDS) -->
+            <div id="eventsGridContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                ${filteredEvents.map(evt => {
+                    const isBookmarked = bookmarkedIds && bookmarkedIds.has(evt.id);
+                    return `
+                        <article class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-outline-variant/40 dark:border-zinc-800 transition-all duration-300 flex flex-col group">
+                            <!-- Card Media Frame -->
+                            <div class="relative aspect-[16/10] overflow-hidden bg-surface-container dark:bg-zinc-800">
+                                <img alt="${escapeHtml(evt.title)}"
+                                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                    src="${evt.image || '/ao bà om.jpg'}"
+                                    loading="lazy"/>
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80"></div>
+                                
+                                <!-- Date badge -->
+                                <div class="absolute top-3 left-3 bg-surface-container-lowest/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-xl p-2 flex flex-col items-center shadow-md min-w-[50px]">
+                                    <span class="font-caption text-[10px] text-secondary dark:text-emerald-400 font-bold uppercase tracking-wider">${escapeHtml(evt.month || 'Tháng 11')}</span>
+                                    <span class="font-headline-sm text-lg text-primary dark:text-zinc-100 font-bold leading-tight">${escapeHtml(evt.day || '15')}</span>
+                                </div>
+
+                                <!-- Bookmark action button -->
+                                <button type="button" aria-label="Lưu sự kiện: ${escapeHtml(evt.title)}" data-event-id="${evt.id}"
+                                    class="event-bookmark-btn absolute top-3 right-3 w-11 h-11 rounded-full bg-surface-container-lowest/80 dark:bg-zinc-900/80 hover:bg-surface-container-lowest dark:hover:bg-zinc-900 backdrop-blur-md flex items-center justify-center text-on-surface dark:text-zinc-200 hover:text-[#EA580C] shadow-xs transition-colors min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[20px] ${isBookmarked ? 'text-[#EA580C]' : ''}" style="${isBookmarked ? "font-variation-settings: 'FILL' 1;" : ''}">
+                                        ${isBookmarked ? 'bookmark' : 'bookmark_border'}
+                                    </span>
+                                </button>
+
+                                <!-- Category & Status pill on media -->
+                                <div class="absolute bottom-3 left-3 flex flex-wrap items-center gap-2">
+                                    <span class="px-2.5 py-1 rounded-full bg-secondary text-white font-badge text-[11px] font-semibold">
+                                        ${escapeHtml(evt.category || 'Sự kiện')}
+                                    </span>
+                                    ${evt.statusBadge ? `
+                                        <span class="px-2.5 py-1 rounded-full bg-[#EA580C] text-white font-badge text-[11px] font-medium">
+                                            ${escapeHtml(evt.statusBadge)}
+                                        </span>
+                                    ` : `
+                                        <span class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-xs text-white font-badge text-[11px]">
+                                            ${escapeHtml(evt.fee || 'Mở cửa tự do')}
+                                        </span>
+                                    `}
+                                </div>
+                            </div>
+
+                            <!-- Card Body -->
+                            <div class="p-5 flex flex-col flex-1 justify-between gap-4">
+                                <div class="flex flex-col gap-2">
+                                    <h3 class="font-headline-sm text-base sm:text-lg text-on-surface dark:text-zinc-100 group-hover:text-secondary dark:group-hover:text-emerald-400 transition-colors font-bold leading-snug line-clamp-2">
+                                        ${escapeHtml(evt.title)}
+                                    </h3>
+                                    <div class="flex flex-col gap-1.5 text-on-surface-variant dark:text-zinc-400 font-body-sm text-xs mt-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400 shrink-0">schedule</span>
+                                            <span>${escapeHtml(evt.timeSchedule || '')}</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[18px] text-on-surface-variant dark:text-zinc-400 shrink-0">location_on</span>
+                                            <span class="truncate">${escapeHtml(evt.location || '')}</span>
+                                        </div>
+                                    </div>
+                                    <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 mt-1 leading-relaxed">
+                                        ${escapeHtml(evt.summary || '')}
+                                    </p>
+                                </div>
+
+                                <!-- Card Footer -->
+                                <div class="pt-4 border-t border-surface-container dark:border-zinc-800 flex items-center justify-between gap-2">
+                                    <div class="flex flex-col">
+                                        <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">
+                                            ${evt.feeType === 'paid' ? 'Phí tham gia' : 'Chi phí'}
+                                        </span>
+                                        <span class="font-button text-[14px] text-on-surface dark:text-zinc-200 font-semibold">
+                                            ${escapeHtml(evt.fee || 'Miễn phí')}
+                                            ${evt.feeDetail ? `<span class="font-normal text-on-surface-variant dark:text-zinc-400 text-[11px]">${escapeHtml(evt.feeDetail)}</span>` : ''}
+                                        </span>
+                                    </div>
+                                    <button type="button" data-event-id="${evt.id}" data-action-type="${evt.actionType || 'rsvp'}" data-target-modal="${evt.targetModalId || ''}"
+                                        class="event-action-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] ${
+                                            evt.actionType === 'modal'
+                                                ? 'bg-surface-container-low hover:bg-surface-container dark:bg-zinc-800 dark:hover:bg-zinc-700 text-secondary dark:text-emerald-400 font-semibold'
+                                                : 'bg-[#EA580C] hover:bg-[#C2410C] text-white shadow-xs font-semibold'
+                                        } font-button text-xs transition-colors min-h-[44px]">
+                                        <span>${escapeHtml(evt.ctaText || 'Xem chi tiết')}</span>
+                                        <span class="material-symbols-outlined text-[16px]">${evt.actionType === 'modal' ? 'arrow_forward' : 'how_to_reg'}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join('')}
+            </div>
+
+            <!-- 5. BOTTOM CTA & HOST EVENT COLLABORATION BANNER -->
+            <div class="relative rounded-2xl overflow-hidden bg-primary-container text-white p-6 sm:p-8 md:p-10 shadow-lg">
+                <div class="absolute -right-12 -bottom-12 w-64 h-64 bg-secondary/30 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div class="max-w-2xl">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-xs text-secondary-fixed text-xs font-semibold mb-3">
+                            <span class="material-symbols-outlined text-[16px]">campaign</span>
+                            <span>Kết nối lan tỏa văn hóa địa phương</span>
+                        </div>
+                        <h3 class="font-headline-lg text-xl sm:text-2xl lg:text-3xl font-bold text-white tracking-tight">
+                            Bạn muốn tổ chức một buổi gặp gỡ, workshop hay chuyến đi tại Trà Vinh?
+                        </h3>
+                        <p class="font-body-md text-xs sm:text-sm text-emerald-100 mt-2 leading-relaxed">
+                            ViVuTraVinh hỗ trợ lan tỏa thông tin miễn phí đến hơn 5,000+ bạn trẻ và du khách yêu mến văn hóa Trà Vinh. Đồng hành cùng nhau quảng bá nét đẹp xứ sở trù phú!
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 shrink-0">
+                        <button id="btnBottomHostSubmit" type="button"
+                            class="inline-flex items-center gap-2 px-5 py-3 rounded-[10px] bg-[#EA580C] hover:bg-[#C2410C] text-white font-button text-xs sm:text-sm font-semibold shadow-md transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px]">send</span>
+                            <span>Gửi thông tin sự kiện</span>
+                        </button>
+                        <button id="btnBottomHostHelp" type="button"
+                            class="inline-flex items-center gap-2 px-4 py-3 rounded-[10px] bg-white/15 hover:bg-white/25 text-white font-button text-xs sm:text-sm font-semibold transition-colors min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px]">help</span>
+                            <span>Tìm hiểu quy chế</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
 
-    // Khởi động đồng hồ đếm ngược cho Spotlight
+    // Khởi động đồng hồ đếm ngược
     if (spotlightFestival && spotlightFestival.targetDate) {
         startFestivalCountdown(spotlightFestival.targetDate);
     }
 
-    // Gắn sự kiện chuyển tab mùa
-    container.querySelectorAll('.festival-season-tab-btn').forEach(btn => {
+    // Gắn sự kiện chuyển tab danh mục
+    container.querySelectorAll('.event-category-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const seasonId = btn.dataset.seasonId;
-            if (seasonId && onFilterSeason) {
-                onFilterSeason(seasonId);
+            const catId = btn.dataset.categoryId;
+            if (catId && onFilterCategory) {
+                onFilterCategory(catId);
             }
         });
     });
 
-    // Gắn sự kiện xem chi tiết cẩm nang lễ hội
+    // Gắn sự kiện chọn vùng miền
+    const regionSelect = container.querySelector('#eventRegionSelect');
+    if (regionSelect && onFilterRegion) {
+        regionSelect.addEventListener('change', (e) => {
+            onFilterRegion(e.target.value);
+        });
+    }
+
+    // Gắn sự kiện xem chi tiết cẩm nang lễ hội (cho Ok Om Bok và các lễ hội)
     container.querySelectorAll('.festival-view-detail-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const festId = btn.dataset.festivalId;
-            if (festId && onOpenFestivalModal) {
+            const festId = btn.dataset.festivalId || 'ok-om-bok';
+            if (onOpenFestivalModal) {
                 onOpenFestivalModal(festId);
             }
         });
     });
 
-    // Gắn sự kiện mở địa điểm
-    container.querySelectorAll('.festival-goto-place-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const placeId = btn.dataset.placeId;
-            if (placeId && onSelectPlace) {
-                onSelectPlace(placeId);
+    // Gắn sự kiện bookmark sự kiện
+    container.querySelectorAll('.event-bookmark-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const evtId = btn.dataset.eventId;
+            if (evtId && onToggleBookmark) {
+                onToggleBookmark(evtId);
             }
         });
     });
+
+    // Gắn sự kiện action nút bấm trên event card (RSVP hoặc xem modal)
+    container.querySelectorAll('.event-action-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const actionType = btn.dataset.actionType;
+            const targetModal = btn.dataset.targetModal;
+            const evtId = btn.dataset.eventId;
+
+            if (actionType === 'modal' && targetModal && onOpenFestivalModal) {
+                onOpenFestivalModal(targetModal);
+            } else if (onRsvpEvent) {
+                const targetEvent = allMeetups.find(e => e.id === evtId);
+                if (targetEvent) {
+                    onRsvpEvent(targetEvent);
+                }
+            }
+        });
+    });
+
+    // Gắn sự kiện nút Đăng ký tổ chức / Tạo sự kiện
+    const btnHost = container.querySelector('#btnOpenHostEvent');
+    const btnCreate = container.querySelector('#btnCreateNewEvent');
+    const btnBottomSubmit = container.querySelector('#btnBottomHostSubmit');
+    [btnHost, btnCreate, btnBottomSubmit].forEach(btn => {
+        if (btn) {
+            btn.addEventListener('click', () => {
+                if (onOpenHostModal) {
+                    onOpenHostModal();
+                } else if (window.ViVuApp?.openHostEventModal) {
+                    window.ViVuApp.openHostEventModal();
+                }
+            });
+        }
+    });
+
+    // Gắn sự kiện nút Nhận thông báo & Lưu lịch
+    const btnRemind = container.querySelector('#btnRemindFestival');
+    if (btnRemind) {
+        btnRemind.addEventListener('click', () => {
+            if (window.ViVuApp?.showNotification) {
+                window.ViVuApp.showNotification('Đã lưu lịch Đại lễ Ok Om Bok 2026 vào thiết bị của bạn!');
+            } else {
+                alert('Đã lưu lịch Đại lễ Ok Om Bok 2026 vào thiết bị của bạn!');
+            }
+        });
+    }
+
+    // Gắn sự kiện tìm hiểu quy chế
+    const btnHelp = container.querySelector('#btnBottomHostHelp');
+    if (btnHelp) {
+        btnHelp.addEventListener('click', () => {
+            if (window.ViVuApp?.showNotification) {
+                window.ViVuApp.showNotification('Quy chế tổ chức: Các sự kiện phi thương mại, tôn vinh văn hóa địa phương Trà Vinh được hỗ trợ truyền thông hoàn toàn miễn phí!');
+            } else {
+                alert('Quy chế: Các sự kiện văn hóa, workshop phi thương mại tại Trà Vinh được hỗ trợ truyền thông miễn phí 100%!');
+            }
+        });
+    }
 }
 
 /**
- * Render Modal Cẩm Nang Chi Tiết Diễn Biến Lễ Hội
+ * Render Modal Cẩm Nang Chi Tiết Diễn Biến Lễ Hội (Stitch Design System - Hỗ trợ Ok Om Bok 12-Column Layout)
  */
-export function renderFestivalDetailModal(festival, allFestivals = [], onSelectPlace, onSelectOtherFestival) {
+export function renderFestivalDetailModal(festival, allFestivals = [], onSelectPlace, onSelectOtherFestival, activeTimelineDay = 'day1') {
     const container = document.getElementById('festivalModalContainer');
     if (!container || !festival) return;
 
-    container.innerHTML = `
-        <div class="max-h-[85vh] overflow-y-auto">
-            <!-- Hero Banner Modal -->
-            <div class="relative w-full aspect-[16/8] sm:aspect-[21/9] bg-stone-900 overflow-hidden">
-                <img src="${festival.heroImage}" alt="${festival.name}" class="w-full h-full object-cover">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+    // Kiểm tra xem có dữ liệu chuyên sâu Ok Om Bok không
+    const isOkOmBok = festival.id === 'ok-om-bok' || !!festival.timelineDays;
 
-                <div class="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 text-white space-y-1.5">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${festival.badgeColor}">
-                            ${festival.seasonName}
+    if (isOkOmBok) {
+        // GIAO DIỆN CHUYÊN SÂU OK OM BOK (STITCH 12-COLUMN DETAIL LAYOUT)
+        const daysData = festival.timelineDays || {};
+        const currentDayKey = activeTimelineDay === 'day2' ? 'day2' : 'day1';
+        const currentDayEvents = daysData[currentDayKey]?.events || festival.timeline || [];
+
+        container.innerHTML = `
+            <div class="max-h-[90vh] overflow-y-auto">
+                <!-- Top Breadcrumb & Quick Actions Bar -->
+                <div class="w-full bg-surface-container-lowest dark:bg-zinc-900 border-b border-outline-variant/30 dark:border-zinc-800 sticky top-0 z-20">
+                    <div class="px-6 py-3 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-2 font-caption text-xs text-on-surface-variant dark:text-zinc-400 truncate">
+                            <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">home</span>
+                            <span>Trang chủ</span>
+                            <span class="material-symbols-outlined text-[14px] text-outline-variant">chevron_right</span>
+                            <span>Sự kiện &amp; Gặp gỡ</span>
+                            <span class="material-symbols-outlined text-[14px] text-outline-variant">chevron_right</span>
+                            <span class="text-on-surface dark:text-zinc-100 font-bold truncate max-w-[260px]">${escapeHtml(festival.name)}</span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button id="btnModalShare" type="button" aria-label="Chia sẻ sự kiện"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 dark:hover:bg-zinc-700 font-button text-xs text-on-surface-variant dark:text-zinc-300 transition-colors min-h-[44px]">
+                                <span class="material-symbols-outlined text-[18px]">share</span>
+                                <span class="hidden sm:inline">Chia sẻ</span>
+                            </button>
+                            <button id="btnModalBookmark" type="button" aria-label="Lưu sự kiện"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 dark:hover:bg-zinc-700 font-button text-xs text-on-surface-variant dark:text-zinc-300 transition-colors min-h-[44px]">
+                                <span class="material-symbols-outlined text-[18px]">bookmark_add</span>
+                                <span class="hidden sm:inline">Lưu sự kiện</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hero Visual Showcase -->
+                <div class="relative w-full overflow-hidden bg-primary-container min-h-[380px] lg:min-h-[420px] flex flex-col justify-end p-6 sm:p-10 shadow-md">
+                    <!-- Background Image with Overlay -->
+                    <img alt="${escapeHtml(festival.name)}"
+                        class="absolute inset-0 w-full h-full object-cover mix-blend-luminosity opacity-40"
+                        src="${festival.heroImage}"/>
+                    <div class="absolute inset-0 bg-gradient-to-t from-primary via-primary/80 to-transparent"></div>
+
+                    <!-- Content inside Hero -->
+                    <div class="relative z-10 flex flex-col gap-3 max-w-4xl">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="px-3 py-1 rounded-full bg-on-tertiary-container text-white font-badge text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs font-semibold">
+                                <span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+                                ${escapeHtml(festival.badge || 'Di sản phi vật thể Quốc gia')}
+                            </span>
+                            <span class="px-3 py-1 rounded-full bg-secondary text-white font-badge text-xs flex items-center gap-1.5 font-semibold">
+                                <span class="material-symbols-outlined text-[15px]">diversity_3</span>
+                                Lễ hội Lớn Nhất Năm
+                            </span>
+                            <span class="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white font-caption text-xs flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-[15px]">event</span>
+                                ${escapeHtml(festival.lunarDate)}
+                            </span>
+                        </div>
+                        <h1 class="font-headline-xl text-2xl sm:text-3xl lg:text-4xl text-white font-bold leading-tight drop-shadow-xs">
+                            ${escapeHtml(festival.name)} &amp; Giải Đua Ghe Ngo Trà Vinh 2026
+                        </h1>
+                        <p class="font-body-lg text-xs sm:text-sm text-emerald-100 max-w-3xl leading-relaxed">
+                            ${escapeHtml(festival.summary)}
+                        </p>
+                        <div class="flex flex-wrap items-center gap-5 pt-2 font-caption text-xs text-emerald-100">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-secondary-fixed text-[18px]">location_on</span>
+                                <span class="font-semibold text-white">${escapeHtml(festival.locationName)}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-secondary-fixed text-[18px]">group</span>
+                                <span>Dự kiến hơn 120.000 lượt du khách và kiều bào</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-secondary-fixed text-[18px]">confirmation_number</span>
+                                <span class="text-secondary-fixed font-bold">Vào cổng tự do</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Grid Content: 12 Columns -->
+                <div class="p-6 sm:p-8 lg:p-10 w-full">
+                    <div class="grid grid-cols-12 gap-8 items-start">
+                        
+                        <!-- LEFT COLUMN: Cultural Details, Timeline, Logistics, Community (8 cols ~ 65%) -->
+                        <div class="col-span-12 lg:col-span-8 flex flex-col gap-8">
+                            
+                            <!-- 1. Cultural Significance Overview -->
+                            <article class="bg-surface-container-lowest dark:bg-zinc-900 p-6 sm:p-8 rounded-2xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-6">
+                                <div class="flex items-center gap-3">
+                                    <span class="p-2.5 rounded-xl bg-secondary/10 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400">
+                                        <span class="material-symbols-outlined text-[24px]">nightlight</span>
+                                    </span>
+                                    <div>
+                                        <span class="font-caption text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Ý Nghĩa Phong Tục Cổ Truyền</span>
+                                        <h2 class="font-headline-md text-lg sm:text-xl text-on-surface dark:text-zinc-100 font-bold">Tục Cúng Trăng &amp; Nét Đẹp Đút Cốm Dẹp May Mắn</h2>
+                                    </div>
+                                </div>
+                                <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                    ${escapeHtml(festival.significance)}
+                                </p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    ${(festival.culturalHighlights || []).map(hl => `
+                                        <div class="p-5 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700/60 flex flex-col gap-2">
+                                            <div class="flex items-center gap-2 text-secondary dark:text-emerald-400 font-headline-sm text-sm sm:text-base font-bold">
+                                                <span class="material-symbols-outlined text-[22px]">${hl.icon || 'bakery_dining'}</span>
+                                                ${escapeHtml(hl.title)}
+                                            </div>
+                                            <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                                ${escapeHtml(hl.desc)}
+                                            </p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </article>
+
+                            <!-- 2. Interactive Detailed Timeline Section -->
+                            <section class="bg-surface-container-lowest dark:bg-zinc-900 p-6 sm:p-8 rounded-2xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-6">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="p-2.5 rounded-xl bg-primary-container text-white">
+                                            <span class="material-symbols-outlined text-[24px]">schedule</span>
+                                        </span>
+                                        <div>
+                                            <span class="font-caption text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Chương Trình Chi Tiết</span>
+                                            <h2 class="font-headline-md text-lg sm:text-xl text-on-surface dark:text-zinc-100 font-bold">Lịch Trình Sự Kiện &amp; Khai Mạc</h2>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 bg-surface-container-low dark:bg-zinc-800 p-1 rounded-xl self-start sm:self-auto border border-outline-variant/30 dark:border-zinc-700">
+                                        <button type="button" id="btnTimelineDay1" data-day="day1"
+                                            class="timeline-day-btn px-4 py-2 rounded-lg font-caption text-xs font-bold transition-all min-h-[44px] ${
+                                                currentDayKey === 'day1'
+                                                    ? 'bg-surface-container-lowest dark:bg-zinc-700 text-secondary dark:text-emerald-300 shadow-xs'
+                                                    : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200'
+                                            }">
+                                            Ngày 14/11
+                                        </button>
+                                        <button type="button" id="btnTimelineDay2" data-day="day2"
+                                            class="timeline-day-btn px-4 py-2 rounded-lg font-caption text-xs font-bold transition-all min-h-[44px] ${
+                                                currentDayKey === 'day2'
+                                                    ? 'bg-surface-container-lowest dark:bg-zinc-700 text-secondary dark:text-emerald-300 shadow-xs'
+                                                    : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200'
+                                            }">
+                                            Ngày 15/11
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Timeline Items -->
+                                <div id="timelineEventsContainer" class="relative flex flex-col gap-6 before:absolute before:top-4 before:bottom-4 before:left-[19px] before:w-0.5 before:bg-surface-container-highest dark:before:bg-zinc-700">
+                                    ${currentDayEvents.map(evt => `
+                                        <div class="timeline-event-item relative flex items-start gap-4 sm:gap-5">
+                                            <div class="relative z-10 w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center shadow-xs shrink-0">
+                                                <span class="material-symbols-outlined text-[20px]">${evt.icon || 'event'}</span>
+                                            </div>
+                                            <div class="flex-1 bg-surface-container-low dark:bg-zinc-800/80 p-5 sm:p-6 rounded-2xl flex flex-col gap-3 border border-outline-variant/30 dark:border-zinc-700/60">
+                                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="px-2.5 py-1 rounded bg-secondary/15 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 font-caption text-xs font-bold">
+                                                            ${escapeHtml(evt.time)}
+                                                        </span>
+                                                        <h3 class="font-headline-sm text-sm sm:text-base font-bold text-on-surface dark:text-zinc-100">
+                                                            ${escapeHtml(evt.title)}
+                                                        </h3>
+                                                    </div>
+                                                    ${evt.location ? `
+                                                        <span class="text-caption text-xs text-on-surface-variant dark:text-zinc-400 flex items-center gap-1">
+                                                            <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">pin_drop</span>
+                                                            ${escapeHtml(evt.location)}
+                                                        </span>
+                                                    ` : ''}
+                                                </div>
+                                                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                                    ${escapeHtml(evt.desc)}
+                                                </p>
+                                                ${evt.image ? `
+                                                    <div class="relative rounded-xl overflow-hidden shadow-xs mt-1 aspect-[16/9] sm:aspect-[21/9]">
+                                                        <img alt="${escapeHtml(evt.title)}" class="w-full h-full object-cover hover:scale-102 transition-transform duration-500" src="${evt.image}"/>
+                                                        ${evt.highlight ? `
+                                                            <div class="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-lg text-white font-caption text-xs flex items-center gap-2">
+                                                                <span class="material-symbols-outlined text-[16px] text-secondary-fixed">photo_camera</span>
+                                                                ${escapeHtml(evt.highlight)}
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>
+                                                ` : ''}
+                                                ${evt.tip ? `
+                                                    <div class="p-3 bg-secondary/10 dark:bg-emerald-950/40 rounded-xl flex items-center gap-2.5 text-xs text-secondary dark:text-emerald-300">
+                                                        <span class="material-symbols-outlined text-[20px] shrink-0">lightbulb</span>
+                                                        <span>${escapeHtml(evt.tip)}</span>
+                                                    </div>
+                                                ` : ''}
+                                                ${evt.tags ? `
+                                                    <div class="flex items-center gap-2 flex-wrap pt-1">
+                                                        ${evt.tags.map(tag => `
+                                                            <span class="px-2.5 py-1 rounded bg-surface-container-lowest dark:bg-zinc-700 font-caption text-[11px] text-on-surface-variant dark:text-zinc-300 font-medium">
+                                                                ${escapeHtml(tag)}
+                                                            </span>
+                                                        `).join('')}
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </section>
+
+                            <!-- 3. Logistics Map & Sector Navigation -->
+                            <section class="bg-surface-container-lowest dark:bg-zinc-900 p-6 sm:p-8 rounded-2xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-6" id="map-section">
+                                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div class="flex items-center gap-3">
+                                        <span class="p-2.5 rounded-xl bg-secondary/10 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400">
+                                            <span class="material-symbols-outlined text-[24px]">map</span>
+                                        </span>
+                                        <div>
+                                            <span class="font-caption text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Sơ Đồ Luồng Di Chuyển</span>
+                                            <h2 class="font-headline-md text-lg sm:text-xl text-on-surface dark:text-zinc-100 font-bold">Khu Vực Khán Đài, Bãi Xe &amp; Ẩm Thực</h2>
+                                        </div>
+                                    </div>
+                                    <!-- Filter markers toggles -->
+                                    <div class="flex items-center gap-2 font-caption text-xs flex-wrap">
+                                        <span class="px-2.5 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 font-semibold flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-secondary"></span> Khán đài A
+                                        </span>
+                                        <span class="px-2.5 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 font-semibold flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-[#EA580C]"></span> Khán đài B
+                                        </span>
+                                        <span class="px-2.5 py-1 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-on-tertiary-container"></span> Bãi xe P1-P4
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Static Map Card Preview -->
+                                <div class="w-full h-64 sm:h-72 bg-cover bg-center rounded-2xl relative overflow-hidden shadow-xs flex items-end p-4"
+                                    style="background-image: url('/ao bà om.jpg');">
+                                    <div class="absolute inset-0 bg-black/40"></div>
+                                    <div class="relative z-10 bg-surface-container-lowest/95 dark:bg-zinc-900/95 backdrop-blur-md p-4 rounded-xl shadow-md w-full max-w-md flex items-center justify-between gap-3">
+                                        <div class="flex flex-col min-w-0">
+                                            <span class="font-button text-xs sm:text-sm font-bold text-on-surface dark:text-zinc-100 truncate">Khu Vực Trung Tâm Ao Bà Om &amp; Chùa Âng</span>
+                                            <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Phường 8, TP. Trà Vinh (Cách trung tâm 5km)</span>
+                                        </div>
+                                        <a class="px-3.5 py-2 rounded-lg bg-secondary hover:bg-emerald-700 text-white font-caption text-xs font-bold flex items-center gap-1 shrink-0 transition-colors min-h-[44px]"
+                                            href="https://maps.google.com/?q=Ao+Ba+Om+Tra+Vinh" target="_blank" rel="noopener noreferrer">
+                                            <span>Chỉ Đường</span>
+                                            <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- Important venue notices -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 flex flex-col gap-1.5 border border-outline-variant/30 dark:border-zinc-700/60">
+                                        <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[22px]">local_parking</span>
+                                        <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-100">Bãi đỗ xe tập trung</span>
+                                        <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Sức chứa 4.000 xe máy &amp; 300 ô tô tại đường Nguyễn Thị Minh Khai.</span>
+                                    </div>
+                                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 flex flex-col gap-1.5 border border-outline-variant/30 dark:border-zinc-700/60">
+                                        <span class="material-symbols-outlined text-on-tertiary-container text-[22px]">emergency</span>
+                                        <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-100">Trạm Y tế trực chiến</span>
+                                        <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">3 trạm cấp cứu lưu động bố trí cạnh Bảo tàng Văn hóa Khmer.</span>
+                                    </div>
+                                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 flex flex-col gap-1.5 border border-outline-variant/30 dark:border-zinc-700/60">
+                                        <span class="material-symbols-outlined text-primary dark:text-emerald-300 text-[22px]">restaurant</span>
+                                        <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-100">Phố ẩm thực 120 gian</span>
+                                        <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Phục vụ bún nước lèo, bánh tét Trà Cuôn, bánh canh Bến Có nóng hổi.</span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- 4. Community Q&A and Discussions -->
+                            <section class="bg-surface-container-lowest dark:bg-zinc-900 p-6 sm:p-8 rounded-2xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-6">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <span class="p-2.5 rounded-xl bg-secondary/10 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400">
+                                            <span class="material-symbols-outlined text-[24px]">forum</span>
+                                        </span>
+                                        <div>
+                                            <span class="font-caption text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Hỏi Đáp Du Khách</span>
+                                            <h2 class="font-headline-md text-lg sm:text-xl text-on-surface dark:text-zinc-100 font-bold">Thảo Luận Trực Tiếp (48 phản hồi)</h2>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Input bar -->
+                                <form id="festivalQuestionForm" class="flex gap-3 items-center">
+                                    <div class="relative flex-1">
+                                        <input name="questionText" class="w-full h-11 px-4 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700 transition-all"
+                                            placeholder="Đặt câu hỏi về chỗ ngồi, bãi xe hoặc lịch thi đấu ghe Ngo..." type="text" required/>
+                                    </div>
+                                    <button type="submit" class="px-5 h-11 rounded-xl bg-primary hover:bg-primary-container text-white font-button text-xs font-semibold transition-colors min-h-[44px] flex items-center gap-1.5 shrink-0">
+                                        <span>Gửi</span>
+                                        <span class="material-symbols-outlined text-[16px]">send</span>
+                                    </button>
+                                </form>
+
+                                <!-- Discussion threads -->
+                                <div class="flex flex-col gap-4">
+                                    ${(festival.faqDiscussions || []).map(comm => `
+                                        <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 flex flex-col gap-3 border border-outline-variant/30 dark:border-zinc-700/60">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-8 h-8 rounded-full ${comm.avatarBg || 'bg-secondary text-white'} flex items-center justify-center font-bold text-xs">
+                                                        ${escapeHtml(comm.avatarText || 'TV')}
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-100">${escapeHtml(comm.author)}</span>
+                                                        <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400 ml-2">${escapeHtml(comm.role)}</span>
+                                                    </div>
+                                                </div>
+                                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 flex items-center gap-1">
+                                                    <span class="material-symbols-outlined text-[14px]">thumb_up</span> ${comm.likes || 12}
+                                                </span>
+                                            </div>
+                                            <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                                ${escapeHtml(comm.question)}
+                                            </p>
+                                            ${comm.reply ? `
+                                                <div class="ml-4 p-3 rounded-lg bg-surface-container-lowest dark:bg-zinc-700/80 flex flex-col gap-1 border-l-2 border-primary">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="px-2 py-0.5 rounded bg-primary-container text-white font-caption text-[10px] font-bold">${escapeHtml(comm.reply.author)}</span>
+                                                        <span class="font-caption text-[11px] text-outline-variant">${escapeHtml(comm.reply.time)}</span>
+                                                    </div>
+                                                    <p class="font-body-sm text-xs text-on-surface dark:text-zinc-200">
+                                                        ${escapeHtml(comm.reply.text)}
+                                                    </p>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </section>
+                        </div>
+
+                        <!-- RIGHT COLUMN: Sticky Sidebar for Booking, Countdown, Organizers & Extras (4 cols ~ 35%) -->
+                        <aside class="col-span-12 lg:col-span-4 flex flex-col gap-6 sticky top-20">
+                            
+                            <!-- 1. Countdown CTA Card -->
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 p-6 rounded-2xl shadow-md border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-5">
+                                <div class="bg-primary p-4 rounded-xl flex flex-col items-center justify-center text-center gap-2">
+                                    <span class="font-caption text-xs text-secondary-fixed uppercase tracking-wider font-semibold">
+                                        Đếm Ngược Giờ Khai Mạc
+                                    </span>
+                                    <div class="flex items-center gap-2.5 text-white">
+                                        <div class="flex flex-col items-center">
+                                            <span class="font-headline-lg text-2xl font-bold cd-days-val" id="modal-cd-days">18</span>
+                                            <span class="font-caption text-[10px] uppercase text-white/70">Ngày</span>
+                                        </div>
+                                        <span class="text-xl font-bold text-secondary-fixed">:</span>
+                                        <div class="flex flex-col items-center">
+                                            <span class="font-headline-lg text-2xl font-bold cd-hours-val" id="modal-cd-hours">06</span>
+                                            <span class="font-caption text-[10px] uppercase text-white/70">Giờ</span>
+                                        </div>
+                                        <span class="text-xl font-bold text-secondary-fixed">:</span>
+                                        <div class="flex flex-col items-center">
+                                            <span class="font-headline-lg text-2xl font-bold cd-minutes-val" id="modal-cd-minutes">42</span>
+                                            <span class="font-caption text-[10px] uppercase text-white/70">Phút</span>
+                                        </div>
+                                        <span class="text-xl font-bold text-secondary-fixed">:</span>
+                                        <div class="flex flex-col items-center">
+                                            <span class="font-headline-lg text-2xl font-bold text-[#FFB599] cd-seconds-val" id="modal-cd-seconds">15</span>
+                                            <span class="font-caption text-[10px] uppercase text-white/70">Giây</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Free Grandstand Pass Form -->
+                                <div class="flex flex-col gap-3">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="font-headline-sm text-sm sm:text-base font-bold text-on-surface dark:text-zinc-100">Đăng Ký Chỗ Ngồi Miễn Phí</h3>
+                                        <span class="px-2 py-0.5 rounded bg-secondary/15 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 font-caption text-[11px] font-bold">Còn 142 vé</span>
+                                    </div>
+                                    <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                                        Vé xem lễ cúng Trăng tại khán đài A bờ hồ Ao Bà Om và khán đài có mái che xem đua ghe Ngo trên sông Long Bình.
+                                    </p>
+                                    <form id="grandstandRsvpForm" class="flex flex-col gap-3 pt-2">
+                                        <div>
+                                            <label class="block font-caption text-xs text-on-surface-variant dark:text-zinc-400 mb-1 font-medium">Họ và tên</label>
+                                            <input name="fullname" class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700" required="" type="text" value="Trần Tiến"/>
+                                        </div>
+                                        <div>
+                                            <label class="block font-caption text-xs text-on-surface-variant dark:text-zinc-400 mb-1 font-medium">Số điện thoại (Nhận vé Zalo/SMS)</label>
+                                            <input name="phone" class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700" placeholder="0901 xxx xxx" required="" type="tel"/>
+                                        </div>
+                                        <div>
+                                            <label class="block font-caption text-xs text-on-surface-variant dark:text-zinc-400 mb-1 font-medium">Chọn khu vực ưu tiên</label>
+                                            <select name="sector" class="w-full h-11 px-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700">
+                                                <option value="long-binh">Khán đài Sông Long Bình (Xem Đua Ghe Ngo Sáng 14/11 &amp; 15/11)</option>
+                                                <option value="ao-ba-om">Khán đài Ao Bà Om (Đêm Cúng Trăng &amp; Thả Hoa Đăng Tối 15/11)</option>
+                                                <option value="combo">Combo Trọn gói Cả 2 Địa điểm</option>
+                                            </select>
+                                        </div>
+                                        <button class="w-full py-3.5 px-4 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-button text-xs sm:text-sm font-semibold shadow-xs transition-all flex items-center justify-center gap-2 mt-1 min-h-[44px]" type="submit">
+                                            <span class="material-symbols-outlined text-[18px]">airplane_ticket</span>
+                                            <span>Xác Nhận Giữ Chỗ Miễn Phí</span>
+                                        </button>
+                                    </form>
+                                    <div class="flex items-center gap-1.5 text-on-surface-variant dark:text-zinc-400 font-caption text-[11px] justify-center pt-1">
+                                        <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[16px]">verified_user</span>
+                                        <span>Không thu phí • Quản lý bởi Sở VHTT&amp;DL Trà Vinh</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Organizers & Support Info -->
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 p-6 rounded-2xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Đơn Vị Chủ Trì &amp; Hỗ Trợ</span>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-primary-container text-white flex items-center justify-center font-bold">
+                                        <span class="material-symbols-outlined text-[20px]">account_balance</span>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-100">Sở VH-TT-DL Tỉnh Trà Vinh</span>
+                                        <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Cơ quan tổ chức chính thức</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-secondary/15 text-secondary dark:text-emerald-400 flex items-center justify-center font-bold">
+                                        <span class="material-symbols-outlined text-[20px]">groups</span>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-100">Cộng Đồng ViVuTraVinh</span>
+                                        <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Điều phối tình nguyện &amp; Hướng dẫn viên</span>
+                                    </div>
+                                </div>
+                                <div class="pt-2 flex flex-col gap-1.5 font-caption text-xs text-on-surface-variant dark:text-zinc-400 border-t border-outline-variant/20 dark:border-zinc-800">
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">phone_in_talk</span>
+                                        <span>Hotline cứu trợ du lịch: <strong>1900 8122</strong></span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">mail</span>
+                                        <span>hotro@vivutravinh.vn</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 3. Satellite Concurrent Events Card -->
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 p-6 rounded-2xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-caption text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Sự Kiện Vệ Tinh Cùng Kỳ</span>
+                                    <span class="material-symbols-outlined text-outline-variant text-[18px]">celebration</span>
+                                </div>
+                                <div class="flex flex-col gap-3">
+                                    ${(festival.satelliteEvents || []).map(sat => `
+                                        <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 flex items-start gap-3 border border-outline-variant/20 dark:border-zinc-700/50">
+                                            <span class="p-2 rounded-lg bg-surface-container-highest dark:bg-zinc-700 text-secondary dark:text-emerald-400 shrink-0">
+                                                <span class="material-symbols-outlined text-[18px]">${sat.icon || 'storefront'}</span>
+                                            </span>
+                                            <div class="flex flex-col min-w-0">
+                                                <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-100 truncate">${escapeHtml(sat.title)}</span>
+                                                <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">${escapeHtml(sat.time)}</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- 4. Nearby Eco-stay Recommendations -->
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 p-6 rounded-2xl shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-caption text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Lưu Trú Sinh Thái Gợi Ý</span>
+                                    <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-semibold">Gần sự kiện</span>
+                                </div>
+                                <div class="flex flex-col gap-3">
+                                    ${(festival.ecoStays || []).map(stay => `
+                                        <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors">
+                                            <img class="w-14 h-14 rounded-xl object-cover shrink-0" alt="${escapeHtml(stay.name)}" src="${stay.image || '/ao bà om.jpg'}"/>
+                                            <div class="flex flex-col flex-1 min-w-0">
+                                                <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-100 truncate">${escapeHtml(stay.name)}</span>
+                                                <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">${escapeHtml(stay.location)}</span>
+                                                <span class="font-caption text-secondary dark:text-emerald-400 font-bold">${escapeHtml(stay.price)}</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+
+                <!-- Bottom CTA / Cultural Footnote Banner -->
+                <div class="p-6 sm:p-8 lg:p-10 pt-0 w-full">
+                    <div class="w-full bg-primary-container rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-md text-white">
+                        <div class="flex flex-col gap-2 max-w-2xl">
+                            <span class="font-badge text-xs text-secondary-fixed uppercase tracking-wider font-semibold">Đồng Hành Cùng Du Lịch Bản Địa Có Trách Nhiệm</span>
+                            <h3 class="font-headline-md text-lg sm:text-xl font-bold leading-tight">Chung tay gìn giữ vệ sinh &amp; văn hóa tâm linh Ao Bà Om</h3>
+                            <p class="font-body-md text-xs sm:text-sm text-emerald-100">
+                                Hãy cùng ViVuTraVinh giữ trọn vẹn sự thanh tịnh của không gian lễ hội: sử dụng hoa đăng tự hủy sinh học từ bột gạo, hạn chế túi nilon và luôn giữ trang phục trang nhã khi viếng Chùa Âng.
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-4 shrink-0">
+                            <button id="btnGreenVolunteer" type="button"
+                                class="px-5 py-3 rounded-xl bg-secondary hover:bg-emerald-600 text-white font-button text-xs sm:text-sm font-semibold transition-colors flex items-center gap-2 min-h-[44px]">
+                                <span class="material-symbols-outlined text-[18px]">volunteer_activism</span>
+                                <span>Đăng Ký Đội Tình Nguyện Xanh</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Gắn sự kiện chuyển tab Ngày 14/11 & Ngày 15/11
+        container.querySelectorAll('.timeline-day-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const day = btn.dataset.day;
+                renderFestivalDetailModal(festival, allFestivals, onSelectPlace, onSelectOtherFestival, day);
+            });
+        });
+
+        // Gắn sự kiện submit form đăng ký chỗ ngồi khán đài
+        const rsvpForm = container.querySelector('#grandstandRsvpForm');
+        if (rsvpForm) {
+            rsvpForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(rsvpForm);
+                const fullname = formData.get('fullname');
+                const phone = formData.get('phone');
+                const sector = formData.get('sector');
+
+                if (window.ViVuApp?.handleGrandstandRsvp) {
+                    window.ViVuApp.handleGrandstandRsvp({ fullname, phone, sector });
+                } else {
+                    alert(`Đã giữ chỗ miễn phí thành công cho ${fullname} (${phone})! Mã vé điện tử đã gửi về Zalo của bạn.`);
+                }
+            });
+        }
+
+        // Gắn sự kiện submit form hỏi đáp du khách
+        const questionForm = container.querySelector('#festivalQuestionForm');
+        if (questionForm) {
+            questionForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = questionForm.querySelector('input[name="questionText"]');
+                if (input && input.value.trim()) {
+                    if (window.ViVuApp?.showNotification) {
+                        window.ViVuApp.showNotification('Câu hỏi của bạn đã được gửi đến Ban Quản Trị ViVuTraVinh!');
+                    } else {
+                        alert('Cảm ơn bạn! Câu hỏi đã được gửi thành công.');
+                    }
+                    input.value = '';
+                }
+            });
+        }
+
+        // Gắn sự kiện chia sẻ & lưu
+        const btnShare = container.querySelector('#btnModalShare');
+        if (btnShare) {
+            btnShare.addEventListener('click', () => {
+                navigator.clipboard?.writeText(window.location.href);
+                if (window.ViVuApp?.showNotification) {
+                    window.ViVuApp.showNotification('Đã sao chép liên kết cẩm nang Đại lễ Ok Om Bok!');
+                }
+            });
+        }
+
+        const btnBookmark = container.querySelector('#btnModalBookmark');
+        if (btnBookmark) {
+            btnBookmark.addEventListener('click', () => {
+                if (window.ViVuApp?.showNotification) {
+                    window.ViVuApp.showNotification('Đã lưu sự kiện Ok Om Bok vào mục Đã lưu của bạn!');
+                }
+            });
+        }
+
+        const btnVolunteer = container.querySelector('#btnGreenVolunteer');
+        if (btnVolunteer) {
+            btnVolunteer.addEventListener('click', () => {
+                if (window.ViVuApp?.showNotification) {
+                    window.ViVuApp.showNotification('Cảm ơn bạn đã đăng ký tham gia Đội Tình Nguyện Xanh Ao Bà Om!');
+                } else {
+                    alert('Đã ghi nhận đăng ký tham gia Đội Tình Nguyện Xanh!');
+                }
+            });
+        }
+
+    } else {
+        // GIAO DIỆN CẨM NANG CHO CÁC LỄ HỘI MÙA KHÁC (Chôl Chnăm Thmây, Vu Lan, Nghinh Ông, Trái Cây, Sêne Đôlta)
+        container.innerHTML = `
+            <div class="max-h-[85vh] overflow-y-auto">
+                <!-- Hero Banner Modal -->
+                <div class="relative w-full aspect-[16/8] sm:aspect-[21/9] bg-stone-900 overflow-hidden">
+                    <img src="${festival.heroImage}" alt="${escapeHtml(festival.name)}" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+
+                    <div class="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 text-white space-y-1.5">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${festival.badgeColor}">
+                                ${escapeHtml(festival.seasonName)}
+                            </span>
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 backdrop-blur-md text-amber-200">
+                                ${escapeHtml(festival.badge)}
+                            </span>
+                        </div>
+
+                        <span class="text-xs text-amber-300 font-medium italic block">
+                            ${escapeHtml(festival.originalName)}
                         </span>
-                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 backdrop-blur-md text-amber-200">
-                            ${festival.badge}
-                        </span>
+
+                        <h3 class="text-xl sm:text-3xl font-black font-serif text-white leading-tight drop-shadow">
+                            ${escapeHtml(festival.name)}
+                        </h3>
+                    </div>
+                </div>
+
+                <div class="p-5 sm:p-8 space-y-6">
+                    <!-- Thẻ Tóm Tắt Thời Gian & Địa Điểm -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 space-y-1">
+                            <span class="text-[10px] uppercase font-bold text-secondary dark:text-emerald-400 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">event</span> Thời gian tổ chức:
+                            </span>
+                            <div class="text-xs sm:text-sm font-black text-on-surface dark:text-zinc-100">
+                                ${escapeHtml(festival.lunarDate)}
+                            </div>
+                            <div class="text-[11px] text-on-surface-variant dark:text-zinc-400">
+                                Dương lịch: ${escapeHtml(festival.solarDateEstimate)}
+                            </div>
+                        </div>
+
+                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 space-y-1">
+                            <span class="text-[10px] uppercase font-bold text-secondary dark:text-emerald-400 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">location_on</span> Địa điểm tâm điểm:
+                            </span>
+                            <div class="text-xs sm:text-sm font-black text-on-surface dark:text-zinc-100">
+                                ${escapeHtml(festival.locationName)}
+                            </div>
+                            ${festival.locationPlaceId ? `
+                                <button type="button" data-place-id="${festival.locationPlaceId}" class="modal-goto-place-link text-[11px] font-bold text-secondary dark:text-emerald-400 hover:underline flex items-center gap-0.5 pt-0.5 min-h-[44px]">
+                                    Xem vị trí chi tiết trên bản đồ ViVu <span class="material-symbols-outlined text-xs">north_east</span>
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
 
-                    <span class="text-xs text-amber-300 font-medium italic block">
-                        ${festival.originalName}
-                    </span>
+                    <!-- Ý Nghĩa & Nguồn Gốc Văn Hóa -->
+                    <div class="space-y-2 p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-300/40 dark:border-amber-800/40">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-base text-amber-600">lightbulb</span>
+                            Ý Nghĩa Văn Hóa &amp; Tín Ngưỡng
+                        </h4>
+                        <p class="text-xs sm:text-sm text-on-surface dark:text-zinc-200 leading-relaxed font-medium">
+                            ${escapeHtml(festival.significance)}
+                        </p>
+                    </div>
 
-                    <h3 class="text-xl sm:text-3xl font-black font-serif text-white leading-tight drop-shadow">
-                        ${festival.name}
+                    <!-- DIỄN BIẾN LỄ HỘI DỰ KIẾN (TIMELINE) -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400 flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-base text-rose-500">schedule</span>
+                                Diễn Biến Sự Kiện &amp; Lịch Trình Chi Tiết
+                            </h4>
+                            <span class="text-[10px] text-on-surface-variant dark:text-zinc-400">Theo Khung Giờ Bản Địa</span>
+                        </div>
+
+                        <!-- Vertical Timeline -->
+                        <div class="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-amber-500 before:via-emerald-500 before:to-rose-500">
+                            ${(festival.timeline || []).map(item => `
+                                <div class="relative group">
+                                    <div class="absolute -left-6 top-1 w-5 h-5 rounded-full bg-surface dark:bg-zinc-800 border-2 border-primary dark:border-emerald-400 flex items-center justify-center text-primary dark:text-emerald-400 shadow-xs group-hover:scale-110 transition-transform">
+                                        <span class="material-symbols-outlined text-xs">${item.icon || 'event'}</span>
+                                    </div>
+                                    <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700/60 hover:border-primary/40 transition-all space-y-1">
+                                        <span class="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
+                                            ${escapeHtml(item.time)}
+                                        </span>
+                                        <h5 class="text-xs sm:text-sm font-bold text-on-surface dark:text-zinc-100 font-serif">
+                                            ${escapeHtml(item.title)}
+                                        </h5>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                            ${escapeHtml(item.desc)}
+                                        </p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- CẨM NANG & KINH NGHIỆM THỔ ĐỊA -->
+                    <div class="space-y-2.5 pt-2 border-t border-outline-variant/30 dark:border-zinc-800">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-base text-secondary dark:text-emerald-400">explore</span>
+                            Lời Khuyên Từ Thổ Địa Trà Vinh
+                        </h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            ${(festival.localTips || []).map(tip => `
+                                <div class="p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/50 text-xs text-on-surface-variant dark:text-zinc-300 flex items-start gap-2">
+                                    <span class="material-symbols-outlined text-sm text-amber-500 shrink-0 mt-0.5">verified</span>
+                                    <span class="leading-relaxed">${escapeHtml(tip)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- ẨM THỰC TRUYỀN THỐNG LỄ HỘI -->
+                    <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 to-orange-500/10 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-300/50 dark:border-amber-800/40 space-y-1.5">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-base text-amber-600">restaurant</span>
+                            Món Ngon Đặc Trưng Mùa Lễ Hội
+                        </h4>
+                        <p class="text-xs sm:text-sm text-on-surface dark:text-zinc-200 leading-relaxed font-medium">
+                            ${escapeHtml(festival.traditionalFood || '')}
+                        </p>
+                    </div>
+
+                    <!-- KHÁM PHÁ CÁC LỄ HỘI KHÁC -->
+                    <div class="pt-2 border-t border-outline-variant/30 dark:border-zinc-800 space-y-2">
+                        <span class="text-xs font-bold text-on-surface dark:text-zinc-200 block">
+                            Khám phá các ngày hội khác của Trà Vinh:
+                        </span>
+                        <div class="flex flex-wrap gap-2">
+                            ${allFestivals.filter(f => f.id !== festival.id).map(f => `
+                                <button type="button" data-switch-festival-id="${f.id}"
+                                    class="switch-fest-btn px-3 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-bold text-on-surface dark:text-zinc-200 border border-outline-variant/30 dark:border-zinc-700 transition-colors flex items-center gap-1 active:scale-95 min-h-[44px]">
+                                    <span>${escapeHtml(f.name.split('(')[0].trim())}</span>
+                                    <span class="material-symbols-outlined text-xs text-secondary">arrow_forward</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Gắn sự kiện bấm vào địa điểm liên kết
+        container.querySelectorAll('.modal-goto-place-link').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const pId = btn.dataset.placeId;
+                if (pId && onSelectPlace) {
+                    onSelectPlace(pId);
+                }
+            });
+        });
+
+        // Gắn sự kiện chuyển nhanh sang lễ hội khác
+        container.querySelectorAll('.switch-fest-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fId = btn.dataset.switchFestivalId;
+                if (fId && onSelectOtherFestival) {
+                    onSelectOtherFestival(fId);
+                }
+            });
+        });
+    }
+}
+
+/**
+ * Render Modal Đăng Ký Giữ Chỗ / Tham Gia Hoạt Động (Event RSVP Modal)
+ */
+export function renderEventRsvpModal(event, onSubmitRsvp) {
+    const container = document.getElementById('eventRsvpModalContainer');
+    if (!container || !event) return;
+
+    container.innerHTML = `
+        <div class="p-6 sm:p-8 flex flex-col gap-6">
+            <!-- Header with close -->
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex flex-col gap-1">
+                    <span class="px-2.5 py-1 rounded-full bg-secondary/15 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 font-caption text-xs font-bold w-fit">
+                        ${escapeHtml(event.category || 'Sự kiện')}
+                    </span>
+                    <h3 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100">
+                        Đăng Ký Tham Gia: ${escapeHtml(event.title)}
                     </h3>
                 </div>
             </div>
 
-            <div class="p-5 sm:p-8 space-y-6">
-                <!-- Thẻ Tóm Tắt Thời Gian & Địa Điểm -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 space-y-1">
-                        <span class="text-[10px] uppercase font-bold text-secondary dark:text-emerald-400 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">event</span> Thời gian tổ chức:
-                        </span>
-                        <div class="text-xs sm:text-sm font-black text-on-surface dark:text-zinc-100">
-                            ${festival.lunarDate}
-                        </div>
-                        <div class="text-[11px] text-on-surface-variant dark:text-zinc-400">
-                            Dương lịch: ${festival.solarDateEstimate}
-                        </div>
-                    </div>
-
-                    <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 space-y-1">
-                        <span class="text-[10px] uppercase font-bold text-secondary dark:text-emerald-400 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">location_on</span> Địa điểm tâm điểm:
-                        </span>
-                        <div class="text-xs sm:text-sm font-black text-on-surface dark:text-zinc-100">
-                            ${festival.locationName}
-                        </div>
-                        ${festival.locationPlaceId ? `
-                            <button type="button" data-place-id="${festival.locationPlaceId}" class="modal-goto-place-link text-[11px] font-bold text-secondary dark:text-emerald-400 hover:underline flex items-center gap-0.5 pt-0.5">
-                                Xem vị trí chi tiết trên bản đồ ViVu <span class="material-symbols-outlined text-xs">north_east</span>
-                            </button>
-                        ` : ''}
-                    </div>
+            <!-- Event Brief Card -->
+            <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700 flex flex-col gap-2 text-xs">
+                <div class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
+                    <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">schedule</span>
+                    <span><strong>Thời gian:</strong> ${escapeHtml(event.timeSchedule || '')}</span>
                 </div>
-
-                <!-- Ý Nghĩa & Nguồn Gốc Văn Hóa -->
-                <div class="space-y-2 p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-300/40 dark:border-amber-800/40">
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-base text-amber-600">lightbulb</span>
-                        Ý Nghĩa Văn Hóa & Tín Ngưỡng
-                    </h4>
-                    <p class="text-xs sm:text-sm text-on-surface dark:text-zinc-200 leading-relaxed font-medium">
-                        ${festival.significance}
-                    </p>
+                <div class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
+                    <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">location_on</span>
+                    <span><strong>Địa điểm:</strong> ${escapeHtml(event.location || '')}</span>
                 </div>
-
-                <!-- DIỄN BIẾN LỄ HỘI DỰ KIẾN (TIMELINE) -->
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400 flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-base text-rose-500">schedule</span>
-                            Diễn Biến Sự Kiện & Lịch Trình Chi Tiết
-                        </h4>
-                        <span class="text-[10px] text-on-surface-variant dark:text-zinc-400">Theo Khung Giờ Bản Địa</span>
-                    </div>
-
-                    <!-- Vertical Timeline -->
-                    <div class="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gradient-to-b before:from-amber-500 before:via-emerald-500 before:to-rose-500">
-                        ${festival.timeline.map((item, idx) => `
-                            <div class="relative group">
-                                <!-- Dot Icon -->
-                                <div class="absolute -left-6 top-1 w-5 h-5 rounded-full bg-surface dark:bg-zinc-800 border-2 border-primary dark:border-emerald-400 flex items-center justify-center text-primary dark:text-emerald-400 shadow-xs group-hover:scale-110 transition-transform">
-                                    <span class="material-symbols-outlined text-xs">${item.icon}</span>
-                                </div>
-
-                                <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700/60 hover:border-primary/40 transition-all space-y-1">
-                                    <span class="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
-                                        ${item.time}
-                                    </span>
-                                    <h5 class="text-xs sm:text-sm font-bold text-on-surface dark:text-zinc-100 font-serif">
-                                        ${item.title}
-                                    </h5>
-                                    <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
-                                        ${item.desc}
-                                    </p>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-
-                <!-- CẨM NANG & KINH NGHIỆM THỔ ĐỊA -->
-                <div class="space-y-2.5 pt-2 border-t border-outline-variant/30 dark:border-zinc-800">
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-base text-secondary dark:text-emerald-400">explore</span>
-                        Lời Khuyên Từ Thổ Địa Trà Vinh
-                    </h4>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        ${festival.localTips.map(tip => `
-                            <div class="p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/50 text-xs text-on-surface-variant dark:text-zinc-300 flex items-start gap-2">
-                                <span class="material-symbols-outlined text-sm text-amber-500 shrink-0 mt-0.5">verified</span>
-                                <span class="leading-relaxed">${tip}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-
-                <!-- ẨM THỰC TRUYỀN THỐNG LỄ HỘI -->
-                <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 to-orange-500/10 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-300/50 dark:border-amber-800/40 space-y-1.5">
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-base text-amber-600">restaurant</span>
-                        Món Ngon Đặc Trưng Mùa Lễ Hội
-                    </h4>
-                    <p class="text-xs sm:text-sm text-on-surface dark:text-zinc-200 leading-relaxed font-medium">
-                        ${festival.traditionalFood}
-                    </p>
-                </div>
-
-                <!-- KHÁM PHÁ CÁC LỄ HỘI KHÁC -->
-                <div class="pt-2 border-t border-outline-variant/30 dark:border-zinc-800 space-y-2">
-                    <span class="text-xs font-bold text-on-surface dark:text-zinc-200 block">
-                        Khám phá các ngày hội khác của Trà Vinh:
-                    </span>
-                    <div class="flex flex-wrap gap-2">
-                        ${allFestivals.filter(f => f.id !== festival.id).map(f => `
-                            <button type="button" data-switch-festival-id="${f.id}" class="switch-fest-btn px-3 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-bold text-on-surface dark:text-zinc-200 border border-outline-variant/30 dark:border-zinc-700 transition-colors flex items-center gap-1 active:scale-95">
-                                <span>${f.name.split('(')[0].trim()}</span>
-                                <span class="material-symbols-outlined text-xs text-secondary">arrow_forward</span>
-                            </button>
-                        `).join('')}
-                    </div>
+                <div class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
+                    <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">payments</span>
+                    <span><strong>Chi phí:</strong> ${escapeHtml(event.fee || 'Miễn phí')} ${event.feeDetail ? escapeHtml(event.feeDetail) : ''}</span>
                 </div>
             </div>
+
+            <!-- Registration Form -->
+            <form id="eventRsvpSubmitForm" class="flex flex-col gap-4">
+                <div>
+                    <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                        Họ và tên người đăng ký <span class="text-rose-500">*</span>
+                    </label>
+                    <input name="fullname" type="text" required placeholder="Nguyễn Văn A" value="Trần Tiến"
+                        class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                            Số điện thoại (Nhận vé Zalo) <span class="text-rose-500">*</span>
+                        </label>
+                        <input name="phone" type="tel" required placeholder="0901 xxx xxx"
+                            class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
+                    </div>
+                    <div>
+                        <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                            Số lượng người tham gia
+                        </label>
+                        <select name="seats"
+                            class="w-full h-11 px-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700">
+                            <option value="1">1 người</option>
+                            <option value="2">2 người</option>
+                            <option value="3">3 - 5 người (Đi nhóm)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                        Ghi chú hoặc yêu cầu đặc biệt
+                    </label>
+                    <textarea name="notes" rows="2" placeholder="Ví dụ: Mang theo xe đạp riêng / Cần hướng dẫn viên hỗ trợ..."
+                        class="w-full p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"></textarea>
+                </div>
+
+                <div class="pt-2 flex items-center justify-end gap-3">
+                    <button type="button" onclick="window.ViVuApp?.closeEventRsvpModal()"
+                        class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-button text-xs font-semibold min-h-[44px]">
+                        Hủy
+                    </button>
+                    <button type="submit"
+                        class="px-6 py-2.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-button text-xs font-semibold shadow-xs min-h-[44px] flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[18px]">how_to_reg</span>
+                        <span>Xác Nhận Đăng Ký</span>
+                    </button>
+                </div>
+            </form>
         </div>
     `;
 
-    // Gắn sự kiện bấm vào địa điểm liên kết
-    container.querySelectorAll('.modal-goto-place-link').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const pId = btn.dataset.placeId;
-            if (pId && onSelectPlace) {
-                onSelectPlace(pId);
+    const form = container.querySelector('#eventRsvpSubmitForm');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const data = {
+                eventId: event.id,
+                eventTitle: event.title,
+                fullname: formData.get('fullname'),
+                phone: formData.get('phone'),
+                seats: formData.get('seats'),
+                notes: formData.get('notes')
+            };
+            if (onSubmitRsvp) {
+                onSubmitRsvp(data);
+            } else if (window.ViVuApp?.submitEventRsvp) {
+                window.ViVuApp.submitEventRsvp(data);
             }
         });
-    });
-
-    // Gắn sự kiện chuyển nhanh sang lễ hội khác
-    container.querySelectorAll('.switch-fest-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const fId = btn.dataset.switchFestivalId;
-            if (fId && onSelectOtherFestival) {
-                onSelectOtherFestival(fId);
-            }
-        });
-    });
+    }
 }
+
+/**
+ * Render Modal Đăng Ký Tổ Chức Sự Kiện Mới (Host Event Modal)
+ */
+export function renderHostEventModal(onSubmitHost) {
+    const container = document.getElementById('hostEventModalContainer');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="p-6 sm:p-8 flex flex-col gap-6">
+            <div class="flex flex-col gap-1">
+                <span class="px-2.5 py-1 rounded-full bg-secondary/15 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 font-caption text-xs font-bold w-fit">
+                    Hợp tác cộng đồng
+                </span>
+                <h3 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100">
+                    Đăng Ký Tổ Chức Sự Kiện / Workshop Tại Trà Vinh
+                </h3>
+                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                    ViVuTraVinh hỗ trợ lan tỏa sự kiện văn hóa, thể thao, bảo tồn sinh thái và gặp gỡ cộng đồng miễn phí 100%.
+                </p>
+            </div>
+
+            <form id="hostEventSubmitForm" class="flex flex-col gap-4">
+                <div>
+                    <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                        Tên sự kiện / Workshop <span class="text-rose-500">*</span>
+                    </label>
+                    <input name="eventTitle" type="text" required placeholder="Ví dụ: Đêm Nhạc Dân Ca Nam Bộ Ven Sông"
+                        class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                            Đơn vị / Nhóm tổ chức <span class="text-rose-500">*</span>
+                        </label>
+                        <input name="organizer" type="text" required placeholder="Ví dụ: CLB Sống Xanh Xứ Trà"
+                            class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
+                    </div>
+                    <div>
+                        <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                            Loại hình hoạt động
+                        </label>
+                        <select name="category"
+                            class="w-full h-11 px-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700">
+                            <option value="workshop">Workshop văn hóa</option>
+                            <option value="sports">Thể thao &amp; Trải nghiệm</option>
+                            <option value="community">Giao lưu cộng đồng</option>
+                            <option value="ecology">Bảo vệ môi trường</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                            Thời gian dự kiến <span class="text-rose-500">*</span>
+                        </label>
+                        <input name="datetime" type="text" required placeholder="Ví dụ: Sáng Chủ Nhật 25/10 (08:00 - 11:30)"
+                            class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
+                    </div>
+                    <div>
+                        <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                            Địa điểm tổ chức <span class="text-rose-500">*</span>
+                        </label>
+                        <input name="location" type="text" required placeholder="Ví dụ: Khuôn viên Ao Bà Om"
+                            class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                        Mô tả ngắn gọn &amp; thông điệp sự kiện
+                    </label>
+                    <textarea name="description" rows="3" placeholder="Mục đích, đối tượng tham gia, chi phí nếu có (khuyến khích miễn phí hoặc phi lợi nhuận)..."
+                        class="w-full p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"></textarea>
+                </div>
+
+                <div class="pt-2 flex items-center justify-end gap-3">
+                    <button type="button" onclick="window.ViVuApp?.closeHostEventModal()"
+                        class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-button text-xs font-semibold min-h-[44px]">
+                        Hủy
+                    </button>
+                    <button type="submit"
+                        class="px-6 py-2.5 rounded-xl bg-secondary hover:bg-emerald-700 text-white font-button text-xs font-semibold shadow-xs min-h-[44px] flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[18px]">send</span>
+                        <span>Gửi Hồ Sơ Sự Kiện</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    const form = container.querySelector('#hostEventSubmitForm');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const data = {
+                title: formData.get('eventTitle'),
+                organizer: formData.get('organizer'),
+                category: formData.get('category'),
+                datetime: formData.get('datetime'),
+                location: formData.get('location'),
+                description: formData.get('description')
+            };
+            if (onSubmitHost) {
+                onSubmitHost(data);
+            } else if (window.ViVuApp?.submitHostEvent) {
+                window.ViVuApp.submitHostEvent(data);
+            }
+        });
+    }
+}
+
 
 /**
  * Render Lưới Bài Viết Magazine: Chuyên mục "Góc Chuyện Xứ Trà"

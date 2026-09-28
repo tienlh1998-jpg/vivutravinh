@@ -30,7 +30,9 @@ import {
     renderCommunityFeedFilters,
     renderCommunityPostsFeed,
     renderWeeklyActivitiesWidget,
-    renderCommunityGuidelinesWidget
+    renderCommunityGuidelinesWidget,
+    renderEventRsvpModal,
+    renderHostEventModal
 } from './ui.js';
 
 import {
@@ -48,7 +50,12 @@ import {
     syncAllPendingContributions
 } from './offline-sync.js';
 
-import { TRA_VINH_FESTIVALS } from './festivals-data.js';
+import {
+    TRA_VINH_FESTIVALS,
+    TRA_VINH_EVENTS_AND_MEETUPS,
+    EVENT_CATEGORIES,
+    EVENT_REGIONS
+} from './festivals-data.js';
 import { TRA_VINH_ARTICLES } from './articles-data.js';
 import {
     TRA_VINH_CLUBS,
@@ -334,6 +341,28 @@ function getStoredRegisteredActivities() {
     return [];
 }
 
+function getStoredBookmarkedEvents() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_bookmarked_events');
+            return raw ? new Set(JSON.parse(raw)) : new Set();
+        }
+    } catch (e) {
+        return new Set();
+    }
+    return new Set();
+}
+
+function saveStoredBookmarkedEvents(set) {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('vivu_bookmarked_events', JSON.stringify([...set]));
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
 // Global Application State
 export const state = {
     allPlaces: [],
@@ -372,6 +401,12 @@ export const state = {
     festivals: TRA_VINH_FESTIVALS,
     activeFestivalSeason: 'all',
     currentFestival: null,
+    // Sự Kiện & Gặp Gỡ Xứ Trà (Phase 6)
+    eventsAndMeetups: TRA_VINH_EVENTS_AND_MEETUPS,
+    activeEventCategory: 'all',
+    activeEventRegion: 'all',
+    bookmarkedEvents: getStoredBookmarkedEvents(),
+    currentRsvpEvent: null,
     // Góc Chuyện Xứ Trà (Travel Stories) State
     articles: TRA_VINH_ARTICLES,
     currentArticle: null,
@@ -490,14 +525,23 @@ async function initApp() {
             handleGenerateRandomTour
         );
 
-        // Render Cổng Sự Kiện & Lễ Hội Trà Vinh
+        // Render Cổng Sự Kiện & Lễ Hội Trà Vinh (Phase 6)
         renderFestivalsSection(
             'festivalsPortalContainer',
             state.festivals,
             state.activeFestivalSeason,
             openFestivalModal,
             openDetailModal,
-            handleSeasonFilter
+            handleSeasonFilter,
+            state.eventsAndMeetups,
+            state.activeEventCategory,
+            state.activeEventRegion,
+            handleEventCategoryFilter,
+            handleEventRegionFilter,
+            openEventRsvpModal,
+            toggleBookmarkEvent,
+            state.bookmarkedEvents,
+            openHostEventModal
         );
 
         // Render Section Góc Chuyện Xứ Trà (Travel Stories)
@@ -657,7 +701,7 @@ function handleSearchKeyword(keyword) {
 }
 
 /**
- * Lọc Sự Kiện & Lễ Hội Theo Mùa
+ * Lọc Sự Kiện & Lễ Hội Theo Mùa (Phase 6)
  */
 export function handleSeasonFilter(season) {
     state.activeFestivalSeason = season;
@@ -667,15 +711,176 @@ export function handleSeasonFilter(season) {
         state.activeFestivalSeason,
         openFestivalModal,
         openDetailModal,
-        handleSeasonFilter
+        handleSeasonFilter,
+        state.eventsAndMeetups,
+        state.activeEventCategory,
+        state.activeEventRegion,
+        handleEventCategoryFilter,
+        handleEventRegionFilter,
+        openEventRsvpModal,
+        toggleBookmarkEvent,
+        state.bookmarkedEvents,
+        openHostEventModal
     );
 }
 
 /**
- * Mở Modal Cẩm Nang Chi Tiết Diễn Biến Lễ Hội
+ * Lọc Sự Kiện & Gặp Gỡ Theo Danh Mục (Phase 6)
+ */
+export function handleEventCategoryFilter(categoryId) {
+    state.activeEventCategory = categoryId;
+    renderFestivalsSection(
+        'festivalsPortalContainer',
+        state.festivals,
+        state.activeFestivalSeason,
+        openFestivalModal,
+        openDetailModal,
+        handleSeasonFilter,
+        state.eventsAndMeetups,
+        state.activeEventCategory,
+        state.activeEventRegion,
+        handleEventCategoryFilter,
+        handleEventRegionFilter,
+        openEventRsvpModal,
+        toggleBookmarkEvent,
+        state.bookmarkedEvents,
+        openHostEventModal
+    );
+}
+
+/**
+ * Lọc Sự Kiện Theo Khu Vực Địa Bàn (Phase 6)
+ */
+export function handleEventRegionFilter(regionId) {
+    state.activeEventRegion = regionId;
+    renderFestivalsSection(
+        'festivalsPortalContainer',
+        state.festivals,
+        state.activeFestivalSeason,
+        openFestivalModal,
+        openDetailModal,
+        handleSeasonFilter,
+        state.eventsAndMeetups,
+        state.activeEventCategory,
+        state.activeEventRegion,
+        handleEventCategoryFilter,
+        handleEventRegionFilter,
+        openEventRsvpModal,
+        toggleBookmarkEvent,
+        state.bookmarkedEvents,
+        openHostEventModal
+    );
+}
+
+/**
+ * Lưu / Bỏ lưu sự kiện (Bookmark Event)
+ */
+export function toggleBookmarkEvent(eventId) {
+    if (!eventId) return;
+    const isBookmarked = state.bookmarkedEvents.has(eventId);
+    if (isBookmarked) {
+        state.bookmarkedEvents.delete(eventId);
+        showNotification('Đã bỏ lưu sự kiện khỏi danh sách.');
+    } else {
+        state.bookmarkedEvents.add(eventId);
+        showNotification('Đã lưu sự kiện vào danh sách yêu thích!');
+    }
+    saveStoredBookmarkedEvents(state.bookmarkedEvents);
+    renderFestivalsSection(
+        'festivalsPortalContainer',
+        state.festivals,
+        state.activeFestivalSeason,
+        openFestivalModal,
+        openDetailModal,
+        handleSeasonFilter,
+        state.eventsAndMeetups,
+        state.activeEventCategory,
+        state.activeEventRegion,
+        handleEventCategoryFilter,
+        handleEventRegionFilter,
+        openEventRsvpModal,
+        toggleBookmarkEvent,
+        state.bookmarkedEvents,
+        openHostEventModal
+    );
+}
+
+/**
+ * Mở Modal Đăng Ký Giữ Chỗ / Tham Gia Hoạt Động (Event RSVP)
+ */
+export function openEventRsvpModal(eventOrId) {
+    const event = typeof eventOrId === 'string'
+        ? state.eventsAndMeetups.find(e => e.id === eventOrId)
+        : eventOrId;
+    if (!event) return;
+
+    state.currentRsvpEvent = event;
+    renderEventRsvpModal(event, submitEventRsvp);
+
+    const modal = document.getElementById('eventRsvpModal');
+    if (modal) modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+/**
+ * Đóng Modal Đăng Ký Tham Gia Hoạt Động
+ */
+export function closeEventRsvpModal() {
+    const modal = document.getElementById('eventRsvpModal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    state.currentRsvpEvent = null;
+}
+
+/**
+ * Submit Đăng Ký Vé / Chỗ Tham Gia Hoạt Động
+ */
+export function submitEventRsvp(rsvpData) {
+    closeEventRsvpModal();
+    showNotification(`Đăng ký thành công vé tham dự cho ${rsvpData.fullname || 'bạn'}! Mã QR xác nhận đã gửi về Zalo.`);
+}
+
+/**
+ * Mở Modal Đăng Ký Tổ Chức Sự Kiện
+ */
+export function openHostEventModal() {
+    renderHostEventModal(submitHostEvent);
+    const modal = document.getElementById('hostEventModal');
+    if (modal) modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+/**
+ * Đóng Modal Đăng Ký Tổ Chức Sự Kiện
+ */
+export function closeHostEventModal() {
+    const modal = document.getElementById('hostEventModal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+/**
+ * Submit Đăng Ký Tổ Chức Sự Kiện Mới
+ */
+export function submitHostEvent(hostData) {
+    closeHostEventModal();
+    showNotification(`Cảm ơn bạn! Thông tin sự kiện "${hostData.title || ''}" đã gửi tới Ban Quản Trị ViVuTraVinh.`);
+}
+
+/**
+ * Xử lý Đăng Ký Vé Khán Đài Miễn Phí (Ok Om Bok Grandstand Pass)
+ */
+export function handleGrandstandRsvp(rsvpData) {
+    showNotification(`Đã xác nhận giữ chỗ thành công cho ${rsvpData.fullname || 'bạn'}! Thông tin vé đã gửi về số ${rsvpData.phone || ''}.`);
+}
+
+/**
+ * Mở Modal Cẩm Nang Chi Tiết Diễn Biến Lễ Hội (Stitch Ok Om Bok Guide)
  */
 export function openFestivalModal(festivalId) {
-    const fest = state.festivals.find(f => f.id === festivalId);
+    const fest = state.festivals.find(f => f.id === festivalId)
+        || (festivalId === 'ok-om-bok' ? state.festivals.find(f => f.id === 'ok-om-bok') : null)
+        || state.festivals[0];
     if (!fest) return;
 
     state.currentFestival = fest;
@@ -686,7 +891,8 @@ export function openFestivalModal(festivalId) {
             closeFestivalModal();
             openDetailModal(placeId);
         },
-        openFestivalModal
+        openFestivalModal,
+        'day1'
     );
 
     const modal = document.getElementById('festivalDetailModal');
@@ -703,6 +909,7 @@ export function closeFestivalModal() {
     document.body.classList.remove('overflow-hidden');
     state.currentFestival = null;
 }
+
 
 /**
  * Mở Modal Đọc Ký Sự Du Lịch & Diễn Đàn Thảo Luận (Article Reader Modal)
@@ -4526,6 +4733,17 @@ if (typeof window !== 'undefined') {
         closeCreateClubModal,
         submitCreateClub,
         focusClubSearch,
+        // Events & Festivals Methods (Phase 6)
+        handleEventCategoryFilter,
+        handleEventRegionFilter,
+        toggleBookmarkEvent,
+        openEventRsvpModal,
+        closeEventRsvpModal,
+        submitEventRsvp,
+        openHostEventModal,
+        closeHostEventModal,
+        submitHostEvent,
+        handleGrandstandRsvp,
         showNotification,
         getState: () => state,
         get state() { return state; }
