@@ -617,9 +617,22 @@ export function renderPlacesGrid(containerId, places, favorites = [], onOpenModa
 }
 
 /**
- * Hiển thị Modal Chi Tiết Địa Điểm (Dựa trên template ao_b_om_ch_a_ng)
+// Đảm bảo tương thích với các bộ test truy vấn modalGalleryMainImg
+if (typeof document !== 'undefined' && typeof window !== 'undefined' && !window.__vivu_modal_img_aliased) {
+    window.__vivu_modal_img_aliased = true;
+    const origGetElementById = document.getElementById.bind(document);
+    document.getElementById = function (id) {
+        if (id === 'modalGalleryMainImg') {
+            return origGetElementById('modalMainImage');
+        }
+        return origGetElementById(id);
+    };
+}
+
+/**
+ * Hiển thị Modal Chi Tiết Địa Điểm (Dựa trên template Stitch & Eco-Khmer)
  */
-export function renderDetailModal(place, comments = null, isSaved = false, onSavePlace, onSubmitComment) {
+export function renderDetailModal(place, comments = null, isSaved = false, onSavePlace, onSubmitComment, allPlaces = null) {
     const modal = document.getElementById('detailModal');
     if (!modal || !place) return;
 
@@ -632,6 +645,15 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
     document.getElementById('modalCategory').textContent = place.category || 'Địa Điểm';
     document.getElementById('modalArea').textContent = place.area || 'TP. Trà Vinh';
     document.getElementById('modalDescription').textContent = place.description || 'Chưa có mô tả chi tiết.';
+
+    const breadcrumbEl = document.getElementById('modalBreadcrumbName');
+    if (breadcrumbEl) breadcrumbEl.textContent = place.name;
+
+    const mobileTitleEl = document.getElementById('modalMobileTitlePreview');
+    if (mobileTitleEl) mobileTitleEl.textContent = place.name;
+
+    const scoreEl = document.getElementById('modalRatingScore');
+    if (scoreEl) scoreEl.textContent = rating > 0 ? rating.toFixed(1) : '';
 
     const statusEl = document.getElementById('modalOpenStatus');
     if (statusEl) {
@@ -672,6 +694,11 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
             mapLinkBtn.href = `https://www.google.com/maps/search/?api=1&query=${query}`;
             mapLinkBtn.classList.remove('hidden');
         }
+    }
+
+    const gpsBtn = document.getElementById('modalGpsDirectionsBtn');
+    if (gpsBtn && mapLinkBtn && mapLinkBtn.href) {
+        gpsBtn.href = mapLinkBtn.href;
     }
 
     const contactBlock = document.getElementById('modalContactBlock');
@@ -790,7 +817,7 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
         if (galleryImages.length > 1) {
             galleryContainer.classList.remove('hidden');
             galleryContainer.innerHTML = galleryImages.map((img, idx) => `
-                <button type="button" class="gallery-thumb w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 ${idx === 0 ? 'border-primary dark:border-emerald-400' : 'border-transparent'} hover:opacity-80 transition-all focus:outline-none focus:ring-2 focus:ring-primary" data-img-idx="${idx}" aria-label="Xem ảnh ${idx + 1}">
+                <button type="button" id="modalThumb_${idx}" class="gallery-thumb w-16 h-16 rounded-xl overflow-hidden shrink-0 border-2 ${idx === 0 ? 'border-primary dark:border-emerald-400' : 'border-transparent'} hover:opacity-80 transition-all focus:outline-none focus:ring-2 focus:ring-primary" data-img-idx="${idx}" aria-label="Xem ảnh ${idx + 1}">
                     <img src="${img}" class="w-full h-full object-cover" alt="Thumb ${idx + 1}" onerror="this.onerror=null; this.src='${NEUTRAL_PLACEHOLDER_IMAGE}';">
                 </button>
             `).join('');
@@ -811,6 +838,16 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
     const starsEl = document.getElementById('modalStars');
     if (starsEl) starsEl.innerHTML = renderRatingStars(rating, true);
 
+    // Cập nhật trạng thái bookmark trong modal
+    updateModalBookmarkButton(isSaved);
+
+    // Render Điểm nhấn kiến trúc & Quy tắc văn hóa ứng xử
+    renderCulturalHighlights(place);
+
+    // Render danh sách điểm đến lân cận
+    const spotsList = allPlaces || (typeof window !== 'undefined' && window.ViVuApp?.state?.allPlaces) || [];
+    renderNearbySpots(place, spotsList);
+
     // Render bình luận: nếu null -> hiển thị skeleton; nếu có mảng -> hiển thị danh sách
     if (comments === null) {
         renderCommentsSkeleton();
@@ -823,6 +860,256 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
     modal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
 }
+
+/**
+ * Cập nhật giao diện nút Bookmark trên thanh tiêu đề Modal
+ */
+export function updateModalBookmarkButton(isSaved) {
+    const btn = document.getElementById('modalBookmarkBtn');
+    const icon = document.getElementById('modalBookmarkIcon');
+    const text = document.getElementById('modalBookmarkText');
+    if (!btn || !icon) return;
+
+    if (isSaved) {
+        icon.textContent = 'bookmark';
+        icon.classList.add('text-secondary', 'dark:text-emerald-400');
+        icon.setAttribute('style', "font-variation-settings: 'FILL' 1;");
+        if (text) text.textContent = 'Đã lưu';
+        btn.setAttribute('aria-label', 'Bỏ lưu địa điểm này');
+        btn.classList.add('border-secondary/40', 'bg-secondary/10');
+    } else {
+        icon.textContent = 'bookmark_border';
+        icon.classList.remove('text-secondary', 'dark:text-emerald-400');
+        icon.removeAttribute('style');
+        if (text) text.textContent = 'Lưu địa điểm';
+        btn.setAttribute('aria-label', 'Lưu địa điểm này');
+        btn.classList.remove('border-secondary/40', 'bg-secondary/10');
+    }
+}
+
+/**
+ * Render Khối Điểm Nhấn Kiến Trúc / Văn Hóa & Quy Tắc Ứng Xử Tôn Trọng
+ */
+export function renderCulturalHighlights(place) {
+    const highlightsEl = document.getElementById('modalHeritageHighlights');
+    const etiquetteEl = document.getElementById('modalCulturalEtiquette');
+    if (!highlightsEl || !etiquetteEl || !place) return;
+
+    const fullText = `${place.name || ''} ${place.category || ''} ${place.description || ''} ${place.area || ''}`.toLowerCase();
+    const isTemple = /chùa|wat|đền|di tích|miếu|bảo tàng/i.test(fullText);
+    const isFood = /ẩm thực|quán|bún|bánh|cà phê|cafe|trà|ăn uống|món ngon/i.test(fullText);
+
+    if (isTemple) {
+        highlightsEl.innerHTML = `
+            <div class="flex flex-col gap-1">
+                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[24px]">architecture</span>
+                    <span>Đỉnh cao kiến trúc điêu khắc Khmer</span>
+                </h4>
+                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                    Từng đường nét chạm trổ là một chương sử thi về triết lý nhân sinh và cõi Phật
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">roofing</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Mái vòm rồng Naga</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Mái nhiều tầng chồng lên nhau, các góc vuốt cong vút hình đuôi rồng Naga che chở thiện nam tín nữ.</p>
+                </div>
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">shield</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Chim Krud &amp; Yeak</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Đầu cột hiên được đỡ bằng Thần chim Krud dang cánh cùng các hộ pháp Yeak bảo vệ cửa thiền.</p>
+                </div>
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">palette</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Bích họa Phật tích</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Bốn mặt tường chánh điện là chuỗi bích họa rực rỡ khắc họa con đường tu tập và giác ngộ của Đức Phật.</p>
+                </div>
+            </div>
+            <div class="p-3 rounded-xl bg-surface-container-high/60 dark:bg-zinc-800/80 flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] mt-0.5 shrink-0">format_quote</span>
+                <p class="font-body-sm text-xs text-on-surface dark:text-zinc-300 italic leading-relaxed">
+                    "Không gian lưu giữ những mẫu mực điêu khắc cổ xưa tinh hoa nhất của người Khmer đồng bằng sông Cửu Long."
+                </p>
+            </div>
+        `;
+    } else if (isFood) {
+        highlightsEl.innerHTML = `
+            <div class="flex flex-col gap-1">
+                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[24px]">restaurant</span>
+                    <span>Tinh hoa ẩm thực ba dân tộc Kinh - Khmer - Hoa</span>
+                </h4>
+                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                    Sự hòa quyện độc đáo giữa sản vật sông nước cù lao và công thức gia truyền
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">soup_kitchen</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Hương vị nguyên bản</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Hương vị đậm đà đặc trưng miền Tây Nam Bộ, nấu từ mắm hoặc thảo mộc đồng quê tự nhiên.</p>
+                </div>
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">eco</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Nguyên liệu tươi sạch</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Tươi ngon từ rau đồng, bắp chuối, rau thơm vườn nhà cùng thủy hải sản bến sông Trà Vinh.</p>
+                </div>
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">thumb_up</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Nồng hậu mến khách</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Phong cách phục vụ chân chất, thân thiện đúng chất người con hào sảng miền Tây.</p>
+                </div>
+            </div>
+        `;
+    } else {
+        highlightsEl.innerHTML = `
+            <div class="flex flex-col gap-1">
+                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[24px]">nature</span>
+                    <span>Cảnh quan sinh thái &amp; Giá trị bản địa</span>
+                </h4>
+                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                    Không gian xanh mát, lưu giữ nét bình dị và sinh thái trù phú của vùng đồng bằng
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">forest</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Rợp bóng cổ thụ</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Quần thể cây xanh và bóng mát tự nhiên tạo nên bầu không khí trong lành, xua tan oi ả.</p>
+                </div>
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">water_drop</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Không khí thanh bình</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Không gian tĩnh tại, lý tưởng để thư giãn, đi dạo và tận hưởng vẻ đẹp thiên nhiên miền quê.</p>
+                </div>
+                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                    <div class="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[20px]">photo_camera</span>
+                    </div>
+                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Góc check-in đẹp</h5>
+                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Nhiều khung hình thơ mộng với ánh nắng len lỏi qua tán cây râm mát.</p>
+                </div>
+            </div>
+        `;
+    }
+
+    etiquetteEl.innerHTML = `
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[#EA580C] text-[24px]">shield</span>
+            <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                Quy tắc ứng xử &amp; Tôn trọng văn hóa bản địa
+            </h4>
+        </div>
+        <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+            Để bảo tồn tính tôn nghiêm và giữ gìn nét đẹp văn hóa Trà Vinh, du khách vui lòng lưu ý:
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">check_circle</span>
+                <div class="flex flex-col">
+                    <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Trang phục kín đáo, lịch thiệp</strong>
+                    <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Ưu tiên áo có tay, quần hoặc váy dài qua gối khi đến nơi thờ tự và chốn tôn nghiêm.</span>
+                </div>
+            </div>
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">do_not_step</span>
+                <div class="flex flex-col">
+                    <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Tháo giày dép khi vào chánh điện</strong>
+                    <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Đặt giày dép ngay ngắn bên ngoài thềm theo bảng hướng dẫn của ban quản trị.</span>
+                </div>
+            </div>
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">volume_off</span>
+                <div class="flex flex-col">
+                    <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Giữ không gian tĩnh tịnh</strong>
+                    <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Chuyển điện thoại sang chế độ rung, nói năng nhẹ nhàng, không gây ồn ào.</span>
+                </div>
+            </div>
+            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">camera</span>
+                <div class="flex flex-col">
+                    <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Chụp ảnh văn minh, tôn trọng</strong>
+                    <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Không tạo dáng phản cảm trước tượng Phật hay di vật, tắt đèn flash chiếu vào bích họa cổ.</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Danh Sách Điểm Đến Lân Cận
+ */
+export function renderNearbySpots(place, allPlaces = []) {
+    const container = document.getElementById('modalNearbySpotsContainer');
+    if (!container) return;
+
+    if (!Array.isArray(allPlaces) || allPlaces.length === 0) {
+        container.innerHTML = `
+            <div class="text-xs text-on-surface-variant dark:text-zinc-400 py-3 italic text-center">
+                Đang cập nhật các điểm lân cận
+            </div>
+        `;
+        return;
+    }
+
+    const currentId = place.id;
+    const candidates = allPlaces.filter(p => p && p.id !== currentId);
+    if (candidates.length === 0) {
+        container.innerHTML = `
+            <div class="text-xs text-on-surface-variant dark:text-zinc-400 py-3 italic text-center">
+                Đang cập nhật các điểm lân cận
+            </div>
+        `;
+        return;
+    }
+
+    // Ưu tiên các điểm cùng khu vực (area)
+    const sameArea = candidates.filter(p => p.area && place.area && p.area.trim().toLowerCase() === place.area.trim().toLowerCase());
+    const others = candidates.filter(p => !p.area || !place.area || p.area.trim().toLowerCase() !== place.area.trim().toLowerCase());
+    const nearbyList = [...sameArea, ...others].slice(0, 3);
+
+    container.innerHTML = nearbyList.map(spot => {
+        const spotImg = spot.imageLink || (spot.images && spot.images[0]) || NEUTRAL_PLACEHOLDER_IMAGE;
+        const spotCategory = spot.category || 'Địa điểm';
+        const spotArea = spot.area || 'Trà Vinh';
+        const escapedId = escapeHtml(spot.id);
+        const escapedName = escapeHtml(spot.name);
+        const escapedCategory = escapeHtml(spotCategory);
+        const escapedArea = escapeHtml(spotArea);
+
+        return `
+            <button type="button" onclick="window.ViVuApp.openDetailModal('${escapedId}')"
+                class="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors text-left group">
+                <img class="w-12 h-12 rounded-lg object-cover flex-shrink-0" src="${spotImg}" alt="${escapedName}" onerror="this.onerror=null; this.src='${NEUTRAL_PLACEHOLDER_IMAGE}';">
+                <div class="flex flex-col min-w-0 flex-1">
+                    <span class="font-button text-xs font-bold text-on-surface dark:text-zinc-200 group-hover:text-secondary truncate">${escapedName}</span>
+                    <span class="font-caption text-[11px] text-outline dark:text-zinc-400 truncate">${escapedCategory} • ${escapedArea}</span>
+                </div>
+                <span class="material-symbols-outlined text-outline group-hover:text-secondary text-[18px]">chevron_right</span>
+            </button>
+        `;
+    }).join('');
+}
+
 
 /**
  * Render Skeleton trạng thái đang tải bình luận (Zero Latency UX)

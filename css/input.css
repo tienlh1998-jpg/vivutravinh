@@ -22,3 +22,20 @@ html, body {
   overflow-x: hidden;
   max-width: 100%;
 }
+
+@keyframes audio-wave {
+  0%, 100% {
+    transform: scaleY(0.4);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scaleY(1.3);
+    opacity: 1;
+  }
+}
+
+.audio-playing .audio-wave-bar {
+  animation: audio-wave 1s ease-in-out infinite;
+  transform-origin: bottom;
+}
+

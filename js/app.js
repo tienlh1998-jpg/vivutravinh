@@ -19,7 +19,8 @@ import {
     renderFestivalsSection,
     renderFestivalDetailModal,
     renderArticlesSection,
-    renderArticleReaderModal
+    renderArticleReaderModal,
+    updateModalBookmarkButton
 } from './ui.js';
 
 import {
@@ -301,6 +302,10 @@ export const state = {
     contributeMarker: null,
     contributePhotos: [],
     deferredPrompt: null,
+    // Audio Guide State
+    isAudioPlaying: false,
+    audioInterval: null,
+    audioSeconds: 0,
     // GPS & Tour State
     userCoords: null,
     isNearMeActive: false,
@@ -1202,8 +1207,25 @@ export function toggleBookmark(e, placeOrId) {
                 `;
             }
         }
+
+        // Cập nhật nút Bookmark trên Detail Modal nếu đang mở địa điểm này
+        if (state.currentDetailPlace && aliases.has(state.currentDetailPlace.id)) {
+            const isSavedDetail = isPlaceSaved(state.currentDetailPlace);
+            updateModalBookmarkButton(isSavedDetail);
+        }
     }
 }
+
+/**
+ * Xử lý Lưu / Bỏ lưu địa điểm trực tiếp từ Detail Modal
+ */
+export function toggleModalBookmark(e) {
+    if (!state.currentDetailPlace) return;
+    toggleBookmark(e, state.currentDetailPlace);
+    const isSaved = isPlaceSaved(state.currentDetailPlace);
+    updateModalBookmarkButton(isSaved);
+}
+
 
 export function updateFavoritesCount() {
     if (typeof state === 'undefined' || !state) return;
@@ -1344,6 +1366,119 @@ async function loadCommentsForModal(place, requestId) {
 }
 
 /**
+ * Dừng Audio Guide và đặt lại bộ đếm / biểu tượng
+ */
+export function stopAudioGuide() {
+    state.isAudioPlaying = false;
+    if (state.audioInterval) {
+        clearInterval(state.audioInterval);
+        state.audioInterval = null;
+    }
+    state.audioSeconds = 0;
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+            window.speechSynthesis.cancel();
+        } catch (e) {
+            console.warn('[AudioGuide] Error stopping speech:', e);
+        }
+    }
+
+    if (typeof document !== 'undefined') {
+        const playIcon = document.getElementById('playIcon');
+        if (playIcon) playIcon.textContent = 'play_arrow';
+
+        const audioBtn = document.getElementById('audioPlayBtn');
+        if (audioBtn) audioBtn.setAttribute('aria-label', 'Phát thuyết minh âm thanh');
+
+        const audioSection = document.getElementById('modalAudioSection');
+        if (audioSection) audioSection.classList.remove('audio-playing');
+
+        const timerEl = document.getElementById('audioTimer');
+        if (timerEl) timerEl.textContent = '00:00 / 02:30';
+    }
+}
+
+/**
+ * Bật / Tắt Audio Guide thuyết minh văn hóa bản địa Trà Vinh
+ */
+export function toggleAudioGuide() {
+    if (state.isAudioPlaying) {
+        stopAudioGuide();
+        return;
+    }
+
+    const place = state.currentDetailPlace;
+    if (!place) return;
+
+    state.isAudioPlaying = true;
+    state.audioSeconds = 0;
+
+    const playIcon = document.getElementById('playIcon');
+    if (playIcon) playIcon.textContent = 'pause';
+
+    const audioBtn = document.getElementById('audioPlayBtn');
+    if (audioBtn) audioBtn.setAttribute('aria-label', 'Tạm dừng thuyết minh');
+
+    const audioSection = document.getElementById('modalAudioSection');
+    if (audioSection) audioSection.classList.add('audio-playing');
+
+    const narrative = `${place.name}. ${place.description || ''}. ${place.note ? 'Lời khuyên từ người địa phương: ' + place.note : ''}`;
+
+    // Ước tính độ dài âm thanh dựa trên văn bản
+    const estimatedTotalSeconds = Math.max(30, Math.min(180, Math.round(narrative.length / 15)));
+    const totalMin = String(Math.floor(estimatedTotalSeconds / 60)).padStart(2, '0');
+    const totalSec = String(estimatedTotalSeconds % 60).padStart(2, '0');
+    const totalStr = `${totalMin}:${totalSec}`;
+
+    const timerEl = document.getElementById('audioTimer');
+    if (timerEl) timerEl.textContent = `00:00 / ${totalStr}`;
+
+    // Cập nhật bộ đếm thời gian
+    state.audioInterval = setInterval(() => {
+        state.audioSeconds += 1;
+        const curMin = String(Math.floor(state.audioSeconds / 60)).padStart(2, '0');
+        const curSec = String(state.audioSeconds % 60).padStart(2, '0');
+        if (timerEl) {
+            timerEl.textContent = `${curMin}:${curSec} / ${totalStr}`;
+        }
+        if (state.audioSeconds >= estimatedTotalSeconds) {
+            stopAudioGuide();
+        }
+    }, 1000);
+
+    // Kích hoạt giọng đọc tiếng Việt bằng Web Speech Synthesis API
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(narrative);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 0.95;
+            utterance.pitch = 1.0;
+
+            const voices = window.speechSynthesis.getVoices();
+            const viVoice = voices.find(v => v && (v.lang.startsWith('vi') || v.lang.includes('VIE')));
+            if (viVoice) {
+                utterance.voice = viVoice;
+            }
+
+            utterance.onend = () => {
+                stopAudioGuide();
+            };
+            utterance.onerror = (e) => {
+                if (e.error !== 'interrupted' && e.error !== 'canceled') {
+                    console.warn('[AudioGuide] SpeechSynthesis error:', e);
+                }
+            };
+
+            window.speechSynthesis.speak(utterance);
+        } catch (err) {
+            console.warn('[AudioGuide] SpeechSynthesis not supported or blocked:', err);
+        }
+    }
+}
+
+/**
  * Modal Chi Tiết Địa Điểm (Mở tức thì không trễ - Zero Latency)
  */
 export function openDetailModal(placeOrId, options = {}) {
@@ -1432,8 +1567,11 @@ export function openDetailModal(placeOrId, options = {}) {
     const ratingInput = document.getElementById('commentRatingInput');
     if (ratingInput) ratingInput.value = '';
 
+    // Dừng audio guide trước đó nếu đang chạy
+    stopAudioGuide();
+
     // MỞ MODAL NGAY LẬP TỨC với comments = null (sẽ kích hoạt comment skeleton)
-    renderDetailModal(place, null, isSaved, toggleBookmark, handleCommentSubmit);
+    renderDetailModal(place, null, isSaved, toggleBookmark, handleCommentSubmit, state.allPlaces);
 
     // Mặc định về tab Tổng quan khi mở địa điểm
     switchModalTab('overview');
@@ -1477,6 +1615,7 @@ export function openDetailModal(placeOrId, options = {}) {
 }
 
 export function closeDetailModal(fromPopstate = false) {
+    stopAudioGuide();
     const modal = document.getElementById('detailModal');
     if (modal) modal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
@@ -3366,6 +3505,9 @@ if (typeof window !== 'undefined') {
         toggleTheme,
         openDetailModal,
         closeDetailModal,
+        toggleAudioGuide,
+        stopAudioGuide,
+        toggleModalBookmark,
         openFullMapModal,
         closeFullMapModal,
         locateUserPosition,

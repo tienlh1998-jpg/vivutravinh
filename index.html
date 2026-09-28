@@ -1078,250 +1078,447 @@
 
     </main>
 
-    <!-- 9. MODAL CHI TIẾT ĐỊA ĐIỂM (PLACE DETAIL MODAL) -->
+    <!-- 9. MODAL CHI TIẾT ĐỊA ĐIỂM (PLACE DETAIL MODAL - STITCH DESIGN UPGRADE) -->
     <div id="detailModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <!-- Backdrop blur -->
         <div class="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity" onclick="window.ViVuApp.closeDetailModal()"></div>
 
         <div class="fixed inset-0 z-10 overflow-y-auto">
-            <div class="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
-                <div class="relative transform overflow-hidden rounded-3xl bg-surface dark:bg-dark-card text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-4xl w-full border border-outline-variant/40 dark:border-dark-border">
-                    <!-- Nút Đóng -->
-                    <button id="modalCloseBtn" onclick="window.ViVuApp.closeDetailModal()"
-                        class="absolute top-4 right-4 z-30 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-md flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-white"
-                        aria-label="Đóng chi tiết địa điểm">
-                        <span class="material-symbols-outlined text-xl">close</span>
-                    </button>
+            <div class="flex min-h-full items-center justify-center p-2 sm:p-4 md:p-6 text-center">
+                <div class="relative transform overflow-hidden rounded-3xl bg-surface dark:bg-dark-card text-left shadow-2xl transition-all sm:my-6 sm:w-full sm:max-w-5xl w-full border border-outline-variant/40 dark:border-dark-border max-h-[92vh] flex flex-col">
+                    
+                    <!-- Top Breadcrumb & Action Bar -->
+                    <div class="p-3 sm:p-4 bg-surface-container-lowest dark:bg-zinc-900 border-b border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between gap-3 shrink-0 z-30">
+                        <div role="navigation" aria-label="Đường dẫn chi tiết" class="hidden sm:flex items-center gap-1.5 text-xs text-on-surface-variant dark:text-zinc-400 font-caption min-w-0">
+                            <a href="/" class="hover:text-secondary dark:hover:text-emerald-400 flex items-center gap-1 transition-colors" onclick="window.ViVuApp.closeDetailModal(); return false;">
+                                <span class="material-symbols-outlined text-sm">home</span> Trang chủ
+                            </a>
+                            <span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+                            <span class="hover:text-secondary dark:hover:text-emerald-400 cursor-pointer" onclick="window.ViVuApp.closeDetailModal(); return false;">Bản đồ &amp; Địa điểm</span>
+                            <span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+                            <span id="modalBreadcrumbName" class="font-semibold text-primary dark:text-zinc-200 truncate max-w-[200px]">Chi tiết</span>
+                        </div>
+                        <div class="flex sm:hidden items-center gap-1.5 min-w-0 flex-1">
+                            <span id="modalMobileTitlePreview" class="font-headline-sm text-sm text-primary dark:text-zinc-100 font-bold truncate">Chi tiết địa điểm</span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <!-- Nút Lưu địa điểm (Touch target >= 44x44px) -->
+                            <button id="modalBookmarkBtn" type="button" onclick="window.ViVuApp.toggleModalBookmark()"
+                                class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:text-secondary dark:hover:text-emerald-400 transition-all font-button text-xs shadow-xs min-h-[44px] min-w-[44px]"
+                                title="Lưu địa điểm" aria-label="Lưu địa điểm này">
+                                <span id="modalBookmarkIcon" class="material-symbols-outlined text-[18px]">bookmark_border</span>
+                                <span id="modalBookmarkText" class="hidden sm:inline">Lưu địa điểm</span>
+                            </button>
+                            <!-- Nút Chia sẻ (Touch target >= 44x44px) -->
+                            <button type="button" onclick="window.ViVuApp.sharePlace('native')"
+                                class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:text-on-surface dark:hover:text-white transition-colors font-button text-xs shadow-xs min-h-[44px] min-w-[44px]"
+                                title="Chia sẻ địa điểm" aria-label="Chia sẻ địa điểm này">
+                                <span class="material-symbols-outlined text-[18px]">share</span>
+                                <span class="hidden sm:inline">Chia sẻ</span>
+                            </button>
+                            <!-- Nút Đóng Modal (W3C WCAG Touch target >= 44x44px) -->
+                            <button id="modalCloseBtn" type="button" onclick="window.ViVuApp.closeDetailModal()"
+                                class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-stone-100 dark:bg-zinc-800 hover:bg-stone-200 dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-primary shadow-xs shrink-0"
+                                aria-label="Đóng chi tiết địa điểm">
+                                <span class="material-symbols-outlined text-xl">close</span>
+                            </button>
+                        </div>
+                    </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-12">
-                        <!-- Cột Trái: Ảnh & Gallery & Mini Map (6 cols) -->
-                        <div class="lg:col-span-6 bg-stone-100 dark:bg-zinc-900 flex flex-col justify-between p-4 sm:p-6 space-y-4">
+                    <!-- Scrollable Modal Content Body -->
+                    <div class="overflow-y-auto custom-scrollbar flex-1 text-on-surface dark:text-zinc-200">
+                        <!-- Title & Heritage Header Banner -->
+                        <header class="p-4 sm:p-6 pb-2 sm:pb-3 flex flex-col gap-2 border-b border-outline-variant/20 dark:border-zinc-800/80">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span id="modalCategory" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container font-badge text-xs font-semibold uppercase tracking-wider">Danh mục</span>
+                                <span id="modalArea" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-badge text-xs font-semibold">Khu vực</span>
+                                <span id="modalVerifiedBadge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary-container text-primary-fixed font-badge text-xs font-semibold">
+                                    <span class="material-symbols-outlined text-[14px]">verified</span> Điểm đến xác thực
+                                </span>
+                            </div>
+                            <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mt-1">
+                                <h2 id="modalTitle" class="font-headline-xl text-2xl sm:text-3xl lg:text-4xl text-primary dark:text-zinc-100 font-bold tracking-tight">
+                                    Tên Địa Điểm
+                                </h2>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant dark:text-zinc-400 font-caption pt-1">
+                                <div class="flex items-center gap-1.5 text-amber-500 font-bold">
+                                    <div id="modalStars" class="flex items-center text-[18px]"></div>
+                                    <span id="modalRatingScore" class="text-sm font-bold text-on-surface dark:text-zinc-200"></span>
+                                </div>
+                                <span class="text-outline dark:text-zinc-600">•</span>
+                                <p id="modalAddress" class="flex items-center gap-1 text-on-surface dark:text-zinc-300 font-medium">
+                                    <span class="material-symbols-outlined text-base text-secondary dark:text-emerald-400 shrink-0">location_on</span>
+                                    <span>Địa chỉ</span>
+                                </p>
+                                <span class="text-outline dark:text-zinc-600">•</span>
+                                <span id="modalOpenStatus"></span>
+                            </div>
+                        </header>
+
+                        <!-- Gallery / Visual Showcase -->
+                        <section class="p-4 sm:p-6 pb-2 sm:pb-4">
                             <!-- Ảnh chính & Gallery Controls -->
-                            <div id="modalMainImageContainer" class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-sm bg-stone-200 dark:bg-zinc-800 group/gallery select-none">
+                            <div id="modalMainImageContainer" class="relative w-full aspect-[16/10] sm:aspect-[16/9] rounded-2xl overflow-hidden shadow-sm bg-stone-200 dark:bg-zinc-800 group/gallery select-none">
                                 <img id="modalMainImage" src="" alt="Detail" class="w-full h-full object-cover transition-all duration-300"
                                      onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 400 300\' width=\'400\' height=\'300\'%3E%3Crect width=\'400\' height=\'300\' fill=\'%23e2e8f0\'/%3E%3Ccircle cx=\'200\' cy=\'130\' r=\'24\' fill=\'%2394a3b8\'/%3E%3Cpath d=\'M135 210l45-50 35 40 30-30 45 40H135z\' fill=\'%2394a3b8\' opacity=\'0.7\'/%3E%3Ctext x=\'200\' y=\'250\' font-family=\'system-ui,-apple-system,sans-serif\' font-size=\'13\' font-weight=\'600\' fill=\'%2364748b\' text-anchor=\'middle\'%3E%C4%90ang c%E1%BA%ADp nh%E1%BA%ADt h%C3%ACnh %E1%BA%A3nh%3C/text%3E%3C/svg%3E';">
-                                <div class="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10 pointer-events-none">
-                                    <span id="modalCategory" class="px-3 py-1 rounded-full bg-primary text-white text-xs font-bold shadow-xs uppercase tracking-wider">Danh mục</span>
-                                    <span id="modalArea" class="px-3 py-1 rounded-full bg-white/90 dark:bg-zinc-800/90 text-on-surface dark:text-zinc-200 text-xs font-bold shadow-xs">Khu vực</span>
-                                </div>
-                                <!-- Nút Lùi ảnh (Prev) -->
+                                <div class="absolute inset-0 bg-gradient-to-t from-primary/60 via-transparent to-transparent opacity-60 pointer-events-none"></div>
+
+                                <!-- Nút Lùi ảnh (Prev) (Touch target >= 44x44px) -->
                                 <button id="modalGalleryPrevBtn" type="button"
-                                    class="hidden absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-white"
+                                    class="hidden absolute left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-md flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-white shadow-md active:scale-95"
                                     aria-label="Ảnh trước">
-                                    <span class="material-symbols-outlined text-xl">chevron_left</span>
+                                    <span class="material-symbols-outlined text-2xl">chevron_left</span>
                                 </button>
-                                <!-- Nút Tiến ảnh (Next) -->
+                                <!-- Nút Tiến ảnh (Next) (Touch target >= 44x44px) -->
                                 <button id="modalGalleryNextBtn" type="button"
-                                    class="hidden absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-white"
+                                    class="hidden absolute right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-black/50 hover:bg-black/75 text-white backdrop-blur-md flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-white shadow-md active:scale-95"
                                     aria-label="Ảnh tiếp theo">
-                                    <span class="material-symbols-outlined text-xl">chevron_right</span>
+                                    <span class="material-symbols-outlined text-2xl">chevron_right</span>
                                 </button>
                                 <!-- Bộ đếm ảnh (Counter) -->
-                                <span id="modalGalleryCounter" class="hidden absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-full bg-black/60 text-white text-[11px] font-bold backdrop-blur-md shadow-xs">1 / 1</span>
+                                <span id="modalGalleryCounter" class="hidden absolute bottom-3 right-3 z-10 px-3 py-1 rounded-full bg-black/60 text-white text-xs font-bold backdrop-blur-md shadow-xs">1 / 1</span>
                             </div>
 
                             <!-- Dải thumbnail ảnh phụ -->
-                            <div id="modalGalleryStrip" class="hidden flex gap-2 overflow-x-auto no-scrollbar py-1"></div>
+                            <div id="modalGalleryStrip" class="hidden flex gap-2.5 overflow-x-auto no-scrollbar py-2 mt-1"></div>
+                        </section>
 
-                            <!-- Bản đồ vị trí thu nhỏ trong Modal -->
-                            <div class="rounded-2xl overflow-hidden border border-outline-variant/40 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3 space-y-2">
-                                <div class="flex items-center justify-between text-xs font-bold text-primary dark:text-emerald-400">
-                                    <span class="flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-sm">map</span>
-                                        Vị trí trên bản đồ
-                                    </span>
-                                    <a id="modalDirections" href="#" target="_blank" rel="noopener"
-                                        class="text-secondary dark:text-emerald-400 hover:underline inline-flex items-center gap-0.5">
-                                        Chỉ đường Google Maps <span class="material-symbols-outlined text-xs">north_east</span>
-                                    </a>
-                                </div>
-                                <div id="modalLeafletMap" class="w-full h-32 rounded-xl overflow-hidden shadow-inner"></div>
-                            </div>
-                        </div>
-
-                        <!-- Cột Phải: Thông tin & Đánh giá & Bình luận (Thống nhất cuộn trên Mobile) -->
-                        <div class="lg:col-span-6 p-6 sm:p-8 flex flex-col justify-between space-y-5 lg:max-h-[85vh] lg:overflow-y-auto">
-                            <!-- Header Modal Info -->
-                            <div class="space-y-2">
-                                <div class="flex items-center justify-between gap-2">
-                                    <div id="modalStars"></div>
-                                    <span id="modalOpenStatus"></span>
-                                </div>
-
-                                <h2 id="modalTitle" class="text-2xl sm:text-3xl font-black font-serif text-primary dark:text-zinc-100 leading-tight">
-                                    Tên Địa Điểm
-                                </h2>
-
-                                <p id="modalAddress" class="text-xs text-on-surface-variant dark:text-zinc-400 flex items-start gap-1">
-                                    <span class="material-symbols-outlined text-sm text-secondary shrink-0 mt-0.5">location_on</span>
-                                    <span>Địa chỉ</span>
-                                </p>
-                            </div>
-
-                            <!-- Thẻ Metrics: Giá & Giờ -->
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700">
-                                    <span class="text-[10px] uppercase font-bold text-secondary dark:text-emerald-400 block mb-0.5">Giá tham khảo</span>
-                                    <span id="modalPrice" class="text-sm font-black text-on-surface dark:text-zinc-100">Miễn phí</span>
-                                </div>
-                                <div class="p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700">
-                                    <span class="text-[10px] uppercase font-bold text-secondary dark:text-emerald-400 block mb-0.5">Giờ hoạt động</span>
-                                    <span id="modalHours" class="text-sm font-black text-on-surface dark:text-zinc-100">Cả ngày</span>
-                                </div>
-                            </div>
-
-                            <!-- TAB SWITCHER: Tổng quan & Đánh giá VS Tọa độ Check-in & TikTok -->
-                            <div class="flex items-center p-1 bg-surface-container-low dark:bg-zinc-800/90 rounded-2xl border border-outline-variant/30 dark:border-zinc-700/60">
-                                <button id="modalTabOverviewBtn" type="button" onclick="window.ViVuApp.switchModalTab('overview')"
-                                    class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-primary text-white shadow-xs">
-                                    <span class="material-symbols-outlined text-base">info</span>
-                                    <span>Tổng quan & Review</span>
-                                </button>
-                                <button id="modalTabCheckinBtn" type="button" onclick="window.ViVuApp.switchModalTab('checkin')"
-                                    class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-primary dark:hover:text-emerald-300">
-                                    <span class="material-symbols-outlined text-base text-rose-500">photo_camera</span>
-                                    <span>Góc chụp & TikTok</span>
-                                    <span class="px-1.5 py-0.5 rounded-full text-[9px] bg-rose-500 text-white font-black animate-pulse">HOT</span>
-                                </button>
-                            </div>
-
-                            <!-- TAB 1: TỔNG QUAN & REVIEW & BÌNH LUẬN -->
-                            <div id="modalOverviewTabPanel" class="space-y-5">
-                                <!-- Liên hệ nếu có -->
-                                <div id="modalContactBlock" class="hidden p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 text-xs">
-                                    <span class="font-bold text-primary dark:text-emerald-400 flex items-center gap-1 mb-1">
-                                        <span class="material-symbols-outlined text-sm">call</span> Liên hệ:
-                                    </span>
-                                    <a id="modalContact" href="#" class="font-semibold text-secondary hover:underline"></a>
-                                </div>
-
-                                <!-- Mô tả chi tiết -->
-                                <div class="space-y-1.5">
-                                    <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400">Giới thiệu trải nghiệm</h4>
-                                    <p id="modalDescription" class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed"></p>
-                                </div>
-
-                                <!-- Ghi chú kinh nghiệm nếu có -->
-                                <div id="modalNoteBlock" class="hidden p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs space-y-1">
-                                    <span class="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-sm">lightbulb</span> Lời khuyên thổ địa:
-                                    </span>
-                                    <p id="modalNote" class="text-amber-900 dark:text-amber-200 leading-relaxed"></p>
-                                </div>
-
-                                <!-- Nút chia sẻ -->
-                                <div class="space-y-2 pt-2 border-t border-outline-variant/40 dark:border-zinc-800">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-xs font-bold text-on-surface dark:text-zinc-200">Chia sẻ địa điểm này:</span>
-                                        <span id="shareFeedbackMsg" class="text-xs font-bold text-emerald-600 dark:text-emerald-400"></span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="window.ViVuApp.sharePlace('facebook')"
-                                            class="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors">
-                                            <i class="fab fa-facebook-f"></i> Facebook
-                                        </button>
-                                        <button onclick="window.ViVuApp.sharePlace('copy')"
-                                            class="flex-1 py-2 px-3 rounded-xl bg-surface-container-high dark:bg-zinc-700 text-on-surface dark:text-zinc-100 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors">
-                                            <span class="material-symbols-outlined text-sm">link</span> Sao chép
-                                        </button>
-                                        <button onclick="window.ViVuApp.sharePlace('native')"
-                                            class="py-2 px-3 rounded-xl bg-primary text-white font-bold text-xs flex items-center justify-center transition-colors"
-                                            title="Chia sẻ nhanh">
-                                            <span class="material-symbols-outlined text-sm">share</span>
-                                        </button>
-                                    </div>
-                                    <div class="pt-1 flex justify-end">
-                                        <button type="button" onclick="window.ViVuApp.openReportModal()"
-                                            class="inline-flex items-center gap-1 text-[11px] text-stone-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
-                                            <span class="material-symbols-outlined text-sm">flag</span>
-                                            <span>Báo sai thông tin địa điểm</span>
-                                        </button>
+                        <!-- Two-Column Grid: Left Column & Right Widgets -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 sm:p-6 pt-0">
+                            <!-- CỘT TRÁI: Nội dung chính & Đánh giá (7 cols) -->
+                            <div class="lg:col-span-7 xl:col-span-8 space-y-6">
+                                <!-- Audio Guide Player Banner (Khmer Cultural Immersion) -->
+                                <div id="modalAudioSection" class="rounded-2xl bg-gradient-to-r from-primary-container to-[#004733] text-on-primary p-4 sm:p-5 shadow-sm relative overflow-hidden">
+                                    <div class="absolute -right-8 -bottom-8 w-40 h-40 rounded-full bg-secondary/20 blur-2xl pointer-events-none"></div>
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                                        <div class="flex items-center gap-3 sm:gap-4">
+                                            <button id="audioPlayBtn" type="button" onclick="window.ViVuApp.toggleAudioGuide()"
+                                                class="w-12 h-12 min-w-[48px] min-h-[48px] rounded-full bg-[#EA580C] hover:bg-[#C2410C] text-white flex items-center justify-center shadow-md transition-transform active:scale-95 shrink-0"
+                                                aria-label="Phát thuyết minh âm thanh">
+                                                <span id="playIcon" class="material-symbols-outlined text-[26px]">play_arrow</span>
+                                            </button>
+                                            <div class="flex flex-col min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-badge text-[11px] text-secondary-fixed bg-secondary-fixed/15 px-2 py-0.5 rounded uppercase tracking-wide font-semibold">Audio Guide Bản Địa</span>
+                                                    <span class="font-caption text-xs text-primary-fixed-dim">Thuyết minh tự động</span>
+                                                </div>
+                                                <h3 class="font-headline-sm text-sm sm:text-base text-surface-bright font-bold mt-0.5 truncate">
+                                                    Lắng nghe câu chuyện di sản &amp; văn hóa
+                                                </h3>
+                                                <p class="font-body-sm text-xs text-on-primary-container line-clamp-1">
+                                                    Thuyết minh sống động về lịch sử, kiến trúc và nét đẹp địa phương Trà Vinh
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <!-- Waveform Visualizer & Timer -->
+                                        <div class="flex items-center gap-1 bg-black/25 px-3 py-1.5 rounded-xl self-start sm:self-center shrink-0">
+                                            <span class="audio-wave-bar w-1 h-3 bg-secondary-fixed rounded-full"></span>
+                                            <span class="audio-wave-bar w-1 h-5 bg-secondary-fixed rounded-full" style="animation-delay: 150ms;"></span>
+                                            <span class="audio-wave-bar w-1 h-4 bg-secondary-fixed rounded-full" style="animation-delay: 300ms;"></span>
+                                            <span class="audio-wave-bar w-1 h-6 bg-secondary-fixed rounded-full" style="animation-delay: 75ms;"></span>
+                                            <span class="audio-wave-bar w-1 h-3 bg-secondary-fixed rounded-full" style="animation-delay: 200ms;"></span>
+                                            <span id="audioTimer" class="ml-2 font-caption text-xs text-primary-fixed font-mono">00:00 / 02:30</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- KHU VỰC BÌNH LUẬN & ĐÁNH GIÁ SUPABASE -->
-                                <div class="space-y-3 pt-3 border-t border-outline-variant/40 dark:border-zinc-800">
-                                    <div class="flex items-center justify-between">
-                                        <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400 flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-sm">chat</span>
-                                            Đánh giá & Bình luận <span id="commentCount">(0)</span>
+                                <!-- TAB SWITCHER: Tổng quan & Review VS Tọa độ Check-in & TikTok -->
+                                <div class="flex items-center p-1 bg-surface-container-low dark:bg-zinc-800/90 rounded-2xl border border-outline-variant/30 dark:border-zinc-700/60">
+                                    <button id="modalTabOverviewBtn" type="button" onclick="window.ViVuApp.switchModalTab('overview')"
+                                        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-primary text-white shadow-xs">
+                                        <span class="material-symbols-outlined text-base">info</span>
+                                        <span>Tổng quan &amp; Đánh giá</span>
+                                    </button>
+                                    <button id="modalTabCheckinBtn" type="button" onclick="window.ViVuApp.switchModalTab('checkin')"
+                                        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-primary dark:hover:text-emerald-300">
+                                        <span class="material-symbols-outlined text-base text-rose-500">photo_camera</span>
+                                        <span>Góc chụp &amp; TikTok</span>
+                                        <span class="px-1.5 py-0.5 rounded-full text-[9px] bg-rose-500 text-white font-black animate-pulse">HOT</span>
+                                    </button>
+                                </div>
+
+                                <!-- TAB 1: TỔNG QUAN & REVIEW & BÌNH LUẬN -->
+                                <div id="modalOverviewTabPanel" class="space-y-6">
+                                    <!-- Giới thiệu trải nghiệm & Mô tả chi tiết -->
+                                    <article class="space-y-2">
+                                        <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400 flex items-center gap-1.5">
+                                            <span class="material-symbols-outlined text-base">history_edu</span>
+                                            Giới thiệu &amp; Nét đẹp trải nghiệm
                                         </h4>
-                                        <span id="commentSummary" class="text-[11px] text-on-surface-variant dark:text-zinc-400"></span>
+                                        <p id="modalDescription" class="text-sm sm:text-base text-on-surface-variant dark:text-zinc-300 leading-relaxed"></p>
+                                    </article>
+
+                                    <!-- Đặc trưng kiến trúc / Điểm nhấn văn hóa -->
+                                    <div id="modalHeritageHighlights" class="p-4 sm:p-5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/60 space-y-3"></div>
+
+                                    <!-- Quy tắc văn hóa & Ứng xử tôn trọng -->
+                                    <div id="modalCulturalEtiquette" class="p-4 sm:p-5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/60 space-y-3"></div>
+
+                                    <!-- Ghi chú kinh nghiệm (Lời khuyên thổ địa) -->
+                                    <div id="modalNoteBlock" class="hidden p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs sm:text-sm space-y-1.5">
+                                        <span class="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                                            <span class="material-symbols-outlined text-base">lightbulb</span> Lời khuyên thổ địa:
+                                        </span>
+                                        <p id="modalNote" class="text-amber-900 dark:text-amber-200 leading-relaxed"></p>
                                     </div>
 
-                                    <!-- Form gửi bình luận kèm Upload ảnh thực tế & Offline Sync -->
-                                    <form id="commentFormEl" class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 space-y-3">
-                                        <!-- Trạng thái sóng yếu / Offline notice -->
-                                        <div id="commentNetworkNotice" class="hidden p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-300 flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-base text-amber-600 shrink-0">cloud_off</span>
-                                            <span>Đang ở khu vực sóng yếu. Đánh giá & ảnh sẽ được lưu trữ an toàn và tự động đồng bộ khi có mạng!</span>
+                                    <!-- Liên hệ nếu có -->
+                                    <div id="modalContactBlock" class="hidden p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 text-xs">
+                                        <span class="font-bold text-primary dark:text-emerald-400 flex items-center gap-1 mb-1">
+                                            <span class="material-symbols-outlined text-sm">call</span> Liên hệ:
+                                        </span>
+                                        <a id="modalContact" href="#" class="font-semibold text-secondary dark:text-emerald-400 hover:underline"></a>
+                                    </div>
+
+                                    <!-- Chia sẻ địa điểm & Báo sai -->
+                                    <div class="space-y-3 pt-3 border-t border-outline-variant/30 dark:border-zinc-800">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs font-bold text-on-surface dark:text-zinc-200">Chia sẻ địa điểm này:</span>
+                                            <span id="shareFeedbackMsg" class="text-xs font-bold text-emerald-600 dark:text-emerald-400"></span>
                                         </div>
-
-                                        <div class="grid grid-cols-2 gap-2">
-                                            <input id="commentAuthorInput" type="text" placeholder="Tên của bạn *" required minlength="2" maxlength="80"
-                                                class="w-full px-3 py-2 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-700 text-xs text-on-surface dark:text-zinc-100 focus:ring-2 focus:ring-primary">
-                                            <select id="commentRatingInput" required
-                                                class="w-full px-3 py-2 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-700 text-xs font-bold text-amber-600 focus:ring-2 focus:ring-primary"
-                                                aria-label="Đánh giá số sao">
-                                                <option value="" disabled selected>-- Chọn số sao * --</option>
-                                                <option value="5">★★★★★ 5 sao (Xuất sắc)</option>
-                                                <option value="4">★★★★☆ 4 sao (Rất tốt)</option>
-                                                <option value="3">★★★☆☆ 3 sao (Bình thường)</option>
-                                                <option value="2">★★☆☆☆ 2 sao (Chưa tốt)</option>
-                                                <option value="1">★☆☆☆☆ 1 sao (Thất vọng)</option>
-                                            </select>
-                                        </div>
-                                        <textarea id="commentTextInput" placeholder="Chia sẻ cảm nhận, món ngon nên thử, kinh nghiệm thực tế..." rows="2" required minlength="3" maxlength="1000"
-                                            class="w-full px-3 py-2 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-700 text-xs text-on-surface dark:text-zinc-100 focus:ring-2 focus:ring-primary"></textarea>
-
-                                        <!-- Khu vực chọn & Preview ảnh chụp thực tế -->
-                                        <div class="space-y-2">
-                                            <input type="file" id="commentPhotoInput" accept="image/*" class="hidden">
-
-                                            <div class="flex items-center justify-between">
-                                                <button type="button" id="commentChoosePhotoBtn"
-                                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-700 text-on-surface-variant dark:text-zinc-300 hover:text-primary dark:hover:text-emerald-400 text-xs font-semibold transition-colors">
-                                                    <span class="material-symbols-outlined text-base text-secondary dark:text-emerald-400">add_a_photo</span>
-                                                    <span id="commentPhotoBtnText">Đính kèm ảnh chụp thực tế</span>
-                                                </button>
-                                                <span class="text-[10px] text-outline dark:text-zinc-500">Tự động nén tối ưu</span>
-                                            </div>
-
-                                            <!-- Preview ảnh đã chọn -->
-                                            <div id="commentPhotoPreviewContainer" class="hidden items-center gap-3 p-2.5 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-700">
-                                                <div class="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-outline-variant/40">
-                                                    <img id="commentPhotoPreviewImg" src="" alt="Preview ảnh" class="w-full h-full object-cover">
-                                                </div>
-                                                <div class="flex-1 min-w-0">
-                                                    <div id="commentPhotoFileName" class="text-xs font-bold text-on-surface dark:text-zinc-100 truncate">photo.jpg</div>
-                                                    <div id="commentPhotoFileSize" class="text-[10px] text-on-surface-variant dark:text-zinc-400">120 KB (Đã tối ưu)</div>
-                                                </div>
-                                                <button type="button" id="commentRemovePhotoBtn" class="w-7 h-7 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 hover:bg-rose-200 flex items-center justify-center shrink-0 transition-colors" title="Bỏ ảnh">
-                                                    <span class="material-symbols-outlined text-sm">close</span>
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <!-- Nút gửi & thông báo -->
-                                        <div class="flex items-center justify-between pt-1">
-                                            <span id="commentMessageEl" class="text-[11px]" aria-live="polite"></span>
-                                            <button id="commentSubmitBtn" type="submit"
-                                                class="px-4 py-2 rounded-xl bg-primary hover:bg-emerald-800 text-white font-bold text-xs transition-all shadow-xs active:scale-95 flex items-center gap-1.5">
-                                                <span class="material-symbols-outlined text-sm">send</span>
-                                                <span>Gửi đánh giá</span>
+                                        <div class="flex items-center gap-2">
+                                            <button onclick="window.ViVuApp.sharePlace('facebook')"
+                                                class="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs">
+                                                <i class="fab fa-facebook-f"></i> Facebook
+                                            </button>
+                                            <button onclick="window.ViVuApp.sharePlace('copy')"
+                                                class="flex-1 py-2.5 px-3 rounded-xl bg-surface-container-high dark:bg-zinc-700 text-on-surface dark:text-zinc-100 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs">
+                                                <span class="material-symbols-outlined text-sm">link</span> Sao chép
+                                            </button>
+                                            <button onclick="window.ViVuApp.sharePlace('native')"
+                                                class="py-2.5 px-3.5 rounded-xl bg-primary text-white font-bold text-xs flex items-center justify-center transition-colors shadow-xs"
+                                                title="Chia sẻ nhanh">
+                                                <span class="material-symbols-outlined text-sm">share</span>
                                             </button>
                                         </div>
-                                    </form>
+                                        <div class="pt-1 flex justify-end">
+                                            <button type="button" onclick="window.ViVuApp.openReportModal()"
+                                                class="inline-flex items-center gap-1 text-[11px] text-stone-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                                                <span class="material-symbols-outlined text-sm">flag</span>
+                                                <span>Báo sai thông tin địa điểm</span>
+                                            </button>
+                                        </div>
+                                    </div>
 
-                                    <!-- Danh sách bình luận đã duyệt (cuộn độc lập chỉ trên desktop lg:) -->
-                                    <div id="commentsList" class="space-y-2.5 lg:max-h-64 lg:overflow-y-auto pr-1"></div>
+                                    <!-- KHU VỰC BÌNH LUẬN & ĐÁNH GIÁ SUPABASE -->
+                                    <div class="space-y-4 pt-3 border-t border-outline-variant/30 dark:border-zinc-800">
+                                        <div class="flex items-center justify-between">
+                                            <h4 class="text-xs font-bold uppercase tracking-wider text-primary dark:text-emerald-400 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-base">chat</span>
+                                                Đánh giá &amp; Bình luận <span id="commentCount">(0)</span>
+                                            </h4>
+                                            <span id="commentSummary" class="text-[11px] text-on-surface-variant dark:text-zinc-400"></span>
+                                        </div>
+
+                                        <!-- Overall Rating Breakdown Bar (Stitch style) -->
+                                        <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700/60 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                                            <div class="flex flex-col items-center justify-center sm:pr-6 sm:border-r border-outline-variant/40 dark:border-zinc-700">
+                                                <span class="font-headline-xl text-3xl font-bold text-primary dark:text-emerald-400">4.9</span>
+                                                <div class="flex text-amber-500 my-1">
+                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                </div>
+                                                <span class="text-[11px] text-outline dark:text-zinc-400">96% du khách hài lòng</span>
+                                            </div>
+                                            <div class="flex-1 w-full space-y-1.5 text-xs">
+                                                <div class="flex items-center gap-2 font-caption">
+                                                    <span class="w-10 text-on-surface dark:text-zinc-300">5 sao</span>
+                                                    <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                                        <div class="bg-secondary dark:bg-emerald-500 h-full rounded-full w-[92%]"></div>
+                                                    </div>
+                                                    <span class="w-8 text-right text-outline dark:text-zinc-400">92%</span>
+                                                </div>
+                                                <div class="flex items-center gap-2 font-caption">
+                                                    <span class="w-10 text-on-surface dark:text-zinc-300">4 sao</span>
+                                                    <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                                        <div class="bg-secondary dark:bg-emerald-500 h-full rounded-full w-[6%]"></div>
+                                                    </div>
+                                                    <span class="w-8 text-right text-outline dark:text-zinc-400">6%</span>
+                                                </div>
+                                                <div class="flex items-center gap-2 font-caption">
+                                                    <span class="w-10 text-on-surface dark:text-zinc-300">3 sao</span>
+                                                    <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                                        <div class="bg-secondary dark:bg-emerald-500 h-full rounded-full w-[2%]"></div>
+                                                    </div>
+                                                    <span class="w-8 text-right text-outline dark:text-zinc-400">2%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Form gửi bình luận kèm Upload ảnh thực tế & Offline Sync -->
+                                        <form id="commentFormEl" class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/90 border border-outline-variant/30 dark:border-zinc-700/60 space-y-3">
+                                            <!-- Trạng thái sóng yếu / Offline notice -->
+                                            <div id="commentNetworkNotice" class="hidden p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-base text-amber-600 shrink-0">cloud_off</span>
+                                                <span>Đang ở khu vực sóng yếu. Đánh giá &amp; ảnh sẽ được lưu trữ an toàn và tự động đồng bộ khi có mạng!</span>
+                                            </div>
+
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <input id="commentAuthorInput" type="text" placeholder="Tên của bạn *" required minlength="2" maxlength="80"
+                                                    class="w-full px-3 py-2 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-700 text-xs text-on-surface dark:text-zinc-100 focus:ring-2 focus:ring-primary">
+                                                <select id="commentRatingInput" required
+                                                    class="w-full px-3 py-2 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-700 text-xs font-bold text-amber-600 focus:ring-2 focus:ring-primary"
+                                                    aria-label="Đánh giá số sao">
+                                                    <option value="" disabled selected>-- Chọn số sao * --</option>
+                                                    <option value="5">★★★★★ 5 sao (Xuất sắc)</option>
+                                                    <option value="4">★★★★☆ 4 sao (Rất tốt)</option>
+                                                    <option value="3">★★★☆☆ 3 sao (Bình thường)</option>
+                                                    <option value="2">★★☆☆☆ 2 sao (Chưa tốt)</option>
+                                                    <option value="1">★☆☆☆☆ 1 sao (Thất vọng)</option>
+                                                </select>
+                                            </div>
+                                            <textarea id="commentTextInput" placeholder="Chia sẻ cảm nhận, món ngon nên thử, kinh nghiệm thực tế..." rows="2" required minlength="3" maxlength="1000"
+                                                class="w-full px-3 py-2 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-700 text-xs text-on-surface dark:text-zinc-100 focus:ring-2 focus:ring-primary"></textarea>
+
+                                            <!-- Khu vực chọn & Preview ảnh chụp thực tế -->
+                                            <div class="space-y-2">
+                                                <input type="file" id="commentPhotoInput" accept="image/*" class="hidden">
+
+                                                <div class="flex items-center justify-between">
+                                                    <button type="button" id="commentChoosePhotoBtn"
+                                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-700 text-on-surface-variant dark:text-zinc-300 hover:text-primary dark:hover:text-emerald-400 text-xs font-semibold transition-colors">
+                                                        <span class="material-symbols-outlined text-base text-secondary dark:text-emerald-400">add_a_photo</span>
+                                                        <span id="commentPhotoBtnText">Đính kèm ảnh chụp thực tế</span>
+                                                    </button>
+                                                    <span class="text-[10px] text-outline dark:text-zinc-500">Tự động nén tối ưu</span>
+                                                </div>
+
+                                                <!-- Preview ảnh đã chọn -->
+                                                <div id="commentPhotoPreviewContainer" class="hidden items-center gap-3 p-2.5 rounded-xl bg-surface dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-700">
+                                                    <div class="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-outline-variant/40">
+                                                        <img id="commentPhotoPreviewImg" src="" alt="Preview ảnh" class="w-full h-full object-cover">
+                                                    </div>
+                                                    <div class="flex-1 min-w-0">
+                                                        <div id="commentPhotoFileName" class="text-xs font-bold text-on-surface dark:text-zinc-100 truncate">photo.jpg</div>
+                                                        <div id="commentPhotoFileSize" class="text-[10px] text-on-surface-variant dark:text-zinc-400">120 KB (Đã tối ưu)</div>
+                                                    </div>
+                                                    <button type="button" id="commentRemovePhotoBtn" class="w-7 h-7 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 hover:bg-rose-200 flex items-center justify-center shrink-0 transition-colors" title="Bỏ ảnh">
+                                                        <span class="material-symbols-outlined text-sm">close</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Nút gửi & thông báo -->
+                                            <div class="flex items-center justify-between pt-1">
+                                                <span id="commentMessageEl" class="text-[11px]" aria-live="polite"></span>
+                                                <button id="commentSubmitBtn" type="submit"
+                                                    class="px-4 py-2.5 rounded-xl bg-primary hover:bg-emerald-800 text-white font-bold text-xs transition-all shadow-xs active:scale-95 flex items-center gap-1.5">
+                                                    <span class="material-symbols-outlined text-sm">send</span>
+                                                    <span>Gửi đánh giá</span>
+                                                </button>
+                                            </div>
+                                        </form>
+
+                                        <!-- Danh sách bình luận đã duyệt -->
+                                        <div id="commentsList" class="space-y-2.5 lg:max-h-64 lg:overflow-y-auto pr-1"></div>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 2: TỌA ĐỘ CHECK-IN ẢO & VIDEO TIKTOK/REELS REVIEW -->
+                                <div id="modalCheckinTabPanel" class="hidden space-y-4">
+                                    <div id="modalCheckinContent"></div>
                                 </div>
                             </div>
 
-                            <!-- TAB 2: TỌA ĐỘ CHECK-IN ẢO & VIDEO TIKTOK/REELS REVIEW -->
-                            <div id="modalCheckinTabPanel" class="hidden space-y-4">
-                                <div id="modalCheckinContent"></div>
-                            </div>
+                            <!-- CỘT PHẢI: Widgets Thông tin nhanh, Bản đồ & Điểm lân cận (5 cols) -->
+                            <aside class="lg:col-span-5 xl:col-span-4 space-y-5">
+                                <!-- Quick Info Card -->
+                                <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 shadow-sm space-y-3.5">
+                                    <h3 class="font-headline-sm text-sm sm:text-base text-primary dark:text-zinc-100 font-bold flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px]">info</span>
+                                        Thông tin tham quan nhanh
+                                    </h3>
+                                    <div class="divide-y divide-surface-container-high dark:divide-zinc-800 text-xs sm:text-sm">
+                                        <div class="py-2.5 flex items-center justify-between">
+                                            <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-base text-outline">schedule</span> Giờ hoạt động
+                                            </span>
+                                            <span id="modalHours" class="font-bold text-primary dark:text-zinc-200"></span>
+                                        </div>
+                                        <div class="py-2.5 flex items-center justify-between">
+                                            <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-base text-outline">confirmation_number</span> Vé vào cổng
+                                            </span>
+                                            <span id="modalPrice" class="font-bold text-secondary dark:text-emerald-400 px-2 py-0.5 rounded bg-secondary-container/50 dark:bg-emerald-950/60"></span>
+                                        </div>
+                                        <div class="py-2.5 flex items-center justify-between">
+                                            <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-base text-outline">timelapse</span> Thời gian đề xuất
+                                            </span>
+                                            <span class="font-semibold text-primary dark:text-zinc-200">1.0 - 2.0 giờ</span>
+                                        </div>
+                                        <div class="py-2.5 flex items-center justify-between">
+                                            <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-base text-outline">local_parking</span> Bãi đỗ xe
+                                            </span>
+                                            <span class="font-medium text-on-surface dark:text-zinc-300">Có (Xe máy &amp; Ô tô)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Live Weather Status Card (Trà Vinh) -->
+                                <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 shadow-sm flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-outlined text-[#EA580C] text-[32px]">sunny</span>
+                                        <div class="flex flex-col">
+                                            <span class="font-caption text-[11px] text-outline dark:text-zinc-400">Thời tiết Trà Vinh hôm nay</span>
+                                            <span class="font-headline-sm text-sm sm:text-base text-primary dark:text-zinc-100 font-bold">29°C • Nắng nhẹ ráo trời</span>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded-full bg-secondary/10 dark:bg-emerald-950/60 text-secondary dark:text-emerald-300 font-badge text-[11px] font-semibold">Lý tưởng viếng thăm</span>
+                                </div>
+
+                                <!-- Bản đồ vị trí thu nhỏ & Chỉ đường GPS -->
+                                <div class="p-4 sm:p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 shadow-sm space-y-3">
+                                    <div class="flex items-center justify-between text-xs font-bold text-primary dark:text-emerald-400">
+                                        <span class="flex items-center gap-1.5">
+                                            <span class="material-symbols-outlined text-base">pin_drop</span> Vị trí &amp; Tọa độ GPS
+                                        </span>
+                                        <a id="modalDirections" href="#" target="_blank" rel="noopener noreferrer"
+                                            class="text-secondary dark:text-emerald-400 hover:underline inline-flex items-center gap-0.5 text-xs">
+                                            Mở Google Maps <span class="material-symbols-outlined text-xs">north_east</span>
+                                        </a>
+                                    </div>
+                                    <div id="modalLeafletMap" class="w-full h-36 rounded-xl overflow-hidden shadow-inner"></div>
+                                    <a id="modalGpsDirectionsBtn" href="#" target="_blank" rel="noopener noreferrer"
+                                        class="w-full py-2.5 px-4 rounded-xl bg-secondary hover:bg-primary-container text-white text-center font-button text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-xs">
+                                        <span class="material-symbols-outlined text-[18px]">near_me</span>
+                                        Khởi động dẫn đường GPS
+                                    </a>
+                                </div>
+
+                                <!-- Nearby Linked Spots -->
+                                <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 shadow-sm space-y-3">
+                                    <h4 class="font-headline-sm text-sm text-primary dark:text-zinc-100 font-bold flex items-center justify-between">
+                                        <span>Điểm đến lân cận</span>
+                                        <span class="text-[11px] font-normal text-outline dark:text-zinc-400">Gần khu vực</span>
+                                    </h4>
+                                    <div id="modalNearbySpotsContainer" class="flex flex-col gap-2"></div>
+                                </div>
+
+                                <!-- Eco-Tour Experience Banner -->
+                                <div class="rounded-2xl bg-gradient-to-br from-secondary to-[#004733] p-5 text-white shadow-sm relative overflow-hidden">
+                                    <div class="pointer-events-none absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-white/10 blur-xl"></div>
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="material-symbols-outlined text-secondary-fixed text-[20px]">pedal_bike</span>
+                                        <span class="font-badge text-[11px] uppercase tracking-wider text-secondary-fixed font-semibold">Trải nghiệm xanh</span>
+                                    </div>
+                                    <h4 class="font-headline-sm text-sm sm:text-base font-bold leading-snug mb-1">
+                                        Tour xe đạp sinh thái quanh Trà Vinh
+                                    </h4>
+                                    <p class="font-body-sm text-xs text-white/90 mb-3 leading-relaxed">
+                                        Khám phá văn hóa bản địa cùng người dân địa phương, thưởng thức nước dừa sáp tươi mát và trải nghiệm làm bánh dân gian.
+                                    </p>
+                                    <button type="button" onclick="document.querySelector('[data-category=tours]')?.click(); window.ViVuApp.closeDetailModal();"
+                                        class="w-full py-2 px-3 rounded-xl bg-white text-secondary hover:bg-emerald-50 font-button text-xs font-bold transition-colors shadow-xs text-center">
+                                        Xem các tour gợi ý
+                                    </button>
+                                </div>
+                            </aside>
                         </div>
                     </div>
                 </div>
