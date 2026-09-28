@@ -16,8 +16,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-
-const ARTIFACT_DIR = '/home/huutien-tran/.gemini/antigravity/brain/1cab34ab-f633-487c-8e0f-9175241583a3';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || (fs.existsSync(path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS'))
+    ? path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS')
+    : path.resolve(__dirname, '../scratch/artifacts'));
+if (!fs.existsSync(ARTIFACT_DIR)) {
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+}
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
@@ -126,6 +130,38 @@ class CDPClient {
 
 async function runG8BrowserTests() {
     console.log('\n=== KHỞI ĐỘNG KIỂM THỬ TRÌNH DUYỆT G8.4 (ADMIN PRODUCTION UI) ===\n');
+
+    let localServer = null;
+    const is8000Open = await new Promise(resolve => {
+        const req = http.get('http://127.0.0.1:8000/', () => resolve(true)).on('error', () => resolve(false));
+        req.setTimeout(500, () => { req.destroy(); resolve(false); });
+    });
+    if (!is8000Open) {
+        const MIME = {
+            '.html': 'text/html; charset=utf-8',
+            '.js': 'application/javascript; charset=utf-8',
+            '.json': 'application/json; charset=utf-8',
+            '.css': 'text/css; charset=utf-8',
+            '.svg': 'image/svg+xml',
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.webp': 'image/webp',
+            '.woff2': 'font/woff2'
+        };
+        localServer = http.createServer((req, res) => {
+            let p = req.url.split('?')[0];
+            if (p === '/') p = '/index.html';
+            const fp = path.join(__dirname, '..', p);
+            if (fs.existsSync(fp) && fs.statSync(fp).isFile()) {
+                res.writeHead(200, { 'Content-Type': MIME[path.extname(fp).toLowerCase()] || 'application/octet-stream' });
+                res.end(fs.readFileSync(fp));
+            } else {
+                res.writeHead(404);
+                res.end('Not Found');
+            }
+        });
+        await new Promise(r => localServer.listen(8000, '127.0.0.1', r));
+    }
 
     const chromePort = 9226;
     const userDataDir = path.join(os.tmpdir(), 'vivu_g8_browser_test_' + Date.now());
@@ -944,17 +980,24 @@ async function runG8BrowserTests() {
         console.log(`========================================\n`);
 
     } finally {
-        if (cdp) cdp.close();
-        chrome.kill('SIGTERM');
+        if (cdp) {
+            try { await cdp.send('Browser.close'); } catch {}
+            try { cdp.close(); } catch {}
+        }
+        try { chrome.kill(); } catch {}
         try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch {}
+        if (localServer) { try { localServer.close(); } catch {} }
     }
 
     if (testsPassed < totalTests) {
         process.exit(1);
     }
+    process.exit(0);
 }
 
-runG8BrowserTests().catch(err => {
+runG8BrowserTests().then(() => {
+    process.exit(0);
+}).catch(err => {
     console.error('❌ KIỂM THỬ G8 BROWSER THẤT BẠI:', err);
     process.exit(1);
 });

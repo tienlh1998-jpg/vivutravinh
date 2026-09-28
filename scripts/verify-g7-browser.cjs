@@ -11,8 +11,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-
-const ARTIFACT_DIR = '/home/huutien-tran/.gemini/antigravity/brain/1cab34ab-f633-487c-8e0f-9175241583a3';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || (fs.existsSync(path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS'))
+    ? path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS')
+    : path.resolve(__dirname, '../scratch/artifacts'));
+if (!fs.existsSync(ARTIFACT_DIR)) {
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+}
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
@@ -150,15 +154,30 @@ async function runG7BrowserTests() {
 
     let localServer = null;
     if (!(await checkServer(8000))) {
-        console.log('[Setup] Máy chủ cổng 8000 chưa chạy. Đang tự động khởi động http-server...');
-        localServer = spawn('npx', ['http-server', '-p', '8000', '-c-1'], {
-            cwd: path.resolve(__dirname, '..'),
-            stdio: 'ignore'
+        const MIME = {
+            '.html': 'text/html; charset=utf-8',
+            '.js': 'application/javascript; charset=utf-8',
+            '.json': 'application/json; charset=utf-8',
+            '.css': 'text/css; charset=utf-8',
+            '.svg': 'image/svg+xml',
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.webp': 'image/webp',
+            '.woff2': 'font/woff2'
+        };
+        localServer = http.createServer((req, res) => {
+            let p = req.url.split('?')[0];
+            if (p === '/') p = '/index.html';
+            const fp = path.join(__dirname, '..', p);
+            if (fs.existsSync(fp) && fs.statSync(fp).isFile()) {
+                res.writeHead(200, { 'Content-Type': MIME[path.extname(fp).toLowerCase()] || 'application/octet-stream' });
+                res.end(fs.readFileSync(fp));
+            } else {
+                res.writeHead(404);
+                res.end('Not Found');
+            }
         });
-        for (let i = 0; i < 25; i++) {
-            await sleep(200);
-            if (await checkServer(8000)) break;
-        }
+        await new Promise(r => localServer.listen(8000, '127.0.0.1', r));
     }
 
     const chromePort = 9225;
@@ -512,11 +531,14 @@ async function runG7BrowserTests() {
         console.error(err);
         process.exitCode = 1;
     } finally {
-        if (cdp) cdp.close();
+        if (cdp) {
+            try { await cdp.send('Browser.close'); } catch {}
+            try { cdp.close(); } catch {}
+        }
         try { chrome.kill(); } catch {}
         try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch {}
         if (localServer) {
-            try { localServer.kill(); } catch {}
+            try { localServer.close(); } catch {}
         }
     }
 }

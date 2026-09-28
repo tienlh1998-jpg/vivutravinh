@@ -25,7 +25,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
-const ARTIFACT_DIR = '/home/huutien-tran/.gemini/antigravity/brain/1cab34ab-f633-487c-8e0f-9175241583a3';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || (fs.existsSync(path.resolve(ROOT_DIR, '../05_AGY_BRAIN_ARTIFACTS'))
+  ? path.resolve(ROOT_DIR, '../05_AGY_BRAIN_ARTIFACTS')
+  : path.resolve(ROOT_DIR, 'scratch/artifacts'));
+if (!fs.existsSync(ARTIFACT_DIR)) {
+  fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+}
 
 const { renderPlaceHtml, normalizeRuntimeAssets, findPlace } = await import('../api/og-place.js');
 const ogHandler = (await import('../api/og-place.js')).default;
@@ -645,9 +650,12 @@ async function runPublicRouteIntegrationTests() {
     console.log('  ✓ [PASS] Ca Mất Mạng: Direct route chặn mở fallback cũ, URL reset về "/" và hiển thị thông báo an toàn');
 
   } finally {
-    if (cdp) cdp.close();
-    chrome.kill('SIGTERM');
-    testServer.close();
+    if (cdp) {
+      try { await cdp.send('Browser.close'); } catch {}
+      try { cdp.close(); } catch {}
+    }
+    try { chrome.kill('SIGTERM'); } catch {}
+    try { testServer.close(); } catch {}
     try { fs.rmSync(chromeProfile, { recursive: true, force: true }); } catch {}
   }
 
@@ -656,7 +664,9 @@ async function runPublicRouteIntegrationTests() {
   console.log('========================================\n');
 }
 
-runPublicRouteIntegrationTests().catch(err => {
+runPublicRouteIntegrationTests().then(() => {
+  process.exit(0);
+}).catch(err => {
   console.error('\n❌ KIỂM THỬ THẤT BẠI:', err);
   process.exit(1);
 });

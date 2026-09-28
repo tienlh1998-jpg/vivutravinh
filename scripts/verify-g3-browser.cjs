@@ -4,8 +4,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-
-const ARTIFACT_DIR = '/home/huutien-tran/.gemini/antigravity/brain/1cab34ab-f633-487c-8e0f-9175241583a3';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || (fs.existsSync(path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS'))
+    ? path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS')
+    : path.resolve(__dirname, '../scratch/artifacts'));
+if (!fs.existsSync(ARTIFACT_DIR)) {
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+}
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
@@ -126,6 +130,38 @@ async function waitForAppReady(cdp, timeoutMs = 12000) {
 
 async function runTests() {
     console.log('=== BẮT ĐẦU KIỂM THỬ TRÌNH DUYỆT G3: REVIEW VÀ AN TOÀN DỮ LIỆU ===\n');
+
+    let localServer = null;
+    const is8000Open = await new Promise(resolve => {
+        const req = http.get('http://127.0.0.1:8000/', () => resolve(true)).on('error', () => resolve(false));
+        req.setTimeout(500, () => { req.destroy(); resolve(false); });
+    });
+    if (!is8000Open) {
+        const MIME = {
+            '.html': 'text/html; charset=utf-8',
+            '.js': 'application/javascript; charset=utf-8',
+            '.json': 'application/json; charset=utf-8',
+            '.css': 'text/css; charset=utf-8',
+            '.svg': 'image/svg+xml',
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.webp': 'image/webp',
+            '.woff2': 'font/woff2'
+        };
+        localServer = http.createServer((req, res) => {
+            let p = req.url.split('?')[0];
+            if (p === '/') p = '/index.html';
+            const fp = path.join(__dirname, '..', p);
+            if (fs.existsSync(fp) && fs.statSync(fp).isFile()) {
+                res.writeHead(200, { 'Content-Type': MIME[path.extname(fp).toLowerCase()] || 'application/octet-stream' });
+                res.end(fs.readFileSync(fp));
+            } else {
+                res.writeHead(404);
+                res.end('Not Found');
+            }
+        });
+        await new Promise(r => localServer.listen(8000, '127.0.0.1', r));
+    }
 
     const port = 9225;
     const tmpProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'chrome_g3_'));
@@ -466,19 +502,25 @@ async function runTests() {
 
         console.log('\n=== TẤT CẢ CÁC BÀI KIỂM THỬ TRÌNH DUYỆT G3 ĐỀU ĐẠT 100%! ===');
 
-        cdp.close();
-        chrome.kill();
-        await sleep(500);
-        try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch (e) {}
-        process.exit(0);
-    } catch (err) {
-        console.error('\n❌ KIỂM THỬ G3 THẤT BẠI:', err);
         if (cdp) {
+            try { await cdp.send('Browser.close'); } catch (e) {}
             try { cdp.close(); } catch (e) {}
         }
         try { chrome.kill(); } catch (e) {}
         await sleep(500);
         try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch (e) {}
+        if (localServer) { try { localServer.close(); } catch (e) {} }
+        process.exit(0);
+    } catch (err) {
+        console.error('\n❌ KIỂM THỬ G3 THẤT BẠI:', err);
+        if (cdp) {
+            try { await cdp.send('Browser.close'); } catch (e) {}
+            try { cdp.close(); } catch (e) {}
+        }
+        try { chrome.kill(); } catch (e) {}
+        await sleep(500);
+        try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch (e) {}
+        if (localServer) { try { localServer.close(); } catch (e) {} }
         process.exit(1);
     }
 }

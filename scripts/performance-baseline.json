@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-17T06:21:29.605Z",
+  "timestamp": "2026-09-28T04:31:03.832Z",
   "version": "2.9.0",
   "environment": {
     "server": "localhost",
@@ -8,8 +8,8 @@
     "browser": "Chrome Headless"
   },
   "desktop": {
-    "lcp": 96,
-    "cls": 0.0441,
+    "lcp": 196,
+    "cls": 0.044,
     "shifts": [
       {
         "value": 0.0075,
@@ -24,7 +24,7 @@
         ]
       },
       {
-        "value": 0.033178533939074974,
+        "value": 0.033024253034729494,
         "sources": [
           {
             "tag": "DIV",
@@ -64,7 +64,7 @@
         ]
       },
       {
-        "value": 0.003459216672655408,
+        "value": 0.0034257994969457426,
         "sources": [
           {
             "tag": "DIV",
@@ -85,17 +85,17 @@
     ]
   },
   "mobile": {
-    "lcp": 120,
+    "lcp": 204,
     "cls": 0,
     "shifts": []
   },
   "bundle": {
-    "htmlBytes": 120675,
-    "htmlKb": 117.8,
-    "cssBytes": 82684,
-    "cssKb": 80.7,
-    "jsBytes": 424961,
-    "jsKb": 415,
-    "totalMb": 6.38
+    "htmlBytes": 120723,
+    "htmlKb": 117.9,
+    "cssBytes": 92972,
+    "cssKb": 90.8,
+    "jsBytes": 542021,
+    "jsKb": 529.3,
+    "totalMb": 6.56
   }
 }

@@ -4,8 +4,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-
-const ARTIFACT_DIR = '/home/huutien-tran/.gemini/antigravity/brain/1cab34ab-f633-487c-8e0f-9175241583a3';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || (fs.existsSync(path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS'))
+    ? path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS')
+    : path.resolve(__dirname, '../scratch/artifacts'));
+if (!fs.existsSync(ARTIFACT_DIR)) {
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+}
 
 const VIEWPORTS = [
     { name: 'Mobile 360px', width: 360, height: 800 },
@@ -488,8 +492,11 @@ async function runTests() {
         console.log(`  ✅ Nút Chi Tiết trên Card: ${touchTargets.openDetailBtn.w}x${touchTargets.openDetailBtn.h}px (chiều cao >= 44px PASS)`);
         console.log(`  ✅ Chiều cao tối thiểu Bottom Nav items: ${touchTargets.bottomNavMinH}px (>= 44px PASS)`);
 
-        cdp.close();
-        chrome.kill();
+        if (cdp) {
+            try { await cdp.send('Browser.close'); } catch (e) {}
+            try { cdp.close(); } catch (e) {}
+        }
+        try { chrome.kill(); } catch (e) {}
         await sleep(500);
         try { fs.rmSync(tmpProfile, { recursive: true, force: true }); } catch (e) {}
         if (localServer) { try { localServer.close(); } catch (e) {} }
@@ -499,6 +506,7 @@ async function runTests() {
     } catch (e) {
         console.error('\n❌ Lỗi kiểm thử verify-ui:', e);
         if (cdp) {
+            try { await cdp.send('Browser.close'); } catch (err) {}
             try { cdp.close(); } catch (err) {}
         }
         try { chrome.kill(); } catch (err) {}

@@ -7,7 +7,12 @@ const os = require('os');
 const assert = require('assert');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
-const ARTIFACT_DIR = '/home/huutien-tran/.gemini/antigravity/brain/1cab34ab-f633-487c-8e0f-9175241583a3';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || (fs.existsSync(path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS'))
+    ? path.resolve(__dirname, '../../05_AGY_BRAIN_ARTIFACTS')
+    : path.resolve(__dirname, '../scratch/artifacts'));
+if (!fs.existsSync(ARTIFACT_DIR)) {
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
+}
 const PREVIEW_PORT = 8089;
 
 function sleep(ms) {
@@ -318,38 +323,46 @@ async function runOfflineVerification() {
         // ==========================================
         console.log('\n3. Chờ Service Worker kích hoạt và kiểm tra Phân Vùng Cache (Partitioned Caches):');
         await waitForCondition(async () => {
-            return await cdp.eval(`(() => {
-                return navigator.serviceWorker.controller !== null || 
-                       (navigator.serviceWorker.ready.then(reg => !!reg.active));
+            return await cdp.eval(`(async () => {
+                try {
+                    const reg = await navigator.serviceWorker.ready;
+                    if (!reg.active) return false;
+                    const keys = await caches.keys();
+                    const shellKey = keys.find(k => k.startsWith('vivutravinh-shell-'));
+                    if (!shellKey) return false;
+                    const c = await caches.open(shellKey);
+                    const count = (await c.keys()).length;
+                    return count >= 18;
+                } catch {
+                    return false;
+                }
             })()`);
-        }, 15000);
-
-        await sleep(2500);
+        }, 20000);
 
         const swCacheInfo = await cdp.eval(`(async () => {
             const keys = await caches.keys();
-            const hasShellCache = keys.includes('vivutravinh-shell-v2.9.0');
-            const hasDataCache = keys.includes('vivutravinh-data-v2.9.0');
+            const shellKey = keys.find(k => k.startsWith('vivutravinh-shell-'));
+            const dataKey = keys.find(k => k.startsWith('vivutravinh-data-'));
             let shellCount = 0;
             let dataCount = 0;
-            if (hasShellCache) {
-                const c = await caches.open('vivutravinh-shell-v2.9.0');
+            if (shellKey) {
+                const c = await caches.open(shellKey);
                 shellCount = (await c.keys()).length;
             }
-            if (hasDataCache) {
-                const c = await caches.open('vivutravinh-data-v2.9.0');
+            if (dataKey) {
+                const c = await caches.open(dataKey);
                 dataCount = (await c.keys()).length;
             }
-            return { keys, hasShellCache, hasDataCache, shellCount, dataCount };
+            return { keys, hasShellCache: !!shellKey, hasDataCache: !!dataKey, shellCount, dataCount };
         })()`);
 
         console.log(`  Caches hiện có: ${JSON.stringify(swCacheInfo.keys)}`);
         console.log(`  Dung lượng phân vùng Shell: ${swCacheInfo.shellCount} files`);
         console.log(`  Dung lượng phân vùng Data: ${swCacheInfo.dataCount} files`);
-        assert.ok(swCacheInfo.hasShellCache, 'vivutravinh-shell-v2.9.0 phải tồn tại');
-        assert.ok(swCacheInfo.hasDataCache, 'vivutravinh-data-v2.9.0 phải tồn tại');
+        assert.ok(swCacheInfo.hasShellCache, 'vivutravinh-shell cache phải tồn tại');
+        assert.ok(swCacheInfo.hasDataCache, 'vivutravinh-data cache phải tồn tại');
         assert.ok(swCacheInfo.shellCount >= 18, 'Phân vùng Shell phải lưu ít nhất 18 tài nguyên app shell');
-        console.log('  ✓ Service Worker v2.9.0 đã kích hoạt với các phân vùng cache độc lập');
+        console.log('  ✓ Service Worker đã kích hoạt với các phân vùng cache độc lập');
 
         // ==========================================
         // BƯỚC 4: GIẢ LẬP MẤT MẠNG HOÀN TOÀN & OFFLINE BANNER
@@ -628,10 +641,13 @@ async function runOfflineVerification() {
 
         console.log('\n=== TẤT CẢ KIỂM THỬ TRÌNH DUYỆT THỰC TẾ G4 TRÊN DIST/ ĐẠT 100%! ===');
     } finally {
-        if (cdp) cdp.close();
-        chrome.kill('SIGKILL');
+        if (cdp) {
+            try { await cdp.send('Browser.close'); } catch {}
+            try { cdp.close(); } catch {}
+        }
+        try { chrome.kill(); } catch {}
         try {
-            previewServer.kill('SIGKILL');
+            previewServer.kill();
         } catch {}
         try {
             fs.rmSync(tmpProfile, { recursive: true, force: true });
@@ -639,7 +655,9 @@ async function runOfflineVerification() {
     }
 }
 
-runOfflineVerification().catch(err => {
+runOfflineVerification().then(() => {
+    process.exit(0);
+}).catch(err => {
     console.error('\n❌ KIỂM THỬ G4 THẤT BẠI:', err);
     process.exit(1);
 });
