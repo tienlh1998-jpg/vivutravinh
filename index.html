@@ -377,6 +377,10 @@
                             <span class="material-symbols-outlined text-[20px]">event</span>
                             <span>Sự kiện &amp; Gặp gỡ</span>
                         </a>
+                        <a href="#tripPlannerModal" onclick="window.ViVuApp?.openTripPlannerModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-emerald-600 dark:text-emerald-400">route</span>
+                            <span>Lập kế hoạch lộ trình</span>
+                        </a>
                     </div>
                 </div>
 
@@ -2616,6 +2620,53 @@
     <div id="backupCodesModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="backupCodesModalTitle">
         <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeBackupCodesModal()"></div>
         <div class="relative z-10 w-full max-w-lg" id="backupCodesModalContent"></div>
+    </div>
+
+    <!-- 27. MODAL LẬP KẾ HOẠCH LỘ TRÌNH (TRIP PLANNER MODAL - PHASE 9) -->
+    <div id="tripPlannerModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="tripPlannerModalTitle">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeTripPlannerModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-0 sm:p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full max-w-7xl min-h-screen sm:min-h-0 my-0 sm:my-6 border-0 sm:border border-outline-variant/30 dark:border-zinc-800">
+                    <span id="tripPlannerModalTitle" class="sr-only">Lập kế hoạch lộ trình du lịch Trà Vinh</span>
+                    <div id="tripPlannerModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 28. MODAL DẪN ĐƯỜNG GPS TURN-BY-TURN (GPS NAVIGATION MODAL - PHASE 9) -->
+    <div id="gpsNavModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="gpsNavModalTitle">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity" onclick="window.ViVuApp.closeGpsNavModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex items-center justify-center p-0 sm:p-4">
+            <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full max-w-md min-h-screen sm:min-h-0 border-0 sm:border border-outline-variant/30 dark:border-zinc-800">
+                <span id="gpsNavModalTitle" class="sr-only">Chỉ dẫn đường GPS thời gian thực</span>
+                <div id="gpsNavModalContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 29. MODAL TỔNG KẾT CHUYẾN ĐI (TRIP SUMMARY MODAL - PHASE 9) -->
+    <div id="tripSummaryModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="tripSummaryModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeTripSummaryModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex items-center justify-center p-0 sm:p-4">
+            <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full max-w-2xl min-h-screen sm:min-h-0 my-0 sm:my-6 border-0 sm:border border-outline-variant/30 dark:border-zinc-800">
+                <span id="tripSummaryModalTitle" class="sr-only">Tổng kết và Dấu ấn chuyến đi</span>
+                <div id="tripSummaryModalContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 30. MODAL CHIA SẺ THẺ STORY MẠNG XÃ HỘI (SOCIAL STORY CARD MODAL - PHASE 9) -->
+    <div id="storyCardModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="storyCardModalTitle">
+        <div class="fixed inset-0 bg-black/75 backdrop-blur-md transition-opacity" onclick="window.ViVuApp.closeStoryShareModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto flex items-center justify-center p-0 sm:p-4">
+            <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-primary-container text-left shadow-2xl transition-all w-full max-w-md min-h-screen sm:min-h-0 border-0 sm:border border-white/20">
+                <span id="storyCardModalTitle" class="sr-only">Thẻ Story chia sẻ mạng xã hội</span>
+                <div id="storyCardModalContent"></div>
+            </div>
+        </div>
     </div>
 
 </body>

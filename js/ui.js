@@ -6772,5 +6772,1030 @@ export function renderBackupCodesModalContent(secState) {
     `;
 }
 
+// ============================================================================
+// PHASE 9: TRIP PLANNER, TURN-BY-TURN GPS & SOCIAL STORY RENDERERS (STITCH DESIGN)
+// ============================================================================
+
+/**
+ * Render Trip Planner Modal Content (3-Column Workspace)
+ * @param {Object} plan - Current trip plan state
+ * @param {Array} placePool - Available places pool
+ * @param {number} activeDay - Active day index (1 or 2)
+ * @param {string} currentFilter - Active category filter
+ * @param {string} searchQuery - Search query in place pool
+ */
+export function renderTripPlannerModalContent(plan, placePool = [], activeDay = 1, currentFilter = 'all', searchQuery = '') {
+    if (!plan) return '<div class="p-8 text-center">Không tìm thấy dữ liệu lộ trình.</div>';
+
+    const currentDayData = plan.days?.find(d => d.dayNumber === activeDay) || plan.days?.[0] || { stops: [] };
+    const allStopsCount = plan.days?.reduce((acc, d) => acc + (d.stops?.length || 0), 0) || 0;
+
+    // Filter place pool
+    let filteredPool = placePool;
+    if (currentFilter && currentFilter !== 'all') {
+        filteredPool = filteredPool.filter(p => p.category === currentFilter);
+    }
+    if (searchQuery && searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        filteredPool = filteredPool.filter(p => 
+            p.title.toLowerCase().includes(q) || 
+            (p.categoryTag && p.categoryTag.toLowerCase().includes(q)) ||
+            (p.description && p.description.toLowerCase().includes(q))
+        );
+    }
+
+    const categories = [
+        { id: 'all', label: 'Tất cả' },
+        { id: 'Chùa cổ', label: 'Chùa cổ' },
+        { id: 'Ẩm thực', label: 'Ẩm thực' },
+        { id: 'Cù lao', label: 'Cù lao' },
+        { id: 'Thắng cảnh', label: 'Thắng cảnh' }
+    ];
+
+    return `
+        <div class="flex flex-col w-full bg-surface dark:bg-zinc-950 text-on-surface dark:text-zinc-100 min-h-screen sm:min-h-0 select-none">
+            <!-- 1. Header Bar with Breadcrumb & Action Toolbar -->
+            <div class="flex flex-col gap-4 p-5 sm:p-6 bg-surface-container-lowest dark:bg-zinc-900 border-b border-outline-variant/30 dark:border-zinc-800">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="space-y-1">
+                        <!-- Breadcrumb -->
+                        <nav aria-label="Đường dẫn trang" class="flex items-center gap-1.5 text-xs text-outline dark:text-zinc-400">
+                            <a href="/" onclick="window.ViVuApp?.navGoHome?.(); return false;" class="hover:text-secondary dark:hover:text-emerald-400 transition-colors">Trang chủ</a>
+                            <span class="material-symbols-outlined text-sm">chevron_right</span>
+                            <span class="text-on-surface dark:text-zinc-200 font-semibold truncate max-w-xs sm:max-w-md">Lập kế hoạch lộ trình</span>
+                        </nav>
+                        <h1 class="font-headline-lg text-lg sm:text-2xl text-primary dark:text-emerald-400 font-bold tracking-tight">
+                            ${escapeHtml(plan.title)}
+                        </h1>
+                    </div>
+
+                    <!-- Action Buttons Toolbar -->
+                    <div class="flex flex-wrap items-center gap-2 shrink-0">
+                        <button type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 text-xs font-semibold hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px]">person_add</span>
+                            <span>Đồng hành</span>
+                            <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-surface-container-lowest dark:bg-zinc-900 text-secondary dark:text-emerald-400 text-[11px] font-bold">
+                                ${plan.companionsCount || 3}
+                            </span>
+                        </button>
+
+                        <button id="btnSmartOptimize" type="button" onclick="window.ViVuApp.optimizePlanAiRoute()"
+                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-200 text-xs font-semibold hover:opacity-90 transition-all shadow-xs min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400 animate-pulse">auto_fix_high</span>
+                            <span>Tối ưu AI Route</span>
+                        </button>
+
+                        <button id="btnExportGpx" type="button" onclick="window.ViVuApp.exportGpxFile()"
+                            title="Xuất tệp GPX cho đồng hồ & máy định vị GPS"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-xs font-semibold hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px]">file_download</span>
+                            <span>GPX</span>
+                        </button>
+
+                        <button id="btnSaveStartNav" type="button" onclick="window.ViVuApp.openGpsNavModal()"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-white text-xs sm:text-sm font-semibold shadow-md transition-all active:scale-95 min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-secondary-fixed">play_arrow</span>
+                            <span>Lưu &amp; Bắt đầu</span>
+                        </button>
+
+                        <button type="button" onclick="window.ViVuApp.closeTripPlannerModal()"
+                            aria-label="Đóng kế hoạch"
+                            class="w-10 h-10 rounded-xl flex items-center justify-center text-outline dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 transition-colors min-h-[44px] min-w-[44px]">
+                            <span class="material-symbols-outlined text-[22px]">close</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Metadata Pill Chips -->
+                <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-outline-variant/30 dark:border-zinc-800 text-xs">
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/10 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 font-semibold">
+                        <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-pulse"></span>
+                        <span>Bản thảo công khai</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-medium">
+                        <span class="material-symbols-outlined text-sm">schedule</span>
+                        <span>${plan.durationDays} ngày • ${allStopsCount} điểm dừng • ${plan.totalDistanceKm} km</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold">
+                        <span class="material-symbols-outlined text-sm">energy_savings_leaf</span>
+                        <span>Dự kiến: ~${plan.estimatedCo2Kg} kg CO₂ (Xe đạp / Xe điện)</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-semibold">
+                        <span class="material-symbols-outlined text-sm">payments</span>
+                        <span>Ước tính: ${(plan.estimatedCostVnd || 650000).toLocaleString('vi-VN')}đ / người</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Main 3-Column Interactive Workspace -->
+            <div class="p-4 sm:p-6 grid grid-cols-12 gap-6 items-start">
+                
+                <!-- COLUMN 1: Ngân hàng địa điểm (3 cols on XL) -->
+                <div class="col-span-12 xl:col-span-3 flex flex-col gap-3.5 bg-surface-container-lowest dark:bg-zinc-900 p-4 rounded-2xl shadow-xs border border-outline-variant/30 dark:border-zinc-800">
+                    <div class="flex items-center justify-between pb-1">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary dark:text-emerald-400">explore</span>
+                            <h2 class="font-headline-sm text-sm sm:text-base text-primary dark:text-zinc-100 font-bold">Ngân hàng địa điểm</h2>
+                        </div>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full bg-surface-container dark:bg-zinc-800 text-outline dark:text-zinc-400 font-semibold">
+                            ${filteredPool.length} sẵn sàng
+                        </span>
+                    </div>
+
+                    <!-- Search Input -->
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline dark:text-zinc-400 text-lg">search</span>
+                        <input id="plannerPoolSearch" type="text" value="${escapeHtml(searchQuery)}"
+                            oninput="window.ViVuApp.searchPlannerPool(this.value)"
+                            placeholder="Lọc theo tên, danh mục..."
+                            class="w-full h-10 pl-9 pr-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-secondary/30 transition-all border border-outline-variant/30 dark:border-zinc-700" />
+                    </div>
+
+                    <!-- Category Pills Filter -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                        ${categories.map(cat => `
+                            <button type="button" onclick="window.ViVuApp.filterPlannerPool('${cat.id}')"
+                                class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors min-h-[32px] ${
+                                    currentFilter === cat.id
+                                        ? 'bg-primary dark:bg-emerald-600 text-white shadow-xs'
+                                        : 'bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
+                                }">
+                                ${cat.label}
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    <!-- Place Pool Cards Stack -->
+                    <div class="flex flex-col gap-3 max-h-[560px] overflow-y-auto pr-1 no-scrollbar" id="pool-list">
+                        ${filteredPool.length === 0 ? `
+                            <div class="p-6 text-center text-xs text-outline dark:text-zinc-500">
+                                Không có địa điểm phù hợp bộ lọc.
+                            </div>
+                        ` : filteredPool.map(item => `
+                            <div class="pool-card group relative flex gap-3 p-3 rounded-xl bg-surface dark:bg-zinc-800/80 hover:bg-surface-container-low dark:hover:bg-zinc-800 shadow-2xs transition-all border-l-4 border-l-secondary dark:border-l-emerald-500 border border-outline-variant/20 dark:border-zinc-700">
+                                <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" class="w-16 h-16 sm:w-18 sm:h-18 rounded-lg object-cover shrink-0" />
+                                <div class="flex flex-col justify-between flex-1 min-w-0">
+                                    <div>
+                                        <div class="flex items-center justify-between gap-1">
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-secondary-fixed/40 dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-semibold truncate">
+                                                ${escapeHtml(item.categoryTag || item.category)}
+                                            </span>
+                                            <button type="button" onclick="window.ViVuApp.addPlaceToPlan('${item.placeId}')"
+                                                title="Thêm vào lộ trình Ngày ${activeDay}"
+                                                aria-label="Thêm ${escapeHtml(item.title)} vào ngày ${activeDay}"
+                                                class="w-8 h-8 rounded-lg flex items-center justify-center bg-secondary/10 dark:bg-emerald-950 hover:bg-secondary text-secondary hover:text-white dark:text-emerald-400 dark:hover:text-white transition-colors min-h-[32px] min-w-[32px]">
+                                                <span class="material-symbols-outlined text-[18px]">add</span>
+                                            </button>
+                                        </div>
+                                        <h3 class="text-xs sm:text-sm font-semibold text-primary dark:text-zinc-100 truncate mt-1">
+                                            ${escapeHtml(item.title)}
+                                        </h3>
+                                        <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 truncate">${escapeHtml(item.location)}</p>
+                                    </div>
+                                    <div class="flex items-center justify-between pt-1 text-[11px]">
+                                        <span class="text-outline dark:text-zinc-400">Thời lượng: ${item.durationHours}h</span>
+                                        <span class="inline-flex items-center gap-0.5 font-bold text-amber-600 dark:text-amber-400">
+                                            <span class="material-symbols-outlined text-xs text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
+                                            ${item.rating}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Add Custom Stop Action Button -->
+                    <button type="button" onclick="window.ViVuApp.addCustomStopToPlan()"
+                        class="w-full py-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-secondary dark:text-emerald-400 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors min-h-[44px] border border-dashed border-outline-variant/40 dark:border-zinc-700">
+                        <span class="material-symbols-outlined text-[18px]">add_location_alt</span>
+                        <span>+ Thêm điểm hẹn hoặc khách sạn</span>
+                    </button>
+                </div>
+
+                <!-- COLUMN 2: Timeline Lộ Trình (5 cols on XL) -->
+                <div class="col-span-12 xl:col-span-5 flex flex-col gap-4 bg-surface-container-lowest dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl shadow-xs border border-outline-variant/30 dark:border-zinc-800">
+                    <!-- Day Tabs Navigation -->
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container-low dark:bg-zinc-800">
+                            ${plan.days.map(d => `
+                                <button type="button" onclick="window.ViVuApp.switchPlannerDay(${d.dayNumber})"
+                                    class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all min-h-[36px] ${
+                                        activeDay === d.dayNumber
+                                            ? 'bg-surface-container-lowest dark:bg-zinc-700 text-primary dark:text-white shadow-xs'
+                                            : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-white'
+                                    }">
+                                    ${escapeHtml(d.label)} (${d.stops?.length || 0} điểm)
+                                </button>
+                            `).join('')}
+                            <button type="button" onclick="window.ViVuApp.addNewPlannerDay()"
+                                title="Thêm ngày mới"
+                                class="p-1.5 rounded-lg text-secondary dark:text-emerald-400 hover:bg-surface-container dark:hover:bg-zinc-700 min-h-[36px] min-w-[36px] flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[18px]">add</span>
+                            </button>
+                        </div>
+                        <div class="hidden sm:flex items-center gap-1 text-[11px]">
+                            <span class="text-outline dark:text-zinc-400">Khung giờ:</span>
+                            <span class="font-bold text-primary dark:text-emerald-400">${escapeHtml(currentDayData.activeHours || '07:30 - 13:00')}</span>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Timeline List Container -->
+                    <div class="relative flex flex-col gap-3 pt-1" id="timeline-container">
+                        <!-- Departure Milestone (Start of Day) -->
+                        <div class="flex items-start gap-3 p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700">
+                            <div class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 shadow-xs">
+                                <span class="material-symbols-outlined text-lg">flag</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-surface-container-highest dark:bg-zinc-700 text-primary dark:text-zinc-200 font-bold">
+                                        Xuất phát • ${escapeHtml(plan.departure?.time || '07:30')}
+                                    </span>
+                                    <span class="text-[11px] text-outline dark:text-zinc-400">${escapeHtml(plan.departure?.type || 'Điểm tập kết')}</span>
+                                </div>
+                                <h4 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100 mt-1 truncate">
+                                    ${escapeHtml(plan.departure?.title || 'Khách sạn Cửu Long (TP. Trà Vinh)')}
+                                </h4>
+                                <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                    ${escapeHtml(plan.departure?.note || 'Kiểm tra xe đạp & đồ dùng cá nhân.')}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Timeline Stops for Active Day -->
+                        ${(currentDayData.stops || []).map((stop, idx) => `
+                            <!-- Transfer connector (if present) -->
+                            ${stop.transfer ? `
+                                <div class="flex items-center justify-center py-0.5">
+                                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-fixed/30 dark:bg-emerald-950 text-secondary dark:text-emerald-300 text-[11px] font-medium shadow-2xs border border-secondary/20">
+                                        <span class="material-symbols-outlined text-sm">${escapeHtml(stop.transfer.mode || 'directions_bike')}</span>
+                                        <span class="font-bold">${escapeHtml(stop.transfer.distance || '1.5 km')}</span>
+                                        <span>• ${escapeHtml(stop.transfer.time || '10 phút')}</span>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <!-- Stop Slot Card -->
+                            <div class="timeline-stop relative flex flex-col gap-2 p-3.5 rounded-xl bg-surface dark:bg-zinc-800 shadow-2xs hover:shadow-md transition-shadow group border-l-4 border-l-secondary dark:border-l-emerald-500 border border-outline-variant/30 dark:border-zinc-700">
+                                <div class="flex items-start gap-3">
+                                    <div class="text-outline dark:text-zinc-500 pt-1 shrink-0" title="Chặng thứ tự ${idx + 1}">
+                                        <span class="w-6 h-6 rounded-full bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center text-xs font-bold">
+                                            ${idx + 1}
+                                        </span>
+                                    </div>
+                                    <img src="${escapeHtml(stop.image)}" alt="${escapeHtml(stop.title)}" class="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover shrink-0" />
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center justify-between gap-1">
+                                            <span class="text-[11px] text-secondary dark:text-emerald-400 font-bold">
+                                                Chặng 0${idx + 1} • ${escapeHtml(stop.timeRange)} (${stop.durationMinutes} phút)
+                                            </span>
+                                            <div class="flex items-center gap-1">
+                                                <button type="button" onclick="window.ViVuApp.removePlaceFromPlan('${stop.id}')"
+                                                    title="Xóa khỏi lịch trình"
+                                                    aria-label="Xóa ${escapeHtml(stop.title)}"
+                                                    class="p-1 rounded-lg text-outline dark:text-zinc-400 hover:text-red-500 hover:bg-surface-container dark:hover:bg-zinc-700 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors">
+                                                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <h4 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100 truncate mt-0.5">
+                                            ${escapeHtml(stop.title)}
+                                        </h4>
+                                        <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 line-clamp-2 mt-1">
+                                            ${escapeHtml(stop.note)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-700 text-[11px] text-outline dark:text-zinc-400">
+                                    <span class="inline-flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-xs text-secondary dark:text-emerald-400">verified</span>
+                                        ${escapeHtml(stop.badge || 'Điểm đến đề xuất')}
+                                    </span>
+                                    ${stop.hasAudioGuide ? `
+                                        <span class="text-secondary dark:text-emerald-400 font-semibold flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-xs">headphones</span>
+                                            Audio guide
+                                        </span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+
+                        <!-- Drop Placeholder Zone -->
+                        <div id="drop-target-zone" onclick="document.getElementById('plannerPoolSearch')?.focus()"
+                            class="flex flex-col items-center justify-center p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/40 border-2 border-dashed border-outline-variant dark:border-zinc-700 hover:border-secondary dark:hover:border-emerald-500 transition-all cursor-pointer text-center group">
+                            <div class="w-9 h-9 rounded-full bg-surface dark:bg-zinc-800 flex items-center justify-center text-outline group-hover:text-secondary dark:group-hover:text-emerald-400 group-hover:scale-110 transition-all shadow-xs mb-1">
+                                <span class="material-symbols-outlined text-lg">add_circle</span>
+                            </div>
+                            <p class="text-xs font-semibold text-primary dark:text-zinc-200">Thêm điểm dừng tiếp theo vào Ngày ${activeDay}</p>
+                            <p class="text-[11px] text-on-surface-variant dark:text-zinc-400">Chọn từ Ngân hàng địa điểm bên trái hoặc gõ tìm kiếm</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMN 3: Bản đồ lộ trình trực tiếp & AI Suggestion (4 cols on XL) -->
+                <div class="col-span-12 xl:col-span-4 flex flex-col gap-4">
+                    <!-- Live Map Canvas Card -->
+                    <div class="relative rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 shadow-xs border border-outline-variant/30 dark:border-zinc-800 flex flex-col">
+                        <div class="flex items-center justify-between px-1 mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-secondary dark:text-emerald-400">map</span>
+                                <h3 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100">Bản đồ lộ trình tương tác</h3>
+                            </div>
+                            <span class="text-[11px] px-2 py-0.5 rounded-full bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 font-semibold">
+                                GPS Trực tiếp
+                            </span>
+                        </div>
+
+                        <!-- Map Simulated Vector Display -->
+                        <div class="relative w-full h-[280px] sm:h-[320px] rounded-xl bg-emerald-950/20 dark:bg-zinc-950 overflow-hidden flex items-end p-3 border border-outline-variant/30 dark:border-zinc-800">
+                            <!-- Background local landscape hint -->
+                            <img src="ao bà om.jpg" alt="Tra Vinh Map Background" class="absolute inset-0 w-full h-full object-cover opacity-20 filter saturate-50" />
+                            
+                            <!-- Vector Route Simulation SVG -->
+                            <svg class="absolute inset-0 w-full h-full pointer-events-none" fill="none" viewBox="0 0 400 320">
+                                <path d="M 40 250 C 90 220, 140 260, 200 180 C 240 130, 290 140, 350 80" stroke="#006c4a" stroke-dasharray="6 6" stroke-linecap="round" stroke-width="4" opacity="0.8"></path>
+                                <path d="M 40 250 C 90 220, 140 260, 200 180" stroke="#10b981" stroke-linecap="round" stroke-width="4"></path>
+                                
+                                <!-- Waypoint Pins -->
+                                <circle cx="40" cy="250" fill="#003527" r="10"></circle>
+                                <circle cx="40" cy="250" fill="#ffffff" r="4"></circle>
+                                
+                                <circle cx="140" cy="240" fill="#006c4a" r="12"></circle>
+                                <circle cx="140" cy="240" fill="#ffffff" r="5"></circle>
+                                
+                                <circle cx="200" cy="180" fill="#006c4a" r="12"></circle>
+                                <circle cx="200" cy="180" fill="#ffffff" r="5"></circle>
+                                
+                                <circle cx="320" cy="100" fill="#ea580c" r="12"></circle>
+                                <circle cx="320" cy="100" fill="#ffffff" r="5"></circle>
+                            </svg>
+
+                            <!-- Interactive Marker Labels positioned on map -->
+                            <div class="absolute left-4 bottom-14 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-xs text-[10px] font-bold text-primary dark:text-zinc-100 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-primary dark:bg-emerald-400"></span> Xuất phát
+                            </div>
+                            <div class="absolute left-24 bottom-22 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-xs text-[10px] font-bold text-secondary dark:text-emerald-400 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-secondary dark:bg-emerald-400"></span> 1. Chùa Âng
+                            </div>
+                            <div class="absolute left-40 top-32 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-xs text-[10px] font-bold text-secondary dark:text-emerald-400 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-secondary dark:bg-emerald-400"></span> 2. Ao Bà Om
+                            </div>
+                            <div class="absolute right-4 top-16 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-xs text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> 3. Bún Nước Lèo
+                            </div>
+
+                            <!-- Bottom Floating Control Widget -->
+                            <div class="relative w-full z-10 p-2.5 rounded-xl bg-surface/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-sm flex items-center justify-between border border-outline-variant/30 dark:border-zinc-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-xl">route</span>
+                                    <div>
+                                        <p class="text-[10px] text-outline dark:text-zinc-400">Chặng hiện tại</p>
+                                        <p class="text-xs font-bold text-primary dark:text-zinc-100">7.5 km • Ngày 1 hoàn tất 60%</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="window.ViVuApp.openFullMapModal?.()"
+                                    title="Xem bản đồ toàn màn hình"
+                                    class="p-1.5 rounded-lg bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 min-h-[36px] min-w-[36px] flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-base">fullscreen</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Live Route Metrics -->
+                        <div class="grid grid-cols-3 gap-2 pt-3">
+                            <div class="flex flex-col p-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-center">
+                                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-base mb-0.5">straighten</span>
+                                <span class="text-xs font-bold text-primary dark:text-zinc-100">7.5 km</span>
+                                <span class="text-[10px] text-outline dark:text-zinc-400">Tổng cự ly</span>
+                            </div>
+                            <div class="flex flex-col p-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-center">
+                                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-base mb-0.5">landscape</span>
+                                <span class="text-xs font-bold text-primary dark:text-zinc-100">0 m</span>
+                                <span class="text-[10px] text-outline dark:text-zinc-400">Độ dốc (Đồng bằng)</span>
+                            </div>
+                            <div class="flex flex-col p-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-center">
+                                <span class="material-symbols-outlined text-amber-500 text-base mb-0.5">wb_sunny</span>
+                                <span class="text-xs font-bold text-primary dark:text-zinc-100">28°C</span>
+                                <span class="text-[10px] text-outline dark:text-zinc-400">Gió mát 12 km/h</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Smart Suggestions Box -->
+                    <div class="rounded-2xl bg-gradient-to-br from-primary via-emerald-900 to-secondary p-4 sm:p-5 text-white shadow-sm flex flex-col gap-2.5 relative overflow-hidden">
+                        <div class="absolute -right-4 -bottom-4 opacity-10 pointer-events-none">
+                            <span class="material-symbols-outlined text-8xl">psychology</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-400 text-emerald-950 flex items-center justify-center font-bold">
+                                <span class="material-symbols-outlined text-lg">lightbulb</span>
+                            </div>
+                            <div>
+                                <h4 class="text-xs sm:text-sm font-bold leading-tight">Mẹo lộ trình thông minh AI</h4>
+                                <span class="text-[11px] text-emerald-200">Tối ưu theo thời tiết &amp; thói quen bản địa</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-emerald-50 leading-relaxed">
+                            Sau bữa trưa tại Bến Xanh, lúc 15:30 là thời khắc đẹp nhất để ghé thăm <strong class="text-emerald-300">Chùa Hang</strong> đón từng đàn chim muông bay về tổ và xem nghệ nhân tạc gỗ.
+                        </p>
+                        <div class="flex items-center justify-between pt-1">
+                            <span class="text-[11px] text-emerald-200">+2.4 km • Không thêm phí</span>
+                            <button id="btnAddHangPagoda" type="button" onclick="window.ViVuApp.addPlaceToPlan('chua-hang')"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white text-emerald-900 text-xs font-bold hover:bg-emerald-50 transition-all shadow-xs min-h-[36px]">
+                                <span class="material-symbols-outlined text-base">add</span>
+                                <span>Thêm vào Ngày ${activeDay}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Responsible Tourism Eco Card -->
+                    <div class="rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 p-4 shadow-xs border border-outline-variant/30 dark:border-zinc-800 flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-xl bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-2xl">eco</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100 truncate">Cam kết Du lịch Có Trách Nhiệm</h4>
+                            <p class="text-[11px] text-on-surface-variant dark:text-zinc-400">
+                                Lộ trình giảm 82% dấu chân carbon so với ô tô. Tôn trọng nếp sống và văn hóa nhà chùa.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render GPS Turn-by-Turn Mobile Navigation Modal Content
+ * @param {Object} gps - Current GPS navigation state
+ */
+export function renderGpsNavigationModalContent(gps) {
+    if (!gps) return '';
+
+    return `
+        <div class="flex flex-col w-full bg-surface dark:bg-zinc-950 text-on-surface dark:text-zinc-100 min-h-screen sm:min-h-0 select-none relative overflow-hidden">
+            <!-- Top HUD Bar: Turn-by-Turn Instruction Banner -->
+            <div class="p-3 sm:p-4 bg-primary text-white shadow-xl flex flex-col gap-2 relative z-30">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-secondary dark:bg-emerald-600 flex items-center justify-center text-white shadow-inner shrink-0">
+                            <span class="material-symbols-outlined text-3xl sm:text-4xl" style="font-variation-settings: 'FILL' 1;">
+                                ${escapeHtml(gps.currentStep?.maneuver || 'turn_right')}
+                            </span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <div class="flex items-baseline gap-1.5">
+                                <span class="font-headline-lg text-2xl sm:text-3xl text-white font-bold tracking-tight">
+                                    ${gps.currentStep?.distanceMeters || 150}
+                                </span>
+                                <span class="text-xs sm:text-sm text-secondary-fixed font-semibold">mét</span>
+                            </div>
+                            <h2 class="text-xs sm:text-sm font-bold text-white truncate leading-tight">
+                                ${escapeHtml(gps.currentStep?.instruction || 'Rẽ phải vào Cổng Di tích Chùa Âng')}
+                            </h2>
+                        </div>
+                    </div>
+
+                    <!-- Audio Guidance & Close Buttons -->
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button id="gpsVoiceToggleBtn" type="button" onclick="window.ViVuApp.toggleGpsVoice()"
+                            aria-label="Bật tắt âm thanh chỉ dẫn"
+                            class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center ${gps.isVoiceEnabled ? 'text-secondary-fixed' : 'text-outline-variant'} min-h-[44px] min-w-[44px]">
+                            <span class="material-symbols-outlined text-[20px]">
+                                ${gps.isVoiceEnabled ? 'volume_up' : 'volume_off'}
+                            </span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.closeGpsNavModal()"
+                            aria-label="Đóng chỉ đường"
+                            class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white min-h-[44px] min-w-[44px]">
+                            <span class="material-symbols-outlined text-[20px]">close</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Secondary Follow-up Guidance -->
+                <div class="flex items-center justify-between pt-2 mt-0.5 bg-black/20 -mx-3 sm:-mx-4 -mb-3 sm:-mb-4 px-3 sm:px-4 py-2 rounded-b-xl text-xs">
+                    <div class="flex items-center gap-1.5 text-emerald-200 min-w-0">
+                        <span class="material-symbols-outlined text-sm shrink-0">straight</span>
+                        <span class="truncate text-[11px] sm:text-xs">
+                            ${escapeHtml(gps.currentStep?.followUp || 'Sau đó đi thẳng 800m dọc bờ hồ Ao Bà Om')}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 bg-primary/40 px-2 py-0.5 rounded-md text-[10px]">
+                        <span class="material-symbols-outlined text-xs text-outline-variant">straight</span>
+                        <span class="material-symbols-outlined text-xs text-secondary-fixed font-bold">turn_right</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GPS Perspective Simulated Vector Map Display -->
+            <div class="relative w-full h-[360px] sm:h-[480px] bg-[#d9e5db] dark:bg-zinc-900 overflow-hidden">
+                <!-- SVG Vector Map Rendering -->
+                <svg class="absolute inset-0 w-full h-full object-cover" fill="none" preserveAspectRatio="xMidYMid slice" viewBox="0 0 420 700">
+                    <defs>
+                        <linearGradient id="routeGrad" x1="0%" x2="0%" y1="100%" y2="0%">
+                            <stop offset="0%" stop-color="#059669"></stop>
+                            <stop offset="50%" stop-color="#10b981"></stop>
+                            <stop offset="100%" stop-color="#34d399"></stop>
+                        </linearGradient>
+                    </defs>
+                    <!-- Ao Ba Om Lake representation -->
+                    <ellipse cx="290" cy="220" rx="90" ry="55" fill="#38bdf8" fill-opacity="0.3" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="4 2"></ellipse>
+                    <text x="250" y="225" fill="#0369a1" font-size="11" font-weight="700" letter-spacing="0.5">AO BÀ OM</text>
+
+                    <!-- Heritage Trees Clusters -->
+                    <g fill="#0b714e" fill-opacity="0.22">
+                        <circle cx="80" cy="460" r="26"></circle>
+                        <circle cx="110" cy="485" r="20"></circle>
+                        <circle cx="170" cy="250" r="32"></circle>
+                        <circle cx="340" cy="340" r="28"></circle>
+                    </g>
+
+                    <!-- Active Route Polyline -->
+                    <path d="M175 620 L175 420 Q175 375 220 375 L330 375 Q365 375 365 310 L365 140" stroke="#003527" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" opacity="0.15"></path>
+                    <path d="M175 620 L175 420 Q175 375 220 375 L330 375 Q365 375 365 310 L365 140" stroke="url(#routeGrad)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M175 620 L175 420 Q175 375 220 375 L330 375 Q365 375 365 310 L365 140" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="8 12" opacity="0.9"></path>
+
+                    <!-- Waypoint 1: Target Pin -->
+                    <g transform="translate(195, 345)">
+                        <circle cx="25" cy="25" r="20" fill="#003527"></circle>
+                        <circle cx="25" cy="25" r="16" fill="#ea580c"></circle>
+                        <text x="25" y="30" fill="#ffffff" font-size="13" font-weight="700" text-anchor="middle">1</text>
+                    </g>
+                    <!-- Waypoint 2: Ao Ba Om -->
+                    <g transform="translate(340, 275)">
+                        <circle cx="15" cy="15" r="13" fill="#ffffff"></circle>
+                        <circle cx="15" cy="15" r="10" fill="#006c4a"></circle>
+                        <text x="15" y="19" fill="#ffffff" font-size="10" font-weight="700" text-anchor="middle">2</text>
+                    </g>
+
+                    <!-- User GPS Puck with pulsing wave -->
+                    <g transform="translate(175, 520)">
+                        <circle cx="0" cy="0" r="32" fill="#10b981" fill-opacity="0.2">
+                            <animate attributeName="r" values="18;36;18" dur="2.4s" repeatCount="indefinite"></animate>
+                            <animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" repeatCount="indefinite"></animate>
+                        </circle>
+                        <circle cx="0" cy="0" r="14" fill="#ffffff"></circle>
+                        <polygon points="0,-10 7,7 0,4 -7,7" fill="#003527"></polygon>
+                    </g>
+                </svg>
+
+                <!-- Floating Cultural Audio Guide Capsule -->
+                <div class="absolute top-3 inset-x-3 z-20">
+                    <div class="bg-surface-container-lowest/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-xl p-3 shadow-lg flex items-center justify-between gap-3 border border-outline-variant/30 dark:border-zinc-800">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-400 flex items-center justify-center shrink-0 animate-pulse">
+                                <span class="material-symbols-outlined text-lg">graphic_eq</span>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[10px] text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                        ${escapeHtml(gps.audioGuide?.category || 'Thuyết minh')}
+                                    </span>
+                                    <span class="text-[10px] text-on-surface-variant dark:text-zinc-400">${escapeHtml(gps.audioGuide?.currentTime || '01:24')} / ${escapeHtml(gps.audioGuide?.totalTime || '03:10')}</span>
+                                </div>
+                                <p class="text-xs font-semibold text-on-surface dark:text-zinc-100 truncate">
+                                    ${escapeHtml(gps.audioGuide?.title || 'Huyền tích Thần chim Garuda')}
+                                </p>
+                            </div>
+                        </div>
+                        <button id="gpsAudioToggleBtn" type="button" onclick="window.ViVuApp.toggleGpsAudioGuide()"
+                            aria-label="Phát hoặc tạm dừng audio thuyết minh"
+                            class="w-8 h-8 rounded-full bg-surface-container dark:bg-zinc-800 flex items-center justify-center text-primary dark:text-emerald-400 min-h-[32px] min-w-[32px]">
+                            <span class="material-symbols-outlined text-base">${gps.audioGuide?.isPlaying ? 'pause' : 'play_arrow'}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Floating Speedometer Widget -->
+                <div class="absolute left-3 bottom-4 z-20 flex flex-col items-center gap-1 bg-surface-container-lowest/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-2xl p-2 shadow-md w-16 border border-outline-variant/30 dark:border-zinc-800">
+                    <div class="flex flex-col items-center justify-center w-12 h-12 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-100">
+                        <span class="text-[9px] text-on-surface-variant dark:text-zinc-400 uppercase font-bold leading-none">Tốc độ</span>
+                        <span class="text-sm font-bold text-secondary dark:text-emerald-400 leading-none mt-0.5">${gps.currentSpeedKmh || 24}</span>
+                        <span class="text-[8px] text-on-surface-variant dark:text-zinc-400 leading-none">km/h</span>
+                    </div>
+                    <div class="w-9 h-9 rounded-full bg-red-100 dark:bg-red-950/80 flex flex-col items-center justify-center text-red-700 dark:text-red-400 mt-0.5 border border-red-200 dark:border-red-900">
+                        <span class="text-[8px] font-bold leading-none">HẠN MỨC</span>
+                        <span class="text-[10px] font-bold leading-none">${gps.speedLimitKmh || 30}</span>
+                    </div>
+                </div>
+
+                <!-- Right Floating Map Controls -->
+                <div class="absolute right-3 bottom-4 z-20 flex flex-col gap-2">
+                    <button id="gps3dToggleBtn" type="button" onclick="window.ViVuApp.toggleGps3DMode()"
+                        aria-label="Chuyển chế độ xem 3D"
+                        class="w-10 h-10 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 text-primary dark:text-emerald-400 shadow-md flex items-center justify-center text-xs font-bold min-h-[44px] min-w-[44px] border border-outline-variant/30 dark:border-zinc-800">
+                        3D
+                    </button>
+                    <button type="button"
+                        aria-label="Định vị lại"
+                        class="w-10 h-10 rounded-xl bg-primary text-secondary-fixed shadow-md flex items-center justify-center min-h-[44px] min-w-[44px]">
+                        <span class="material-symbols-outlined text-xl">near_me</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottom Dashboard & Action Dock -->
+            <div class="p-4 bg-surface-container-lowest dark:bg-zinc-900 border-t border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex flex-col">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-xl sm:text-2xl font-bold text-primary dark:text-emerald-400">${gps.eta || '08:15'}</span>
+                            <span class="text-[11px] font-bold text-secondary dark:text-emerald-300 bg-secondary-container/40 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
+                                Dự kiến đến
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-on-surface-variant dark:text-zinc-400 text-xs mt-0.5">
+                            <span class="font-bold text-on-surface dark:text-zinc-100">${gps.remainingMinutes || 12} phút</span>
+                            <span>•</span>
+                            <span>Còn ${gps.remainingMeters || 850}m</span>
+                            <span>•</span>
+                            <span class="text-secondary dark:text-emerald-400 font-medium">${gps.vehicleMode || 'Xe máy / Xe đạp'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4-Stage Route Progress Bar -->
+                <div class="flex flex-col gap-1.5 bg-surface-container-low dark:bg-zinc-800 p-2.5 rounded-xl border border-outline-variant/20 dark:border-zinc-700">
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="font-semibold text-primary dark:text-zinc-200">${gps.progressStage || 'Chặng 1/4 • Chùa Âng & Ao Bà Om'}</span>
+                        <span class="text-outline dark:text-zinc-400">${gps.totalDistanceStr || 'Tổng 4.2 km'}</span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-1.5 w-full h-2">
+                        <div class="h-full rounded-full bg-secondary dark:bg-emerald-500 animate-pulse"></div>
+                        <div class="h-full rounded-full bg-outline-variant/40 dark:bg-zinc-700"></div>
+                        <div class="h-full rounded-full bg-outline-variant/40 dark:bg-zinc-700"></div>
+                        <div class="h-full rounded-full bg-outline-variant/40 dark:bg-zinc-700"></div>
+                    </div>
+                </div>
+
+                <!-- Action Dock -->
+                <div class="grid grid-cols-4 gap-2 pt-1">
+                    <button type="button" onclick="window.ViVuApp.openFullMapModal?.()"
+                        class="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-all min-h-[48px]">
+                        <span class="material-symbols-outlined text-xl text-primary dark:text-emerald-400">alt_route</span>
+                        <span class="text-[10px] font-semibold">Toàn cảnh</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.searchNearbyPitstops?.()"
+                        class="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-all min-h-[48px]">
+                        <span class="material-symbols-outlined text-xl text-secondary dark:text-emerald-400">local_gas_station</span>
+                        <span class="text-[10px] font-semibold">Điểm dừng</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.toggleGpsAudioGuide()"
+                        class="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-all min-h-[48px]">
+                        <span class="material-symbols-outlined text-xl text-amber-600 dark:text-amber-400">podcasts</span>
+                        <span class="text-[10px] font-semibold">Thuyết minh</span>
+                    </button>
+                    <button id="endNavBtn" type="button" onclick="window.ViVuApp.finishGpsNavigation()"
+                        class="flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-700 dark:text-red-300 font-bold transition-all min-h-[48px]">
+                        <span class="material-symbols-outlined text-xl">flag</span>
+                        <span class="text-[10px] font-bold">Kết thúc</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Trip Summary Modal Content
+ * @param {Object} summary - Trip summary state
+ */
+export function renderTripSummaryModalContent(summary) {
+    if (!summary) return '';
+
+    return `
+        <div class="flex flex-col w-full bg-surface dark:bg-zinc-950 text-on-surface dark:text-zinc-100 min-h-screen sm:min-h-0 select-none p-4 sm:p-6">
+            <!-- Header Bar -->
+            <div class="flex items-center justify-between pb-4 border-b border-outline-variant/30 dark:border-zinc-800">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-2xl">celebration</span>
+                    <h2 class="text-base sm:text-lg font-bold text-primary dark:text-zinc-100">Tổng kết chuyến đi</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.ViVuApp.openStoryShareModal()"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary dark:bg-emerald-600 text-white text-xs font-semibold shadow-xs min-h-[44px]">
+                        <span class="material-symbols-outlined text-[18px]">share</span>
+                        <span>Chia sẻ Story</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.closeTripSummaryModal()"
+                        aria-label="Đóng tổng kết"
+                        class="w-10 h-10 rounded-xl flex items-center justify-center text-outline dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+                        <span class="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Achievement Hero Card -->
+            <div class="relative overflow-hidden rounded-2xl bg-primary text-white p-5 sm:p-6 shadow-md mt-4">
+                <div class="relative z-10 flex items-center justify-between gap-2">
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/80 text-white text-xs font-semibold">
+                        <span class="material-symbols-outlined text-sm text-amber-300">verified</span>
+                        <span>Hành trình xuất sắc hoàn thành!</span>
+                    </div>
+                    <span class="text-xs text-emerald-200">${escapeHtml(summary.completedDate || 'Hôm nay • 14:45')}</span>
+                </div>
+                <div class="relative z-10 mt-3 flex items-start gap-4">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-base sm:text-xl font-bold leading-tight text-white">
+                            ${escapeHtml(summary.title)}
+                        </h3>
+                        <p class="text-xs text-emerald-100 mt-1 leading-relaxed">
+                            ${escapeHtml(summary.description)}
+                        </p>
+                    </div>
+                    <div class="flex flex-col items-center shrink-0">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 p-0.5 shadow-md flex items-center justify-center">
+                            <div class="w-full h-full rounded-[14px] bg-primary flex flex-col items-center justify-center text-center p-1">
+                                <span class="material-symbols-outlined text-2xl text-amber-300" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+                                <span class="text-[9px] text-amber-200 font-bold leading-none">Xứ Trà</span>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-semibold text-emerald-200 mt-1">${escapeHtml(summary.badgeTitle || 'Sứ giả')}</span>
+                    </div>
+                </div>
+                <!-- Eco Strip -->
+                <div class="relative z-10 mt-4 flex items-center justify-between bg-white/10 rounded-xl px-3 py-2">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-secondary-fixed text-lg">nature_people</span>
+                        <span class="text-xs text-white font-medium">${escapeHtml(summary.ecoImpactText || 'Giảm 2.4kg CO₂')}</span>
+                    </div>
+                    <span class="text-[10px] font-bold text-secondary-fixed bg-secondary/40 px-2 py-0.5 rounded-full">Eco 100%</span>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                <div class="p-3.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 text-center">
+                    <span class="text-[11px] text-outline dark:text-zinc-400">Quãng đường</span>
+                    <p class="text-lg font-bold text-primary dark:text-emerald-400 mt-0.5">${summary.stats?.distanceKm || '14.8'} km</p>
+                </div>
+                <div class="p-3.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 text-center">
+                    <span class="text-[11px] text-outline dark:text-zinc-400">Thời lượng</span>
+                    <p class="text-lg font-bold text-primary dark:text-emerald-400 mt-0.5">${summary.stats?.durationHours || '6h 45m'}</p>
+                </div>
+                <div class="p-3.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 text-center">
+                    <span class="text-[11px] text-outline dark:text-zinc-400">Điểm khám phá</span>
+                    <p class="text-lg font-bold text-primary dark:text-emerald-400 mt-0.5">${summary.stats?.pointsVisited || '4 / 4'}</p>
+                </div>
+                <div class="p-3.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 text-center">
+                    <span class="text-[11px] text-outline dark:text-zinc-400">Năng lượng tiêu hao</span>
+                    <p class="text-lg font-bold text-primary dark:text-emerald-400 mt-0.5">${summary.stats?.caloriesBurned || '~720'} kcal</p>
+                </div>
+            </div>
+
+            <!-- Chronological Milestones -->
+            <div class="mt-4 p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-3">
+                <h4 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-lg">route</span>
+                    <span>Dấu tích hành trình</span>
+                </h4>
+                <div class="flex flex-col gap-2.5">
+                    ${(summary.milestones || []).map(m => `
+                        <div class="flex items-start gap-3 p-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/60">
+                            <span class="w-6 h-6 rounded-full bg-secondary dark:bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                                <span class="material-symbols-outlined text-xs">check</span>
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <h5 class="text-xs font-bold text-primary dark:text-zinc-100">${escapeHtml(m.title)}</h5>
+                                    <span class="text-[10px] text-outline dark:text-zinc-400">${escapeHtml(m.time)}</span>
+                                </div>
+                                <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">${escapeHtml(m.note)}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Photos & Share CTA -->
+            <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-outline-variant/30 dark:border-zinc-800">
+                <button type="button" onclick="window.ViVuApp.openTripPlannerModal()"
+                    class="px-4 py-2.5 rounded-xl text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 text-xs font-semibold min-h-[44px]">
+                    Xem lại kế hoạch
+                </button>
+                <button id="btnOpenStoryCard" type="button" onclick="window.ViVuApp.openStoryShareModal()"
+                    class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-md transition-all min-h-[44px]">
+                    <span class="material-symbols-outlined text-[18px]">photo_camera</span>
+                    <span>Tạo thẻ Story chia sẻ ngay</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Social Story Card Modal Content
+ * @param {Object} template - Story template state
+ * @param {string} activeTheme - 'heritage' | 'eco' | 'foodie'
+ * @param {Object} toggles - { badge: boolean, stats: boolean, qr: boolean }
+ */
+export function renderSocialStoryModalContent(template, activeTheme = 'heritage', toggles = { badge: true, stats: true, qr: true }) {
+    if (!template) return '';
+
+    return `
+        <div class="flex flex-col w-full bg-primary-container/95 backdrop-blur-md text-white min-h-screen sm:min-h-0 select-none p-4 sm:p-6 justify-between">
+            <!-- Top Modal Navigation Header -->
+            <div class="flex items-center justify-between pb-3 text-white border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="window.ViVuApp.closeStoryShareModal()"
+                        aria-label="Đóng Story"
+                        class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white min-h-[44px] min-w-[44px]">
+                        <span class="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                    <div>
+                        <h2 class="text-sm sm:text-base font-bold text-white">Thẻ Story Hành Trình</h2>
+                        <p class="text-[11px] text-emerald-200">Chia sẻ khoảnh khắc Xứ Trà</p>
+                    </div>
+                </div>
+                <button id="btnDownloadStory" type="button" onclick="window.ViVuApp.downloadStoryCard()"
+                    aria-label="Tải ảnh về máy"
+                    class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white min-h-[44px] min-w-[44px]">
+                    <span class="material-symbols-outlined text-[20px]">download</span>
+                </button>
+            </div>
+
+            <!-- Main Visual: 9:16 Vertical Story Card Preview Container -->
+            <div class="flex justify-center items-center my-4">
+                <div id="storyCanvas" class="relative w-[300px] h-[520px] rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between p-4 border border-white/20 select-none">
+                    <!-- Background Composite -->
+                    <img src="${escapeHtml(template.bgImage)}" alt="Story Background" class="absolute inset-0 w-full h-full object-cover z-0" />
+                    <!-- Scrim overlay -->
+                    <div class="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent via-40% to-black/90 z-10 pointer-events-none"></div>
+
+                    <!-- Story Top Bar -->
+                    <div class="relative z-20 flex items-center justify-between w-full">
+                        <div class="flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20">
+                            <span class="material-symbols-outlined text-secondary-fixed text-base">eco</span>
+                            <div class="flex flex-col leading-none">
+                                <span class="text-[10px] font-bold text-white">ViVuTraVinh</span>
+                                <span class="text-[8px] text-secondary-fixed">${escapeHtml(template.subtitle || 'Xứ Tháp Vàng')}</span>
+                            </div>
+                        </div>
+                        <div class="bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full text-white text-[9px]">
+                            ${escapeHtml(template.dateText || '25.10.2024')}
+                        </div>
+                    </div>
+
+                    <!-- Story Mid Content -->
+                    <div class="relative z-20 flex flex-col gap-2 my-auto">
+                        <!-- Badge Pill -->
+                        ${toggles.badge ? `
+                            <div id="storyBadgePill" class="self-start flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-emerald-400 text-black px-2.5 py-1 rounded-full shadow-md text-[10px] font-bold">
+                                <span class="material-symbols-outlined text-xs">workspace_premium</span>
+                                <span>${escapeHtml(template.badgeName)}</span>
+                            </div>
+                        ` : ''}
+
+                        <!-- Polaroids collage -->
+                        <div class="flex items-end justify-between gap-2 pt-1">
+                            ${(template.polaroids || []).slice(0, 2).map((p, idx) => `
+                                <div class="w-28 bg-white p-1 pb-2 rounded-xl shadow-lg transform ${idx === 0 ? '-rotate-3' : 'rotate-2'} transition-transform">
+                                    <div class="w-full h-16 rounded-lg overflow-hidden bg-zinc-100 mb-1">
+                                        <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.alt || p.title)}" class="w-full h-full object-cover" />
+                                    </div>
+                                    <p class="text-[9px] text-zinc-900 font-bold text-center leading-tight truncate px-1">${escapeHtml(p.title)}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Quote sticker -->
+                        <div class="bg-white/90 backdrop-blur-xs p-2 rounded-xl shadow-sm text-zinc-900 text-[10px] italic font-medium leading-snug">
+                            ${escapeHtml(template.quote)}
+                        </div>
+                    </div>
+
+                    <!-- Story Bottom Bar -->
+                    <div class="relative z-20 flex flex-col gap-2">
+                        <!-- Stat Chips -->
+                        ${toggles.stats ? `
+                            <div id="storyStatsGrid" class="grid grid-cols-2 gap-1.5">
+                                <div class="bg-black/60 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1.5 text-white">
+                                    <span class="material-symbols-outlined text-secondary-fixed text-sm">directions_bike</span>
+                                    <div class="flex flex-col leading-tight">
+                                        <span class="text-[10px] font-bold text-secondary-fixed">${escapeHtml(template.stats?.distance || '14.8 km')}</span>
+                                        <span class="text-[8px] opacity-75">Hành trình xanh</span>
+                                    </div>
+                                </div>
+                                <div class="bg-black/60 backdrop-blur-md px-2 py-1 rounded-xl flex items-center gap-1.5 text-white">
+                                    <span class="material-symbols-outlined text-emerald-300 text-sm">eco</span>
+                                    <div class="flex flex-col leading-tight">
+                                        <span class="text-[10px] font-bold text-emerald-300">${escapeHtml(template.stats?.co2Saved || '-2.4 kg CO₂')}</span>
+                                        <span class="text-[8px] opacity-75">Bảo vệ Trái đất</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Footer Tags & QR Code -->
+                        <div class="flex items-center justify-between pt-1">
+                            <div class="flex flex-col">
+                                <span class="text-[9px] text-emerald-200 font-medium">${escapeHtml(template.hashtags)}</span>
+                                <span class="text-[8px] text-white/70">${escapeHtml(template.journeyUrl)}</span>
+                            </div>
+                            ${toggles.qr ? `
+                                <div id="storyQrBlock" class="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center shadow-xs">
+                                    <svg class="w-full h-full text-emerald-950" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm8-2h8v8h-8V2zm2 2v4h4V4h-4zM2 14h8v8H2v-8zm2 2v4h4v-4H4zm11 0h2v2h-2v-2zm-3-2h2v2h-2v-2zm5 5h2v2h-2v-2zm-2 2h2v2h-2v-2zm2-4h2v2h-2v-2zm-4 2h2v2h-2v-2z"></path>
+                                    </svg>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customization Controls Sheet -->
+            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-4 text-on-surface dark:text-zinc-100 flex flex-col gap-3 shadow-lg">
+                <!-- Theme Selectors -->
+                <div class="flex flex-col gap-1.5">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-outline dark:text-zinc-400">Chọn phong cách Story</span>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" onclick="window.ViVuApp.switchStoryTheme('heritage')"
+                            class="template-btn py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all text-center min-h-[44px] ${
+                                activeTheme === 'heritage'
+                                    ? 'bg-primary dark:bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300'
+                            }">
+                            <span class="material-symbols-outlined text-[18px]">temple_buddhist</span>
+                            <span class="text-[10px] font-bold">Cổ Kính</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.switchStoryTheme('eco')"
+                            class="template-btn py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all text-center min-h-[44px] ${
+                                activeTheme === 'eco'
+                                    ? 'bg-primary dark:bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300'
+                            }">
+                            <span class="material-symbols-outlined text-[18px]">nature</span>
+                            <span class="text-[10px] font-bold">Sinh Thái</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.switchStoryTheme('foodie')"
+                            class="template-btn py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all text-center min-h-[44px] ${
+                                activeTheme === 'foodie'
+                                    ? 'bg-primary dark:bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300'
+                            }">
+                            <span class="material-symbols-outlined text-[18px]">restaurant</span>
+                            <span class="text-[10px] font-bold">Ẩm Thực</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Toggles -->
+                <div class="flex items-center justify-between gap-1 py-1 text-xs">
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input id="toggle-badge" type="checkbox" ${toggles.badge ? 'checked' : ''}
+                            onchange="window.ViVuApp.toggleStoryElement('badge')"
+                            class="w-4 h-4 rounded text-secondary accent-secondary" />
+                        <span class="text-[11px] font-medium">Huy hiệu</span>
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input id="toggle-stats" type="checkbox" ${toggles.stats ? 'checked' : ''}
+                            onchange="window.ViVuApp.toggleStoryElement('stats')"
+                            class="w-4 h-4 rounded text-secondary accent-secondary" />
+                        <span class="text-[11px] font-medium">Chỉ số km &amp; Eco</span>
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input id="toggle-qr" type="checkbox" ${toggles.qr ? 'checked' : ''}
+                            onchange="window.ViVuApp.toggleStoryElement('qr')"
+                            class="w-4 h-4 rounded text-secondary accent-secondary" />
+                        <span class="text-[11px] font-medium">Mã QR</span>
+                    </label>
+                </div>
+
+                <!-- Fast Social Share Row -->
+                <div class="flex items-center justify-between gap-2 pt-1 border-t border-outline-variant/30 dark:border-zinc-800">
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.ViVuApp.shareToSocial('instagram')"
+                            title="Chia sẻ Instagram Story"
+                            class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shadow-xs min-h-[44px] min-w-[44px]">
+                            <span class="material-symbols-outlined text-[18px]">photo_camera</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.shareToSocial('facebook')"
+                            title="Chia sẻ Facebook Story"
+                            class="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white shadow-xs min-h-[44px] min-w-[44px]">
+                            <span class="material-symbols-outlined text-[18px]">thumb_up</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.shareToSocial('zalo')"
+                            title="Chia sẻ Nhật ký Zalo"
+                            class="w-10 h-10 rounded-full bg-[#0068FF] flex items-center justify-center text-white shadow-xs font-bold text-xs min-h-[44px] min-w-[44px]">
+                            Z
+                        </button>
+                    </div>
+                    <button id="btnCopyStoryLink" type="button" onclick="window.ViVuApp.copyStoryLink()"
+                        class="px-3.5 py-2 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-xs font-semibold flex items-center gap-1 min-h-[44px]">
+                        <span class="material-symbols-outlined text-[16px]">link</span>
+                        <span>Sao chép link</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+
 
 

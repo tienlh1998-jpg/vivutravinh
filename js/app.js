@@ -41,7 +41,12 @@ import {
     renderExportItineraryModalContent,
     renderSecurityModalContent,
     renderLink2FAModalContent,
-    renderBackupCodesModalContent
+    renderBackupCodesModalContent,
+    renderTripPlannerModalContent,
+    renderGpsNavigationModalContent,
+    renderTripSummaryModalContent,
+    renderSocialStoryModalContent,
+    escapeHtml
 } from './ui.js';
 
 import {
@@ -84,6 +89,13 @@ import {
     INITIAL_SECURITY_STATE,
     SECURITY_AUDIT_LOGS
 } from './security-data.js';
+import {
+    INITIAL_TRIP_PLAN,
+    PLACE_POOL,
+    GPS_NAVIGATION_STATE,
+    TRIP_SUMMARY_STATE,
+    STORY_TEMPLATES
+} from './planner-data.js';
 
 import { getSiteUrl, DEFAULT_SITE_URL } from './config.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
@@ -454,6 +466,24 @@ function saveStoredSecuritySettings(settings) {
     } catch (e) {}
 }
 
+function getStoredTripPlan() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem('vivu_trip_plan');
+            if (raw) return JSON.parse(raw);
+        }
+    } catch (e) {}
+    return JSON.parse(JSON.stringify(INITIAL_TRIP_PLAN));
+}
+
+function saveStoredTripPlan(plan) {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem('vivu_trip_plan', JSON.stringify(plan));
+        }
+    } catch (e) {}
+}
+
 // Global Application State
 export const state = {
     allPlaces: [],
@@ -537,7 +567,17 @@ export const state = {
     securitySettings: getStoredSecuritySettings(),
     securityActiveTab: 'security',
     securityAuditLogs: SECURITY_AUDIT_LOGS,
-    otpBuffer: ['', '', '', '', '', '']
+    otpBuffer: ['', '', '', '', '', ''],
+    // Trip Planner, Turn-by-Turn GPS & Social Stories (Phase 9)
+    tripPlan: getStoredTripPlan(),
+    placePool: [...PLACE_POOL],
+    plannerActiveDay: 1,
+    plannerPoolCategory: 'all',
+    plannerSearchQuery: '',
+    gpsNavState: JSON.parse(JSON.stringify(GPS_NAVIGATION_STATE)),
+    tripSummaryState: JSON.parse(JSON.stringify(TRIP_SUMMARY_STATE)),
+    storyTheme: 'heritage',
+    storyToggles: { badge: true, stats: true, qr: true }
 };
 
 // Khởi chạy khi DOM tải xong
@@ -5322,6 +5362,462 @@ export function exportUserData() {
     showSavedToast('Đã xuất toàn bộ dữ liệu du lịch cá nhân!');
 }
 
+// ============================================================================
+// PHASE 9: TRIP PLANNER, GPS NAVIGATION & SOCIAL STORIES CONTROLLERS
+// ============================================================================
+
+export function openTripPlannerModal() {
+    const modal = document.getElementById('tripPlannerModal');
+    const container = document.getElementById('tripPlannerModalContent');
+    if (!modal || !container) return;
+
+    container.innerHTML = renderTripPlannerModalContent(
+        state.tripPlan,
+        state.placePool,
+        state.plannerActiveDay,
+        state.plannerPoolCategory,
+        state.plannerSearchQuery
+    );
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+export function closeTripPlannerModal() {
+    const modal = document.getElementById('tripPlannerModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+export function switchPlannerDay(dayNumber) {
+    state.plannerActiveDay = dayNumber;
+    const container = document.getElementById('tripPlannerModalContent');
+    if (container) {
+        container.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+}
+
+export function addNewPlannerDay() {
+    if (!state.tripPlan) return;
+    const nextDayNum = (state.tripPlan.days?.length || 0) + 1;
+    if (nextDayNum > 5) {
+        showSavedToast('Hành trình tối đa 5 ngày!');
+        return;
+    }
+    state.tripPlan.days.push({
+        dayNumber: nextDayNum,
+        label: `Ngày ${nextDayNum}`,
+        activeHours: '08:00 - 16:00 (8h)',
+        stops: []
+    });
+    state.tripPlan.durationDays = state.tripPlan.days.length;
+    state.plannerActiveDay = nextDayNum;
+    saveStoredTripPlan(state.tripPlan);
+
+    const container = document.getElementById('tripPlannerModalContent');
+    if (container) {
+        container.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+    showSavedToast(`Đã thêm Ngày ${nextDayNum} vào kế hoạch!`);
+}
+
+export function filterPlannerPool(catId) {
+    state.plannerPoolCategory = catId;
+    const container = document.getElementById('tripPlannerModalContent');
+    if (container) {
+        container.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+}
+
+export function searchPlannerPool(query) {
+    state.plannerSearchQuery = query || '';
+    const poolList = document.getElementById('pool-list');
+    if (poolList) {
+        let filteredPool = state.placePool;
+        if (state.plannerPoolCategory && state.plannerPoolCategory !== 'all') {
+            filteredPool = filteredPool.filter(p => p.category === state.plannerPoolCategory);
+        }
+        if (state.plannerSearchQuery.trim()) {
+            const q = state.plannerSearchQuery.toLowerCase().trim();
+            filteredPool = filteredPool.filter(p =>
+                p.title.toLowerCase().includes(q) ||
+                (p.categoryTag && p.categoryTag.toLowerCase().includes(q)) ||
+                (p.description && p.description.toLowerCase().includes(q))
+            );
+        }
+        if (filteredPool.length === 0) {
+            poolList.innerHTML = '<div class="p-6 text-center text-xs text-outline dark:text-zinc-500">Không có địa điểm phù hợp bộ lọc.</div>';
+        } else {
+            poolList.innerHTML = filteredPool.map(item => `
+                <div class="pool-card group relative flex gap-3 p-3 rounded-xl bg-surface dark:bg-zinc-800/80 hover:bg-surface-container-low dark:hover:bg-zinc-800 shadow-2xs transition-all border-l-4 border-l-secondary dark:border-l-emerald-500 border border-outline-variant/20 dark:border-zinc-700">
+                    <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" class="w-16 h-16 sm:w-18 sm:h-18 rounded-lg object-cover shrink-0" />
+                    <div class="flex flex-col justify-between flex-1 min-w-0">
+                        <div>
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-secondary-fixed/40 dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-semibold truncate">
+                                    ${escapeHtml(item.categoryTag || item.category)}
+                                </span>
+                                <button type="button" onclick="window.ViVuApp.addPlaceToPlan('${item.placeId}')"
+                                    title="Thêm vào lộ trình Ngày ${state.plannerActiveDay}"
+                                    aria-label="Thêm ${escapeHtml(item.title)} vào ngày ${state.plannerActiveDay}"
+                                    class="w-8 h-8 rounded-lg flex items-center justify-center bg-secondary/10 dark:bg-emerald-950 hover:bg-secondary text-secondary hover:text-white dark:text-emerald-400 dark:hover:text-white transition-colors min-h-[32px] min-w-[32px]">
+                                    <span class="material-symbols-outlined text-[18px]">add</span>
+                                </button>
+                            </div>
+                            <h3 class="text-xs sm:text-sm font-semibold text-primary dark:text-zinc-100 truncate mt-1">
+                                ${escapeHtml(item.title)}
+                            </h3>
+                            <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 truncate">${escapeHtml(item.location)}</p>
+                        </div>
+                        <div class="flex items-center justify-between pt-1 text-[11px]">
+                            <span class="text-outline dark:text-zinc-400">Thời lượng: ${item.durationHours}h</span>
+                            <span class="inline-flex items-center gap-0.5 font-bold text-amber-600 dark:text-amber-400">
+                                <span class="material-symbols-outlined text-xs text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
+                                ${item.rating}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+export function addPlaceToPlan(placeId) {
+    if (!state.tripPlan) return;
+    const place = state.placePool.find(p => p.placeId === placeId);
+    if (!place) return;
+
+    const currentDayData = state.tripPlan.days?.find(d => d.dayNumber === state.plannerActiveDay);
+    if (!currentDayData) return;
+
+    const stopCount = currentDayData.stops.length + 1;
+    const startHour = 8 + (stopCount * 2);
+    const endHour = startHour + Math.round(place.durationHours);
+    const timeStr = `${String(startHour).padStart(2, '0')}:00 - ${String(endHour).padStart(2, '0')}:00`;
+
+    const newStop = {
+        id: `stop-${Date.now()}`,
+        placeId: place.placeId,
+        title: place.title,
+        timeRange: timeStr,
+        durationMinutes: Math.round(place.durationHours * 60),
+        category: place.category,
+        image: place.image,
+        note: place.description,
+        badge: place.categoryTag || 'Điểm đến mới thêm',
+        hasAudioGuide: place.category === 'Chùa cổ',
+        transfer: stopCount > 1 ? {
+            mode: 'pedal_bike',
+            modeLabel: 'Xe đạp',
+            distance: '3.5 km',
+            time: '15 phút đạp xe thong thả'
+        } : null
+    };
+
+    currentDayData.stops.push(newStop);
+    state.tripPlan.totalDistanceKm = +(state.tripPlan.totalDistanceKm + 3.5).toFixed(1);
+    state.tripPlan.estimatedCo2Kg = +(state.tripPlan.estimatedCo2Kg + 0.1).toFixed(1);
+    saveStoredTripPlan(state.tripPlan);
+
+    const container = document.getElementById('tripPlannerModalContent');
+    if (container) {
+        container.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+    showSavedToast(`Đã thêm "${place.title}" vào Ngày ${state.plannerActiveDay}!`);
+}
+
+export function removePlaceFromPlan(stopId) {
+    if (!state.tripPlan) return;
+    const currentDayData = state.tripPlan.days?.find(d => d.dayNumber === state.plannerActiveDay);
+    if (!currentDayData) return;
+
+    currentDayData.stops = currentDayData.stops.filter(s => s.id !== stopId);
+    state.tripPlan.totalDistanceKm = Math.max(10, +(state.tripPlan.totalDistanceKm - 3.5).toFixed(1));
+    saveStoredTripPlan(state.tripPlan);
+
+    const container = document.getElementById('tripPlannerModalContent');
+    if (container) {
+        container.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+    showSavedToast('Đã xóa điểm dừng khỏi lịch trình!');
+}
+
+export function addCustomStopToPlan() {
+    if (!state.tripPlan) return;
+    const currentDayData = state.tripPlan.days?.find(d => d.dayNumber === state.plannerActiveDay);
+    if (!currentDayData) return;
+
+    const newStop = {
+        id: `stop-custom-${Date.now()}`,
+        placeId: 'custom-stop',
+        title: 'Điểm nghỉ dưỡng / Khách sạn Xứ Trà',
+        timeRange: '17:00 - 19:00',
+        durationMinutes: 120,
+        category: 'Thắng cảnh',
+        image: 'ao bà om.jpg',
+        note: 'Nghỉ ngơi, thưởng trà dừa sáp và trò chuyện cùng người dân địa phương.',
+        badge: 'Điểm hẹn tùy chọn',
+        hasAudioGuide: false,
+        transfer: {
+            mode: 'directions_walk',
+            modeLabel: 'Đi bộ',
+            distance: '500m',
+            time: '5 phút tản bộ'
+        }
+    };
+
+    currentDayData.stops.push(newStop);
+    saveStoredTripPlan(state.tripPlan);
+
+    const container = document.getElementById('tripPlannerModalContent');
+    if (container) {
+        container.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+    showSavedToast('Đã thêm điểm hẹn tùy chỉnh vào lịch trình!');
+}
+
+export function optimizePlanAiRoute() {
+    if (!state.tripPlan) return;
+    const currentDayData = state.tripPlan.days?.find(d => d.dayNumber === state.plannerActiveDay);
+    if (!currentDayData || currentDayData.stops.length < 2) {
+        showSavedToast('AI Route: Cần ít nhất 2 điểm dừng để tối ưu lộ trình!');
+        return;
+    }
+
+    currentDayData.stops.reverse();
+    state.tripPlan.totalDistanceKm = Math.max(8, +(state.tripPlan.totalDistanceKm - 3.2).toFixed(1));
+    state.tripPlan.estimatedCo2Kg = Math.max(0.4, +(state.tripPlan.estimatedCo2Kg - 0.2).toFixed(1));
+    saveStoredTripPlan(state.tripPlan);
+
+    const container = document.getElementById('tripPlannerModalContent');
+    if (container) {
+        container.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+    showSavedToast('AI Route đã tối ưu cung đường: Tiết kiệm 3.2 km và giảm 0.2 kg CO₂!');
+}
+
+export function exportGpxFile() {
+    if (!state.tripPlan) return;
+    const stops = state.tripPlan.days?.flatMap(d => d.stops || []) || [];
+    const waypointsXml = stops.map((s, idx) => `
+    <wpt lat="${s.lat || (9.9 + idx * 0.05)}" lon="${s.lng || (106.3 + idx * 0.05)}">
+        <name>${escapeHtml(s.title)}</name>
+        <desc>${escapeHtml(s.note || '')}</desc>
+        <sym>Flag</sym>
+    </wpt>`).join('\n');
+
+    const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="ViVuTraVinh - https://vivutravinh.vn" xmlns="http://www.topografix.com/GPX/1/1">
+    <metadata>
+        <name>${escapeHtml(state.tripPlan.title)}</name>
+        <desc>${escapeHtml(state.tripPlan.description)}</desc>
+        <time>${new Date().toISOString()}</time>
+    </metadata>
+    ${waypointsXml}
+    <trk>
+        <name>${escapeHtml(state.tripPlan.title)} (Track)</name>
+        <trkseg>
+            ${stops.map((s, idx) => `<trkpt lat="${s.lat || (9.9 + idx * 0.05)}" lon="${s.lng || (106.3 + idx * 0.05)}"><time>${new Date().toISOString()}</time></trkpt>`).join('\n            ')}
+        </trkseg>
+    </trk>
+</gpx>`;
+
+    const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vivutravinh_lo_trinh_${new Date().toISOString().slice(0, 10)}.gpx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showSavedToast('Đã tải tệp GPX cho thiết bị định vị GPS & đồng hồ thông minh!');
+}
+
+export function openGpsNavModal() {
+    closeTripPlannerModal();
+    const modal = document.getElementById('gpsNavModal');
+    const container = document.getElementById('gpsNavModalContent');
+    if (!modal || !container) return;
+
+    container.innerHTML = renderGpsNavigationModalContent(state.gpsNavState);
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+export function closeGpsNavModal() {
+    const modal = document.getElementById('gpsNavModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+export function toggleGpsVoice() {
+    if (!state.gpsNavState) return;
+    state.gpsNavState.isVoiceEnabled = !state.gpsNavState.isVoiceEnabled;
+    const container = document.getElementById('gpsNavModalContent');
+    if (container) {
+        container.innerHTML = renderGpsNavigationModalContent(state.gpsNavState);
+    }
+    showSavedToast(state.gpsNavState.isVoiceEnabled ? 'Đã bật âm thanh chỉ dẫn giọng nói tiếng Việt!' : 'Đã tắt âm thanh chỉ dẫn!');
+}
+
+export function toggleGpsAudioGuide() {
+    if (!state.gpsNavState?.audioGuide) return;
+    state.gpsNavState.audioGuide.isPlaying = !state.gpsNavState.audioGuide.isPlaying;
+    const container = document.getElementById('gpsNavModalContent');
+    if (container) {
+        container.innerHTML = renderGpsNavigationModalContent(state.gpsNavState);
+    }
+    showSavedToast(state.gpsNavState.audioGuide.isPlaying ? 'Đang phát thuyết minh văn hóa bản địa...' : 'Đã tạm dừng thuyết minh.');
+}
+
+export function toggleGps3DMode() {
+    if (!state.gpsNavState) return;
+    state.gpsNavState.is3DMode = !state.gpsNavState.is3DMode;
+    const container = document.getElementById('gpsNavModalContent');
+    if (container) {
+        container.innerHTML = renderGpsNavigationModalContent(state.gpsNavState);
+    }
+    showSavedToast(state.gpsNavState.is3DMode ? 'Đã chuyển sang góc nhìn dẫn đường 3D!' : 'Đã chuyển sang bản đồ 2D toàn cảnh.');
+}
+
+export function searchNearbyPitstops() {
+    showSavedToast('Đang quét trạm sạc điện, điểm cấp nước & quán dừa sáp gần nhất...');
+}
+
+export function finishGpsNavigation() {
+    closeGpsNavModal();
+    openTripSummaryModal();
+    showSavedToast('Chúc mừng bạn đã hoàn tất xuất sắc hành trình!');
+}
+
+export function openTripSummaryModal() {
+    const modal = document.getElementById('tripSummaryModal');
+    const container = document.getElementById('tripSummaryModalContent');
+    if (!modal || !container) return;
+
+    container.innerHTML = renderTripSummaryModalContent(state.tripSummaryState);
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+export function closeTripSummaryModal() {
+    const modal = document.getElementById('tripSummaryModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+export function openStoryShareModal(theme = state.storyTheme) {
+    closeTripSummaryModal();
+    const modal = document.getElementById('storyCardModal');
+    const container = document.getElementById('storyCardModalContent');
+    if (!modal || !container) return;
+
+    state.storyTheme = theme || 'heritage';
+    const template = STORY_TEMPLATES[state.storyTheme] || STORY_TEMPLATES.heritage;
+    container.innerHTML = renderSocialStoryModalContent(template, state.storyTheme, state.storyToggles);
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+export function closeStoryShareModal() {
+    const modal = document.getElementById('storyCardModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+export function switchStoryTheme(theme) {
+    if (!STORY_TEMPLATES[theme]) return;
+    state.storyTheme = theme;
+    const container = document.getElementById('storyCardModalContent');
+    if (container) {
+        container.innerHTML = renderSocialStoryModalContent(STORY_TEMPLATES[theme], state.storyTheme, state.storyToggles);
+    }
+}
+
+export function toggleStoryElement(key) {
+    if (key in state.storyToggles) {
+        state.storyToggles[key] = !state.storyToggles[key];
+        const container = document.getElementById('storyCardModalContent');
+        if (container) {
+            container.innerHTML = renderSocialStoryModalContent(STORY_TEMPLATES[state.storyTheme], state.storyTheme, state.storyToggles);
+        }
+    }
+}
+
+export function downloadStoryCard() {
+    const dummyLink = document.createElement('a');
+    dummyLink.href = 'ao bà om.jpg';
+    dummyLink.download = `vivutravinh_story_${state.storyTheme}_9x16.jpg`;
+    dummyLink.click();
+    showSavedToast('Đã lưu ảnh Thẻ Story (chuẩn 9:16) vào thiết bị của bạn!');
+}
+
+export function copyStoryLink() {
+    const url = `https://vivutravinh.vn/story/${state.storyTheme}?ref=share`;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+            showSavedToast('Đã sao chép liên kết Thẻ Story vào bộ nhớ tạm!');
+        }).catch(() => {
+            showSavedToast('Đã tạo liên kết chia sẻ: ' + url);
+        });
+    } else {
+        showSavedToast('Đã sao chép liên kết chia sẻ!');
+    }
+}
+
+export function shareToSocial(platform) {
+    showSavedToast(`Đang chuyển hướng sang ${platform.toUpperCase()} để đăng Story...`);
+}
+
 // Expose ra window để hỗ trợ inline HTML event handlers
 if (typeof window !== 'undefined') {
     window.ViVuApp = {
@@ -5489,6 +5985,34 @@ if (typeof window !== 'undefined') {
         resetDefaultNotificationPrefs,
         togglePrivacyPref,
         exportUserData,
+        // Trip Planner, GPS Navigation & Social Stories Methods (Phase 9)
+        openTripPlannerModal,
+        closeTripPlannerModal,
+        switchPlannerDay,
+        addNewPlannerDay,
+        filterPlannerPool,
+        searchPlannerPool,
+        addPlaceToPlan,
+        removePlaceFromPlan,
+        addCustomStopToPlan,
+        optimizePlanAiRoute,
+        exportGpxFile,
+        openGpsNavModal,
+        closeGpsNavModal,
+        toggleGpsVoice,
+        toggleGpsAudioGuide,
+        toggleGps3DMode,
+        searchNearbyPitstops,
+        finishGpsNavigation,
+        openTripSummaryModal,
+        closeTripSummaryModal,
+        openStoryShareModal,
+        closeStoryShareModal,
+        switchStoryTheme,
+        toggleStoryElement,
+        downloadStoryCard,
+        copyStoryLink,
+        shareToSocial,
         getState: () => state,
         get state() { return state; }
     };
