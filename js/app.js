@@ -46,6 +46,9 @@ import {
     renderGpsNavigationModalContent,
     renderTripSummaryModalContent,
     renderSocialStoryModalContent,
+    renderAdminSupportModalContent,
+    renderAdminModerationModalContent,
+    renderAdminActionReasonModalContent,
     escapeHtml
 } from './ui.js';
 
@@ -96,6 +99,23 @@ import {
     TRIP_SUMMARY_STATE,
     STORY_TEMPLATES
 } from './planner-data.js';
+import {
+    ADMIN_INFO,
+    PROJECT_FINANCIAL_REPORT,
+    DONATION_TIERS,
+    ADMIN_TECH_CLEARANCE,
+    TRAVEL_GEAR_RECOMMENDATIONS,
+    MODERATION_KPI,
+    INITIAL_PENDING_POSTS,
+    INITIAL_PENDING_CLUBS,
+    getStoredModerationPosts,
+    saveStoredModerationPosts,
+    getStoredModerationClubs,
+    saveStoredModerationClubs,
+    getStoredDonationRecords,
+    saveStoredDonationRecords,
+    addDonationRecord
+} from './admin-portal-data.js';
 
 import { getSiteUrl, DEFAULT_SITE_URL } from './config.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
@@ -577,7 +597,26 @@ export const state = {
     gpsNavState: JSON.parse(JSON.stringify(GPS_NAVIGATION_STATE)),
     tripSummaryState: JSON.parse(JSON.stringify(TRIP_SUMMARY_STATE)),
     storyTheme: 'heritage',
-    storyToggles: { badge: true, stats: true, qr: true }
+    storyToggles: { badge: true, stats: true, qr: true },
+    // Admin Support Wall & Moderation Portal (Phase 10)
+    adminInfo: ADMIN_INFO,
+    financialReport: PROJECT_FINANCIAL_REPORT,
+    donationTiers: DONATION_TIERS,
+    selectedDonationAmount: 35000,
+    selectedDonationTierId: 'noodle',
+    techClearance: ADMIN_TECH_CLEARANCE,
+    travelGear: TRAVEL_GEAR_RECOMMENDATIONS,
+    recentSupporters: getStoredDonationRecords(),
+    moderationPosts: getStoredModerationPosts(),
+    selectedModerationPostId: 'post-01',
+    moderationClubs: getStoredModerationClubs(),
+    selectedModerationClubId: 'club-pending-01',
+    moderationKpi: { ...MODERATION_KPI },
+    moderationActiveTab: 'posts',
+    moderationFilterCategory: 'all',
+    moderationRiskFilter: 'all',
+    moderationSearchQuery: '',
+    actionReasonModalState: { type: '', targetId: '', targetTitle: '' }
 };
 
 // Khởi chạy khi DOM tải xong
@@ -5818,6 +5857,395 @@ export function shareToSocial(platform) {
     showSavedToast(`Đang chuyển hướng sang ${platform.toUpperCase()} để đăng Story...`);
 }
 
+// =========================================================================
+// PHASE 10: ADMIN SUPPORT WALL & MODERATION PORTAL METHODS
+// =========================================================================
+
+export function openAdminSupportModal() {
+    const modal = document.getElementById('adminSupportModal');
+    const container = document.getElementById('adminSupportModalContent');
+    if (!modal || !container) return;
+
+    container.innerHTML = renderAdminSupportModalContent({
+        adminInfo: state.adminInfo,
+        financialReport: state.financialReport,
+        donationTiers: state.donationTiers,
+        selectedAmount: state.selectedDonationAmount,
+        selectedNote: state.selectedDonationTierId,
+        techClearance: state.techClearance,
+        travelGear: state.travelGear,
+        recentSupporters: state.recentSupporters
+    });
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+export function closeAdminSupportModal() {
+    const modal = document.getElementById('adminSupportModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+export function selectDonationTier(amount, tierId) {
+    state.selectedDonationAmount = amount;
+    state.selectedDonationTierId = tierId;
+    const container = document.getElementById('adminSupportModalContent');
+    if (container) {
+        container.innerHTML = renderAdminSupportModalContent({
+            adminInfo: state.adminInfo,
+            financialReport: state.financialReport,
+            donationTiers: state.donationTiers,
+            selectedAmount: state.selectedDonationAmount,
+            selectedNote: state.selectedDonationTierId,
+            techClearance: state.techClearance,
+            travelGear: state.travelGear,
+            recentSupporters: state.recentSupporters
+        });
+    }
+}
+
+export function applyCustomDonation() {
+    const input = document.getElementById('customDonationInput');
+    if (!input) return;
+    const val = parseInt(input.value, 10);
+    if (isNaN(val) || val < 10000) {
+        showSavedToast('Vui lòng nhập số tiền hợp lệ từ 10.000đ trở lên');
+        return;
+    }
+    selectDonationTier(val, 'custom');
+    showSavedToast(`Đã tạo mã QR cho số tiền: ${val.toLocaleString('vi-VN')}đ`);
+}
+
+export function copyTransferNote(note) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(note).then(() => {
+            showSavedToast('Đã sao chép nội dung chuyển khoản: ' + note);
+        }).catch(() => {
+            showSavedToast('Nội dung: ' + note);
+        });
+    } else {
+        showSavedToast('Nội dung: ' + note);
+    }
+}
+
+export function copyToClipboard(text, successMsg = 'Đã sao chép vào bộ nhớ tạm!') {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+            showSavedToast(successMsg);
+        }).catch(() => {
+            showSavedToast(text);
+        });
+    } else {
+        showSavedToast(text);
+    }
+}
+
+export function confirmSimulatedDonation(amount) {
+    const newRecord = {
+        name: state.userProfile?.displayName || 'Du khách hảo tâm',
+        amount: amount || state.selectedDonationAmount,
+        date: 'Vừa xong',
+        message: 'Đồng hành cùng máy chủ ViVuTraVinh'
+    };
+    state.recentSupporters = addDonationRecord(newRecord);
+    state.financialReport.monthlyFunded += newRecord.amount;
+    state.financialReport.percentFunded = Math.min(100, Math.round((state.financialReport.monthlyFunded / state.financialReport.monthlyCost) * 100));
+    state.financialReport.remainingNeeded = Math.max(0, state.financialReport.monthlyCost - state.financialReport.monthlyFunded);
+
+    const container = document.getElementById('adminSupportModalContent');
+    if (container) {
+        container.innerHTML = renderAdminSupportModalContent({
+            adminInfo: state.adminInfo,
+            financialReport: state.financialReport,
+            donationTiers: state.donationTiers,
+            selectedAmount: state.selectedDonationAmount,
+            selectedNote: state.selectedDonationTierId,
+            techClearance: state.techClearance,
+            travelGear: state.travelGear,
+            recentSupporters: state.recentSupporters
+        });
+    }
+    showSavedToast(`Cảm ơn bạn đã ủng hộ ${newRecord.amount.toLocaleString('vi-VN')}đ vào quỹ máy chủ!`);
+}
+
+export function openAdminModerationModal(tab = 'posts') {
+    const modal = document.getElementById('adminModerationModal');
+    const container = document.getElementById('adminModerationModalContent');
+    if (!modal || !container) return;
+
+    state.moderationActiveTab = tab || 'posts';
+    container.innerHTML = renderAdminModerationModalContent({
+        activeTab: state.moderationActiveTab,
+        posts: state.moderationPosts,
+        selectedPostId: state.selectedModerationPostId,
+        clubs: state.moderationClubs,
+        selectedClubId: state.selectedModerationClubId,
+        kpi: state.moderationKpi,
+        filterCategory: state.moderationFilterCategory,
+        riskFilter: state.moderationRiskFilter,
+        searchQuery: state.moderationSearchQuery
+    });
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+export function closeAdminModerationModal() {
+    const modal = document.getElementById('adminModerationModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+export function switchModerationTab(tab, category = 'all') {
+    state.moderationActiveTab = tab;
+    state.moderationFilterCategory = category;
+    const container = document.getElementById('adminModerationModalContent');
+    if (container) {
+        container.innerHTML = renderAdminModerationModalContent({
+            activeTab: state.moderationActiveTab,
+            posts: state.moderationPosts,
+            selectedPostId: state.selectedModerationPostId,
+            clubs: state.moderationClubs,
+            selectedClubId: state.selectedModerationClubId,
+            kpi: state.moderationKpi,
+            filterCategory: state.moderationFilterCategory,
+            riskFilter: state.moderationRiskFilter,
+            searchQuery: state.moderationSearchQuery
+        });
+    }
+}
+
+export function selectModerationPost(postId) {
+    state.selectedModerationPostId = postId;
+    const container = document.getElementById('adminModerationModalContent');
+    if (container) {
+        container.innerHTML = renderAdminModerationModalContent({
+            activeTab: state.moderationActiveTab,
+            posts: state.moderationPosts,
+            selectedPostId: state.selectedModerationPostId,
+            clubs: state.moderationClubs,
+            selectedClubId: state.selectedModerationClubId,
+            kpi: state.moderationKpi,
+            filterCategory: state.moderationFilterCategory,
+            riskFilter: state.moderationRiskFilter,
+            searchQuery: state.moderationSearchQuery
+        });
+    }
+}
+
+export function selectModerationClub(clubId) {
+    state.selectedModerationClubId = clubId;
+    const container = document.getElementById('adminModerationModalContent');
+    if (container) {
+        container.innerHTML = renderAdminModerationModalContent({
+            activeTab: state.moderationActiveTab,
+            posts: state.moderationPosts,
+            selectedPostId: state.selectedModerationPostId,
+            clubs: state.moderationClubs,
+            selectedClubId: state.selectedModerationClubId,
+            kpi: state.moderationKpi,
+            filterCategory: state.moderationFilterCategory,
+            riskFilter: state.moderationRiskFilter,
+            searchQuery: state.moderationSearchQuery
+        });
+    }
+}
+
+export function handleModerationSearch(query) {
+    state.moderationSearchQuery = query;
+    const container = document.getElementById('adminModerationModalContent');
+    if (container) {
+        container.innerHTML = renderAdminModerationModalContent({
+            activeTab: state.moderationActiveTab,
+            posts: state.moderationPosts,
+            selectedPostId: state.selectedModerationPostId,
+            clubs: state.moderationClubs,
+            selectedClubId: state.selectedModerationClubId,
+            kpi: state.moderationKpi,
+            filterCategory: state.moderationFilterCategory,
+            riskFilter: state.moderationRiskFilter,
+            searchQuery: state.moderationSearchQuery
+        });
+    }
+}
+
+export function filterModerationRisk(risk) {
+    state.moderationRiskFilter = risk;
+    const container = document.getElementById('adminModerationModalContent');
+    if (container) {
+        container.innerHTML = renderAdminModerationModalContent({
+            activeTab: state.moderationActiveTab,
+            posts: state.moderationPosts,
+            selectedPostId: state.selectedModerationPostId,
+            clubs: state.moderationClubs,
+            selectedClubId: state.selectedModerationClubId,
+            kpi: state.moderationKpi,
+            filterCategory: state.moderationFilterCategory,
+            riskFilter: state.moderationRiskFilter,
+            searchQuery: state.moderationSearchQuery
+        });
+    }
+}
+
+export function approvePost(postId) {
+    const post = state.moderationPosts.find(p => p.id === postId);
+    if (!post) return;
+    post.status = 'approved';
+    state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
+    saveStoredModerationPosts(state.moderationPosts);
+
+    const container = document.getElementById('adminModerationModalContent');
+    if (container) {
+        container.innerHTML = renderAdminModerationModalContent({
+            activeTab: state.moderationActiveTab,
+            posts: state.moderationPosts,
+            selectedPostId: state.selectedModerationPostId,
+            clubs: state.moderationClubs,
+            selectedClubId: state.selectedModerationClubId,
+            kpi: state.moderationKpi,
+            filterCategory: state.moderationFilterCategory,
+            riskFilter: state.moderationRiskFilter,
+            searchQuery: state.moderationSearchQuery
+        });
+    }
+    showSavedToast('✓ Đã phê duyệt và xuất bản bài viết thành công (+50 Xu thưởng)!');
+}
+
+export function approveClub(clubId) {
+    const club = state.moderationClubs.find(c => c.id === clubId);
+    if (!club) return;
+    club.status = 'approved';
+    club.isEligible = true;
+    saveStoredModerationClubs(state.moderationClubs);
+
+    const container = document.getElementById('adminModerationModalContent');
+    if (container) {
+        container.innerHTML = renderAdminModerationModalContent({
+            activeTab: state.moderationActiveTab,
+            posts: state.moderationPosts,
+            selectedPostId: state.selectedModerationPostId,
+            clubs: state.moderationClubs,
+            selectedClubId: state.selectedModerationClubId,
+            kpi: state.moderationKpi,
+            filterCategory: state.moderationFilterCategory,
+            riskFilter: state.moderationRiskFilter,
+            searchQuery: state.moderationSearchQuery
+        });
+    }
+    showSavedToast('✓ Đã phê duyệt và cấp Tích Xanh chính thức cho CLB (+500 Xu quỹ khởi đầu)!');
+}
+
+export function openActionReasonModal(actionType, targetId, targetTitle) {
+    state.actionReasonModalState = { actionType, targetId, targetTitle };
+    const modal = document.getElementById('adminActionReasonModal');
+    const container = document.getElementById('adminActionReasonModalContent');
+    if (!modal || !container) return;
+
+    container.innerHTML = renderAdminActionReasonModalContent({
+        actionType,
+        targetId,
+        targetTitle
+    });
+    modal.classList.remove('hidden');
+}
+
+export function closeActionReasonModal() {
+    const modal = document.getElementById('adminActionReasonModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+export function submitActionReason(actionType, targetId) {
+    const input = document.getElementById('actionReasonInput');
+    const reason = input ? input.value.trim() : '';
+
+    if (actionType.startsWith('reject_post')) {
+        const post = state.moderationPosts.find(p => p.id === targetId);
+        if (post) {
+            post.status = 'rejected';
+            post.rejectionReason = reason;
+            saveStoredModerationPosts(state.moderationPosts);
+        }
+        showSavedToast('Đã từ chối bài viết và gửi lý do cho người đăng.');
+    } else if (actionType.startsWith('edit_post')) {
+        const post = state.moderationPosts.find(p => p.id === targetId);
+        if (post) {
+            post.status = 'needs_edit';
+            post.editRequestReason = reason;
+            saveStoredModerationPosts(state.moderationPosts);
+        }
+        showSavedToast('Đã gửi thông báo yêu cầu tác giả chỉnh sửa bổ sung thông tin.');
+    } else if (actionType.startsWith('reject_club')) {
+        const club = state.moderationClubs.find(c => c.id === targetId);
+        if (club) {
+            club.status = 'rejected';
+            club.rejectionReason = reason;
+            saveStoredModerationClubs(state.moderationClubs);
+        }
+        showSavedToast('Đã từ chối hồ sơ CLB và gửi lý do thẩm định.');
+    } else if (actionType.startsWith('request_club_info')) {
+        const club = state.moderationClubs.find(c => c.id === targetId);
+        if (club) {
+            club.status = 'needs_info';
+            club.infoRequestReason = reason;
+            saveStoredModerationClubs(state.moderationClubs);
+        }
+        showSavedToast('Đã gửi yêu cầu bổ sung thông tin cho Trưởng nhóm CLB.');
+    }
+
+    closeActionReasonModal();
+
+    const container = document.getElementById('adminModerationModalContent');
+    if (container) {
+        container.innerHTML = renderAdminModerationModalContent({
+            activeTab: state.moderationActiveTab,
+            posts: state.moderationPosts,
+            selectedPostId: state.selectedModerationPostId,
+            clubs: state.moderationClubs,
+            selectedClubId: state.selectedModerationClubId,
+            kpi: state.moderationKpi,
+            filterCategory: state.moderationFilterCategory,
+            riskFilter: state.moderationRiskFilter,
+            searchQuery: state.moderationSearchQuery
+        });
+    }
+}
+
+export function quickApproveHighTrust() {
+    let count = 0;
+    state.moderationPosts.forEach(p => {
+        if (p.status === 'pending' && p.aiSafeScore >= 80 && p.author.verified) {
+            p.status = 'approved';
+            count++;
+        }
+    });
+    if (count > 0) {
+        state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + count;
+        saveStoredModerationPosts(state.moderationPosts);
+        const container = document.getElementById('adminModerationModalContent');
+        if (container) {
+            container.innerHTML = renderAdminModerationModalContent({
+                activeTab: state.moderationActiveTab,
+                posts: state.moderationPosts,
+                selectedPostId: state.selectedModerationPostId,
+                clubs: state.moderationClubs,
+                selectedClubId: state.selectedModerationClubId,
+                kpi: state.moderationKpi,
+                filterCategory: state.moderationFilterCategory,
+                riskFilter: state.moderationRiskFilter,
+                searchQuery: state.moderationSearchQuery
+            });
+        }
+        showSavedToast(`✓ Đã duyệt nhanh ${count} bài viết đạt chuẩn an toàn cao!`);
+    } else {
+        showSavedToast('Không có bài viết mới đạt chuẩn duyệt nhanh.');
+    }
+}
+
 // Expose ra window để hỗ trợ inline HTML event handlers
 if (typeof window !== 'undefined') {
     window.ViVuApp = {
@@ -6013,6 +6441,27 @@ if (typeof window !== 'undefined') {
         downloadStoryCard,
         copyStoryLink,
         shareToSocial,
+        // Admin Support Wall & Moderation Portal Methods (Phase 10)
+        openAdminSupportModal,
+        closeAdminSupportModal,
+        selectDonationTier,
+        applyCustomDonation,
+        copyTransferNote,
+        copyToClipboard,
+        confirmSimulatedDonation,
+        openAdminModerationModal,
+        closeAdminModerationModal,
+        switchModerationTab,
+        selectModerationPost,
+        selectModerationClub,
+        handleModerationSearch,
+        filterModerationRisk,
+        approvePost,
+        approveClub,
+        openActionReasonModal,
+        closeActionReasonModal,
+        submitActionReason,
+        quickApproveHighTrust,
         getState: () => state,
         get state() { return state; }
     };

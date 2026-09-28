@@ -407,13 +407,24 @@
                     </div>
                 </div>
 
-                <!-- Group 3: Hỗ TrỢ Dự Án -->
+                <!-- Group 3: Quản Trị & Hỗ Trợ -->
                 <div class="px-space-md">
-                    <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Hỗ Trợ Dự Án</span>
-                    <div role="navigation" aria-label="Hỗ Trợ Dự Án" class="mt-2 flex flex-col gap-1">
+                    <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Quản Trị &amp; Hỗ Trợ</span>
+                    <div role="navigation" aria-label="Quản Trị &amp; Hỗ Trợ" class="mt-2 flex flex-col gap-1">
+                        <a href="#" onclick="window.ViVuApp?.openAdminModerationModal?.(); return false;" class="flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <div class="flex items-center gap-3">
+                                <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">admin_panel_settings</span>
+                                <span>Kiểm duyệt nội dung</span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-badge text-[11px] font-bold leading-none shadow-xs">11</span>
+                        </a>
+                        <a href="#" onclick="window.ViVuApp?.openAdminSupportModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">volunteer_activism</span>
+                            <span>Tường Admin &amp; Hỗ trợ</span>
+                        </a>
                         <a href="#" onclick="window.ViVuApp?.openContributeModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
-                            <span class="material-symbols-outlined text-[20px]">volunteer_activism</span>
-                            <span>Tường Admin &amp; Đóng góp</span>
+                            <span class="material-symbols-outlined text-[20px]">add_location_alt</span>
+                            <span>Đóng góp địa điểm</span>
                         </a>
                     </div>
                 </div>
@@ -2666,6 +2677,43 @@
                 <span id="storyCardModalTitle" class="sr-only">Thẻ Story chia sẻ mạng xã hội</span>
                 <div id="storyCardModalContent"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- 31. MODAL TƯỜNG ADMIN & HỖ TRỢ DỰ ÁN (ADMIN SUPPORT WALL MODAL - PHASE 10) -->
+    <div id="adminSupportModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="adminSupportModalTitle">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeAdminSupportModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-0 sm:p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full max-w-6xl min-h-screen sm:min-h-0 my-0 sm:my-6 border-0 sm:border border-outline-variant/30 dark:border-zinc-800">
+                    <span id="adminSupportModalTitle" class="sr-only">Tường Admin &amp; Hỗ trợ dự án ViVuTraVinh</span>
+                    <div id="adminSupportModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 32. MODAL TRUNG TÂM KIỂM DUYỆT NỘI DUNG & CLB (ADMIN MODERATION PORTAL MODAL - PHASE 10) -->
+    <div id="adminModerationModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="adminModerationModalTitle">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeAdminModerationModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-0 sm:p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-none sm:rounded-3xl bg-surface dark:bg-zinc-950 text-left shadow-2xl transition-all w-full max-w-7xl min-h-screen sm:min-h-0 my-0 sm:my-6 border-0 sm:border border-outline-variant/30 dark:border-zinc-800">
+                    <span id="adminModerationModalTitle" class="sr-only">Trung tâm Kiểm duyệt Nội dung &amp; CLB ViVuTràVinh Admin</span>
+                    <div id="adminModerationModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 33. MODAL NHẬP LÝ DO KIỂM DUYỆT (ADMIN ACTION REASON MODAL - PHASE 10) -->
+    <div id="adminActionReasonModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="adminActionReasonModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeActionReasonModal()"></div>
+        <div class="relative z-10 w-full max-w-lg">
+            <span id="adminActionReasonModalTitle" class="sr-only">Nhập lý do kiểm duyệt</span>
+            <div id="adminActionReasonModalContent"></div>
         </div>
     </div>
 

@@ -163,10 +163,17 @@ async function runTests() {
         await cdp.ready();
 
         console.log('[1] Chờ ứng dụng sẵn sàng và nạp danh sách địa điểm...');
-        await sleep(2000);
-        const placesLoaded = await cdp.eval(`(() => {
-            return (window.ViVuApp?.state?.allPlaces || []).length > 0;
-        })()`);
+        let placesLoaded = false;
+        const startWait = Date.now();
+        while (Date.now() - startWait < 12000) {
+            try {
+                placesLoaded = await cdp.eval(`(() => {
+                    return (window.ViVuApp?.state?.allPlaces || []).length > 0;
+                })()`);
+                if (placesLoaded) break;
+            } catch {}
+            await sleep(300);
+        }
         if (!placesLoaded) throw new Error('Không thể nạp dữ liệu allPlaces!');
         console.log('  ✓ Ứng dụng đã nạp xong allPlaces!');
 
@@ -360,7 +367,9 @@ async function runTests() {
     }
 }
 
-runTests().catch(err => {
+runTests().then(() => {
+    process.exit(0);
+}).catch(err => {
     console.error('❌ LỖI KIỂM THỬ GIAI ĐOẠN 4:', err);
     process.exit(1);
 });

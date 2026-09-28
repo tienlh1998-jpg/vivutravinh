@@ -7796,6 +7796,1258 @@ export function renderSocialStoryModalContent(template, activeTheme = 'heritage'
     `;
 }
 
+// =========================================================================
+// PHASE 10: ADMIN SUPPORT WALL & CONTENT/CLUB MODERATION PORTAL (STITCH DESIGNS)
+// =========================================================================
+
+/**
+ * Render modal "Tường Admin & Hỗ trợ ViVuTraVinh" (Góc Admin & Đồng hành dự án)
+ * Chuẩn thiết kế Stitch t_ng_admin_h_tr_vivutravinh/code.html
+ */
+export function renderAdminSupportModalContent({
+    adminInfo,
+    financialReport,
+    donationTiers = [],
+    selectedAmount = 35000,
+    selectedNote = 'To bun nuoc leo',
+    techClearance = [],
+    travelGear = [],
+    recentSupporters = []
+}) {
+    const bank = financialReport.bank || {
+        name: 'Vietcombank (Demo)',
+        accountName: 'VIVUTRAVINH COMMUNITY',
+        accountNumber: '•••• •••• 9826',
+        defaultMemo: 'VIVU UNG HO'
+    };
+
+    const currentMemo = selectedAmount
+        ? `VIVU ${selectedAmount.toLocaleString('vi-VN')} UNG HO`
+        : 'VIVU UNG HO';
+
+    return `
+        <div class="relative bg-surface dark:bg-zinc-950 text-on-surface dark:text-zinc-100 p-4 sm:p-6 lg:p-8 max-h-[92vh] overflow-y-auto no-scrollbar">
+            <!-- Header bar & Close -->
+            <div class="flex items-center justify-between pb-4 border-b border-outline-variant/30 dark:border-zinc-800 sticky top-0 bg-surface/95 dark:bg-zinc-950/95 backdrop-blur-md z-20 -mt-2 pt-2">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container dark:bg-emerald-950/70 text-on-secondary-container dark:text-emerald-300 font-badge text-xs font-bold tracking-wide">
+                        <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-pulse"></span>
+                        HỖ TRỢ DỰ ÁN • GÓC ADMIN VIVUTRAVINH
+                    </span>
+                    <span class="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 text-xs">
+                        <span class="material-symbols-outlined text-[14px] text-secondary dark:text-emerald-400">verified</span>
+                        Dự án cộng đồng độc lập
+                    </span>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeAdminSupportModal()"
+                    class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 flex items-center justify-center transition-transform active:scale-95 shadow-sm border border-outline-variant/30 dark:border-zinc-700"
+                    aria-label="Đóng tường admin">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+
+            <div class="flex flex-col gap-8 pt-6">
+                <!-- Title block -->
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <h1 class="font-headline-xl text-2xl sm:text-3xl lg:text-4xl text-primary dark:text-zinc-100 font-bold tracking-tight">
+                            Góc Admin &amp; Đồng hành dự án
+                        </h1>
+                        <p class="font-body-lg text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-3xl mt-1.5 leading-relaxed">
+                            Nơi chia sẻ câu chuyện phát triển nền tảng ViVuTraVinh, báo cáo chi phí máy chủ minh bạch và các cách tiếp sức cộng đồng du lịch tự túc xứ Trà.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- SECTION 1: ADMIN PROFILE & TRANSPARENCY REPORT -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                    <!-- Admin Bio Card (5 cols) -->
+                    <div class="lg:col-span-5 bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between">
+                        <div class="flex flex-col items-center text-center">
+                            <div class="relative mb-4">
+                                <div class="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden shadow-md ring-4 ring-secondary/20 dark:ring-emerald-500/20">
+                                    <img src="${escapeHtml(adminInfo.avatar || 'chùa âng.jpg')}" alt="${escapeHtml(adminInfo.name)}" class="w-full h-full object-cover" />
+                                </div>
+                                <span class="absolute bottom-1 right-2 w-6 h-6 rounded-full bg-secondary text-white border-2 border-surface-container-lowest dark:border-zinc-900 flex items-center justify-center" title="Sẵn sàng hỗ trợ">
+                                    <span class="material-symbols-outlined text-[14px]">check</span>
+                                </span>
+                            </div>
+                            <span class="inline-block px-3 py-1 rounded-full bg-primary-container text-on-primary text-xs font-bold uppercase tracking-wider mb-2">
+                                Nhà sáng lập
+                            </span>
+                            <h2 class="font-headline-md text-lg sm:text-xl font-bold text-primary dark:text-zinc-100">
+                                Admin ViVuTraVinh (${escapeHtml(adminInfo.name)})
+                            </h2>
+                            <p class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium mt-0.5">
+                                ${escapeHtml(adminInfo.title)}
+                            </p>
+                            <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 mt-3 text-justify leading-relaxed">
+                                ${escapeHtml(adminInfo.bio)}
+                            </p>
+                        </div>
+                        <div class="pt-5 mt-5 bg-surface-container-low dark:bg-zinc-800/60 rounded-2xl p-4 flex flex-col gap-2.5 border border-outline-variant/20 dark:border-zinc-700/40">
+                            <span class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-semibold uppercase tracking-wider">
+                                Kênh liên hệ trực tiếp:
+                            </span>
+                            <div class="grid grid-cols-3 gap-2">
+                                <a href="${escapeHtml(adminInfo.contacts.zalo)}" target="_blank" rel="noopener noreferrer"
+                                    class="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 transition-colors font-button text-xs font-semibold shadow-xs border border-outline-variant/30 dark:border-zinc-700">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">chat</span>
+                                    <span>Zalo</span>
+                                </a>
+                                <a href="${escapeHtml(adminInfo.contacts.facebook)}" target="_blank" rel="noopener noreferrer"
+                                    class="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 transition-colors font-button text-xs font-semibold shadow-xs border border-outline-variant/30 dark:border-zinc-700">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">share</span>
+                                    <span>Facebook</span>
+                                </a>
+                                <a href="${escapeHtml(adminInfo.contacts.email)}"
+                                    class="min-h-[44px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 transition-colors font-button text-xs font-semibold shadow-xs border border-outline-variant/30 dark:border-zinc-700">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">mail</span>
+                                    <span>Email</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transparency Mission & Hosting Budget (7 cols) -->
+                    <div class="lg:col-span-7 flex flex-col justify-between gap-6">
+                        <!-- Mission Banner -->
+                        <div class="bg-primary-container text-on-primary rounded-3xl p-6 sm:p-7 shadow-sm flex flex-col justify-between flex-1 relative overflow-hidden">
+                            <div class="relative z-10 flex flex-col gap-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-3 py-1 rounded-full bg-secondary text-on-secondary font-badge text-xs font-bold uppercase tracking-wider">
+                                        BÁO CÁO MINH BẠCH
+                                    </span>
+                                    <span class="font-caption text-xs text-on-primary-container">
+                                        Kỳ vận hành: ${escapeHtml(financialReport.cycle || 'Quý I/2025')}
+                                    </span>
+                                </div>
+                                <div>
+                                    <h3 class="font-headline-lg text-xl sm:text-2xl font-bold text-white tracking-tight">
+                                        Vì một Trà Vinh số hóa, bền vững
+                                    </h3>
+                                    <p class="font-body-md text-xs sm:text-sm text-on-primary-container mt-2 max-w-xl leading-relaxed">
+                                        Tất cả mã nguồn ứng dụng, tọa độ bản đồ di sản và danh bạ làng nghề được xây dựng thủ công với sự trợ giúp của cộng đồng địa phương. Không quảng cáo gây phiền toái, không thu phí du khách.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Subtle background SVG -->
+                            <svg class="absolute -right-10 -bottom-10 w-56 h-56 text-white/5 pointer-events-none" fill="currentColor" viewBox="0 0 200 200">
+                                <path d="M100 0 C44.8 0 0 44.8 0 100 C0 155.2 44.8 200 100 200 C155.2 200 200 155.2 200 100 C200 44.8 155.2 0 100 0 Z"></path>
+                            </svg>
+
+                            <!-- Metrics Row -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-5 mt-4 relative z-10">
+                                <div class="bg-black/25 backdrop-blur-sm rounded-2xl p-3.5 flex flex-col border border-white/10">
+                                    <span class="font-caption text-[11px] text-on-primary-container">Chi phí duy trì</span>
+                                    <span class="font-headline-sm text-lg font-bold text-secondary-fixed mt-0.5">
+                                        ${financialReport.monthlyCost.toLocaleString('vi-VN')}đ
+                                    </span>
+                                    <span class="font-caption text-[10px] text-on-primary-container">Hàng tháng (Cloud + DNS)</span>
+                                </div>
+                                <div class="bg-black/25 backdrop-blur-sm rounded-2xl p-3.5 flex flex-col border border-white/10">
+                                    <span class="font-caption text-[11px] text-on-primary-container">Thời gian vận hành</span>
+                                    <span class="font-headline-sm text-lg font-bold text-secondary-fixed mt-0.5">
+                                        ${financialReport.uptimeMonths} tháng
+                                    </span>
+                                    <span class="font-caption text-[10px] text-on-primary-container">Liên tục không gián đoạn</span>
+                                </div>
+                                <div class="bg-black/25 backdrop-blur-sm rounded-2xl p-3.5 flex flex-col border border-white/10">
+                                    <span class="font-caption text-[11px] text-on-primary-container">Dữ liệu xác thực</span>
+                                    <span class="font-headline-sm text-lg font-bold text-secondary-fixed mt-0.5">
+                                        ${financialReport.verifiedPlaces} tọa độ
+                                    </span>
+                                    <span class="font-caption text-[10px] text-on-primary-container">Chùa, ẩm thực &amp; làng nghề</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Monthly Budget Progress Bar -->
+                        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <span class="font-body-md text-xs sm:text-sm font-semibold text-primary dark:text-zinc-100">
+                                    Tiến độ quỹ máy chủ tháng này:
+                                </span>
+                                <span class="font-button text-xs sm:text-sm text-secondary dark:text-emerald-400 font-bold">
+                                    ${financialReport.monthlyFunded.toLocaleString('vi-VN')}đ / ${financialReport.monthlyCost.toLocaleString('vi-VN')}đ (${financialReport.percentFunded}%)
+                                </span>
+                            </div>
+                            <div class="w-full h-3 rounded-full bg-surface-container dark:bg-zinc-800 overflow-hidden">
+                                <div class="h-full bg-secondary dark:bg-emerald-500 rounded-full transition-all duration-500" style="width: ${financialReport.percentFunded}%;"></div>
+                            </div>
+                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400">
+                                Chỉ còn thiếu <strong class="text-secondary dark:text-emerald-400 font-semibold">${financialReport.remainingNeeded.toLocaleString('vi-VN')}đ</strong> để hoàn tất chi phí máy chủ tháng này. Cảm ơn sự hỗ trợ bền bỉ từ các bạn!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: DONATION TIERS & VIETQR BOX -->
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-col gap-1">
+                        <h2 class="font-headline-lg text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                            Ủng hộ duy trì ViVuTraVinh
+                        </h2>
+                        <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-3xl">
+                            Nếu bạn thấy nền tảng hữu ích, một ly cà phê nhỏ có thể giúp dự án trang trải chi phí máy chủ Cloud, tên miền và duy trì dữ liệu bản đồ luôn cập nhật.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <!-- Donation Options (7 cols) -->
+                        <div class="lg:col-span-7 flex flex-col gap-3.5">
+                            ${donationTiers.map(tier => {
+                                const isSelected = selectedAmount === tier.amount;
+                                return `
+                                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border ${isSelected ? 'border-2 border-secondary dark:border-emerald-500 bg-secondary/5 dark:bg-emerald-950/20' : 'border-outline-variant/30 dark:border-zinc-800'} relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all">
+                                        ${tier.popular ? `
+                                            <div class="absolute top-0 right-0">
+                                                <span class="bg-secondary text-white text-[10px] font-bold px-3 py-0.5 rounded-bl-xl tracking-wider">
+                                                    PHỔ BIẾN NHẤT
+                                                </span>
+                                            </div>
+                                        ` : ''}
+                                        <div class="flex items-start gap-3.5">
+                                            <div class="w-12 h-12 rounded-2xl ${isSelected ? 'bg-secondary text-white' : 'bg-surface-container dark:bg-zinc-800 text-secondary dark:text-emerald-400'} flex items-center justify-center shrink-0">
+                                                <span class="material-symbols-outlined text-[24px]">${escapeHtml(tier.icon)}</span>
+                                            </div>
+                                            <div class="flex flex-col">
+                                                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                                                    ${escapeHtml(tier.name)}
+                                                </h4>
+                                                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                                    ${escapeHtml(tier.desc)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button type="button" onclick="window.ViVuApp.selectDonationTier(${tier.amount}, '${escapeHtml(tier.id)}')"
+                                            class="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl ${isSelected ? 'bg-secondary text-white shadow-md' : 'bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-secondary hover:text-white'} font-button text-xs font-semibold transition-all shrink-0">
+                                            Ủng hộ ${tier.amount.toLocaleString('vi-VN')}đ
+                                        </button>
+                                    </div>
+                                `;
+                            }).join('')}
+
+                            <!-- Custom amount / simulated transfer confirm -->
+                            <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 border border-outline-variant/30 dark:border-zinc-700/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">volunteer_activism</span>
+                                    <span class="text-xs text-on-surface-variant dark:text-zinc-300 font-medium">Hoặc nhập số tiền tùy ý bạn muốn tiếp sức:</span>
+                                </div>
+                                <div class="flex items-center gap-2 w-full sm:w-auto">
+                                    <input id="customDonationInput" type="number" min="10000" step="10000" placeholder="50.000đ"
+                                        class="h-11 px-3.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 text-xs font-semibold outline-none border border-outline-variant/40 dark:border-zinc-700 w-32" />
+                                    <button type="button" onclick="window.ViVuApp.applyCustomDonation()"
+                                        class="h-11 px-4 rounded-xl bg-secondary text-white font-button text-xs font-semibold hover:bg-primary transition-colors min-h-[44px]">
+                                        Tạo mã QR
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VietQR Box (5 cols) -->
+                        <div class="lg:col-span-5 bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                                    Quét mã VietQR nhanh
+                                </h3>
+                                <span class="inline-flex items-center gap-1 text-[11px] text-tertiary-container dark:text-amber-300 bg-tertiary-fixed dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full font-semibold">
+                                    <span class="material-symbols-outlined text-[13px]">info</span>
+                                    DEMO THỬ NGHIỆM
+                                </span>
+                            </div>
+
+                            <!-- Visual VietQR Mockup Container with pure inline SVG QR Code -->
+                            <div class="bg-surface-container-low dark:bg-zinc-800/60 rounded-2xl p-5 flex flex-col items-center justify-center relative border border-outline-variant/30 dark:border-zinc-700/50">
+                                <div class="w-48 h-48 bg-white rounded-2xl p-3 shadow-md relative flex items-center justify-center">
+                                    <svg class="w-full h-full text-zinc-900" fill="currentColor" viewBox="0 0 160 160">
+                                        <!-- Outer Corners Top Left -->
+                                        <rect x="10" y="10" width="40" height="40" rx="4"></rect>
+                                        <rect x="16" y="16" width="28" height="28" rx="2" fill="#FFFFFF"></rect>
+                                        <rect x="22" y="22" width="16" height="16" rx="2"></rect>
+                                        <!-- Outer Corners Top Right -->
+                                        <rect x="110" y="10" width="40" height="40" rx="4"></rect>
+                                        <rect x="116" y="16" width="28" height="28" rx="2" fill="#FFFFFF"></rect>
+                                        <rect x="122" y="22" width="16" height="16" rx="2"></rect>
+                                        <!-- Outer Corners Bottom Left -->
+                                        <rect x="10" y="110" width="40" height="40" rx="4"></rect>
+                                        <rect x="16" y="116" width="28" height="28" rx="2" fill="#FFFFFF"></rect>
+                                        <rect x="22" y="122" width="16" height="16" rx="2"></rect>
+                                        <!-- Random QR Data Bits Pattern -->
+                                        <rect x="58" y="12" width="8" height="8"></rect>
+                                        <rect x="74" y="12" width="14" height="8"></rect>
+                                        <rect x="94" y="12" width="8" height="8"></rect>
+                                        <rect x="58" y="26" width="18" height="8"></rect>
+                                        <rect x="84" y="26" width="8" height="8"></rect>
+                                        <rect x="58" y="40" width="8" height="18"></rect>
+                                        <rect x="74" y="40" width="12" height="8"></rect>
+                                        <rect x="92" y="42" width="8" height="8"></rect>
+                                        <!-- Horizontal & Vertical connectors -->
+                                        <rect x="12" y="58" width="14" height="8"></rect>
+                                        <rect x="34" y="58" width="8" height="8"></rect>
+                                        <rect x="48" y="58" width="18" height="8"></rect>
+                                        <rect x="74" y="58" width="8" height="16"></rect>
+                                        <rect x="90" y="58" width="18" height="8"></rect>
+                                        <rect x="116" y="58" width="12" height="8"></rect>
+                                        <rect x="136" y="58" width="14" height="8"></rect>
+                                        <!-- Lower sections -->
+                                        <rect x="58" y="82" width="14" height="8"></rect>
+                                        <rect x="80" y="82" width="8" height="16"></rect>
+                                        <rect x="96" y="82" width="14" height="8"></rect>
+                                        <rect x="120" y="82" width="8" height="8"></rect>
+                                        <rect x="134" y="82" width="16" height="8"></rect>
+                                        <rect x="58" y="104" width="8" height="18"></rect>
+                                        <rect x="74" y="104" width="16" height="8"></rect>
+                                        <rect x="100" y="104" width="8" height="8"></rect>
+                                        <rect x="116" y="104" width="16" height="8"></rect>
+                                        <rect x="140" y="104" width="10" height="8"></rect>
+                                        <rect x="58" y="132" width="22" height="8"></rect>
+                                        <rect x="88" y="124" width="8" height="16"></rect>
+                                        <rect x="104" y="132" width="14" height="8"></rect>
+                                        <rect x="126" y="124" width="10" height="8"></rect>
+                                        <rect x="142" y="132" width="8" height="18"></rect>
+                                    </svg>
+                                    <!-- Center Logo Pill -->
+                                    <div class="absolute inset-0 m-auto w-10 h-10 rounded-xl bg-white p-1 shadow-md flex items-center justify-center">
+                                        <div class="w-full h-full rounded-lg bg-primary-container flex items-center justify-center text-white">
+                                            <span class="material-symbols-outlined text-[20px]">explore</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 mt-2 text-center">
+                                    Số tiền: <strong class="text-secondary dark:text-emerald-400 font-bold">${selectedAmount.toLocaleString('vi-VN')}đ</strong>
+                                </span>
+                            </div>
+
+                            <!-- Transfer Info Table -->
+                            <div class="flex flex-col gap-2 bg-surface-container-low dark:bg-zinc-800/40 p-3.5 rounded-2xl font-caption text-xs border border-outline-variant/30 dark:border-zinc-700/50">
+                                <div class="flex justify-between items-center py-1">
+                                    <span class="text-on-surface-variant dark:text-zinc-400">Ngân hàng:</span>
+                                    <span class="font-semibold text-primary dark:text-zinc-100">${escapeHtml(bank.name)}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-1">
+                                    <span class="text-on-surface-variant dark:text-zinc-400">Tên thụ hưởng:</span>
+                                    <span class="font-semibold text-primary dark:text-zinc-100">${escapeHtml(bank.accountName)}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-1">
+                                    <span class="text-on-surface-variant dark:text-zinc-400">Số tài khoản:</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="font-semibold text-primary dark:text-zinc-100 font-mono">${escapeHtml(bank.accountNumber)}</span>
+                                        <button type="button" onclick="window.ViVuApp.copyToClipboard('${escapeHtml(bank.accountNumber)}', 'Đã sao chép số tài khoản!')"
+                                            class="w-8 h-8 rounded-lg bg-surface-container dark:bg-zinc-700 hover:text-secondary flex items-center justify-center min-h-[32px] min-w-[32px]" title="Sao chép">
+                                            <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center py-1">
+                                    <span class="text-on-surface-variant dark:text-zinc-400">Nội dung CK:</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span id="transferNoteLabel" class="font-semibold text-secondary dark:text-emerald-400 font-mono bg-secondary/10 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg">
+                                            ${escapeHtml(currentMemo)}
+                                        </span>
+                                        <button type="button" onclick="window.ViVuApp.copyTransferNote('${escapeHtml(currentMemo)}')"
+                                            class="w-8 h-8 rounded-lg bg-surface-container dark:bg-zinc-700 hover:text-secondary flex items-center justify-center min-h-[32px] min-w-[32px]" title="Sao chép">
+                                            <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" onclick="window.ViVuApp.confirmSimulatedDonation(${selectedAmount})"
+                                class="w-full py-3 px-4 rounded-xl bg-secondary text-white font-button text-xs font-semibold flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md min-h-[44px]">
+                                <span class="material-symbols-outlined text-[18px]">verified</span>
+                                <span>Xác nhận đã chuyển (Mô phỏng ghi nhận)</span>
+                            </button>
+
+                            <div class="flex items-center gap-2 text-on-surface-variant dark:text-zinc-400 font-caption text-[11px]">
+                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400 shrink-0">verified_user</span>
+                                <span>Mọi khoản ủng hộ sẽ được công khai minh bạch trong báo cáo thu chi hàng quý của cộng đồng.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 3: TECH GEAR CLEARANCE (GÓC ĐỒ CÔNG NGHỆ CỦA ADMIN) -->
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+                        <div>
+                            <div class="inline-flex items-center gap-1.5 text-tertiary dark:text-amber-400 font-badge text-xs font-bold mb-1">
+                                <span class="material-symbols-outlined text-[16px]">memory</span>
+                                GÓC THANH LÝ THIẾT BỊ DƯ DÙNG
+                            </div>
+                            <h2 class="font-headline-lg text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                                Góc đồ công nghệ của Admin
+                            </h2>
+                            <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-2xl mt-1">
+                                Một vài món đồ công nghệ của cá nhân Admin dư dùng hoặc nâng cấp, chia sẻ lại cho anh em lập trình viên / digital nomad với giá tốt để gây quỹ server.
+                            </p>
+                        </div>
+                        <div class="px-3.5 py-1.5 rounded-full bg-secondary-container dark:bg-emerald-950/70 text-on-secondary-container dark:text-emerald-300 font-caption text-xs font-semibold self-start md:self-auto">
+                            100% tiền dư được chuyển thẳng vào quỹ máy chủ
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        ${techClearance.map(item => `
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-all">
+                                <div class="flex flex-col">
+                                    <div class="relative w-full aspect-[4/3] bg-surface-container-low dark:bg-zinc-800/80 flex items-center justify-center p-6 overflow-hidden">
+                                        ${item.image ? `
+                                            <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+                                        ` : `
+                                            <div class="w-20 h-20 rounded-2xl bg-surface-container dark:bg-zinc-700 flex items-center justify-center text-secondary dark:text-emerald-400">
+                                                <span class="material-symbols-outlined text-[42px]">${escapeHtml(item.icon)}</span>
+                                            </div>
+                                        `}
+                                        <span class="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur text-on-surface dark:text-zinc-100 font-caption text-[11px] font-semibold">
+                                            ${escapeHtml(item.condition)}
+                                        </span>
+                                    </div>
+                                    <div class="p-5 flex flex-col gap-2">
+                                        <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-1">
+                                            ${escapeHtml(item.name)}
+                                        </h3>
+                                        <div class="font-headline-md text-base sm:text-lg text-secondary dark:text-emerald-400 font-bold">
+                                            ${item.price.toLocaleString('vi-VN')}đ
+                                        </div>
+                                        <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                            ${escapeHtml(item.desc)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="p-5 pt-0">
+                                    <a href="https://zalo.me" target="_blank" rel="noopener noreferrer"
+                                        class="w-full min-h-[44px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 font-button text-xs font-semibold transition-colors">
+                                        <span class="material-symbols-outlined text-[18px]">chat</span>
+                                        <span>Nhắn Admin qua Zalo</span>
+                                    </a>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- SECTION 4: TRAVEL GEAR RECOMMENDATIONS -->
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+                        <div>
+                            <div class="inline-flex items-center gap-1.5 text-secondary dark:text-emerald-400 font-badge text-xs font-bold mb-1">
+                                <span class="material-symbols-outlined text-[16px]">hiking</span>
+                                CẨM NANG &amp; PHỤ KIỆN BỎ TÚI
+                            </div>
+                            <h2 class="font-headline-lg text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                                Đồ dùng hữu ích khi đi khám phá Trà Vinh
+                            </h2>
+                            <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-2xl mt-1">
+                                Những vật dụng Admin và nhóm bạn trẻ thường mang theo khi đạp xe cồn bãi hoặc phượt chùa Khmer.
+                            </p>
+                        </div>
+                        <div class="px-3 py-1 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 font-caption text-xs flex items-center gap-1.5 self-start md:self-auto">
+                            <span class="material-symbols-outlined text-[14px]">link</span>
+                            <span>Affiliate • Có thể nhận hoa hồng nhỏ để duy trì server</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        ${travelGear.map(gear => `
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-all">
+                                <div class="flex flex-col">
+                                    <div class="relative w-full aspect-[4/3] bg-surface-container-low dark:bg-zinc-800/80 flex items-center justify-center p-6">
+                                        <div class="w-20 h-20 rounded-2xl bg-surface-container dark:bg-zinc-700 flex items-center justify-center text-secondary dark:text-emerald-400">
+                                            <span class="material-symbols-outlined text-[42px]">${escapeHtml(gear.icon)}</span>
+                                        </div>
+                                        <span class="absolute bottom-3 left-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur text-on-surface dark:text-zinc-200 font-caption text-[11px] font-semibold flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-[13px] text-amber-500">star</span>
+                                            ${escapeHtml(gear.rating)}
+                                        </span>
+                                    </div>
+                                    <div class="p-5 flex flex-col gap-2">
+                                        <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-2">
+                                            ${escapeHtml(gear.name)}
+                                        </h3>
+                                        <div class="font-headline-md text-base sm:text-lg text-secondary dark:text-emerald-400 font-bold">
+                                            ${gear.price.toLocaleString('vi-VN')}đ
+                                        </div>
+                                        <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                                            ${escapeHtml(gear.desc)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="p-5 pt-0">
+                                    <a href="${escapeHtml(gear.link)}" target="_blank" rel="noopener noreferrer"
+                                        class="w-full min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 font-button text-xs font-semibold transition-colors">
+                                        <span>Xem trên Shopee</span>
+                                        <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                                    </a>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- SECTION 5: RECENT SUPPORTERS & FOOTER COMMITMENT -->
+                <div class="bg-surface-container-low dark:bg-zinc-900 rounded-3xl p-6 sm:p-7 border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">volunteer_activism</span>
+                            <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                                Danh sách tri ân người đồng hành gần đây
+                            </h3>
+                        </div>
+                        <span class="text-xs text-secondary dark:text-emerald-400 font-semibold">
+                            ${recentSupporters.length} lượt ủng hộ
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        ${recentSupporters.slice(0, 4).map(s => `
+                            <div class="p-3 rounded-2xl bg-surface-container-lowest dark:bg-zinc-800 shadow-xs border border-outline-variant/20 dark:border-zinc-700/40 flex flex-col gap-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-button text-xs font-bold text-primary dark:text-zinc-100 truncate">${escapeHtml(s.name)}</span>
+                                    <span class="text-[11px] text-secondary dark:text-emerald-400 font-bold">${s.amount.toLocaleString('vi-VN')}đ</span>
+                                </div>
+                                <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 italic line-clamp-1">"${escapeHtml(s.message)}"</p>
+                                <span class="text-[10px] text-outline dark:text-zinc-500">${escapeHtml(s.date)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-outline-variant/20 dark:border-zinc-800 text-xs text-on-surface-variant dark:text-zinc-400">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-secondary text-[18px]">favorite</span>
+                            <span>Báo cáo tài chính &amp; danh sách tri ân người ủng hộ được cập nhật minh bạch định kỳ vào ngày 01 hàng tháng.</span>
+                        </div>
+                        <button type="button" onclick="alert('Báo cáo tài chính tháng trước đã được công bố trên trang cộng đồng.')"
+                            class="text-secondary dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1 shrink-0">
+                            <span>Xem báo cáo tháng trước</span>
+                            <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render modal "Trung tâm Kiểm duyệt Nội dung & CLB ViVuTràVinh Admin"
+ * Chuẩn thiết kế Stitch ki_m_duy_t_n_i_dung_b_i_vi_t_c_ng_ng_vivutravinh_admin/code.html
+ * & ki_m_duy_t_n_i_dung_th_m_nh_c_u_l_c_b_vivutravinh_admin/code.html
+ */
+export function renderAdminModerationModalContent({
+    activeTab = 'posts',
+    posts = [],
+    selectedPostId = null,
+    clubs = [],
+    selectedClubId = null,
+    kpi = {},
+    filterCategory = 'all',
+    riskFilter = 'all',
+    searchQuery = ''
+}) {
+    const selectedPost = posts.find(p => p.id === selectedPostId) || posts[0] || null;
+    const selectedClub = clubs.find(c => c.id === selectedClubId) || clubs[0] || null;
+
+    let displayedPosts = posts;
+    if (filterCategory !== 'all') {
+        if (filterCategory === 'culture') displayedPosts = displayedPosts.filter(p => p.categoryKey === 'culture');
+        else if (filterCategory === 'location') displayedPosts = displayedPosts.filter(p => p.categoryKey === 'location');
+        else if (filterCategory === 'report') displayedPosts = displayedPosts.filter(p => p.categoryKey === 'report');
+    }
+    if (riskFilter === 'high') {
+        displayedPosts = displayedPosts.filter(p => p.aiSafeScore < 50);
+    } else if (riskFilter === 'safe') {
+        displayedPosts = displayedPosts.filter(p => p.aiSafeScore >= 80);
+    }
+    if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        displayedPosts = displayedPosts.filter(p =>
+            p.title.toLowerCase().includes(q) ||
+            p.author.name.toLowerCase().includes(q) ||
+            p.excerpt.toLowerCase().includes(q)
+        );
+    }
+
+    let displayedClubs = clubs;
+    if (searchQuery.trim() && activeTab === 'clubs') {
+        const q = searchQuery.toLowerCase().trim();
+        displayedClubs = displayedClubs.filter(c =>
+            c.name.toLowerCase().includes(q) ||
+            c.founder.name.toLowerCase().includes(q) ||
+            c.desc.toLowerCase().includes(q)
+        );
+    }
+
+    return `
+        <div class="relative bg-surface dark:bg-zinc-950 text-on-surface dark:text-zinc-100 p-4 sm:p-6 lg:p-8 max-h-[92vh] overflow-y-auto no-scrollbar">
+            <!-- Header bar & Close -->
+            <div class="flex items-center justify-between pb-4 border-b border-outline-variant/30 dark:border-zinc-800 sticky top-0 bg-surface/95 dark:bg-zinc-950/95 backdrop-blur-md z-20 -mt-2 pt-2">
+                <div>
+                    <div class="flex items-center gap-2 text-on-surface-variant dark:text-zinc-400 font-caption text-xs mb-1">
+                        <span>Quản trị hệ thống</span>
+                        <span class="material-symbols-outlined text-[12px]">chevron_right</span>
+                        <span class="text-secondary dark:text-emerald-400 font-semibold">Trung tâm Kiểm duyệt</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <h1 class="font-headline-lg text-lg sm:text-2xl font-bold text-primary dark:text-zinc-100 tracking-tight">
+                            Trung tâm Kiểm duyệt Nội dung &amp; CLB
+                        </h1>
+                        <span class="px-2.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 font-badge text-xs font-bold flex items-center gap-1 shadow-xs">
+                            <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-pulse"></span>
+                            AI Guardian Live
+                        </span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.ViVuApp.quickApproveHighTrust()"
+                        class="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-secondary text-white font-button text-xs font-semibold hover:bg-primary transition-all shadow-xs min-h-[44px]">
+                        <span class="material-symbols-outlined text-[18px]">bolt</span>
+                        <span>Duyệt nhanh bài uy tín</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp.closeAdminModerationModal()"
+                        class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 flex items-center justify-center transition-transform active:scale-95 shadow-sm border border-outline-variant/30 dark:border-zinc-700"
+                        aria-label="Đóng trung tâm kiểm duyệt">
+                        <span class="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 pt-5">
+                <!-- KPI LIVE DASHBOARD CARDS -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Stat 1: Pending Posts -->
+                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between">
+                        <div class="space-y-1">
+                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Chờ phê duyệt</p>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${kpi.pendingCount || posts.length}</span>
+                                <span class="font-caption text-xs text-on-tertiary-container dark:text-amber-400 font-semibold">+${kpi.pendingNew || 2} mới gửi</span>
+                            </div>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">4 bài văn hóa, 2 địa điểm, 2 review</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-tertiary-fixed dark:bg-amber-950/60 text-on-tertiary-fixed-variant dark:text-amber-300 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[24px]">pending_actions</span>
+                        </div>
+                    </div>
+
+                    <!-- Stat 2: Pending Club Dossiers -->
+                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'clubs' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
+                        onclick="window.ViVuApp.switchModerationTab('clubs')">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-1.5">
+                                <p class="font-caption text-xs text-primary dark:text-zinc-100 font-bold">Duyệt CLB mới</p>
+                                <span class="px-1.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-[10px] font-bold">Mới</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-headline-lg text-2xl font-bold text-secondary dark:text-emerald-400">${clubs.length}</span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium">hồ sơ thẩm định</span>
+                            </div>
+                            <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">2 đủ điều kiện ≥ 10 TV</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[24px]">diversity_3</span>
+                        </div>
+                    </div>
+
+                    <!-- Stat 3: Approved Today -->
+                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between">
+                        <div class="space-y-1">
+                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Đã duyệt hôm nay</p>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-headline-lg text-2xl font-bold text-secondary dark:text-emerald-400">${kpi.approvedToday || 42}</span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-semibold">↑ 18%</span>
+                            </div>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đã cấp 2,100 Xu Xứ Trà</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[24px]">task_alt</span>
+                        </div>
+                    </div>
+
+                    <!-- Stat 4: Reports / Violations -->
+                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between">
+                        <div class="space-y-1">
+                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Báo cáo vi phạm</p>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-headline-lg text-2xl font-bold text-error dark:text-rose-400">${kpi.flaggedCount || 3}</span>
+                                <span class="font-caption text-xs text-error dark:text-rose-400 font-semibold">Ưu tiên xử lý</span>
+                            </div>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Tỷ lệ từ chối: ${kpi.violationRate || '4.8%'}</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-error-container dark:bg-rose-950/60 text-on-error-container dark:text-rose-300 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[24px]">flag_circle</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SMART FILTER AND SEARCH BAR -->
+                <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 space-y-3">
+                    <div class="flex flex-col lg:flex-row items-center gap-3">
+                        <div class="relative flex-1 w-full">
+                            <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline dark:text-zinc-400 text-[20px]">travel_explore</span>
+                            <input id="moderationSearchInput" type="text" value="${escapeHtml(searchQuery)}"
+                                oninput="window.ViVuApp.handleModerationSearch(this.value)"
+                                class="w-full h-11 pl-11 pr-4 bg-surface-container-low dark:bg-zinc-800 rounded-xl font-body-md text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-secondary/30 transition-all border border-transparent focus:border-secondary"
+                                placeholder="Tìm theo tiêu đề bài viết, tên tác giả, CLB, từ khóa gắn thẻ di tích, chùa chiền..." />
+                        </div>
+                        <div class="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
+                            <div class="relative shrink-0">
+                                <select onchange="window.ViVuApp.filterModerationRisk(this.value)"
+                                    class="h-11 px-4 pr-9 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs sm:text-sm text-on-surface dark:text-zinc-200 appearance-none focus:outline-none cursor-pointer border border-outline-variant/30 dark:border-zinc-700 min-h-[44px]">
+                                    <option value="all" ${riskFilter === 'all' ? 'selected' : ''}>Mức độ rủi ro: Tất cả</option>
+                                    <option value="high" ${riskFilter === 'high' ? 'selected' : ''}>🔴 Cảnh báo AI: Cao (>75%)</option>
+                                    <option value="safe" ${riskFilter === 'safe' ? 'selected' : ''}>🟢 An toàn (Đạt chuẩn 95%+)</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline text-sm pointer-events-none">expand_more</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Category Chips Tabs -->
+                    <div class="flex items-center gap-2 overflow-x-auto pt-1 no-scrollbar text-nowrap">
+                        <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'all')"
+                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-primary-container text-on-primary font-bold shadow-xs ring-2 ring-secondary/40' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                            <span>Tất cả bài viết</span>
+                            <span class="w-5 h-5 rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-secondary text-white' : 'bg-surface-container dark:bg-zinc-700'} text-[11px] flex items-center justify-center font-bold">${posts.length}</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.switchModerationTab('clubs')"
+                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'clubs' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                            <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">groups</span>
+                            <span>Đề xuất tạo CLB</span>
+                            <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${clubs.length}</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'culture')"
+                            class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'culture' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                            <span>Ký sự &amp; Trải nghiệm</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'location')"
+                            class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'location' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                            <span>Đề xuất địa điểm mới</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'report')"
+                            class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'report' ? 'bg-error text-white font-bold' : 'bg-error-container dark:bg-rose-950/60 text-on-error-container dark:text-rose-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                            <span class="material-symbols-outlined text-[16px]">report</span>
+                            <span>Bình luận bị báo cáo</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUB-VIEW A: POST MODERATION -->
+                ${activeTab === 'posts' ? `
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <!-- LEFT COLUMN: Post Queue List (5 cols) -->
+                        <div class="lg:col-span-5 space-y-3">
+                            <div class="flex items-center justify-between px-1">
+                                <span class="font-button text-xs font-bold text-primary dark:text-zinc-200 uppercase tracking-wider">
+                                    Hàng đợi kiểm duyệt (${displayedPosts.length} mục)
+                                </span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">sync</span> Tự động làm mới
+                                </span>
+                            </div>
+
+                            <div class="space-y-3">
+                                ${displayedPosts.map(p => {
+                                    const isSelected = selectedPost && selectedPost.id === p.id;
+                                    const isFlagged = p.aiSafeScore < 50;
+                                    return `
+                                        <div onclick="window.ViVuApp.selectModerationPost('${p.id}')"
+                                            class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 ${isSelected ? 'ring-2 ring-secondary dark:ring-emerald-500 bg-secondary/5 dark:bg-emerald-950/20 shadow-md' : 'shadow-xs border border-outline-variant/30 dark:border-zinc-800 hover:shadow-sm'} transition-all cursor-pointer">
+                                            <div class="flex items-start justify-between gap-3 mb-1.5">
+                                                <div class="flex items-center gap-1.5 flex-wrap">
+                                                    <span class="px-2 py-0.5 rounded-md ${isFlagged ? 'bg-error-container dark:bg-rose-950 text-error dark:text-rose-300 font-bold' : 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-bold'} text-[11px]">
+                                                        ${escapeHtml(p.category)}
+                                                    </span>
+                                                    <span class="px-2 py-0.5 rounded-md ${isFlagged ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300' : 'bg-surface-container-high dark:bg-zinc-800 text-secondary dark:text-emerald-400'} text-[11px] font-semibold flex items-center gap-0.5">
+                                                        <span class="material-symbols-outlined text-[13px]">${isFlagged ? 'warning' : 'verified'}</span>
+                                                        ${escapeHtml(p.aiStatus)}
+                                                    </span>
+                                                    ${p.status === 'approved' ? `
+                                                        <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Đã duyệt</span>
+                                                    ` : ''}
+                                                    ${p.status === 'rejected' ? `
+                                                        <span class="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold">Đã từ chối</span>
+                                                    ` : ''}
+                                                </div>
+                                                <span class="font-caption text-[11px] text-outline dark:text-zinc-500 shrink-0">${escapeHtml(p.timeAgo)}</span>
+                                            </div>
+                                            <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-2 mb-1.5 leading-snug">
+                                                ${escapeHtml(p.title)}
+                                            </h3>
+                                            <p class="font-body-sm text-xs ${isFlagged ? 'text-error dark:text-rose-400' : 'text-on-surface-variant dark:text-zinc-400'} line-clamp-2 mb-2.5">
+                                                ${escapeHtml(p.excerpt)}
+                                            </p>
+                                            <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-800">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container-high dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-on-surface-variant shrink-0">
+                                                        ${p.author.avatar ? `
+                                                            <img src="${escapeHtml(p.author.avatar)}" alt="${escapeHtml(p.author.name)}" class="w-full h-full object-cover" />
+                                                        ` : `
+                                                            <span>${p.author.name.substring(0, 2).toUpperCase()}</span>
+                                                        `}
+                                                    </div>
+                                                    <div class="flex flex-col">
+                                                        <span class="font-button text-xs font-semibold text-primary dark:text-zinc-200 flex items-center gap-1">
+                                                            ${escapeHtml(p.author.name)}
+                                                            ${p.author.verified ? '<span class="material-symbols-outlined text-[13px] text-secondary dark:text-emerald-400">check_circle</span>' : ''}
+                                                        </span>
+                                                        <span class="font-caption text-[10px] text-outline dark:text-zinc-500">${escapeHtml(p.author.level)}</span>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center gap-2 text-on-surface-variant dark:text-zinc-400 text-[11px]">
+                                                    <span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[14px]">photo_library</span> ${p.images.length}</span>
+                                                    <span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[14px]">schedule</span> ${escapeHtml(p.readTime)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN: Detailed Assessment & Action Studio (7 cols) -->
+                        <div class="lg:col-span-7 space-y-5">
+                            ${selectedPost ? `
+                                <div class="p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 shadow-md border border-outline-variant/30 dark:border-zinc-800 space-y-6">
+                                    <!-- Author Metadata Header -->
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-4 border-b border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-12 h-12 rounded-full overflow-hidden shadow-sm bg-surface-container dark:bg-zinc-800 shrink-0">
+                                                <img src="${escapeHtml(selectedPost.author.avatar || 'chùa âng.jpg')}" alt="${escapeHtml(selectedPost.author.name)}" class="w-full h-full object-cover" />
+                                            </div>
+                                            <div>
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <span class="font-headline-sm text-base font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedPost.author.name)}</span>
+                                                    ${selectedPost.author.verified ? `
+                                                        <span class="px-2 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[10px] font-bold flex items-center gap-0.5">
+                                                            <span class="material-symbols-outlined text-[12px]">verified</span> Đã định danh
+                                                        </span>
+                                                    ` : ''}
+                                                    <span class="px-2 py-0.5 rounded bg-surface-container-high dark:bg-zinc-800 text-[10px] font-semibold text-on-surface-variant dark:text-zinc-300">
+                                                        ${escapeHtml(selectedPost.author.level)}
+                                                    </span>
+                                                </div>
+                                                <p class="font-caption text-xs text-outline dark:text-zinc-500 mt-0.5">
+                                                    Tham gia ${selectedPost.author.memberMonths} tháng • Đã duyệt ${selectedPost.author.postsCount} bài • Tỷ lệ duyệt: <strong class="text-secondary dark:text-emerald-400 font-semibold">${selectedPost.author.successRate}</strong>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" onclick="alert('Xem hồ sơ chi tiết tác giả ${escapeHtml(selectedPost.author.name)}')"
+                                                class="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high flex items-center justify-center text-on-surface dark:text-zinc-200" title="Xem hồ sơ">
+                                                <span class="material-symbols-outlined text-[18px]">badge</span>
+                                            </button>
+                                            <button type="button" onclick="alert('Lịch sử duyệt của tài khoản')"
+                                                class="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high flex items-center justify-center text-on-surface dark:text-zinc-200" title="Lịch sử">
+                                                <span class="material-symbols-outlined text-[18px]">history_edu</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- AI Guardian Diagnostic Report -->
+                                    <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2 text-secondary dark:text-emerald-400 font-button text-xs font-bold">
+                                                <span class="material-symbols-outlined text-[20px]">shield_with_heart</span>
+                                                <span>Báo cáo kiểm tra AI Guardian v3.1</span>
+                                            </div>
+                                            <span class="px-2.5 py-0.5 rounded-full ${selectedPost.aiSafeScore >= 80 ? 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300' : 'bg-error-container dark:bg-rose-950 text-error dark:text-rose-300'} text-xs font-bold">
+                                                ${selectedPost.aiSafeScore >= 80 ? `Đạt chuẩn an toàn (${selectedPost.aiSafeScore}/100)` : `Cảnh báo rủi ro (${selectedPost.aiSafeScore}/100)`}
+                                            </span>
+                                        </div>
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                                            ${escapeHtml(selectedPost.aiSummary)}
+                                        </p>
+                                    </div>
+
+                                    <!-- WYSIWYG Article Preview -->
+                                    <div class="space-y-3">
+                                        <span class="px-2.5 py-1 rounded bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-xs font-bold uppercase tracking-wider">
+                                            ${escapeHtml(selectedPost.category)}
+                                        </span>
+                                        <h2 class="font-headline-lg text-lg sm:text-xl font-bold text-primary dark:text-zinc-100 leading-snug">
+                                            ${escapeHtml(selectedPost.title)}
+                                        </h2>
+                                        <div class="font-body-lg text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 space-y-2 leading-relaxed">
+                                            ${selectedPost.fullContent.map(para => `<p>${escapeHtml(para)}</p>`).join('')}
+                                        </div>
+
+                                        <!-- Photo Gallery -->
+                                        ${selectedPost.images.length > 0 ? `
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                                ${selectedPost.images.map(img => `
+                                                    <div class="rounded-2xl overflow-hidden shadow-xs border border-outline-variant/30 dark:border-zinc-800">
+                                                        <img src="${escapeHtml(img.src)}" alt="${escapeHtml(img.caption)}" class="w-full h-44 object-cover" />
+                                                        <p class="p-2 bg-surface-container dark:bg-zinc-800 text-[11px] text-on-surface-variant dark:text-zinc-400 font-medium">
+                                                            ${escapeHtml(img.caption)}
+                                                        </p>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        ` : ''}
+
+                                        <!-- Tags -->
+                                        <div class="flex items-center gap-1.5 flex-wrap pt-2">
+                                            ${selectedPost.tags.map(tag => `
+                                                <span class="px-2.5 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-xs font-medium">
+                                                    ${escapeHtml(tag)}
+                                                </span>
+                                            `).join('')}
+                                        </div>
+
+                                        <!-- Verified Geo Location Card -->
+                                        ${selectedPost.location ? `
+                                            <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 flex items-center justify-between gap-3">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 text-secondary dark:text-emerald-400 flex items-center justify-center shadow-xs shrink-0">
+                                                        <span class="material-symbols-outlined text-[20px]">location_on</span>
+                                                    </div>
+                                                    <div>
+                                                        <p class="font-button text-xs font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedPost.location.name)}</p>
+                                                        <p class="font-caption text-[11px] text-outline dark:text-zinc-400">${escapeHtml(selectedPost.location.address)} (${escapeHtml(selectedPost.location.coords)})</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+
+                                    <!-- Moderator Internal Collaboration Note -->
+                                    <div class="space-y-2 pt-2 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <label class="flex items-center justify-between font-button text-xs font-bold text-primary dark:text-zinc-200">
+                                            <span class="flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">edit_note</span>
+                                                Ghi chú nội bộ dành cho Kiểm duyệt viên (Auditing Log):
+                                            </span>
+                                            <span class="text-[11px] text-outline dark:text-zinc-500 font-normal">Chỉ ban quản trị nhìn thấy</span>
+                                        </label>
+                                        <textarea id="moderatorAuditNote" class="w-full p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 text-xs text-on-surface dark:text-zinc-200 placeholder:text-outline outline-none border border-outline-variant/30 dark:border-zinc-700 focus:border-secondary resize-none" rows="2">${escapeHtml(selectedPost.internalAuditNote || '')}</textarea>
+                                    </div>
+
+                                    <!-- Decision Action Bar -->
+                                    <div class="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                                            <button type="button" onclick="window.ViVuApp.openActionReasonModal('reject_post', '${selectedPost.id}', '${escapeHtml(selectedPost.title)}')"
+                                                class="px-4 py-2.5 min-h-[44px] rounded-xl bg-error text-white hover:bg-rose-700 transition-all font-button text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto">
+                                                <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                                <span>Từ chối bài viết</span>
+                                            </button>
+                                            <button type="button" onclick="window.ViVuApp.openActionReasonModal('edit_post', '${selectedPost.id}', '${escapeHtml(selectedPost.title)}')"
+                                                class="px-4 py-2.5 min-h-[44px] rounded-xl bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300 hover:bg-amber-600 hover:text-white transition-all font-button text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto">
+                                                <span class="material-symbols-outlined text-[18px]">history_edu</span>
+                                                <span>Yêu cầu sửa lại</span>
+                                            </button>
+                                        </div>
+                                        <button type="button" onclick="window.ViVuApp.approvePost('${selectedPost.id}')"
+                                            class="px-5 py-2.5 min-h-[44px] rounded-xl bg-secondary text-white hover:bg-primary transition-all font-button text-xs font-semibold flex items-center justify-center gap-2 shadow-md w-full sm:w-auto">
+                                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                            <span>Phê duyệt &amp; Xuất bản (+50 Xu)</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="p-12 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl border border-outline-variant/30 dark:border-zinc-800">
+                                    <span class="material-symbols-outlined text-4xl text-outline mb-2">article</span>
+                                    <p class="text-sm text-on-surface-variant dark:text-zinc-400">Không có bài viết nào được chọn.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                ` : `
+                    <!-- SUB-VIEW B: CLUB DOSSIER MODERATION -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <!-- LEFT COLUMN: Club Dossiers Queue List (5 cols) -->
+                        <div class="lg:col-span-5 space-y-3">
+                            <div class="flex items-center justify-between px-1">
+                                <span class="font-button text-xs font-bold text-primary dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary">folder_shared</span>
+                                    Hồ sơ CLB chờ duyệt (${displayedClubs.length})
+                                </span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">sync</span> Tự động làm mới
+                                </span>
+                            </div>
+
+                            <div class="space-y-3">
+                                ${displayedClubs.map(c => {
+                                    const isSelected = selectedClub && selectedClub.id === c.id;
+                                    return `
+                                        <div onclick="window.ViVuApp.selectModerationClub('${c.id}')"
+                                            class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 ${isSelected ? 'ring-2 ring-secondary dark:ring-emerald-500 bg-secondary/5 dark:bg-emerald-950/20 shadow-md' : 'shadow-xs border border-outline-variant/30 dark:border-zinc-800 hover:shadow-sm'} transition-all cursor-pointer">
+                                            <div class="flex items-start justify-between gap-3 mb-1.5">
+                                                <div class="flex items-center gap-1.5 flex-wrap">
+                                                    <span class="px-2 py-0.5 rounded-md ${c.isEligible ? 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-bold' : 'bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300 font-bold'} text-[11px] flex items-center gap-1">
+                                                        <span class="material-symbols-outlined text-[13px]">${c.isEligible ? 'verified' : 'hourglass_top'}</span>
+                                                        ${c.isEligible ? 'Đạt chuẩn thẩm định' : 'Đang ấp ủ (' + c.membersCount + '/10)'}
+                                                    </span>
+                                                    <span class="px-2 py-0.5 rounded-md bg-surface-container-high dark:bg-zinc-800 text-[11px] text-on-surface-variant dark:text-zinc-300">
+                                                        ${escapeHtml(c.category)}
+                                                    </span>
+                                                    ${c.status === 'approved' ? `
+                                                        <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Đã cấp Tích Xanh</span>
+                                                    ` : ''}
+                                                </div>
+                                                <span class="font-caption text-[11px] text-outline dark:text-zinc-500 shrink-0">${escapeHtml(c.timeAgo)}</span>
+                                            </div>
+                                            <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-1 mb-1 leading-snug">
+                                                ${escapeHtml(c.name)}
+                                            </h3>
+                                            <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 mb-2.5">
+                                                ${escapeHtml(c.desc)}
+                                            </p>
+
+                                            <!-- Progress Bar for Members -->
+                                            <div class="p-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 mb-2.5 space-y-1 border border-outline-variant/20 dark:border-zinc-700/40">
+                                                <div class="flex items-center justify-between text-xs">
+                                                    <span class="text-on-surface-variant dark:text-zinc-400 font-medium">Tiến độ thành viên sáng lập:</span>
+                                                    <span class="font-bold ${c.isEligible ? 'text-secondary dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">
+                                                        ${c.membersCount}/${c.membersRequired} (${c.progressPercent}%)
+                                                    </span>
+                                                </div>
+                                                <div class="w-full h-2 rounded-full bg-surface-container-high dark:bg-zinc-700 overflow-hidden">
+                                                    <div class="h-full ${c.isEligible ? 'bg-secondary dark:bg-emerald-500' : 'bg-amber-500'} rounded-full" style="width: ${Math.min(c.progressPercent, 100)}%;"></div>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex items-center justify-between pt-1 border-t border-outline-variant/20 dark:border-zinc-800">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container-high dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-on-surface-variant shrink-0">
+                                                        ${c.founder.avatar ? `
+                                                            <img src="${escapeHtml(c.founder.avatar)}" alt="${escapeHtml(c.founder.name)}" class="w-full h-full object-cover" />
+                                                        ` : `
+                                                            <span>${c.founder.name.substring(0, 2).toUpperCase()}</span>
+                                                        `}
+                                                    </div>
+                                                    <span class="text-xs font-semibold text-primary dark:text-zinc-200">${escapeHtml(c.founder.name)}</span>
+                                                </div>
+                                                <span class="px-2 py-0.5 rounded bg-surface-container-high dark:bg-zinc-800 text-[10px] font-semibold text-outline dark:text-zinc-400">
+                                                    ${escapeHtml(c.code)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN: Club Dossier Assessment Detail (7 cols) -->
+                        <div class="lg:col-span-7 space-y-5">
+                            ${selectedClub ? `
+                                <div class="p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 shadow-md border border-outline-variant/30 dark:border-zinc-800 space-y-6">
+                                    <!-- Header: Club Overview & Creator -->
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-4 border-b border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="flex items-center gap-3.5">
+                                            <div class="w-14 h-14 rounded-2xl bg-primary-container text-secondary-container flex items-center justify-center shrink-0 shadow-sm">
+                                                <span class="material-symbols-outlined text-[32px]">groups</span>
+                                            </div>
+                                            <div>
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <h2 class="font-headline-sm text-base sm:text-lg font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedClub.name)}</h2>
+                                                    <span class="px-2 py-0.5 rounded-full ${selectedClub.isEligible ? 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300' : 'bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300'} text-[10px] font-bold flex items-center gap-0.5">
+                                                        <span class="material-symbols-outlined text-[12px]">verified</span> ${selectedClub.isEligible ? 'Hồ sơ Hợp lệ' : 'Đang ấp ủ'}
+                                                    </span>
+                                                </div>
+                                                <p class="font-caption text-xs text-outline dark:text-zinc-400 mt-0.5">
+                                                    Địa bàn: <strong class="text-secondary dark:text-emerald-400 font-semibold">${escapeHtml(selectedClub.operatingHub)}</strong> • Mã: ${escapeHtml(selectedClub.code)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Core Criterion: Founding Members Progress -->
+                                    <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2 text-primary dark:text-zinc-100 font-button text-xs font-bold">
+                                                <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">how_to_reg</span>
+                                                <span>Tiêu chí cốt lõi: ${selectedClub.membersCount}/${selectedClub.membersRequired} Thành viên sáng lập (${selectedClub.progressPercent}%)</span>
+                                            </div>
+                                            <span class="px-2.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-xs font-bold flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-[12px]">verified_user</span> Đã định danh CCCD &amp; SĐT
+                                            </span>
+                                        </div>
+                                        <div class="w-full h-3 rounded-full bg-surface-container-high dark:bg-zinc-700 overflow-hidden">
+                                            <div class="h-full ${selectedClub.isEligible ? 'bg-secondary dark:bg-emerald-500' : 'bg-amber-500'} rounded-full transition-all duration-500" style="width: ${Math.min(selectedClub.progressPercent, 100)}%;"></div>
+                                        </div>
+
+                                        <!-- Notable Founders -->
+                                        <div class="pt-2 border-t border-outline-variant/20 dark:border-zinc-700/50">
+                                            <p class="text-xs font-semibold text-on-surface-variant dark:text-zinc-300 mb-2">Thành viên sáng lập tiêu biểu:</p>
+                                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                                ${selectedClub.notableFounders.map(f => `
+                                                    <div class="p-2.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 flex items-center gap-2 shadow-xs border border-outline-variant/20 dark:border-zinc-700/40">
+                                                        <div class="w-7 h-7 rounded-full overflow-hidden bg-surface-container-high dark:bg-zinc-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                                            ${f.avatar ? `
+                                                                <img src="${escapeHtml(f.avatar)}" alt="${escapeHtml(f.name)}" class="w-full h-full object-cover" />
+                                                            ` : `
+                                                                <span>${f.name.substring(0, 2).toUpperCase()}</span>
+                                                            `}
+                                                        </div>
+                                                        <div class="min-w-0 flex-1">
+                                                            <p class="text-xs font-bold text-primary dark:text-zinc-100 truncate">${escapeHtml(f.name)}</p>
+                                                            <p class="text-[10px] text-outline dark:text-zinc-400 truncate">${escapeHtml(f.role)}</p>
+                                                        </div>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 4 Cultural & Community Safety Criteria (Tích xanh checklist) -->
+                                    <div class="space-y-3">
+                                        <h3 class="font-button text-xs font-bold text-primary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[18px]">verified</span>
+                                            Bản cam kết văn hóa &amp; An toàn cộng đồng (4 tiêu chuẩn kiểm định)
+                                        </h3>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            ${selectedClub.criteriaList.map(cr => `
+                                                <div class="p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border ${cr.passed ? 'border-secondary/20 dark:border-emerald-500/20' : 'border-amber-500/30'} space-y-1">
+                                                    <div class="flex items-center gap-1.5 ${cr.passed ? 'text-secondary dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} text-xs font-bold">
+                                                        <span class="material-symbols-outlined text-[16px]">${cr.passed ? 'check_circle' : 'pending'}</span>
+                                                        <span>${escapeHtml(cr.title)}</span>
+                                                    </div>
+                                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                                        ${escapeHtml(cr.desc)}
+                                                    </p>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+
+                                    <!-- 3-Month Action Plan -->
+                                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700/60 space-y-2.5">
+                                        <h3 class="font-button text-xs font-bold text-primary dark:text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[18px]">calendar_month</span>
+                                            Kế hoạch hoạt động 3 tháng đầu tiên (Q4/2024)
+                                        </h3>
+                                        <div class="space-y-2 text-xs text-on-surface-variant dark:text-zinc-300">
+                                            ${selectedClub.threeMonthsPlan.map((planItem, idx) => `
+                                                <div class="flex items-start gap-2">
+                                                    <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">${idx + 1}</span>
+                                                    <p class="leading-relaxed">${escapeHtml(planItem)}</p>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+
+                                    <!-- Moderator Audit Note -->
+                                    <div class="space-y-2 pt-2 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <label class="flex items-center justify-between font-button text-xs font-bold text-primary dark:text-zinc-200">
+                                            <span class="flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">edit_note</span>
+                                                Ghi chú nội bộ Thẩm định viên CLB (Audit Note):
+                                            </span>
+                                            <span class="text-[11px] text-outline dark:text-zinc-500 font-normal">Chỉ Admin &amp; Ban Quản trị thấy</span>
+                                        </label>
+                                        <textarea id="moderatorClubAuditNote" class="w-full p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 text-xs text-on-surface dark:text-zinc-200 placeholder:text-outline outline-none border border-outline-variant/30 dark:border-zinc-700 focus:border-secondary resize-none" rows="2">${escapeHtml(selectedClub.internalAuditNote || '')}</textarea>
+                                    </div>
+
+                                    <!-- Decision Action Bar -->
+                                    <div class="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                                            <button type="button" onclick="window.ViVuApp.openActionReasonModal('reject_club', '${selectedClub.id}', '${escapeHtml(selectedClub.name)}')"
+                                                class="px-4 py-2.5 min-h-[44px] rounded-xl bg-error text-white hover:bg-rose-700 transition-all font-button text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto">
+                                                <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                                <span>Từ chối đề xuất</span>
+                                            </button>
+                                            <button type="button" onclick="window.ViVuApp.openActionReasonModal('request_club_info', '${selectedClub.id}', '${escapeHtml(selectedClub.name)}')"
+                                                class="px-4 py-2.5 min-h-[44px] rounded-xl bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300 hover:bg-amber-600 hover:text-white transition-all font-button text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto">
+                                                <span class="material-symbols-outlined text-[18px]">edit_document</span>
+                                                <span>Yêu cầu bổ sung</span>
+                                            </button>
+                                        </div>
+                                        <button type="button" onclick="window.ViVuApp.approveClub('${selectedClub.id}')"
+                                            class="px-5 py-2.5 min-h-[44px] rounded-xl bg-secondary text-white hover:bg-primary transition-all font-button text-xs font-semibold flex items-center justify-center gap-2 shadow-md w-full sm:w-auto">
+                                            <span class="material-symbols-outlined text-[18px]">verified</span>
+                                            <span>Phê duyệt &amp; Cấp tích xanh (+500 Xu)</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="p-12 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl border border-outline-variant/30 dark:border-zinc-800">
+                                    <span class="material-symbols-outlined text-4xl text-outline mb-2">groups</span>
+                                    <p class="text-sm text-on-surface-variant dark:text-zinc-400">Không có hồ sơ CLB nào được chọn.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render modal nhập lý do Từ chối / Yêu cầu bổ sung
+ */
+export function renderAdminActionReasonModalContent({
+    actionType = 'reject_post',
+    targetId = '',
+    targetTitle = ''
+}) {
+    const isReject = actionType.startsWith('reject');
+    const titleText = isReject ? 'Từ chối phê duyệt' : 'Yêu cầu chỉnh sửa / bổ sung thông tin';
+    const presets = isReject
+        ? ['Nội dung spam, quảng cáo thương mại', 'Sai lệch tọa độ thực tế hoặc địa bàn', 'Hình ảnh vi phạm bản quyền / độ phân giải kém', 'Báng bổ hoặc xâm phạm tôn nghiêm văn hóa']
+        : ['Bổ sung thêm hình ảnh chất lượng cao', 'Cần xác thực thêm danh tính thành viên sáng lập', 'Cập nhật lại giá vé tham quan chính xác', 'Chi tiết hóa kế hoạch 3 tháng đầu'];
+
+    return `
+        <div class="relative bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl shadow-2xl p-6 border border-outline-variant/30 dark:border-zinc-800 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-outline-variant/20 dark:border-zinc-800">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined ${isReject ? 'text-error dark:text-rose-400' : 'text-amber-500'} text-[22px]">
+                        ${isReject ? 'report' : 'contact_support'}
+                    </span>
+                    <h3 class="font-headline-sm text-base font-bold text-primary dark:text-zinc-100">
+                        ${escapeHtml(titleText)}
+                    </h3>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeActionReasonModal()"
+                    class="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-surface-container dark:bg-zinc-800 flex items-center justify-center text-outline dark:text-zinc-400 hover:text-on-surface"
+                    aria-label="Đóng form">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+
+            <div class="space-y-1">
+                <p class="text-xs text-outline dark:text-zinc-400">Đối tượng:</p>
+                <p class="text-xs font-bold text-primary dark:text-zinc-200">${escapeHtml(targetTitle)}</p>
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="space-y-1.5">
+                <p class="text-xs font-semibold text-on-surface-variant dark:text-zinc-400">Lý do gợi ý nhanh:</p>
+                <div class="flex flex-wrap gap-1.5">
+                    ${presets.map(p => `
+                        <button type="button" onclick="document.getElementById('actionReasonInput').value = '${escapeHtml(p)}'"
+                            class="px-2.5 py-1 min-h-[32px] rounded-lg bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-[11px] text-on-surface-variant dark:text-zinc-300 transition-colors">
+                            ${escapeHtml(p)}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Custom Reason Input -->
+            <div class="space-y-1.5">
+                <label class="text-xs font-semibold text-on-surface-variant dark:text-zinc-400">Chi tiết lý do gửi cho người đăng:</label>
+                <textarea id="actionReasonInput" class="w-full p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 text-xs text-on-surface dark:text-zinc-200 outline-none border border-outline-variant/40 dark:border-zinc-700 focus:border-secondary resize-none" rows="3" placeholder="Nhập lý do chi tiết để hỗ trợ tác giả chỉnh sửa..."></textarea>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-outline-variant/20 dark:border-zinc-800">
+                <button type="button" onclick="window.ViVuApp.closeActionReasonModal()"
+                    class="px-4 py-2 min-h-[44px] rounded-xl bg-surface-container dark:bg-zinc-800 text-xs font-semibold text-on-surface dark:text-zinc-300">
+                    Hủy
+                </button>
+                <button type="button" onclick="window.ViVuApp.submitActionReason('${actionType}', '${targetId}')"
+                    class="px-5 py-2 min-h-[44px] rounded-xl ${isReject ? 'bg-error text-white hover:bg-rose-700' : 'bg-secondary text-white hover:bg-primary'} text-xs font-semibold shadow-md transition-colors">
+                    Xác nhận gửi thông báo
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+
 
 
 
