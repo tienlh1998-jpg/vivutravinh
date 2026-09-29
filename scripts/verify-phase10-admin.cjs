@@ -305,7 +305,16 @@ async function run() {
 
         // 8. Test Content Moderation Portal Opening & Article Preview
         console.log('[8/12] Thử nghiệm mở Trung tâm Kiểm duyệt Nội dung (Bài viết)...');
-        await cdp.eval(`window.ViVuApp.openAdminModerationModal('posts')`);
+        await cdp.eval(`
+            (() => {
+                sessionStorage.setItem('vivu_admin_session', JSON.stringify({
+                    access_token: 'test-admin-token',
+                    user: { id: 'admin-01', email: 'admin@vivutravinh.vn', role: 'admin' }
+                }));
+                if (window.ViVuApp?.updateAdminRoleUI) window.ViVuApp.updateAdminRoleUI();
+                window.ViVuApp.openAdminModerationModal('posts');
+            })()
+        `);
         await sleep(600);
 
         const moderationState = await cdp.eval(`

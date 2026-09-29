@@ -411,7 +411,8 @@
                 <div class="px-space-md">
                     <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Quản Trị &amp; Hỗ Trợ</span>
                     <div role="navigation" aria-label="Quản Trị &amp; Hỗ Trợ" class="mt-2 flex flex-col gap-1">
-                        <a href="#" onclick="window.ViVuApp?.openAdminModerationModal?.(); return false;" class="flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <!-- MỤC KIỂM DUYỆT NỘI DUNG: CHỈ HIỂN THỊ KHI ĐÃ ĐĂNG NHẬP ADMIN! -->
+                        <a href="#" id="sidebarAdminModerationLink" onclick="window.ViVuApp?.openAdminModerationModal?.(); return false;" class="hidden items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <div class="flex items-center gap-3">
                                 <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">admin_panel_settings</span>
                                 <span>Kiểm duyệt nội dung</span>
@@ -426,6 +427,11 @@
                             <span class="material-symbols-outlined text-[20px]">add_location_alt</span>
                             <span>Đóng góp địa điểm</span>
                         </a>
+                        <!-- Link Đăng nhập Quản trị (Hiện khi chưa đăng nhập admin) -->
+                        <a href="/admin.html" id="sidebarAdminLoginLink" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-stone-500 hover:text-emerald-600 dark:text-zinc-400 dark:hover:text-emerald-400 hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px]">lock</span>
+                            <span>Đăng nhập Quản trị</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -435,11 +441,11 @@
         <div class="p-space-md border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between gap-1">
             <button type="button" onclick="window.ViVuApp?.openProfileModal?.()" class="flex items-center gap-3 min-w-0 text-left hover:opacity-85 transition-opacity min-h-[44px] flex-1">
                 <div class="w-9 h-9 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
-                    <img src="chùa âng.jpg" alt="Nguyễn Văn Tiến" class="w-full h-full object-cover" />
+                    <img id="sidebarUserAvatar" src="chùa âng.jpg" alt="User Avatar" class="w-full h-full object-cover" />
                 </div>
                 <div class="flex flex-col min-w-0">
-                    <span class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">Nguyễn Văn Tiến</span>
-                    <span class="font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium">Thành viên Xanh</span>
+                    <span id="sidebarUserName" class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">Thành viên Xứ Trà</span>
+                    <span id="sidebarUserRole" class="font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium">Thành viên</span>
                 </div>
             </button>
             <button onclick="window.ViVuApp?.openSecurityModal?.()" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Cài đặt &amp; Bảo mật" type="button" id="sidebarSettingsBtn">

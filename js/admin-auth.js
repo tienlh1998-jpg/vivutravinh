@@ -11,7 +11,7 @@ export const SESSION_KEY = 'vivu_admin_session';
  */
 export function getSession() {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -19,12 +19,14 @@ export function getSession() {
 }
 
 /**
- * Lưu phiên đăng nhập vào sessionStorage
+ * Lưu phiên đăng nhập vào sessionStorage và localStorage để chia sẻ phiên giữa trang chính và admin
  * @param {object} session
  */
 export function saveSession(session) {
   try {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    const str = JSON.stringify(session);
+    sessionStorage.setItem(SESSION_KEY, str);
+    localStorage.setItem(SESSION_KEY, str);
   } catch (err) {
     console.error('[AdminAuth] Không thể lưu phiên đăng nhập:', err);
   }
@@ -36,6 +38,7 @@ export function saveSession(session) {
 export function clearSession() {
   try {
     sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
   } catch (err) {
     console.error('[AdminAuth] Không thể xóa phiên đăng nhập:', err);
   }

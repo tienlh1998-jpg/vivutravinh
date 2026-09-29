@@ -127,6 +127,10 @@ import {
     saveStoredDonationRecords,
     addDonationRecord
 } from './admin-portal-data.js';
+import {
+    getSession as getAdminSession,
+    getUserRole as getAdminUserRole
+} from './admin-auth.js';
 
 import { getSiteUrl, DEFAULT_SITE_URL } from './config.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
@@ -773,6 +777,9 @@ async function initApp() {
 
         // Khởi tạo hệ thống tự động đồng bộ đánh giá ngoại tuyến
         initOfflineSyncManager();
+
+        // Đồng bộ phân quyền Quản trị viên (nếu đã đăng nhập từ trang admin cũ)
+        updateAdminRoleUI();
 
     } catch (err) {
         console.error('[ViVuTraVinh] Lỗi tải dữ liệu:', err);
@@ -4055,6 +4062,15 @@ function initEventListeners() {
         handleDeepLink();
     });
 
+    // Lắng nghe sự kiện đăng nhập / đăng xuất Quản trị viên để đồng bộ UI
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'vivu_admin_session') {
+            updateAdminRoleUI();
+        }
+    });
+    window.addEventListener('vivu:auth-login', () => updateAdminRoleUI());
+    window.addEventListener('vivu:auth-logout', () => updateAdminRoleUI());
+
     // Các Tabs danh mục
     document.querySelectorAll('.category-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -6016,7 +6032,70 @@ export function confirmSimulatedDonation(amount) {
     showSavedToast(`Cảm ơn bạn đã ủng hộ ${newRecord.amount.toLocaleString('vi-VN')}đ vào quỹ máy chủ!`);
 }
 
+/**
+ * Cập nhật giao diện thanh Sidebar dựa trên phiên làm việc Quản trị viên (Admin/Moderator)
+ * Chỉ hiển thị mục "Kiểm duyệt nội dung" cho tài khoản quản trị thực sự từ trang admin cũ.
+ */
+export function updateAdminRoleUI() {
+    const session = getAdminSession();
+    const role = session?.user?.role;
+    const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
+
+    const moderationLink = document.getElementById('sidebarAdminModerationLink');
+    const adminLoginLink = document.getElementById('sidebarAdminLoginLink');
+    const userNameEl = document.getElementById('sidebarUserName');
+    const userRoleEl = document.getElementById('sidebarUserRole');
+
+    if (isAdmin) {
+        if (moderationLink) {
+            moderationLink.classList.remove('hidden');
+            moderationLink.classList.add('flex');
+        }
+        if (adminLoginLink) {
+            adminLoginLink.classList.add('hidden');
+            adminLoginLink.classList.remove('flex');
+        }
+        if (userNameEl) {
+            userNameEl.textContent = session.user.email?.split('@')[0] || 'Quản Trị Viên';
+            userNameEl.title = session.user.email || '';
+        }
+        if (userRoleEl) {
+            userRoleEl.textContent = role === 'admin' ? 'Quản trị viên' : (role === 'editor' ? 'Biên tập viên' : 'Kiểm duyệt viên');
+            userRoleEl.className = 'font-caption text-[10px] text-amber-500 font-bold';
+        }
+    } else {
+        if (moderationLink) {
+            moderationLink.classList.add('hidden');
+            moderationLink.classList.remove('flex');
+        }
+        if (adminLoginLink) {
+            adminLoginLink.classList.remove('hidden');
+            adminLoginLink.classList.add('flex');
+        }
+        if (userNameEl) {
+            userNameEl.textContent = state.userProfile?.displayName || 'Thành viên Xứ Trà';
+            userNameEl.title = '';
+        }
+        if (userRoleEl) {
+            userRoleEl.textContent = 'Thành viên';
+            userRoleEl.className = 'font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium';
+        }
+    }
+}
+
 export function openAdminModerationModal(tab = 'posts') {
+    const session = getAdminSession();
+    const role = session?.user?.role;
+    const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
+
+    if (!isAdmin) {
+        showNoticeToast('Yêu cầu quyền Quản trị', 'Mục này chỉ dành riêng cho tài khoản Quản trị viên. Bạn sẽ được chuyển tới trang đăng nhập Quản trị.');
+        setTimeout(() => {
+            window.location.href = '/admin.html';
+        }, 1200);
+        return;
+    }
+
     const modal = document.getElementById('adminModerationModal');
     const container = document.getElementById('adminModerationModalContent');
     if (!modal || !container) return;
@@ -6727,6 +6806,7 @@ if (typeof window !== 'undefined') {
         closeActionReasonModal,
         submitActionReason,
         quickApproveHighTrust,
+        updateAdminRoleUI,
         // Deep Cultural Heritage & Saved Itinerary Folder Methods (Phase 11)
         openDeepPlaceDetail,
         closeDeepPlaceDetail,
