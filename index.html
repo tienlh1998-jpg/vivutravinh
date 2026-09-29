@@ -369,11 +369,11 @@
                             <span class="material-symbols-outlined text-[20px]">map</span>
                             <span>Bản đồ &amp; Địa điểm</span>
                         </a>
-                        <a href="#stitchCommunitySection" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <a href="#stitchCommunitySection" onclick="window.ViVuApp?.navGoClubs?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
                             <span class="material-symbols-outlined text-[20px]">groups</span>
                             <span>Câu lạc bộ</span>
                         </a>
-                        <a href="#festivalsPortalSection" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <a href="#festivalsPortalSection" onclick="document.getElementById('festivalsPortalSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
                             <span class="material-symbols-outlined text-[20px]">event</span>
                             <span>Sự kiện &amp; Gặp gỡ</span>
                         </a>
@@ -602,8 +602,9 @@
                 <!-- Ambient Khmer architectural contour & fluid organic wave decor -->
                 <div class="pointer-events-none absolute -right-12 -top-24 w-96 h-96 rounded-full bg-secondary-fixed/10 blur-3xl"></div>
                 <div class="pointer-events-none absolute right-12 bottom-0 w-80 h-80 rounded-t-[120px] bg-white/[0.04]"></div>
-                <svg class="pointer-events-none absolute bottom-0 right-0 w-1/2 h-full opacity-15" fill="none" preserveAspectRatio="none" viewBox="0 0 400 300">
-                    <path d="M0,280 C120,240 180,310 260,250 C320,200 360,220 400,180 L400,300 L0,300 Z" fill="currentColor"></path>
+                <svg class="pointer-events-none absolute bottom-0 right-0 w-1/2 h-full" fill="none" preserveAspectRatio="none" viewBox="0 0 400 300" aria-hidden="true">
+                    <path d="M0,280 C120,240 180,310 260,250 C320,200 360,220 400,180 L400,300 L0,300 Z" fill="#002117" fill-opacity="0.45"></path>
+                    <path d="M80,300 C160,260 220,290 300,240 C350,210 380,220 400,180 L400,300 Z" fill="#003527" fill-opacity="0.35"></path>
                 </svg>
                 <div class="relative z-10 flex flex-col max-w-3xl">
                     <div class="inline-flex items-center gap-2 mb-3">

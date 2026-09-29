@@ -3860,6 +3860,29 @@ function handleDeepLink() {
     const articleId = params.get('article');
     if (articleId) {
         setTimeout(() => openArticleModal(articleId), 300);
+        return;
+    }
+
+    // 3. Hỗ trợ Hash Navigation (#clb, #community, #map, #festivals, #planner)
+    const hash = (window.location.hash || '').toLowerCase();
+    if (hash === '#clb' || hash === '#community' || hash === '#stitchcommunitysection') {
+        setTimeout(() => navGoClubs(), 350);
+        return;
+    }
+    if (hash === '#map' || hash === '#bando') {
+        setTimeout(() => openFullMapModal(), 350);
+        return;
+    }
+    if (hash === '#festivals' || hash === '#lehoi' || hash === '#festivalsportalsection') {
+        setTimeout(() => {
+            const el = document.getElementById('festivalsPortalSection');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 350);
+        return;
+    }
+    if (hash === '#planner' || hash === '#tripplanner') {
+        setTimeout(() => openTripPlannerModal(), 350);
+        return;
     }
 }
 
@@ -4025,6 +4048,11 @@ function initEventListeners() {
         if (articleModal && !articleModal.classList.contains('hidden')) {
             closeArticleModal();
         }
+    });
+
+    // Lắng nghe thay đổi Hash URL (#clb, #map, #festivals, #planner)
+    window.addEventListener('hashchange', () => {
+        handleDeepLink();
     });
 
     // Các Tabs danh mục
