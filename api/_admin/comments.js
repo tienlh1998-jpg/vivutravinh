@@ -1,5 +1,5 @@
-// api/admin-comments.js
-// Endpoint quản trị bình luận (comments) - G8.2
+// api/_admin/comments.js
+// Handler quản trị bình luận (comments) - G8.2
 
 import {
   authenticateAdmin,
@@ -12,7 +12,7 @@ import {
   getSafeActorId,
   getCorrelationId,
   parsePagination
-} from './_admin-auth.js';
+} from '../_admin-auth.js';
 
 const TABLE_NAME = 'place_comments';
 const MAX_PAYLOAD_SIZE = 1024 * 1024; // 1MB

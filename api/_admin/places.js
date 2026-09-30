@@ -12,8 +12,8 @@ import {
   getSafeActorId,
   getCorrelationId,
   parsePagination
-} from './_admin-auth.js';
-import { validatePlace, validatePatchForApprovedLegacy } from '../js/place-validator.js';
+} from '../_admin-auth.js';
+import { validatePlace, validatePatchForApprovedLegacy } from '../../js/place-validator.js';
 
 function sanitizeValidationIssues(issues = []) {
   return issues.map(i => ({

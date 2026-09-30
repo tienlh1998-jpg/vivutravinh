@@ -23,7 +23,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import submitPlaceHandler from '../api/submit-place.js';
-import adminPlacesHandler from '../api/admin-places.js';
+import adminPlacesHandler from '../api/_admin/places.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
 
 import {
@@ -246,8 +246,21 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
 
   // Gửi hợp lệ: Giả lập mock DB và kiểm tra ép status draft & idempotency theo client_submission_id
   const originalFetch = globalThis.fetch;
-  const mockDbRecords = [];
   try {
+    const mockDbRecords = [];
+    const createMockResponse = (data, status = 200) => {
+      const str = JSON.stringify(data);
+      return {
+        ok: status >= 200 && status < 300,
+        status,
+        json: async () => data,
+        text: async () => str,
+        headers: {
+          get: (h) => h.toLowerCase() === 'content-range' ? `0-${Array.isArray(data) ? data.length : 1}/${Array.isArray(data) ? data.length : 1}` : null
+        }
+      };
+    };
+
     globalThis.fetch = async (url, opts = {}) => {
       const u = String(url);
       if (u.includes('/rest/v1/places')) {
@@ -255,22 +268,22 @@ await runTest('E01', 'Tạo draft -> Public không thấy -> Duyệt approved ->
           const body = JSON.parse(opts.body);
           const newRec = { id: mockDbRecords.length + 1, ...body };
           mockDbRecords.push(newRec);
-          return { ok: true, status: 201, json: async () => [newRec] };
+          return createMockResponse([newRec], 201);
         }
         if (u.includes('client_submission_id=eq.')) {
           const subIdParam = decodeURIComponent(u.split('client_submission_id=eq.')[1].split('&')[0]);
           const found = mockDbRecords.filter(r => r.client_submission_id === subIdParam);
-          return { ok: true, status: 200, json: async () => found };
+          return createMockResponse(found, 200);
         }
         if (u.includes('slug=eq.')) {
           const slugParam = decodeURIComponent(u.split('slug=eq.')[1].split('&')[0]);
           const found = mockDbRecords.filter(r => r.slug === slugParam);
-          return { ok: true, status: 200, json: async () => found };
+          return createMockResponse(found, 200);
         }
         if (u.includes('status=eq.')) {
           const statusParam = decodeURIComponent(u.split('status=eq.')[1].split('&')[0]);
           const found = mockDbRecords.filter(r => r.status === statusParam);
-          return { ok: true, status: 200, json: async () => found };
+          return createMockResponse(found, 200);
         }
       }
       return originalFetch(url, opts);

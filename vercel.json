@@ -17,6 +17,30 @@
   ],
   "rewrites": [
     {
+      "source": "/api/admin-places",
+      "destination": "/api/admin?route=places"
+    },
+    {
+      "source": "/api/admin-comments",
+      "destination": "/api/admin?route=comments"
+    },
+    {
+      "source": "/api/admin-reports",
+      "destination": "/api/admin?route=reports"
+    },
+    {
+      "source": "/api/admin-profile",
+      "destination": "/api/admin?route=profile"
+    },
+    {
+      "source": "/api/admin-moderation",
+      "destination": "/api/admin?route=moderation"
+    },
+    {
+      "source": "/api/admin-:route",
+      "destination": "/api/admin?route=:route"
+    },
+    {
       "source": "/",
       "has": [
         {

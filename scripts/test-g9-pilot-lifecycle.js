@@ -20,7 +20,7 @@ import {
   ALLOWED_PATCH_FIELDS
 } from './plan-g9-pilot.js';
 import { validatePlace } from '../js/place-validator.js';
-import placesHandler from '../api/admin-places.js';
+import placesHandler from '../api/_admin/places.js';
 import {
   savePlace,
   executeUpdatePlaceStatus,

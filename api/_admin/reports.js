@@ -1,5 +1,5 @@
-// api/admin-reports.js
-// Endpoint quản trị xử lý báo cáo sai thông tin địa điểm (place_reports) - G8.2
+// api/_admin/reports.js
+// Handler quản trị xử lý báo cáo sai thông tin địa điểm (place_reports) - G8.2
 
 import {
   authenticateAdmin,
@@ -12,15 +12,12 @@ import {
   getSafeActorId,
   getCorrelationId,
   parsePagination
-} from './_admin-auth.js';
+} from '../_admin-auth.js';
 
 const TABLE_NAME = 'place_reports';
 const VALID_STATUSES = ['pending', 'reviewed', 'resolved', 'dismissed'];
 
 // Định nghĩa ma trận chuyển đổi trạng thái hợp lệ
-// Luồng xử lý: pending -> reviewed -> resolved / dismissed
-// Luồng mở lại (Re-open): resolved / dismissed -> reviewed (để thẩm định lại)
-// Bị chặn: Không thể chuyển trực tiếp resolved <-> dismissed hoặc quay lại pending
 export const VALID_TRANSITIONS = {
   pending: ['pending', 'reviewed', 'resolved', 'dismissed'],
   reviewed: ['reviewed', 'resolved', 'dismissed'],

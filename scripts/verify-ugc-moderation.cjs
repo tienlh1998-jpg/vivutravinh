@@ -310,7 +310,7 @@ async function run() {
     // PHẦN 4: KIỂM THỬ API KIỂM DUYỆT ADMIN (ADMIN MODERATION)
     // ----------------------------------------------------
     console.log('\n[4] KIỂM THỬ API KIỂM DUYỆT ADMIN (ADMIN MODERATION API):');
-    const moderationModule = await import('../api/admin-moderation.js');
+    const moderationModule = await import('../api/_admin/moderation.js');
     const moderationHandler = moderationModule.default;
 
     // 4.1 Đọc hàng đợi kiểm duyệt (Moderation Queue)

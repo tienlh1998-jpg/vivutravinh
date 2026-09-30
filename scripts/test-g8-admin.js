@@ -6,10 +6,10 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import placesHandler from '../api/admin-places.js';
-import commentsHandler from '../api/admin-comments.js';
-import reportsHandler from '../api/admin-reports.js';
-import profileHandler from '../api/admin-profile.js';
+import placesHandler from '../api/_admin/places.js';
+import commentsHandler from '../api/_admin/comments.js';
+import reportsHandler from '../api/_admin/reports.js';
+import profileHandler from '../api/_admin/profile.js';
 import { sanitizeAuditPayload, readBody, getCorrelationId, validateCorrelationId, AUDIT_ALLOWLIST } from '../api/_admin-auth.js';
 
 const __filename = fileURLToPath(import.meta.url);

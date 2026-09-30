@@ -9,7 +9,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 
-import placesHandler from '../api/admin-places.js';
+import placesHandler from '../api/_admin/places.js';
 import {
   TARGET_CLEANUP_PLACES,
   generateCleanupCorrelationId,

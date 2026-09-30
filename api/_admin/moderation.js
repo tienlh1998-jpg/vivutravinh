@@ -13,7 +13,7 @@ import {
   getSafeActorId,
   getCorrelationId,
   recordAuditLog
-} from './_admin-auth.js';
+} from '../_admin-auth.js';
 
 const MAX_PAYLOAD_SIZE = 64 * 1024; // 64KB
 
@@ -58,6 +58,16 @@ const MODERATION_ENTITIES = {
       archive: 'archived'
     },
     selectColumns: 'id,title,category,category_name,status,author_id,author_name,excerpt,cover_image,created_at'
+  },
+  club_activity: {
+    table: 'club_activities',
+    label: 'Lịch sinh hoạt CLB',
+    actionStatusMap: {
+      approve: 'approved',
+      reject: 'rejected',
+      archive: 'archived'
+    },
+    selectColumns: 'id,club_id,club_name,title,time_schedule,location,status,creator_id,creator_name,creator_role,created_at'
   }
 };
 
@@ -100,8 +110,9 @@ async function handleGetModerationList(request, response, adminContext) {
     const clubsQuery = `clubs?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const eventsQuery = `community_events?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const articlesQuery = `articles?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
+    const activitiesQuery = `club_activities?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
 
-    const [posts, clubs, events, articles] = await Promise.all([
+    const [posts, clubs, events, articles, activities] = await Promise.all([
       supabaseRequest(postsQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc posts queue:', err.message);
         return [];
@@ -117,6 +128,10 @@ async function handleGetModerationList(request, response, adminContext) {
       supabaseRequest(articlesQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc articles queue:', err.message);
         return [];
+      }),
+      supabaseRequest(activitiesQuery).catch(err => {
+        console.warn('[AdminModeration] Lỗi đọc activities queue:', err.message);
+        return [];
       })
     ]);
 
@@ -127,11 +142,13 @@ async function handleGetModerationList(request, response, adminContext) {
       clubs: Array.isArray(clubs) ? clubs : [],
       events: Array.isArray(events) ? events : [],
       articles: Array.isArray(articles) ? articles : [],
+      activities: Array.isArray(activities) ? activities : [],
       kpi: {
         pendingPosts: Array.isArray(posts) ? posts.filter(p => p.status === 'pending').length : 0,
         pendingClubs: Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0,
         pendingEvents: Array.isArray(events) ? events.filter(e => e.status === 'pending').length : 0,
-        pendingArticles: Array.isArray(articles) ? articles.filter(a => a.status === 'pending').length : 0
+        pendingArticles: Array.isArray(articles) ? articles.filter(a => a.status === 'pending').length : 0,
+        pendingActivities: Array.isArray(activities) ? activities.filter(act => act.status === 'pending').length : 0
       }
     });
   } catch (err) {

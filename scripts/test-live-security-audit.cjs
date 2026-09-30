@@ -34,7 +34,7 @@ const fs = require('fs');
 const stream = require('stream');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co';
-const ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZveXJhb2ltaGtzZnZseG5kd3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjkwNzAsImV4cCI6MjA5NTMwNTA3MH0.ARJ173UkVNCichCiJmVrbp2aTByVoXnSEAIsIvbnYJ8';
+const ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_ThGdyDQHqdNXPFgKRr0XaA_copz_ulU';
 
 let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || null;
 if (!serviceKey) {

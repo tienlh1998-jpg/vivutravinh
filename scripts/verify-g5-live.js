@@ -14,7 +14,7 @@
 
 const allowOffline = process.argv.includes('--allow-offline');
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZveXJhb2ltaGtzZnZseG5kd3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjkwNzAsImV4cCI6MjA5NTMwNTA3MH0.ARJ173UkVNCichCiJmVrbp2aTByVoXnSEAIsIvbnYJ8';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_ThGdyDQHqdNXPFgKRr0XaA_copz_ulU';
 
 async function checkLiveConnection() {
   console.log('=== KIỂM TOÁN TÍCH HỢP SUPABASE THỰC TẾ (G5 LIVE AUDIT) ===\n');

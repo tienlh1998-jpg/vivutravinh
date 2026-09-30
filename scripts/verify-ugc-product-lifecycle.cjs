@@ -24,7 +24,7 @@ const PROJECT_DIR = path.resolve(__dirname, '..');
 const envContent = fs.readFileSync(path.join(PROJECT_DIR, '.env.live.tmp'), 'utf8');
 const SUPABASE_URL = envContent.match(/SUPABASE_URL="([^"]+)"/)[1];
 const SERVICE_KEY = envContent.match(/SUPABASE_SERVICE_ROLE_KEY="([^"]+)"/)[1];
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZveXJhb2ltaGtzZnZseG5kd3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjkwNzAsImV4cCI6MjA5NTMwNTA3MH0.ARJ173UkVNCichCiJmVrbp2aTByVoXnSEAIsIvbnYJ8';
+const ANON_KEY = 'sb_publishable_ThGdyDQHqdNXPFgKRr0XaA_copz_ulU';
 
 process.env.SUPABASE_URL = SUPABASE_URL;
 process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_KEY;
@@ -404,7 +404,7 @@ async function run() {
     if (!adminToken) throw new Error('Không thể cấp Live JWT cho tài khoản admin.');
     console.log('  ✓ Đã sinh JWT xác thực quản trị viên thành công.');
 
-    const moderationModule = await import(pathToFileURL(path.join(PROJECT_DIR, 'api', 'admin-moderation.js')).href);
+    const moderationModule = await import(pathToFileURL(path.join(PROJECT_DIR, 'api', '_admin', 'moderation.js')).href);
     const moderationHandler = moderationModule.default;
 
     // Admin gọi GET /api/admin-moderation?status=pending

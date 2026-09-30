@@ -6,8 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPlaces, SupabaseConfigError, clearPlacesCache } from '../js/data.js';
 import { loadComments, submitComment, SupabaseRequestError } from '../js/comments.js';
-import adminCommentsHandler from '../api/admin-comments.js';
-import adminPlacesHandler from '../api/admin-places.js';
+import adminCommentsHandler from '../api/_admin/comments.js';
+import adminPlacesHandler from '../api/_admin/places.js';
 import importPlaceHandler from '../api/import-place.js';
 import submitCommentHandler from '../api/submit-comment.js';
 

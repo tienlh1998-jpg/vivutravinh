@@ -17,7 +17,7 @@ import {
   VALID_PLACE_STATUSES,
   ALLOWED_GOOGLE_MAPS_HOSTS
 } from '../js/place-validator.js';
-import placesHandler from '../api/admin-places.js';
+import placesHandler from '../api/_admin/places.js';
 import { openPlacePreview } from '../js/admin.js';
 
 let passedTests = 0;

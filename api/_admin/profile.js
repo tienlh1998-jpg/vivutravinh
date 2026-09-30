@@ -1,7 +1,7 @@
-// api/admin-profile.js
-// Endpoint xác thực phiên làm việc và cung cấp profile/role đã xác minh từ bảng admin_users
+// api/_admin/profile.js
+// Handler xác thực phiên làm việc và cung cấp profile/role đã xác minh từ bảng admin_users
 
-import { authenticateAdmin, sendJson, sendError } from './_admin-auth.js';
+import { authenticateAdmin, sendJson, sendError } from '../_admin-auth.js';
 
 export default async function handler(request, response) {
   if (request.method === 'OPTIONS') {
