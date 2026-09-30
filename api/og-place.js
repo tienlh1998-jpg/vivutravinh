@@ -216,7 +216,7 @@ export async function querySupabasePlace(slug, options = {}) {
 
   const fetchFn = options.fetchFn || globalThis.fetch;
   const supabaseUrl = (options.supabaseUrl || env.SUPABASE_URL || 'https://foyraoimhksfvlxndwxr.supabase.co').replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
-  const supabaseKey = options.supabaseKey || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZveXJhb2ltaGtzZnZseG5kd3hyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjkwNzAsImV4cCI6MjA5NTMwNTA3MH0.ARJ173UkVNCichCiJmVrbp2aTByVoXnSEAIsIvbnYJ8';
+  const supabaseKey = options.supabaseKey || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY || 'sb_publishable_ThGdyDQHqdNXPFgKRr0XaA_copz_ulU';
 
   try {
     const url = `${supabaseUrl}/rest/v1/places?slug=eq.${encodeURIComponent(cleanSlug)}&status=eq.approved&select=*`;
