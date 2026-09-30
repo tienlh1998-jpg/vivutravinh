@@ -6,7 +6,9 @@ import { EVENT_CATEGORIES, EVENT_REGIONS, TRA_VINH_EVENTS_AND_MEETUPS } from './
 /**
  * Ảnh placeholder trung tính local chuẩn SVG (Data URI độc lập, không phụ thuộc mạng)
  */
-export const NEUTRAL_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' width='400' height='300'%3E%3Crect width='400' height='300' fill='%23e2e8f0'/%3E%3Ccircle cx='200' cy='130' r='24' fill='%2394a3b8'/%3E%3Cpath d='M135 210l45-50 35 40 30-30 45 40H135z' fill='%2394a3b8' opacity='0.7'/%3E%3Ctext x='200' y='250' font-family='system-ui,-apple-system,sans-serif' font-size='13' font-weight='600' fill='%2364748b' text-anchor='middle'%3E%C4%90ang c%E1%BA%ADp nh%E1%BA%ADt h%C3%ACnh %E1%BA%A3nh%3C/text%3E%3C/svg%3E";
+// Chuẩn mã hóa URL %22 (thay cho dấu nháy ") để chuỗi data URI KHÔNG chứa bất kỳ dấu nháy đơn/đôi nào,
+// an toàn tuyệt đối khi nội suy vào thuộc tính onerror="this.src='${NEUTRAL_PLACEHOLDER_IMAGE}'" inline.
+export const NEUTRAL_PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22 width=%22400%22 height=%22300%22%3E%3Crect width=%22400%22 height=%22300%22 fill=%22%23e2e8f0%22/%3E%3Ccircle cx=%22200%22 cy=%22130%22 r=%2224%22 fill=%22%2394a3b8%22/%3E%3Cpath d=%22M135 210l45-50 35 40 30-30 45 40H135z%22 fill=%22%2394a3b8%22 opacity=%220.7%22/%3E%3Ctext x=%22200%22 y=%22250%22 font-family=%22system-ui,-apple-system,sans-serif%22 font-size=%2213%22 font-weight=%22600%22 fill=%22%2364748b%22 text-anchor=%22middle%22%3E%C4%90ang c%E1%BA%ADp nh%E1%BA%ADt h%C3%ACnh %E1%BA%A3nh%3C/text%3E%3C/svg%3E";
 
 /**
  * Hàm thoát ký tự HTML (XSS Prevention & HTML an toàn - G3)
@@ -2828,6 +2830,14 @@ export function renderFestivalsSection(
                     </div>
                 </div>
             </div>
+
+            <!-- Nguồn dữ liệu & Bản quyền lễ hội (Data Transparency & Audit G7) -->
+            <div class="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 text-center">
+                <span class="material-symbols-outlined text-xs text-secondary dark:text-emerald-400">verified</span>
+                <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">
+                    Nguồn dữ liệu sự kiện &amp; lễ hội 2026 được tổng hợp từ <strong>Trung tâm Thông tin Xúc tiến Du lịch</strong> &amp; Sở Văn hóa, Thể thao và Du lịch tỉnh Trà Vinh.
+                </p>
+            </div>
         </div>
     `;
 
@@ -4562,8 +4572,8 @@ export function renderClubsBentoGrid(clubs, joinedClubIds = []) {
                     <img src="${safeImage}" alt="${safeName}"
                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         onerror="this.onerror=null; this.src='${NEUTRAL_PLACEHOLDER_IMAGE}';">
-                    <span class="absolute top-3 left-3 px-3 py-1 rounded-full bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur-md text-primary dark:text-emerald-400 text-xs font-semibold shadow-sm">
-                        ${safeBadge}
+                    <span class="absolute top-3 left-3 px-3 py-1 rounded-full ${club.status === 'pending' ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300' : 'bg-surface-container-lowest/90 dark:bg-zinc-900/90 text-primary dark:text-emerald-400'} backdrop-blur-md text-xs font-semibold shadow-sm flex items-center gap-1">
+                        ${club.status === 'pending' ? '<span class="material-symbols-outlined text-[14px]">hourglass_top</span> Chờ duyệt' : safeBadge}
                     </span>
                     <button type="button" onclick="window.ViVuApp.toggleBookmarkClub('${safeId}', this)"
                         class="absolute top-3 right-3 w-11 h-11 min-h-[44px] min-w-[44px] rounded-full bg-surface-container-lowest/85 dark:bg-zinc-800/85 backdrop-blur-md flex items-center justify-center text-slate-600 dark:text-zinc-300 hover:text-red-500 dark:hover:text-red-400 transition-colors shadow-sm"
@@ -4641,9 +4651,15 @@ export function renderCommunityPostsFeed(posts, likedPostIds = []) {
                         <div class="flex flex-col min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-bold text-sm text-on-surface dark:text-zinc-100">${safeAuthor}</span>
-                                <span class="px-2 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-[11px] font-semibold">
-                                    ${safeBadge}
-                                </span>
+                                ${post.status === 'pending' ? `
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[11px] font-semibold inline-flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[13px]">hourglass_top</span> Chờ duyệt (Chỉ bạn thấy)
+                                    </span>
+                                ` : `
+                                    <span class="px-2 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-[11px] font-semibold">
+                                        ${safeBadge}
+                                    </span>
+                                `}
                             </div>
                             <div class="flex items-center gap-1.5 text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
                                 <span>${safeTime}</span>
@@ -4785,7 +4801,11 @@ export function renderCommunityGuidelinesWidget(guidelines) {
 export function renderUserProfileModalContent(profile, activeTab = 'overview', badgeCategory = 'all') {
     if (!profile) return '';
 
-    const safeName = escapeHtml(profile.name || 'Người dùng');
+    const userSession = typeof window !== 'undefined' && window.ViVuApp?.getUserSession ? window.ViVuApp.getUserSession() : null;
+    const isAuth = Boolean(userSession && userSession.user);
+    const authEmail = userSession?.user?.email ? escapeHtml(userSession.user.email) : '';
+
+    const safeName = escapeHtml((isAuth && userSession.user.user_metadata?.display_name) || profile.name || 'Người dùng');
     const safeHandle = escapeHtml(profile.handle || '@tien.travinh');
     const safeRole = escapeHtml(profile.role || 'Đại sứ Khám phá Xanh Trà Vinh');
     const safeBio = escapeHtml(profile.bio || '');
@@ -4841,6 +4861,15 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
                                 <h1 class="font-headline-lg text-xl sm:text-2xl lg:text-3xl text-on-surface dark:text-zinc-100 font-bold tracking-tight">${safeName}</h1>
                                 <span class="text-xs text-outline dark:text-zinc-400 font-mono">${safeHandle}</span>
+                                ${isAuth ? `
+                                    <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold text-[11px] inline-flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[13px]">verified_user</span> Đã xác thực Supabase Auth (${authEmail})
+                                    </span>
+                                ` : `
+                                    <span class="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold text-[11px] inline-flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[13px]">person_outline</span> Khách vãng lai
+                                    </span>
+                                `}
                                 <span class="px-2.5 py-0.5 rounded-full bg-secondary-container/80 dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-semibold text-[11px]">
                                     ${safeRole}
                                 </span>
@@ -4864,6 +4893,19 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
 
                     <!-- Right: Action CTAs -->
                     <div class="flex items-center gap-2.5 sm:gap-3 flex-wrap lg:flex-nowrap shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-outline-variant/30 dark:border-zinc-800">
+                        ${isAuth ? `
+                            <button type="button" onclick="window.ViVuApp.handleUserSignOut()"
+                                class="px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-all min-h-[44px]">
+                                <span class="material-symbols-outlined text-[18px]">logout</span>
+                                <span>Đăng xuất</span>
+                            </button>
+                        ` : `
+                            <button type="button" onclick="window.ViVuApp.openAuthModal('signin')"
+                                class="px-4 py-2.5 rounded-xl bg-primary text-white hover:bg-secondary font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition-all min-h-[44px] shadow-sm">
+                                <span class="material-symbols-outlined text-[18px]">login</span>
+                                <span>Đăng nhập</span>
+                            </button>
+                        `}
                         <button type="button" onclick="window.ViVuApp.shareProfileStory()"
                             class="px-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px]">
                             <span class="material-symbols-outlined text-[18px]">share</span>
@@ -6820,7 +6862,7 @@ export function renderTripPlannerModalContent(plan, placePool = [], activeDay = 
                     <div class="space-y-1">
                         <!-- Breadcrumb -->
                         <nav aria-label="Đường dẫn trang" class="flex items-center gap-1.5 text-xs text-outline dark:text-zinc-400">
-                            <a href="/" onclick="window.ViVuApp?.navGoHome?.(); return false;" class="hover:text-secondary dark:hover:text-emerald-400 transition-colors">Trang chủ</a>
+                            <a href="/" onclick="window.ViVuApp?.navGoHome?.(); return false;" class="min-h-[44px] inline-flex items-center py-2 px-1 hover:text-secondary dark:hover:text-emerald-400 transition-colors">Trang chủ</a>
                             <span class="material-symbols-outlined text-sm">chevron_right</span>
                             <span class="text-on-surface dark:text-zinc-200 font-semibold truncate max-w-xs sm:max-w-md">Lập kế hoạch lộ trình</span>
                         </nav>
@@ -9882,4 +9924,520 @@ export function renderPlacePhotoGalleryModalContent(place, activeIndex = 0) {
             </div>
         </div>
     `;
+}
+
+// ============================================================================
+// OFFLINE QR TICKET PASS (Phase 12) - Vé khán đài điện tử hoạt động 100% ngoại tuyến
+// Bộ sinh mã QR thuần SVG độc lập, KHÔNG phụ thuộc mạng/CDN:
+// Byte Mode, ECC Level L, Version 1-5 (mỗi version chỉ 1 khối ECC L nên không cần interleave).
+// Tuân thủ ISO/IEC 18004: Reed-Solomon trên GF(256), BCH format info, 8 mặt nạ + chấm điểm penalty.
+// ============================================================================
+
+const QR_ECC_LEVEL_L_FORMAT_BITS = 1; // "01" theo ISO 18004
+const QR_TOTAL_DATA_CODEWORDS_L = [19, 34, 55, 80, 108]; // số codeword dữ liệu (v1-v5, ECC L)
+const QR_ECC_CODEWORDS_L = [7, 10, 15, 20, 26];          // số codeword sửa lỗi (v1-v5, ECC L)
+const QR_ALIGNMENT_PATTERNS = [[], [6, 18], [6, 22], [6, 26], [6, 30]]; // tâm alignment v1-v5
+
+const QR_GF_EXP = new Uint8Array(512);
+const QR_GF_LOG = new Uint8Array(256);
+(function initQrGaloisField() {
+    let x = 1;
+    for (let i = 0; i < 255; i++) {
+        QR_GF_EXP[i] = x;
+        QR_GF_LOG[x] = i;
+        x <<= 1;
+        if (x & 0x100) x ^= 0x11d;
+    }
+    for (let i = 255; i < 512; i++) QR_GF_EXP[i] = QR_GF_EXP[i - 255];
+})();
+
+function qrGfMul(a, b) {
+    return (a === 0 || b === 0) ? 0 : QR_GF_EXP[QR_GF_LOG[a] + QR_GF_LOG[b]];
+}
+
+/** Đa thức sinh Reed-Solomon bậc `degree`, hệ số từ bậc cao xuống thấp */
+function qrRsGeneratorPoly(degree) {
+    let poly = [1];
+    for (let i = 0; i < degree; i++) {
+        const next = new Array(poly.length + 1).fill(0);
+        for (let k = 0; k < poly.length; k++) {
+            next[k] ^= poly[k];
+            next[k + 1] ^= qrGfMul(poly[k], QR_GF_EXP[i]);
+        }
+        poly = next;
+    }
+    return poly;
+}
+
+/** Tính phần dư Reed-Solomon (ECC codewords) của dãy dữ liệu */
+function qrRsRemainder(data, degree) {
+    const gen = qrRsGeneratorPoly(degree);
+    const buf = data.slice().concat(new Array(degree).fill(0));
+    for (let i = 0; i < data.length; i++) {
+        const factor = buf[i];
+        if (factor === 0) continue;
+        for (let j = 0; j < gen.length; j++) {
+            buf[i + j] ^= qrGfMul(gen[j], factor);
+        }
+    }
+    return buf.slice(data.length);
+}
+
+/** Đóng gói bytes thành chuỗi codeword dữ liệu theo Byte Mode (indicator 0100, count 8 bit v1-9) */
+function qrMakeDataCodewords(bytes, totalDataCodewords) {
+    const bits = [];
+    const push = (val, len) => {
+        for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1);
+    };
+    const capacityBits = totalDataCodewords * 8;
+    push(0x4, 4); // Byte mode
+    push(bytes.length, 8);
+    for (const b of bytes) push(b, 8);
+    push(0, Math.min(4, capacityBits - bits.length)); // terminator
+    while (bits.length % 8 !== 0) bits.push(0);
+    const codewords = [];
+    for (let i = 0; i < bits.length; i += 8) {
+        let v = 0;
+        for (let j = 0; j < 8; j++) v = (v << 1) | bits[i + j];
+        codewords.push(v);
+    }
+    for (let pad = 0; codewords.length < totalDataCodewords; pad ^= 1) {
+        codewords.push(pad === 0 ? 0xEC : 0x11);
+    }
+    return codewords;
+}
+
+/** Dựng ma trận module + đánh dấu vùng function patterns */
+function qrCreateMatrix(version) {
+    const size = 17 + version * 4;
+    const modules = Array.from({ length: size }, () => new Array(size).fill(false));
+    const isFunction = Array.from({ length: size }, () => new Array(size).fill(false));
+
+    const setFn = (r, c, dark) => {
+        modules[r][c] = dark;
+        isFunction[r][c] = true;
+    };
+
+    // Timing patterns (hàng/cột 6)
+    for (let i = 0; i < size; i++) {
+        setFn(6, i, i % 2 === 0);
+        setFn(i, 6, i % 2 === 0);
+    }
+
+    // Finder patterns + dải phân cách
+    const drawFinder = (r0, c0) => {
+        for (let dr = -4; dr <= 4; dr++) {
+            for (let dc = -4; dc <= 4; dc++) {
+                const r = r0 + dr, c = c0 + dc;
+                if (r < 0 || r >= size || c < 0 || c >= size) continue;
+                const dist = Math.max(Math.abs(dr), Math.abs(dc));
+                setFn(r, c, dist !== 2 && dist !== 4);
+            }
+        }
+    };
+    drawFinder(3, 3);
+    drawFinder(3, size - 4);
+    drawFinder(size - 4, 3);
+
+    // Alignment patterns: CHỈ bỏ 3 vị trí góc trùng finder pattern.
+    // Các tâm nằm trên timing pattern (VD (6,22)) vẫn PHẢI vẽ theo chuẩn ISO 18004.
+    const alignCenters = QR_ALIGNMENT_PATTERNS[version - 1];
+    for (let i = 0; i < alignCenters.length; i++) {
+        for (let j = 0; j < alignCenters.length; j++) {
+            if ((i === 0 && j === 0) || (i === 0 && j === alignCenters.length - 1) || (i === alignCenters.length - 1 && j === 0)) continue;
+            const cr = alignCenters[i], cc = alignCenters[j];
+            for (let dr = -2; dr <= 2; dr++) {
+                for (let dc = -2; dc <= 2; dc++) {
+                    setFn(cr + dr, cc + dc, Math.max(Math.abs(dr), Math.abs(dc)) !== 1);
+                }
+            }
+        }
+    }
+
+    // Mô-đun đen cố định
+    setFn(size - 8, 8, true);
+
+    /** Ghi format info (BCH 15-bit, ECC L + mask) - gọi lại cho từng mặt nạ.
+     *  Quy ước setFn(row, col) - đặt vị trí đúng chuẩn ISO 18004 (Nayuki dùng (x=col, y=row)). */
+    function drawFormatBits(mask) {
+        const data = (QR_ECC_LEVEL_L_FORMAT_BITS << 3) | mask;
+        let rem = data;
+        for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+        const bitsVal = ((data << 10) | rem) ^ 0x5412;
+
+        // Bản sao thứ nhất quanh finder trên-trái
+        for (let i = 0; i <= 5; i++) setFn(i, 8, ((bitsVal >>> i) & 1) !== 0);      // bit 0-5: (hàng i, cột 8)
+        setFn(7, 8, ((bitsVal >>> 6) & 1) !== 0);                                   // bit 6
+        setFn(8, 8, ((bitsVal >>> 7) & 1) !== 0);                                   // bit 7
+        setFn(8, 7, ((bitsVal >>> 8) & 1) !== 0);                                   // bit 8
+        for (let i = 9; i < 15; i++) setFn(8, 14 - i, ((bitsVal >>> i) & 1) !== 0); // bit 9-14: (hàng 8, cột 14-i)
+
+        // Bản sao thứ hai dọc theo cạnh phải/dưới
+        for (let i = 0; i < 8; i++) setFn(8, size - 1 - i, ((bitsVal >>> i) & 1) !== 0);      // bit 0-7: (hàng 8, cột size-1-i)
+        for (let i = 8; i < 15; i++) setFn(size - 15 + i, 8, ((bitsVal >>> i) & 1) !== 0);    // bit 8-14: (hàng size-15+i, cột 8)
+        setFn(size - 8, 8, true); // mô-đun đen luôn giữ đen
+    }
+
+    /** Đặt codewords theo đường zigzag (bỏ cột 6) */
+    function drawCodewords(codewords) {
+        let i = 0;
+        const totalBits = codewords.length * 8;
+        for (let right = size - 1; right >= 1; right -= 2) {
+            if (right === 6) right = 5;
+            for (let vert = 0; vert < size; vert++) {
+                for (let j = 0; j < 2; j++) {
+                    const x = right - j;
+                    const upward = ((right + 1) & 2) === 0;
+                    const y = upward ? size - 1 - vert : vert;
+                    if (!isFunction[y][x] && i < totalBits) {
+                        modules[y][x] = ((codewords[i >>> 3] >>> (7 - (i & 7))) & 1) !== 0;
+                        i++;
+                    }
+                }
+            }
+        }
+    }
+
+    /** XOR module dữ liệu với mặt nạ (gọi 2 lần liên tiếp sẽ hoàn tác) */
+    function applyMaskSafe(mask) {
+        const fn = QR_MASK_FNS[mask];
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                if (!isFunction[r][c] && fn(r, c)) modules[r][c] = !modules[r][c];
+            }
+        }
+    }
+
+    return { size, modules, isFunction, drawFormatBits, drawCodewords, applyMaskSafe };
+}
+
+const QR_MASK_FNS = [
+    (r, c) => (r + c) % 2 === 0,
+    (r) => r % 2 === 0,
+    (r, c) => c % 3 === 0,
+    (r, c) => (r + c) % 3 === 0,
+    (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+    (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
+    (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+    (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
+];
+
+/** Chấm điểm penalty theo quy tắc N1-N4 của ISO 18004 */
+function qrPenaltyScore(modules) {
+    const size = modules.length;
+    let result = 0;
+
+    // N1: chuỗi cùng màu >= 5 theo hàng và cột
+    for (let axis = 0; axis < 2; axis++) {
+        for (let i = 0; i < size; i++) {
+            let runColor = null, runLen = 0;
+            for (let j = 0; j < size; j++) {
+                const dark = axis === 0 ? modules[i][j] : modules[j][i];
+                if (dark === runColor) {
+                    runLen++;
+                    if (runLen === 5) result += 3;
+                    else if (runLen > 5) result += 1;
+                } else {
+                    runColor = dark;
+                    runLen = 1;
+                }
+            }
+        }
+    }
+
+    // N2: khối 2x2 cùng màu
+    for (let r = 0; r < size - 1; r++) {
+        for (let c = 0; c < size - 1; c++) {
+            const v = modules[r][c];
+            if (v === modules[r][c + 1] && v === modules[r + 1][c] && v === modules[r + 1][c + 1]) result += 3;
+        }
+    }
+
+    // N3: mẫu giống finder 1:1:3:1:1 kèm 4 mô-đun sáng một bên
+    const PAT = [true, false, true, true, true, false, true, false, false, false, false];
+    const PAT_REV = PAT.slice().reverse();
+    const matches = (get, start, pattern) => {
+        for (let k = 0; k < pattern.length; k++) {
+            if (get(start + k) !== pattern[k]) return false;
+        }
+        return true;
+    };
+    for (let i = 0; i < size; i++) {
+        const rowGet = j => (j < size ? modules[i][j] : null);
+        const colGet = j => (j < size ? modules[j][i] : null);
+        for (let j = 0; j <= size - 11; j++) {
+            if (matches(rowGet, j, PAT) || matches(rowGet, j, PAT_REV)) result += 40;
+            if (matches(colGet, j, PAT) || matches(colGet, j, PAT_REV)) result += 40;
+        }
+    }
+
+    // N4: độ lệch tỷ lệ mô-đun tối
+    let darkCount = 0;
+    for (const row of modules) for (const v of row) if (v) darkCount++;
+    const total = size * size;
+    const k = Math.floor(Math.abs(darkCount * 20 - total * 10) / total);
+    result += k * 10;
+
+    return result;
+}
+
+/**
+ * Sinh mã QR dạng chuỗi SVG thuần từ văn bản (byte mode, UTF-8, ECC L, v1-v5).
+ * Hoạt động hoàn toàn ngoại tuyến, không phụ thuộc thư viện ngoài.
+ */
+export function qrEncodeSvg(text, scale = 8) {
+    const bytes = Array.from(new TextEncoder().encode(String(text)));
+
+    let version = 0;
+    for (let v = 1; v <= 5; v++) {
+        // chiếm chỗ: mode 4 bit + count 8 bit + terminator <= 4 bit = 2 codeword
+        if (bytes.length <= QR_TOTAL_DATA_CODEWORDS_L[v - 1] - 2) {
+            version = v;
+            break;
+        }
+    }
+    if (!version) throw new Error('QR_TOO_LONG');
+
+    const dataCw = qrMakeDataCodewords(bytes, QR_TOTAL_DATA_CODEWORDS_L[version - 1]);
+    const eccCw = qrRsRemainder(dataCw, QR_ECC_CODEWORDS_L[version - 1]);
+    const all = dataCw.concat(eccCw); // v1-v5 ECC L chỉ có 1 khối -> nối trực tiếp
+
+    const matrix = qrCreateMatrix(version);
+    // QUAN TRỌNG: vẽ format bits (mask 0) một lần trước để ĐÁNH DẤU vùng format-info
+    // là function module, nếu không codeword sẽ bị đặt vào các ô này làm lệch toàn bộ luồng dữ liệu.
+    matrix.drawFormatBits(0);
+    matrix.drawCodewords(all);
+
+    // Thử 8 mặt nạ, chọn mặt nạ có penalty thấp nhất
+    let bestMask = 0;
+    let bestPenalty = Infinity;
+    let bestModules = null;
+    for (let mask = 0; mask < 8; mask++) {
+        matrix.drawFormatBits(mask);
+        matrix.applyMaskSafe(mask);
+        const p = qrPenaltyScore(matrix.modules);
+        if (p < bestPenalty) {
+            bestPenalty = p;
+            bestMask = mask;
+            bestModules = matrix.modules.map(row => row.slice());
+        }
+        matrix.applyMaskSafe(mask); // XOR hai lần = hoàn tác
+    }
+
+    // Vẽ SVG với vùng im lặng 4 module
+    const quiet = 4;
+    const dim = (matrix.size + quiet * 2) * scale;
+    let path = '';
+    for (let r = 0; r < matrix.size; r++) {
+        for (let c = 0; c < matrix.size; c++) {
+            if (bestModules[r][c]) {
+                path += `M${(c + quiet) * scale} ${(r + quiet) * scale}h${scale}v${scale}h-${scale}z`;
+            }
+        }
+    }
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${dim}" height="${dim}" viewBox="0 0 ${dim} ${dim}" shape-rendering="crispEdges" role="img" aria-label="Mã QR vé điện tử"><rect width="${dim}" height="${dim}" fill="#ffffff"/><path d="${path}" fill="#001e15"/></svg>`;
+}
+
+// ============================================================================
+// LƯU VÉ KHÁN ĐÀI NGOẠI TUYẾN (localStorage: vivu_user_passes)
+// ============================================================================
+
+const TICKET_STORAGE_KEY = 'vivu_user_passes';
+
+export function getStoredPasses() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(TICKET_STORAGE_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+export function saveStoredPasses(passes) {
+    try {
+        localStorage.setItem(TICKET_STORAGE_KEY, JSON.stringify(passes));
+        return true;
+    } catch (e) {
+        console.warn('[ViVuTicket] Không thể lưu vé vào localStorage:', e);
+        return false;
+    }
+}
+
+export function buildTicketQrPayload(ticket) {
+    return `VIVU-TICKET|${ticket.code}|${ticket.fullname}|${ticket.phone}|${ticket.sector}|${ticket.seat}|${ticket.registeredAt}`;
+}
+
+export const TICKET_SECTOR_LABELS = {
+    'long-binh': 'Khán đài Sông Long Bình (Đua Ghe Ngo 14-15/11)',
+    'ao-ba-om': 'Khán đài Ao Bà Om (Cúng Trăng & Hoa Đăng 15/11)',
+    'combo': 'Combo Trọn Gói Cả 2 Địa Điểm'
+};
+
+/** Render thẻ vé điện tử kèm mã QR thuần SVG vào modal #offlineTicketModalContent */
+export function renderOfflineTicketCard(ticket) {
+    const container = document.getElementById('offlineTicketModalContent');
+    if (!container) return;
+
+    const sectorLabel = TICKET_SECTOR_LABELS[ticket.sector] || ticket.sectorLabel || 'Khán đài tự chọn';
+    const registeredDate = new Date(ticket.registeredAt).toLocaleString('vi-VN', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    const payload = buildTicketQrPayload(ticket);
+    let qrSvg = '';
+    try {
+        qrSvg = qrEncodeSvg(payload);
+    } catch (e) {
+        console.warn('[ViVuTicket] Không tạo được mã QR:', e);
+    }
+
+    container.innerHTML = `
+        <div class="flex flex-col">
+            <!-- Header -->
+            <header class="relative overflow-hidden bg-gradient-to-br from-primary-container to-[#004733] text-on-primary p-5 sm:p-6 shrink-0">
+                <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-secondary/25 blur-2xl pointer-events-none"></div>
+                <div class="flex items-start justify-between gap-3 relative z-10">
+                    <div>
+                        <p class="font-badge text-[11px] uppercase tracking-wider text-secondary-fixed font-bold">ViVuTraVinh • Ok Om Bok 2026</p>
+                        <h2 class="font-headline-md text-xl sm:text-2xl font-bold mt-1">Vé Khán Đài Điện Tử Của Bạn</h2>
+                        <p class="font-caption text-xs text-emerald-100/90 mt-1">Xuất trình vé này khi mất sóng 4G tại Ao Bà Om</p>
+                    </div>
+                    <button type="button" onclick="window.ViVuApp?.closeOfflineTicketModal()" aria-label="Đóng vé điện tử"
+                        class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all shrink-0">
+                        <span class="material-symbols-outlined text-2xl">close</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Ticket body -->
+            <div class="p-5 sm:p-6 flex flex-col gap-4">
+                <!-- QR + mã vé -->
+                <div class="rounded-2xl border-2 border-dashed border-outline-variant/50 dark:border-zinc-700 bg-surface-container-low dark:bg-zinc-900 p-4 flex flex-col items-center gap-3">
+                    <div class="bg-white rounded-xl p-3 shadow-xs w-[200px] h-[200px] flex items-center justify-center overflow-hidden">
+                        ${qrSvg || '<span class="font-caption text-xs text-outline">Không tạo được mã QR</span>'}
+                    </div>
+                    <div class="text-center">
+                        <p class="font-caption text-[11px] uppercase tracking-widest text-on-surface-variant dark:text-zinc-400 font-bold">Mã vé</p>
+                        <p class="font-headline-md text-xl font-black tracking-[0.15em] text-primary dark:text-emerald-300">${escapeHtml(ticket.code)}</p>
+                    </div>
+                </div>
+
+                <!-- Thông tin vé -->
+                <dl class="grid grid-cols-2 gap-3 font-body-sm text-xs">
+                    <div class="col-span-2">
+                        <dt class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400 font-bold uppercase">Họ và tên</dt>
+                        <dd class="font-semibold text-on-surface dark:text-zinc-100 mt-0.5">${escapeHtml(ticket.fullname)}</dd>
+                    </div>
+                    <div>
+                        <dt class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400 font-bold uppercase">Điện thoại</dt>
+                        <dd class="font-semibold text-on-surface dark:text-zinc-100 mt-0.5">${escapeHtml(ticket.phone || '—')}</dd>
+                    </div>
+                    <div>
+                        <dt class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400 font-bold uppercase">Số ghế</dt>
+                        <dd class="font-semibold text-accent dark:text-orange-400 mt-0.5">${escapeHtml(ticket.seat)}</dd>
+                    </div>
+                    <div class="col-span-2">
+                        <dt class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400 font-bold uppercase">Khu vực khán đài</dt>
+                        <dd class="font-semibold text-on-surface dark:text-zinc-100 mt-0.5">${escapeHtml(sectorLabel)}</dd>
+                    </div>
+                    <div class="col-span-2 flex items-center gap-2 pt-1 border-t border-outline-variant/20 dark:border-zinc-800">
+                        <span class="material-symbols-outlined text-base text-secondary dark:text-emerald-400">event_available</span>
+                        <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Đăng ký lúc: ${escapeHtml(registeredDate)}</span>
+                    </div>
+                </dl>
+
+                <!-- Lưu ý ngoại tuyến -->
+                <div class="rounded-xl bg-secondary/10 dark:bg-emerald-950/40 p-3 flex items-start gap-2.5">
+                    <span class="material-symbols-outlined text-lg text-secondary dark:text-emerald-400 shrink-0">wifi_off</span>
+                    <p class="font-caption text-[11px] leading-relaxed text-on-surface-variant dark:text-zinc-300">
+                        Vé đã được lưu trực tiếp trên máy bạn (kể cả khi ngắt kết nối mạng hoàn toàn). Ảnh chụp màn hình hoặc mã QR này là giấy tờ hợp lệ để nhận chỗ ngồi.
+                    </p>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex flex-col sm:flex-row gap-2.5 pt-1">
+                    <button type="button" id="offlineTicketDownloadBtn"
+                        class="w-full min-h-[44px] py-3 px-4 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-button text-xs sm:text-sm font-semibold shadow-xs transition-all flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">download</span>
+                        <span>Lưu ảnh vé về máy</span>
+                    </button>
+                    <button type="button" onclick="window.ViVuApp?.closeOfflineTicketModal()"
+                        class="w-full min-h-[44px] py-3 px-4 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 font-button text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2">
+                        <span>Đóng</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Gắn sự kiện tải vé về máy
+    const downloadBtn = container.querySelector('#offlineTicketDownloadBtn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => downloadTicketSvg(ticket));
+    }
+}
+
+/** Xuất thẻ vé thành file SVG độc lập tải về máy (không cần mạng, không cần canvas) */
+export function downloadTicketSvg(ticket) {
+    const sectorLabel = TICKET_SECTOR_LABELS[ticket.sector] || ticket.sectorLabel || 'Khán đài tự chọn';
+    const registeredDate = new Date(ticket.registeredAt).toLocaleString('vi-VN');
+
+    // Nhúng phần path mã QR (module 3px) vào khung trắng 144px của thẻ vé
+    let qrEmbedded = '';
+    try {
+        const qrSvg = qrEncodeSvg(buildTicketQrPayload(ticket), 3);
+        const pathMatch = qrSvg.match(/<path d="([^"]+)"/);
+        if (pathMatch) {
+            const dim = qrSvg.match(/viewBox="0 0 (\d+) (\d+)"/);
+            const qrDim = dim ? parseInt(dim[1], 10) : 144;
+            const offset = (144 - qrDim) / 2;
+            qrEmbedded = `<g transform="translate(${24 + offset},${128 + offset})"><path d="${pathMatch[1]}" fill="#001e15"/></g>`;
+        }
+    } catch (e) {
+        console.warn('[ViVuTicket] Không nhúng được mã QR vào file vé:', e);
+    }
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="560" viewBox="0 0 360 560" font-family="system-ui,-apple-system,sans-serif">
+  <rect width="360" height="560" rx="20" fill="#003527"/>
+  <text x="180" y="52" text-anchor="middle" font-size="12" font-weight="700" fill="#bcedd8" letter-spacing="2">VIVUTRAVINH • OK OM BOK 2026</text>
+  <text x="180" y="80" text-anchor="middle" font-size="20" font-weight="800" fill="#ffffff">VÉ KHÁN ĐÀI ĐIỆN TỬ</text>
+  <rect x="24" y="100" width="312" height="200" rx="12" fill="#ffffff"/>
+  ${qrEmbedded}
+  <text x="300" y="176" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b" letter-spacing="2">MÃ VÉ</text>
+  <text x="300" y="200" text-anchor="middle" font-size="15" font-weight="800" fill="#001e15">${ticket.code}</text>
+  <text x="180" y="240" text-anchor="middle" font-size="13" font-weight="600" fill="#334155">${ticket.fullname}</text>
+  <text x="180" y="262" text-anchor="middle" font-size="11" fill="#64748b">${ticket.phone || ''} • Ghế ${ticket.seat}</text>
+  <text x="330" y="288" text-anchor="end" font-size="10" fill="#94a3b8">Quét mã QR tại cổng</text>
+  <text x="36" y="344" font-size="11" font-weight="700" fill="#bcedd8" letter-spacing="1">KHU VỰC</text>
+  <text x="36" y="362" font-size="12" font-weight="600" fill="#ffffff">${sectorLabel}</text>
+  <text x="36" y="390" font-size="11" font-weight="700" fill="#bcedd8" letter-spacing="1">ĐĂNG KÝ LÚC</text>
+  <text x="36" y="408" font-size="12" fill="#ffffff">${registeredDate}</text>
+  <rect x="24" y="440" width="312" height="72" rx="12" fill="#002117"/>
+  <text x="180" y="468" text-anchor="middle" font-size="10" font-weight="700" fill="#9af1c6">VÉ HOẠT ĐỘNG 100% NGOẠI TUYẾN</text>
+  <text x="180" y="486" text-anchor="middle" font-size="9" fill="#709f8c">Không thu phí • Quản lý bởi Sở VHTT&amp;DL Trà Vinh</text>
+  <text x="180" y="502" text-anchor="middle" font-size="9" fill="#709f8c">Hotline cứu trợ du lịch: 1900 8122</text>
+</svg>`;
+
+    try {
+        const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ViVu-Ve-Khan-Dai-${ticket.code}.svg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        if (window.ViVuApp?.showNotification) {
+            window.ViVuApp.showNotification('Đã lưu ảnh vé về máy thành công!');
+        }
+    } catch (e) {
+        console.warn('[ViVuTicket] Không tải được file vé:', e);
+    }
+}
+
+/** Đóng modal vé điện tử */
+export function closeOfflineTicketModal() {
+    const modal = document.getElementById('offlineTicketModal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
 }

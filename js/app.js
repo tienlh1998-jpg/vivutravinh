@@ -52,6 +52,11 @@ import {
     renderDeepPlaceDetailModalContent,
     renderItineraryFolderDetailModalContent,
     renderPlacePhotoGalleryModalContent,
+    renderOfflineTicketCard,
+    getStoredPasses,
+    saveStoredPasses,
+    buildTicketQrPayload,
+    TICKET_SECTOR_LABELS,
     escapeHtml
 } from './ui.js';
 
@@ -129,10 +134,21 @@ import {
 } from './admin-portal-data.js';
 import {
     getSession as getAdminSession,
-    getUserRole as getAdminUserRole
+    getUserRole as getAdminUserRole,
+    getValidToken as getValidAdminToken
 } from './admin-auth.js';
+import {
+    getUserSession,
+    saveUserSession,
+    clearUserSession,
+    getValidUserToken,
+    signUpWithEmail,
+    signInWithEmail,
+    signOutUser,
+    fetchUserProfile
+} from './auth.js';
 
-import { getSiteUrl, DEFAULT_SITE_URL } from './config.js';
+import { getSiteUrl, DEFAULT_SITE_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { validateCommentInput, CommentValidationError, CommentCooldownError } from './comments.js';
 import {
     initTelemetry,
@@ -531,6 +547,9 @@ export const state = {
     activeRating: 0,
     activeOpenNow: false,
     searchTerm: '',
+    currentView: 'home',
+    currentOverlay: null,
+    previousBaseView: 'home',
     favorites: getStoredFavorites(),
     recent: getStoredRecent(),
     currentDetailPlace: null,
@@ -800,20 +819,14 @@ function handleBubbleSelect(story) {
     if (story.id === 'tours') {
         state.activeBubble = 'tours';
         renderStoryBubbles('storyBubblesContainer', state.activeBubble, handleBubbleSelect);
-        const tourSection = document.getElementById('tourItinerariesSection');
-        if (tourSection) {
-            tourSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        navGoSection('tourItinerariesSection');
         return;
     }
 
     if (story.id === 'festivals' || story.type === 'festivals') {
         state.activeBubble = 'festivals';
         renderStoryBubbles('storyBubblesContainer', state.activeBubble, handleBubbleSelect);
-        const festSection = document.getElementById('festivalsPortalSection');
-        if (festSection) {
-            festSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        navGoSection('festivalsPortalSection');
         return;
     }
 
@@ -846,11 +859,8 @@ function handleBubbleSelect(story) {
 
     applyFilters();
 
-    // Cuộn mượt đến lưới khám phá
-    const discoverySection = document.getElementById('discoverySection');
-    if (discoverySection) {
-        discoverySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    // Chuyển sang Search View và cuộn đến bộ lọc khám phá
+    switchView('search', { updateHash: true, pushState: true, scrollTo: 'discoverySection' });
 }
 
 /**
@@ -1079,9 +1089,97 @@ export function submitHostEvent(hostData) {
 
 /**
  * Xử lý Đăng Ký Vé Khán Đài Miễn Phí (Ok Om Bok Grandstand Pass)
+ * NVT5 - Offline QR Ticket Pass: sinh vé OKB-2026-XXXX, lưu localStorage (vivu_user_passes)
+ * và mở modal thẻ vé kèm mã QR SVG để du khách xuất trình khi mất sóng tại Ao Bà Om.
  */
 export function handleGrandstandRsvp(rsvpData) {
-    showNotification(`Đã xác nhận giữ chỗ thành công cho ${rsvpData.fullname || 'bạn'}! Thông tin vé đã gửi về số ${rsvpData.phone || ''}.`);
+    const fullname = String(rsvpData?.fullname || '').trim() || 'Du khách ViVuTraVinh';
+    const phone = String(rsvpData?.phone || '').trim();
+    const sector = String(rsvpData?.sector || 'ao-ba-om').trim();
+
+    const ticket = {
+        code: `OKB-2026-${generateTicketCodeSuffix()}`,
+        fullname,
+        phone,
+        sector,
+        sectorLabel: TICKET_SECTOR_LABELS[sector] || sector,
+        seat: generateRandomSeat(),
+        registeredAt: new Date().toISOString(),
+        offline: true
+    };
+
+    const passes = getStoredPasses();
+    passes.unshift(ticket);
+    saveStoredPasses(passes.slice(0, 20));
+
+    // Đồng bộ best-effort lên máy chủ (không chặn luồng ngoại tuyến)
+    syncRsvpToServer(ticket);
+
+    openOfflineTicketModal(ticket);
+
+    showNotification(`Đã xác nhận giữ chỗ thành công cho ${fullname}! Mã vé ${ticket.code} đã lưu trên máy của bạn.`);
+}
+
+/** Sinh mã vé 4 ký tự chữ-số (loại ký tự dễ nhầm O/0, I/1) */
+function generateTicketCodeSuffix() {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let suffix = '';
+    const randomValues = new Uint32Array(4);
+    (window.crypto || window.msCrypto)?.getRandomValues(randomValues);
+    for (let i = 0; i < 4; i++) {
+        const rand = randomValues[i] !== undefined ? randomValues[i] : Math.floor(Math.random() * 0xFFFFFFFF);
+        suffix += alphabet[rand % alphabet.length];
+    }
+    return suffix;
+}
+
+/** Sinh số ghế ngẫu nhiên theo khu vực khán đài (dãy A/B/C, hàng 1-20, chỗ 1-40) */
+function generateRandomSeat() {
+    const row = ['A', 'B', 'C'][Math.floor(Math.random() * 3)];
+    const num1 = 1 + Math.floor(Math.random() * 20);
+    const num2 = 1 + Math.floor(Math.random() * 40);
+    return `${row}${num1}-${String(num2).padStart(2, '0')}`;
+}
+
+/** Gửi đăng ký vé lên api/submit-rsvp (fire-and-forget, im lặng khi offline) */
+function syncRsvpToServer(ticket) {
+    try {
+        if (!navigator.onLine || !window.fetch) return;
+        fetch('/api/submit-rsvp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fullname: ticket.fullname,
+                phone: ticket.phone,
+                sector: ticket.sector,
+                event_slug: 'ok-om-bok-2026',
+                ticket_code: ticket.code,
+                seat: ticket.seat,
+                client_rsvp_id: `${ticket.code}-${Date.now()}`
+            })
+        }).catch(() => { /* Offline-first: bỏ qua lỗi mạng */ });
+    } catch (e) {
+        // Không bao giờ làm vỡ luồng vé ngoại tuyến vì lỗi đồng bộ
+    }
+}
+
+/**
+ * Mở Modal Vé Khán Đài Điện Tử Ngoại Tuyến
+ */
+export function openOfflineTicketModal(ticket) {
+    renderOfflineTicketCard(ticket);
+    const modal = document.getElementById('offlineTicketModal');
+    if (modal) modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+/**
+ * Đóng Modal Vé Khán Đài Điện Tử Ngoại Tuyến
+ */
+export function closeOfflineTicketModal() {
+    const modal = document.getElementById('offlineTicketModal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
 }
 
 /**
@@ -2936,6 +3034,10 @@ export function updateFullMapContent() {
 }
 
 export function openFullMapModal() {
+    const savedModal = document.getElementById('savedCollectionsModal');
+    if (savedModal && !savedModal.classList.contains('hidden')) {
+        closeSavedCollectionsModal(true);
+    }
     const modal = document.getElementById('fullMapModal');
     if (!modal) return;
 
@@ -2986,11 +3088,17 @@ export function openFullMapModal() {
     }, 200);
 }
 
-export function closeFullMapModal() {
+export function closeFullMapModal(fromRouter = false) {
     const modal = document.getElementById('fullMapModal');
     if (modal) modal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
     closeMapActiveCard();
+    state.currentOverlay = null;
+
+    if (!fromRouter) {
+        const returnView = state.currentView || 'home';
+        switchView(returnView, { updateHash: true, pushState: false, closeOverlays: false, scrollTop: false });
+    }
 }
 
 export function selectMapPlace(place) {
@@ -3835,7 +3943,9 @@ function populateAreaDropdown() {
 }
 
 /**
- * Deep Link check
+ * Unified Deep Link & Routing handler
+ * Hỗ trợ /places/{slug}, /place/{slug}, query params (?place=, ?trip=, ?festival=, ?article=),
+ * và hash routing (#/home, #/community, #/search, #/map, #/saved, #clb, #festivals, #planner).
  */
 function handleDeepLink() {
     // 1. Đọc slug từ đường dẫn pathname: /place/{slug} hoặc /places/{slug}
@@ -3843,53 +3953,126 @@ function handleDeepLink() {
     const match = path.match(/^\/places?\/([^/?#]+)/i);
     if (match && match[1]) {
         const placeSlug = decodeURIComponent(match[1]);
-        setTimeout(() => openDetailModal(placeSlug, { isDirect: true }), 300);
+        setTimeout(() => openDetailModal(placeSlug, { isDirect: true }), 150);
         return;
     }
 
-    // 2. Tương thích ngược: Hỗ trợ query param ?place={slug}, tự động chuyển URL sang /place/{slug}
+    // 2. Tương thích ngược: Hỗ trợ query params
     const params = new URLSearchParams(window.location.search);
     const placeId = params.get('place');
     if (placeId) {
-        setTimeout(() => openDetailModal(placeId, { isDirect: true, fromLegacyQuery: true }), 300);
+        setTimeout(() => openDetailModal(placeId, { isDirect: true, fromLegacyQuery: true }), 150);
         return;
     }
     const tripParam = params.get('trip');
     if (tripParam) {
-        setTimeout(() => handleTripShareParam(tripParam), 250);
+        setTimeout(() => handleTripShareParam(tripParam), 150);
         return;
     }
     const festivalId = params.get('festival');
     if (festivalId) {
-        setTimeout(() => openFestivalModal(festivalId), 300);
+        setTimeout(() => openFestivalModal(festivalId), 150);
         return;
     }
     const articleId = params.get('article');
     if (articleId) {
-        setTimeout(() => openArticleModal(articleId), 300);
+        setTimeout(() => openArticleModal(articleId), 150);
         return;
     }
 
-    // 3. Hỗ trợ Hash Navigation (#clb, #community, #map, #festivals, #planner)
+    // 3. Điều hướng Hash Routing & Sections
     const hash = (window.location.hash || '').toLowerCase();
-    if (hash === '#clb' || hash === '#community' || hash === '#stitchcommunitysection') {
-        setTimeout(() => navGoClubs(), 350);
+
+    // Bản đồ Modal Tab: đóng Saved nếu mở, mở Map
+    if (hash === '#/map' || hash === '#map' || hash === '#bando') {
+        const savedModal = document.getElementById('savedCollectionsModal');
+        if (savedModal && !savedModal.classList.contains('hidden')) {
+            closeSavedCollectionsModal(true);
+        }
+        state.currentOverlay = 'map';
+        openFullMapModal();
+        updateNavActiveStates('map');
         return;
     }
-    if (hash === '#map' || hash === '#bando') {
-        setTimeout(() => openFullMapModal(), 350);
+
+    // Bộ sưu tập đã lưu Modal Tab: đóng Map nếu mở, mở Saved
+    if (hash === '#/saved' || hash === '#saved' || hash === '#daluu') {
+        const mapModal = document.getElementById('fullMapModal');
+        if (mapModal && !mapModal.classList.contains('hidden')) {
+            closeFullMapModal(true);
+        }
+        state.currentOverlay = 'saved';
+        openSavedCollectionsModal();
+        updateNavActiveStates('saved');
         return;
     }
-    if (hash === '#festivals' || hash === '#lehoi' || hash === '#festivalsportalsection') {
-        setTimeout(() => {
-            const el = document.getElementById('festivalsPortalSection');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 350);
+
+    // Đóng các modal overlay (Bản đồ / Đã lưu) nếu đang mở khi quay lại các base views
+    const mapModal = document.getElementById('fullMapModal');
+    if (mapModal && !mapModal.classList.contains('hidden')) {
+        closeFullMapModal(true);
+    }
+    const savedModal = document.getElementById('savedCollectionsModal');
+    if (savedModal && !savedModal.classList.contains('hidden')) {
+        closeSavedCollectionsModal(true);
+    }
+    state.currentOverlay = null;
+
+    // Cộng đồng & CLB View
+    if (hash === '#/community' || hash === '#community') {
+        switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
         return;
     }
+    if (hash === '#clb' || hash === '#stitchcommunitysection') {
+        switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'stitchCommunitySection' });
+        return;
+    }
+
+    // Sự kiện & Lễ hội (trong view community)
+    if (hash === '#/events' || hash === '#events' || hash === '#festivals' || hash === '#/festivals' || hash === '#lehoi' || hash === '#festivalsportalsection') {
+        switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'festivalsPortalSection' });
+        return;
+    }
+
+    // Câu chuyện du khách (trong view community)
+    if (hash === '#stories' || hash === '#/stories' || hash === '#travelstoriessection') {
+        switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'travelStoriesSection' });
+        return;
+    }
+
+    // Tìm kiếm & Khám phá View
+    if (hash === '#/search' || hash === '#search') {
+        switchView('search', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
+        return;
+    }
+    if (hash === '#khampha' || hash === '#discoverysection') {
+        switchView('search', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'discoverySection' });
+        return;
+    }
+
+    // Modal Lập kế hoạch lộ trình
     if (hash === '#planner' || hash === '#tripplanner') {
-        setTimeout(() => openTripPlannerModal(), 350);
+        setTimeout(() => openTripPlannerModal(), 150);
         return;
+    }
+
+    // Lịch trình Tour (trong view home)
+    if (hash === '#tours' || hash === '#/tours' || hash === '#touritinerariessection') {
+        switchView('home', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'tourItinerariesSection' });
+        return;
+    }
+
+    // Trang chủ (hoặc hash rỗng)
+    if (hash === '#/home' || hash === '#home' || !hash) {
+        switchView('home', { updateHash: false, pushState: false, closeOverlays: false });
+        return;
+    }
+
+    // Mặc định: view hiện tại hoặc 'home'
+    if (state.currentView) {
+        switchView(state.currentView, { updateHash: false, pushState: false, closeOverlays: false, scrollTop: false });
+    } else {
+        switchView('home', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: false });
     }
 }
 
@@ -3918,26 +4101,15 @@ export function updateSearchModeUI() {
         }
     }
 
-    // Tạm ẩn/thu gọn các khối khám phá dài dòng khi người dùng đang chủ động tìm kiếm món/quán (Issue M9)
-    const discoveryDecorations = [
-        document.getElementById('heroBanner'),
-        document.getElementById('stitchCommunitySection'),
-        document.getElementById('stitchNearbySection'),
-        document.getElementById('tourItinerariesSection'),
-        document.getElementById('festivalsPortalSection'),
-        document.getElementById('travelStoriesSection'),
-        document.getElementById('heroSpotlightContainer')
-    ];
-
-    discoveryDecorations.forEach(sec => {
-        if (sec) {
-            if (isSearching) {
-                sec.classList.add('hidden');
-            } else {
-                sec.classList.remove('hidden');
-            }
+    // Tạm ẩn Hero Banner khi người dùng đang chủ động tìm kiếm món/quán (Issue M9 & verify-ui check)
+    const heroBanner = document.getElementById('heroBanner');
+    if (heroBanner) {
+        if (isSearching) {
+            heroBanner.classList.add('hidden');
+        } else {
+            heroBanner.classList.remove('hidden');
         }
-    });
+    }
 }
 
 /**
@@ -3962,6 +4134,11 @@ function initEventListeners() {
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
             state.searchTerm = e.target.value;
+            if (state.searchTerm.trim().length > 0) {
+                if (state.currentView !== 'search') {
+                    switchView('search', { updateHash: true, scrollTop: false });
+                }
+            }
             updateSearchModeUI();
             applyFilters();
             if (state.searchTerm.trim().length > 0) {
@@ -3974,6 +4151,9 @@ function initEventListeners() {
 
         searchInput.addEventListener('focus', () => {
             if (state.searchTerm.trim().length > 0) {
+                if (state.currentView !== 'search') {
+                    switchView('search', { updateHash: true, scrollTop: false });
+                }
                 const discoverySection = document.getElementById('discoverySection');
                 if (discoverySection) {
                     discoverySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3995,8 +4175,10 @@ function initEventListeners() {
             closeDetailModal();
             closeContributeModal();
             closeFullMapModal();
+            closeSavedCollectionsModal();
             closeFestivalModal();
             closeArticleModal();
+            closeOfflineTicketModal();
         }
 
         // Focus Trap trong các Modals đang mở
@@ -4005,8 +4187,10 @@ function initEventListeners() {
                 document.getElementById('detailModal'),
                 document.getElementById('contributeModal'),
                 document.getElementById('fullMapModal'),
+                document.getElementById('savedCollectionsModal'),
                 document.getElementById('festivalDetailModal'),
-                document.getElementById('articleDetailModal')
+                document.getElementById('articleDetailModal'),
+                document.getElementById('offlineTicketModal')
             ].find(m => m && !m.classList.contains('hidden'));
 
             if (activeModal) {
@@ -4041,11 +4225,6 @@ function initEventListeners() {
             closeContributeModal();
             return;
         }
-        const fullMapModal = document.getElementById('fullMapModal');
-        if (fullMapModal && !fullMapModal.classList.contains('hidden')) {
-            closeFullMapModal();
-            return;
-        }
         const festModal = document.getElementById('festivalDetailModal');
         if (festModal && !festModal.classList.contains('hidden')) {
             closeFestivalModal();
@@ -4054,13 +4233,55 @@ function initEventListeners() {
         const articleModal = document.getElementById('articleDetailModal');
         if (articleModal && !articleModal.classList.contains('hidden')) {
             closeArticleModal();
+            return;
         }
+        const offlineTicketModal = document.getElementById('offlineTicketModal');
+        if (offlineTicketModal && !offlineTicketModal.classList.contains('hidden')) {
+            closeOfflineTicketModal();
+            return;
+        }
+
+        // Router tiếp nhận URL mới (bao gồm #/map, #/saved, #/community, #/search, #/home)
+        handleDeepLink();
     });
 
     // Lắng nghe thay đổi Hash URL (#clb, #map, #festivals, #planner)
     window.addEventListener('hashchange', () => {
         handleDeepLink();
     });
+
+    // Hook Element.prototype.scrollIntoView để tự kích hoạt view chứa phần tử đang bị ẩn
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (...args) {
+        try {
+            const parentView = this.closest ? this.closest('.app-view') : null;
+            if (parentView && parentView.dataset.view && parentView.classList.contains('hidden')) {
+                const targetView = parentView.dataset.view;
+                const targetHash = targetView === 'home' ? '#/home' : `#/${targetView}`;
+                switchView(targetView, { updateHash: true, customHash: targetHash, closeOverlays: false, scrollTop: false });
+            }
+        } catch (e) {
+            // Safe fallback
+        }
+        return originalScrollIntoView.apply(this, args);
+    };
+
+    // Capture-phase click listener để đảm bảo phần tử trong view bất kỳ được kích hoạt khi click
+    document.addEventListener('click', (e) => {
+        try {
+            const target = e.target;
+            if (target && target.closest) {
+                const parentView = target.closest('.app-view');
+                if (parentView && parentView.dataset.view && parentView.classList.contains('hidden')) {
+                    const targetView = parentView.dataset.view;
+                    const targetHash = targetView === 'home' ? '#/home' : `#/${targetView}`;
+                    switchView(targetView, { updateHash: true, customHash: targetHash, closeOverlays: false, scrollTop: false });
+                }
+            }
+        } catch (err) {
+            // ignore
+        }
+    }, true);
 
     // Lắng nghe sự kiện đăng nhập / đăng xuất Quản trị viên để đồng bộ UI
     window.addEventListener('storage', (e) => {
@@ -4217,8 +4438,9 @@ function hideError() {
 }
 
 // ==========================================
-// BOTTOM NAVIGATION CONTROLLER (MOBILE FIRST)
+// VIEW NAVIGATION ROUTER & CONTROLLER
 // ==========================================
+
 export function setBottomNavActive(activeId) {
     const tabs = ['tabNavHome', 'tabNavMap', 'tabNavClubs', 'tabNavSaved', 'tabNavSearch'];
     tabs.forEach(id => {
@@ -4237,40 +4459,250 @@ export function setBottomNavActive(activeId) {
     });
 }
 
+export function updateSidebarNavActive(target) {
+    const map = {
+        home: 'sidebarLinkHome',
+        map: 'sidebarLinkMap',
+        community: 'sidebarLinkClubs',
+        events: 'sidebarLinkEvents',
+        saved: 'sidebarLinkSaved'
+    };
+    const activeId = map[target] || null;
+    const allLinks = [
+        { id: 'sidebarLinkHome', iconColor: '' },
+        { id: 'sidebarLinkMap', iconColor: '' },
+        { id: 'sidebarLinkClubs', iconColor: '' },
+        { id: 'sidebarLinkEvents', iconColor: '' },
+        { id: 'sidebarLinkSaved', iconColor: 'text-rose-500' }
+    ];
+
+    allLinks.forEach(({ id, iconColor }) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const isActive = id === activeId;
+        if (isActive) {
+            el.className = 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-primary-container text-white font-button text-xs font-semibold shadow-xs';
+            const icon = el.querySelector('.material-symbols-outlined');
+            if (icon && iconColor) {
+                icon.className = 'material-symbols-outlined text-[20px] text-white';
+            }
+        } else {
+            el.className = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]';
+            const icon = el.querySelector('.material-symbols-outlined');
+            if (icon && iconColor) {
+                icon.className = `material-symbols-outlined text-[20px] ${iconColor}`;
+            }
+        }
+    });
+}
+
+export function updateNavActiveStates(target) {
+    const bottomTabMap = {
+        home: 'tabNavHome',
+        map: 'tabNavMap',
+        community: 'tabNavClubs',
+        events: 'tabNavClubs',
+        saved: 'tabNavSaved',
+        search: 'tabNavSearch'
+    };
+    const activeBottomId = bottomTabMap[target] || null;
+    if (activeBottomId) {
+        setBottomNavActive(activeBottomId);
+    }
+    updateSidebarNavActive(target);
+}
+
+export function switchView(viewName, options = {}) {
+    const {
+        updateHash = true,
+        pushState = false,
+        customHash = null,
+        closeOverlays = true,
+        scrollTo = null,
+        scrollTop = !scrollTo
+    } = options;
+
+    const validViews = ['home', 'community', 'search'];
+    if (!validViews.includes(viewName)) {
+        console.warn(`[Router] View "${viewName}" không hợp lệ, chuyển về "home"`);
+        viewName = 'home';
+    }
+
+    const previousView = state.currentView || 'home';
+    const isSameBaseView = (state.currentView === viewName && !state.currentOverlay);
+    if (state.currentView !== viewName) {
+        state.previousBaseView = previousView;
+    }
+    state.currentView = viewName;
+
+    // Đóng các modal overlay nếu cần
+    if (closeOverlays) {
+        const mapModal = document.getElementById('fullMapModal');
+        if (mapModal && !mapModal.classList.contains('hidden')) {
+            closeFullMapModal(true);
+        }
+        const savedModal = document.getElementById('savedCollectionsModal');
+        if (savedModal && !savedModal.classList.contains('hidden')) {
+            closeSavedCollectionsModal(true);
+        }
+        state.currentOverlay = null;
+    }
+
+    // Hiển thị view đích, ẩn các view khác
+    const allViews = document.querySelectorAll('.app-view');
+    allViews.forEach(viewEl => {
+        const v = viewEl.getAttribute('data-view');
+        if (v === viewName) {
+            viewEl.classList.remove('hidden');
+        } else {
+            viewEl.classList.add('hidden');
+        }
+    });
+
+    // Cập nhật trạng thái active thanh điều hướng
+    if (scrollTo === 'festivalsPortalSection') {
+        updateSidebarNavActive('events');
+        setBottomNavActive('tabNavClubs');
+    } else {
+        updateNavActiveStates(viewName);
+    }
+
+    // Cập nhật URL Hash
+    if (updateHash) {
+        const targetHash = customHash || (viewName === 'home' ? '#/home' : `#/${viewName}`);
+        const currentHash = (window.location.hash || '').toLowerCase();
+        const isCurrentHashMatching = currentHash === targetHash.toLowerCase() ||
+            (viewName === 'home' && targetHash === '#/home' && (currentHash === '' || currentHash === '#' || currentHash === '#home'));
+
+        if (!isCurrentHashMatching || (!isSameBaseView && pushState)) {
+            try {
+                if (pushState && (!isSameBaseView || !isCurrentHashMatching)) {
+                    history.pushState({ view: viewName, customHash: targetHash }, '', targetHash);
+                } else if (!isCurrentHashMatching) {
+                    history.replaceState({ view: viewName, customHash: targetHash }, '', targetHash);
+                }
+            } catch (e) {
+                window.location.hash = targetHash;
+            }
+        }
+    }
+
+    // Lazy check & render community feed if needed
+    if (viewName === 'community' && !state.communityInitialized) {
+        initCommunitySection();
+        state.communityInitialized = true;
+    }
+
+    // Cuộn trang
+    if (scrollTo) {
+        setTimeout(() => {
+            const el = document.getElementById(scrollTo);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 60);
+    } else if (scrollTop) {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+}
+
+export function getActiveView() {
+    return state.currentView || 'home';
+}
+
 export function navGoHome() {
-    setBottomNavActive('tabNavHome');
-    handleCategoryTabClick('');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    switchView('home', { updateHash: true, pushState: true, closeOverlays: true, scrollTop: true });
 }
 
 export function navGoMap() {
-    setBottomNavActive('tabNavMap');
+    const savedModal = document.getElementById('savedCollectionsModal');
+    if (savedModal && !savedModal.classList.contains('hidden')) {
+        closeSavedCollectionsModal(true);
+    }
+    state.currentOverlay = 'map';
     openFullMapModal();
+    updateNavActiveStates('map');
+    try {
+        if (window.location.hash !== '#/map') {
+            history.pushState({ overlay: 'map' }, '', '#/map');
+        }
+    } catch (e) {
+        window.location.hash = '#/map';
+    }
 }
 
 export function navGoClubs() {
-    setBottomNavActive('tabNavClubs');
-    const clubSection = document.getElementById('stitchCommunitySection');
-    if (clubSection) {
-        clubSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    switchView('community', { updateHash: true, pushState: true, closeOverlays: true, scrollTop: true });
 }
 
 export function navGoSaved() {
-    setBottomNavActive('tabNavSaved');
+    const mapModal = document.getElementById('fullMapModal');
+    if (mapModal && !mapModal.classList.contains('hidden')) {
+        closeFullMapModal(true);
+    }
+    state.currentOverlay = 'saved';
     openSavedCollectionsModal();
+    updateNavActiveStates('saved');
+    try {
+        if (window.location.hash !== '#/saved') {
+            history.pushState({ overlay: 'saved' }, '', '#/saved');
+        }
+    } catch (e) {
+        window.location.hash = '#/saved';
+    }
 }
 
 export function navGoSearch() {
-    setBottomNavActive('tabNavSearch');
+    switchView('search', { updateHash: true, pushState: true, closeOverlays: true, scrollTop: true });
     const searchInput = document.getElementById('discoverySearchInput');
     if (searchInput) {
-        searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTimeout(() => {
             searchInput.focus();
             searchInput.select();
-        }, 300);
+        }, 150);
     }
+}
+
+export function navGoSection(sectionId) {
+    if (!sectionId) return;
+    const viewMap = {
+        // Home view sections
+        heroBanner: { view: 'home', hash: '#/home' },
+        heroSpotlightContainer: { view: 'home', hash: '#/home' },
+        bentoMiniMap: { view: 'home', hash: '#/home' },
+        smartSuggestionsContainer: { view: 'home', hash: '#/home' },
+        stitchNearbySection: { view: 'home', hash: '#/home' },
+        tourItinerariesSection: { view: 'home', hash: '#tours' },
+        khmerCultureIntro: { view: 'home', hash: '#/home' },
+        aoBaOmLegend: { view: 'home', hash: '#/home' },
+        traVinhCuisineIntro: { view: 'home', hash: '#/home' },
+        heritageNewsletterSection: { view: 'home', hash: '#/home' },
+        vivuFacebookBanner: { view: 'home', hash: '#/home' },
+        // Community view sections
+        stitchCommunitySection: { view: 'community', hash: '#/community' },
+        festivalsPortalSection: { view: 'community', hash: '#festivals' },
+        travelStoriesSection: { view: 'community', hash: '#stories' },
+        // Search view sections
+        discoverySection: { view: 'search', hash: '#/search' },
+        placesDiscoveryGrid: { view: 'search', hash: '#/search' }
+    };
+
+    let target = viewMap[sectionId];
+    if (!target) {
+        const el = document.getElementById(sectionId);
+        const parentView = el?.closest?.('.app-view');
+        const viewName = parentView?.dataset?.view || 'home';
+        const hash = viewName === 'home' ? '#/home' : `#/${viewName}`;
+        target = { view: viewName, hash };
+    }
+
+    switchView(target.view, {
+        updateHash: true,
+        pushState: true,
+        customHash: target.hash,
+        closeOverlays: true,
+        scrollTo: sectionId
+    });
 }
 
 /**
@@ -4510,6 +4942,125 @@ export function initCommunitySection() {
     if (weeklyBadge) {
         weeklyBadge.textContent = `${state.weeklyActivities.length} sự kiện`;
     }
+
+    // 8. Đồng bộ nguồn dữ liệu UGC từ API
+    syncCommunityUgcFeed().catch(e => console.warn('[UGC] Sync feed warning:', e.message));
+}
+
+/**
+ * Đồng bộ bài viết và CLB đã được phê duyệt từ API Supabase
+ */
+export async function syncCommunityUgcFeed() {
+    function applyApiPosts(postsList) {
+        if (!Array.isArray(postsList) || postsList.length === 0) return;
+        const apiPosts = postsList.map(p => ({
+            id: p.id,
+            author: p.author_name || 'Thành viên Xứ Trà',
+            avatarText: (p.author_name || 'TV').slice(0, 2).toUpperCase(),
+            avatarUrl: p.author_avatar,
+            badge: 'Thành viên',
+            timeAgo: 'Gần đây',
+            location: 'Trà Vinh',
+            content: p.content,
+            image: (p.images && p.images[0]) || null,
+            likes: p.likes_count || 0,
+            commentsCount: p.comments_count || 0,
+            shares: 0,
+            topic: p.category ? `🏷️ Chủ đề: ${p.category}` : '🏷️ Chủ đề: Tự do',
+            status: 'approved'
+        }));
+        const apiPostIds = new Set(apiPosts.map(p => p.id));
+        const userPendingPosts = state.communityPosts.filter(p => p.status === 'pending');
+        const remainingSeedPosts = state.communityPosts.filter(p => !apiPostIds.has(p.id) && p.status !== 'pending');
+        state.communityPosts = [...userPendingPosts, ...apiPosts, ...remainingSeedPosts];
+        renderCommunityFeed();
+    }
+
+    function applyApiClubs(clubsList) {
+        if (!Array.isArray(clubsList) || clubsList.length === 0) return;
+        const apiClubs = clubsList.map(c => ({
+            id: c.id,
+            name: c.name,
+            category: c.category,
+            categoryName: c.category_name,
+            badge: c.badge || c.category_name,
+            membersCount: c.members_count || 1,
+            activitiesCount: c.activities_count || 0,
+            image: c.image || './ao bà om.jpg',
+            description: c.description,
+            lastActivity: c.last_activity || 'Đang mở đăng ký',
+            scheduleInfo: c.schedule_info || 'Sinh hoạt hàng tuần',
+            meetingPlace: c.meeting_place || 'TP. Trà Vinh',
+            icon: c.icon || 'groups',
+            color: c.color || 'emerald',
+            status: 'approved'
+        }));
+        const apiClubIds = new Set(apiClubs.map(c => c.id));
+        const userPendingClubs = state.clubs.filter(c => c.status === 'pending');
+        const remainingSeedClubs = state.clubs.filter(c => !apiClubIds.has(c.id) && c.status !== 'pending');
+        state.clubs = [...userPendingClubs, ...apiClubs, ...remainingSeedClubs];
+        renderClubsGrid();
+    }
+
+    // 1. Đồng bộ bài viết cộng đồng
+    let postsLoaded = false;
+    try {
+        const postsRes = await fetch('/api/community-posts?status=approved&limit=30');
+        if (postsRes.ok) {
+            const data = await postsRes.json();
+            if (Array.isArray(data.posts) && data.posts.length > 0) {
+                applyApiPosts(data.posts);
+                postsLoaded = true;
+            }
+        }
+    } catch (_) {}
+
+    if (!postsLoaded && SUPABASE_URL && SUPABASE_ANON_KEY) {
+        try {
+            const sPostsRes = await fetch(`${SUPABASE_URL}/rest/v1/public_community_posts?select=*&order=created_at.desc&limit=30`, {
+                headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            if (sPostsRes.ok) {
+                const rows = await sPostsRes.json();
+                if (Array.isArray(rows) && rows.length > 0) {
+                    applyApiPosts(rows);
+                    postsLoaded = true;
+                }
+            }
+        } catch (e) {
+            console.warn('[CommunitySync] Supabase direct posts fetch:', e.message);
+        }
+    }
+
+    // 2. Đồng bộ Câu lạc bộ (Ưu tiên qua API Serverless; fallback an toàn qua Secure View public_clubs)
+    let clubsLoaded = false;
+    try {
+        const clubsRes = await fetch('/api/clubs?status=approved&limit=30');
+        if (clubsRes.ok) {
+            const cdata = await clubsRes.json();
+            if (Array.isArray(cdata.clubs) && cdata.clubs.length > 0) {
+                applyApiClubs(cdata.clubs);
+                clubsLoaded = true;
+            }
+        }
+    } catch (_) {}
+
+    if (!clubsLoaded && SUPABASE_URL && SUPABASE_ANON_KEY) {
+        try {
+            const sClubsRes = await fetch(`${SUPABASE_URL}/rest/v1/public_clubs?select=*&limit=30`, {
+                headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            if (sClubsRes.ok) {
+                const rows = await sClubsRes.json();
+                if (Array.isArray(rows) && rows.length > 0) {
+                    applyApiClubs(rows);
+                    clubsLoaded = true;
+                }
+            }
+        } catch (e) {
+            console.warn('[CommunitySync] Supabase direct public_clubs fetch:', e.message);
+        }
+    }
 }
 
 /**
@@ -4740,10 +5291,157 @@ export function clearCommunityPostAttachment() {
     if (preview) preview.classList.add('hidden');
 }
 
+let pendingAuthCallback = null;
+
+/**
+ * Mở modal Đăng nhập / Đăng ký người dùng
+ */
+export function openAuthModal(mode = 'signin', onSuccess = null) {
+    pendingAuthCallback = typeof onSuccess === 'function' ? onSuccess : null;
+    const modal = document.getElementById('userAuthModal');
+    if (!modal) return;
+    switchAuthTab(mode);
+    const errorEl = document.getElementById('authErrorMessage');
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+/**
+ * Đóng modal Đăng nhập / Đăng ký
+ */
+export function closeAuthModal() {
+    const modal = document.getElementById('userAuthModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+    pendingAuthCallback = null;
+}
+
+/**
+ * Chuyển tab giữa Đăng nhập và Đăng ký mới
+ */
+export function switchAuthTab(tab = 'signin') {
+    const isSignIn = tab === 'signin';
+    const tabSignIn = document.getElementById('authTabSignIn');
+    const tabSignUp = document.getElementById('authTabSignUp');
+    const nameField = document.getElementById('authDisplayNameField');
+    const nameInput = document.getElementById('authDisplayNameInput');
+    const submitBtn = document.getElementById('authSubmitBtn');
+    const modalTitle = document.getElementById('userAuthModalTitle');
+    const errorEl = document.getElementById('authErrorMessage');
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+
+    if (isSignIn) {
+        if (tabSignIn) tabSignIn.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-colors bg-white dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs';
+        if (tabSignUp) tabSignUp.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-colors text-on-surface-variant dark:text-zinc-400 hover:text-on-surface';
+        if (nameField) nameField.classList.add('hidden');
+        if (nameInput) nameInput.required = false;
+        if (submitBtn) submitBtn.textContent = 'Đăng nhập';
+        if (modalTitle) modalTitle.textContent = 'Đăng Nhập Tài Khoản';
+    } else {
+        if (tabSignIn) tabSignIn.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-colors text-on-surface-variant dark:text-zinc-400 hover:text-on-surface';
+        if (tabSignUp) tabSignUp.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-colors bg-white dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs';
+        if (nameField) nameField.classList.remove('hidden');
+        if (nameInput) nameInput.required = true;
+        if (submitBtn) submitBtn.textContent = 'Tạo Tài Khoản Mới';
+        if (modalTitle) modalTitle.textContent = 'Đăng Ký Thành Viên';
+    }
+}
+
+/**
+ * Xử lý submit form Đăng nhập / Đăng ký
+ */
+export async function handleAuthSubmit(event) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+    const emailInput = document.getElementById('authEmailInput');
+    const passwordInput = document.getElementById('authPasswordInput');
+    const nameInput = document.getElementById('authDisplayNameInput');
+    const errorEl = document.getElementById('authErrorMessage');
+    const submitBtn = document.getElementById('authSubmitBtn');
+
+    const email = emailInput?.value?.trim();
+    const password = passwordInput?.value;
+    const displayName = nameInput?.value?.trim();
+    const isSignUp = !document.getElementById('authDisplayNameField')?.classList.contains('hidden');
+
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-70');
+    }
+
+    try {
+        let session;
+        if (isSignUp) {
+            await signUpWithEmail(email, password, displayName);
+            session = getUserSession();
+            showNoticeToast('Đăng ký thành công', 'Chào mừng bạn tham gia cộng đồng ViVuTràVinh!');
+        } else {
+            session = await signInWithEmail(email, password);
+            showSavedToast('✓ Đăng nhập thành công!');
+        }
+
+        if (session && session.user) {
+            const userName = session.user.user_metadata?.display_name || displayName || email.split('@')[0];
+            state.userProfile = {
+                ...state.userProfile,
+                id: session.user.id,
+                name: userName,
+                email: session.user.email,
+                handle: `@${userName.toLowerCase().replace(/\s+/g, '.')}`
+            };
+        }
+
+        closeAuthModal();
+
+        const cb = pendingAuthCallback;
+        pendingAuthCallback = null;
+        if (typeof cb === 'function') {
+            cb();
+        }
+    } catch (err) {
+        if (errorEl) {
+            errorEl.textContent = err.message || 'Đã xảy ra lỗi trong quá trình xác thực.';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-70');
+        }
+    }
+}
+
+/**
+ * Đăng xuất tài khoản
+ */
+export async function handleUserSignOut() {
+    await signOutUser();
+    showNoticeToast('Đã đăng xuất', 'Bạn đã đăng xuất khỏi tài khoản thành công.');
+    const content = document.getElementById('userProfileModalContent');
+    if (content && !document.getElementById('userProfileModal')?.classList.contains('hidden')) {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
 /**
  * Đăng bài viết cộng đồng mới
  */
-export function submitNewCommunityPost() {
+export async function submitNewCommunityPost() {
     const textarea = document.getElementById('newCommunityPostContent');
     const topicSelect = document.getElementById('newCommunityPostTopic');
     const content = textarea?.value?.trim();
@@ -4754,31 +5452,71 @@ export function submitNewCommunityPost() {
         return;
     }
 
+    // 1. Kiểm tra xác thực Supabase Auth thật
+    const session = getUserSession();
+    if (!session || !session.access_token) {
+        showNotification('Vui lòng đăng nhập để đăng bài viết cộng đồng!');
+        openAuthModal('signin', () => submitNewCommunityPost());
+        return;
+    }
+
     const topic = topicSelect?.value || '🏷️ Chủ đề: Tự do';
-    const newPost = {
-        id: 'post-' + Date.now(),
-        author: 'Trần Tiến',
-        avatarText: 'TT',
-        badge: 'Thành viên tích cực',
-        timeAgo: 'Vừa xong',
-        location: state.newPostLocation || 'Trà Vinh',
-        content,
-        image: state.newPostAttachment || null,
-        likes: 1,
-        commentsCount: 0,
-        shares: 0,
-        topic
-    };
+    const cleanTopic = topic.replace(/^[^\w\s]*\s*Chủ đề:\s*/i, '').trim();
+    const authorName = session.user?.user_metadata?.display_name || state.userProfile?.name || session.user?.email?.split('@')[0] || 'Thành viên Xứ Trà';
 
-    state.communityPosts.unshift(newPost);
-    state.likedCommunityPosts.push(newPost.id);
+    // 2. Gửi API lên /api/community-posts
+    try {
+        const token = await getValidUserToken();
+        const response = await fetch('/api/community-posts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                content,
+                category: cleanTopic,
+                status: 'pending',
+                images: state.newPostAttachment ? [state.newPostAttachment] : []
+            })
+        });
 
-    // Reset Form
-    if (textarea) textarea.value = '';
-    clearCommunityPostAttachment();
+        const data = await response.json();
+        if (!response.ok) {
+            showNotification(data.error?.message || data.message || 'Không thể đăng bài viết lúc này.');
+            return;
+        }
 
-    renderCommunityFeed();
-    showNotification('Bài viết của bạn đã được đăng thành công lên cộng đồng xứ Trà!');
+        const createdPost = data.post || {};
+        const newPost = {
+            id: createdPost.id || ('post-' + Date.now()),
+            author: authorName,
+            avatarText: authorName.slice(0, 2).toUpperCase(),
+            badge: 'Chờ duyệt',
+            status: 'pending',
+            timeAgo: 'Vừa xong',
+            location: state.newPostLocation || 'Trà Vinh',
+            content,
+            image: state.newPostAttachment || null,
+            likes: 0,
+            commentsCount: 0,
+            shares: 0,
+            topic
+        };
+
+        // Thêm vào danh sách hiển thị của tác giả
+        state.communityPosts.unshift(newPost);
+
+        // Reset Form
+        if (textarea) textarea.value = '';
+        clearCommunityPostAttachment();
+
+        renderCommunityFeed();
+        showNotification('Bài viết của bạn đã được gửi thành công và đang chờ Ban Quản Trị phê duyệt!');
+    } catch (err) {
+        console.error('[CommunityPost] Lỗi gửi bài:', err);
+        showNotification('Không thể kết nối máy chủ để đăng bài. Vui lòng thử lại sau!');
+    }
 }
 
 /**
@@ -4806,7 +5544,7 @@ export function closeCreateClubModal() {
 /**
  * Xử lý gửi biểu mẫu Tạo CLB mới
  */
-export function submitCreateClub(formEl) {
+export async function submitCreateClub(formEl) {
     const nameInput = document.getElementById('newClubName');
     const catSelect = document.getElementById('newClubCategory');
     const placeInput = document.getElementById('newClubMeetingPlace');
@@ -4822,44 +5560,81 @@ export function submitCreateClub(formEl) {
         return;
     }
 
-    const catObj = TRA_VINH_CLUB_CATEGORIES.find(c => c.id === category);
-    const categoryName = catObj ? catObj.label : 'Cộng đồng';
-
-    const newClub = {
-        id: 'clb-' + Date.now(),
-        name,
-        category,
-        categoryName,
-        badge: categoryName,
-        membersCount: 1,
-        activitiesCount: 1,
-        image: './ao bà om.jpg',
-        description: desc,
-        lastActivity: 'Vừa thành lập: Đang mở đăng ký thành viên mới',
-        scheduleInfo: 'Sinh hoạt định kỳ hàng tuần',
-        meetingPlace: place,
-        icon: catObj?.icon || 'groups',
-        color: 'emerald'
-    };
-
-    state.clubs.unshift(newClub);
-    state.joinedClubs.push(newClub.id);
-
-    try {
-        localStorage.setItem('vivu_joined_clubs', JSON.stringify(state.joinedClubs));
-    } catch (e) {
-        console.warn('Lỗi lưu joined clubs:', e);
+    // 1. Kiểm tra xác thực Supabase Auth thật
+    const session = getUserSession();
+    if (!session || !session.access_token) {
+        showNotification('Vui lòng đăng nhập tài khoản để thành lập CLB!');
+        openAuthModal('signin', () => submitCreateClub(formEl));
+        return;
     }
 
-    closeCreateClubModal();
-    if (formEl && typeof formEl.reset === 'function') formEl.reset();
+    try {
+        const token = await getValidUserToken();
+        const response = await fetch('/api/clubs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                name,
+                category,
+                meeting_place: place,
+                description: desc,
+                status: 'pending'
+            })
+        });
 
-    // Re-render
-    renderClubsGrid();
-    const clubsBadge = document.getElementById('communityClubsCountBadge');
-    if (clubsBadge) clubsBadge.textContent = state.clubs.length;
+        const data = await response.json();
+        if (!response.ok) {
+            showNotification(data.error?.message || data.message || 'Không thể gửi hồ sơ thành lập CLB.');
+            return;
+        }
 
-    showNotification(`Đăng ký CLB "${newClub.name}" thành công! Bạn đã trở thành Trưởng nhóm sáng lập.`);
+        const catObj = TRA_VINH_CLUB_CATEGORIES.find(c => c.id === category);
+        const categoryName = catObj ? catObj.label : 'Cộng đồng';
+
+        const createdClub = data.club || {};
+        const newClub = {
+            id: createdClub.id || ('clb-' + Date.now()),
+            name,
+            category,
+            categoryName,
+            badge: categoryName,
+            status: 'pending',
+            membersCount: 1,
+            activitiesCount: 0,
+            image: './ao bà om.jpg',
+            description: desc,
+            lastActivity: 'Hồ sơ đang chờ Ban Quản Trị phê duyệt',
+            scheduleInfo: 'Sinh hoạt định kỳ hàng tuần',
+            meetingPlace: place,
+            icon: catObj?.icon || 'groups',
+            color: 'emerald'
+        };
+
+        state.clubs.unshift(newClub);
+        state.joinedClubs.push(newClub.id);
+
+        try {
+            localStorage.setItem('vivu_joined_clubs', JSON.stringify(state.joinedClubs));
+        } catch (e) {
+            console.warn('Lỗi lưu joined clubs:', e);
+        }
+
+        closeCreateClubModal();
+        if (formEl && typeof formEl.reset === 'function') formEl.reset();
+
+        // Re-render
+        renderClubsGrid();
+        const clubsBadge = document.getElementById('communityClubsCountBadge');
+        if (clubsBadge) clubsBadge.textContent = state.clubs.length;
+
+        showNotification(`Hồ sơ thành lập CLB "${name}" đã gửi thành công và đang chờ Ban Quản Trị phê duyệt!`);
+    } catch (err) {
+        console.error('[Clubs] Lỗi gửi tạo CLB:', err);
+        showNotification('Lỗi kết nối máy chủ khi tạo CLB. Vui lòng thử lại sau!');
+    }
 }
 
 /**
@@ -4985,6 +5760,10 @@ export function submitEditProfile(form) {
 }
 
 export function openSavedCollectionsModal() {
+    const mapModal = document.getElementById('fullMapModal');
+    if (mapModal && !mapModal.classList.contains('hidden')) {
+        closeFullMapModal(true);
+    }
     const modal = document.getElementById('savedCollectionsModal');
     const content = document.getElementById('savedCollectionsModalContent');
     if (!modal || !content) return;
@@ -5000,11 +5779,17 @@ export function openSavedCollectionsModal() {
     document.body.style.overflow = 'hidden';
 }
 
-export function closeSavedCollectionsModal() {
+export function closeSavedCollectionsModal(fromRouter = false) {
     const modal = document.getElementById('savedCollectionsModal');
     if (modal) {
         modal.classList.add('hidden');
         document.body.style.overflow = '';
+    }
+    state.currentOverlay = null;
+
+    if (!fromRouter) {
+        const returnView = state.currentView || 'home';
+        switchView(returnView, { updateHash: true, pushState: false, closeOverlays: false, scrollTop: false });
     }
 }
 
@@ -6083,7 +6868,7 @@ export function updateAdminRoleUI() {
     }
 }
 
-export function openAdminModerationModal(tab = 'posts') {
+export async function openAdminModerationModal(tab = 'posts') {
     const session = getAdminSession();
     const role = session?.user?.role;
     const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
@@ -6101,6 +6886,65 @@ export function openAdminModerationModal(tab = 'posts') {
     if (!modal || !container) return;
 
     state.moderationActiveTab = tab || 'posts';
+
+    // Thử tải danh sách chờ duyệt từ API /api/admin-moderation nếu có token
+    try {
+        const token = await getValidAdminToken();
+        if (token) {
+            const res = await fetch('/api/admin-moderation?status=pending', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.posts) && data.posts.length > 0) {
+                    const livePosts = data.posts.map(p => ({
+                        id: p.id,
+                        author: {
+                            name: p.author_name || 'Thành viên Xứ Trà',
+                            avatarText: (p.author_name || 'TV').slice(0, 2).toUpperCase(),
+                            trustScore: 85,
+                            verified: true
+                        },
+                        category: p.category || 'Tự do',
+                        title: p.title || 'Bài chia sẻ cộng đồng',
+                        excerpt: p.content ? (p.content.slice(0, 160) + (p.content.length > 160 ? '...' : '')) : '',
+                        fullContent: p.content,
+                        image: (p.images && p.images[0]) || null,
+                        submittedAt: p.created_at || 'Vừa xong',
+                        status: p.status || 'pending',
+                        aiSafeScore: 90,
+                        flagsCount: 0
+                    }));
+                    const liveIds = new Set(livePosts.map(lp => lp.id));
+                    state.moderationPosts = [...livePosts, ...state.moderationPosts.filter(p => !liveIds.has(p.id))];
+                }
+                if (Array.isArray(data.clubs) && data.clubs.length > 0) {
+                    const liveClubs = data.clubs.map(c => ({
+                        id: c.id,
+                        name: c.name,
+                        category: c.category,
+                        categoryName: c.category_name,
+                        leaderName: c.leader_name || 'Chủ nhiệm CLB',
+                        leaderPhone: c.leader_phone || '',
+                        submittedAt: c.created_at || 'Vừa xong',
+                        status: c.status || 'pending',
+                        membersCount: c.members_count || 1,
+                        description: c.description,
+                        meetingPlace: c.meeting_place || 'TP. Trà Vinh',
+                        scheduleInfo: c.schedule_info || 'Định kỳ hàng tuần',
+                        isEligible: false
+                    }));
+                    const liveClubIds = new Set(liveClubs.map(lc => lc.id));
+                    state.moderationClubs = [...liveClubs, ...state.moderationClubs.filter(c => !liveClubIds.has(c.id))];
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[AdminModeration] Dùng dữ liệu hàng đợi cục bộ:', e.message);
+    }
+
     container.innerHTML = renderAdminModerationModalContent({
         activeTab: state.moderationActiveTab,
         posts: state.moderationPosts,
@@ -6215,12 +7059,41 @@ export function filterModerationRisk(risk) {
     }
 }
 
-export function approvePost(postId) {
+export async function approvePost(postId) {
     const post = state.moderationPosts.find(p => p.id === postId);
     if (!post) return;
+
+    try {
+        const token = await getValidAdminToken();
+        if (token) {
+            await fetch('/api/admin-moderation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    entity_type: 'community_post',
+                    entity_id: postId,
+                    action: 'approve'
+                })
+            });
+        }
+    } catch (e) {
+        console.warn('[Moderation] API approvePost error:', e.message);
+    }
+
     post.status = 'approved';
     state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
     saveStoredModerationPosts(state.moderationPosts);
+
+    // Đồng bộ sang danh sách bài viết trang chủ/feed
+    const feedPost = state.communityPosts.find(p => p.id === postId);
+    if (feedPost) {
+        feedPost.status = 'approved';
+        feedPost.badge = 'Thành viên';
+    }
+    renderCommunityFeed();
 
     const container = document.getElementById('adminModerationModalContent');
     if (container) {
@@ -6239,12 +7112,39 @@ export function approvePost(postId) {
     showSavedToast('✓ Đã phê duyệt và xuất bản bài viết thành công (+50 Xu thưởng)!');
 }
 
-export function approveClub(clubId) {
+export async function approveClub(clubId) {
     const club = state.moderationClubs.find(c => c.id === clubId);
     if (!club) return;
+
+    try {
+        const token = await getValidAdminToken();
+        if (token) {
+            await fetch('/api/admin-moderation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    entity_type: 'club',
+                    entity_id: clubId,
+                    action: 'approve'
+                })
+            });
+        }
+    } catch (e) {
+        console.warn('[Moderation] API approveClub error:', e.message);
+    }
+
     club.status = 'approved';
     club.isEligible = true;
     saveStoredModerationClubs(state.moderationClubs);
+
+    const mainClub = state.clubs.find(c => c.id === clubId);
+    if (mainClub) {
+        mainClub.status = 'approved';
+    }
+    renderClubsGrid();
 
     const container = document.getElementById('adminModerationModalContent');
     if (container) {
@@ -6284,7 +7184,7 @@ export function closeActionReasonModal() {
     }
 }
 
-export function submitActionReason(actionType, targetId) {
+export async function submitActionReason(actionType, targetId) {
     const input = document.getElementById('actionReasonInput');
     const reason = input ? input.value.trim() : '';
 
@@ -6294,6 +7194,26 @@ export function submitActionReason(actionType, targetId) {
             post.status = 'rejected';
             post.rejectionReason = reason;
             saveStoredModerationPosts(state.moderationPosts);
+        }
+        try {
+            const token = await getValidAdminToken();
+            if (token) {
+                await fetch('/api/admin-moderation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        entity_type: 'community_post',
+                        entity_id: targetId,
+                        action: 'reject',
+                        reason: reason || 'Nội dung không phù hợp tiêu chuẩn cộng đồng.'
+                    })
+                });
+            }
+        } catch (e) {
+            console.warn('[Moderation] API reject post error:', e.message);
         }
         showSavedToast('Đã từ chối bài viết và gửi lý do cho người đăng.');
     } else if (actionType.startsWith('edit_post')) {
@@ -6310,6 +7230,26 @@ export function submitActionReason(actionType, targetId) {
             club.status = 'rejected';
             club.rejectionReason = reason;
             saveStoredModerationClubs(state.moderationClubs);
+        }
+        try {
+            const token = await getValidAdminToken();
+            if (token) {
+                await fetch('/api/admin-moderation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        entity_type: 'club',
+                        entity_id: targetId,
+                        action: 'reject',
+                        reason: reason || 'Hồ sơ CLB không đạt tiêu chuẩn điều lệ.'
+                    })
+                });
+            }
+        } catch (e) {
+            console.warn('[Moderation] API reject club error:', e.message);
         }
         showSavedToast('Đã từ chối hồ sơ CLB và gửi lý do thẩm định.');
     } else if (actionType.startsWith('request_club_info')) {
@@ -6616,7 +7556,12 @@ if (typeof window !== 'undefined') {
         navGoClubs,
         navGoSaved,
         navGoSearch,
+        navGoSection,
+        switchView,
+        getActiveView,
         setBottomNavActive,
+        updateNavActiveStates,
+        updateSidebarNavActive,
         toggleNearMeFilter,
         handleTourSelect,
         handleSearchKeyword,
@@ -6705,6 +7650,17 @@ if (typeof window !== 'undefined') {
         closeHostEventModal,
         submitHostEvent,
         handleGrandstandRsvp,
+        openOfflineTicketModal,
+        closeOfflineTicketModal,
+        // Supabase Auth & UGC Lifecycle
+        openAuthModal,
+        closeAuthModal,
+        switchAuthTab,
+        handleAuthSubmit,
+        handleUserSignOut,
+        getUserSession,
+        fetchUserProfile,
+        syncCommunityUgcFeed,
         // Profile & Saved Collections Methods (Phase 7)
         openProfileModal,
         closeProfileModal,

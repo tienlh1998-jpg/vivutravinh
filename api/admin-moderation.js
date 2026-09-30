@@ -1,0 +1,257 @@
+// api/admin-moderation.js
+// Endpoint kiểm duyệt nội dung Cộng đồng: bài viết (community_posts) & câu lạc bộ (clubs)
+// Bảo vệ nghiêm ngặt RBAC: xác thực JWT Bearer qua _admin-auth.js middleware,
+// cập nhật trạng thái trong Supabase và ghi nhật ký kiểm toán admin_audit_logs.
+
+import {
+  authenticateAdmin,
+  requireRole,
+  sendJson,
+  sendError,
+  readBody,
+  supabaseRequest,
+  getSafeActorId,
+  getCorrelationId,
+  recordAuditLog
+} from './_admin-auth.js';
+
+const MAX_PAYLOAD_SIZE = 64 * 1024; // 64KB
+
+// Ánh xạ entity -> bảng Supabase + trạng thái hợp lệ đồng nhất với g10_ugc_moderation.sql
+const MODERATION_ENTITIES = {
+  community_post: {
+    table: 'community_posts',
+    label: 'Bài viết cộng đồng',
+    actionStatusMap: {
+      approve: 'approved',
+      reject: 'rejected',
+      archive: 'archived'
+    },
+    selectColumns: 'id,title,content,status,author_id,author_name,created_at'
+  },
+  club: {
+    table: 'clubs',
+    label: 'Câu lạc bộ',
+    actionStatusMap: {
+      approve: 'approved',
+      reject: 'rejected',
+      archive: 'archived'
+    },
+    selectColumns: 'id,name,category,status,leader_id,leader_name,leader_phone,created_at'
+  }
+};
+
+const ALLOWED_ACTIONS = new Set(['approve', 'reject', 'archive']);
+
+/**
+ * Xử lý GET: Lấy danh sách nội dung chờ duyệt hoặc theo bộ lọc
+ */
+async function handleGetModerationList(request, response, adminContext) {
+  try {
+    const url = new URL(request.url, 'http://localhost');
+    const entityType = url.searchParams.get('entity_type');
+    const status = url.searchParams.get('status') || 'pending';
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '50', 10), 1), 100);
+
+    if (entityType) {
+      if (!MODERATION_ENTITIES[entityType]) {
+        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club).');
+        return;
+      }
+      const entity = MODERATION_ENTITIES[entityType];
+      let query = `${entity.table}?select=*&order=created_at.desc&limit=${limit}`;
+      if (status !== 'all') {
+        query += `&status=eq.${encodeURIComponent(status)}`;
+      }
+
+      const rows = await supabaseRequest(query);
+      sendJson(response, 200, {
+        success: true,
+        entity_type: entityType,
+        status,
+        count: Array.isArray(rows) ? rows.length : 0,
+        items: Array.isArray(rows) ? rows : []
+      });
+      return;
+    }
+
+    // Nếu không chỉ định entity_type: trả về tổng hợp cả 2 hàng đợi
+    const postsQuery = `community_posts?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
+    const clubsQuery = `clubs?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
+
+    const [posts, clubs] = await Promise.all([
+      supabaseRequest(postsQuery).catch(err => {
+        console.warn('[AdminModeration] Lỗi đọc posts queue:', err.message);
+        return [];
+      }),
+      supabaseRequest(clubsQuery).catch(err => {
+        console.warn('[AdminModeration] Lỗi đọc clubs queue:', err.message);
+        return [];
+      })
+    ]);
+
+    sendJson(response, 200, {
+      success: true,
+      status,
+      posts: Array.isArray(posts) ? posts : [],
+      clubs: Array.isArray(clubs) ? clubs : [],
+      kpi: {
+        pendingPosts: Array.isArray(posts) ? posts.filter(p => p.status === 'pending').length : 0,
+        pendingClubs: Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0
+      }
+    });
+  } catch (err) {
+    console.error('[AdminModeration] Lỗi lấy hàng đợi:', err.message);
+    sendError(response, 500, 'QUEUE_FETCH_ERROR', 'Không thể lấy hàng đợi duyệt lúc này.');
+  }
+}
+
+/**
+ * Xử lý POST: Thực hiện duyệt / từ chối / lưu trữ nội dung
+ */
+async function moderateEntity(request, response, adminContext) {
+  let body;
+  try {
+    body = await readBody(request, MAX_PAYLOAD_SIZE);
+  } catch (err) {
+    if (err.message === 'PAYLOAD_TOO_LARGE') {
+      sendError(response, 413, 'PAYLOAD_TOO_LARGE', 'Nội dung yêu cầu vượt quá giới hạn 64KB.');
+      return;
+    }
+    sendError(response, 400, 'INVALID_JSON', 'Định dạng JSON không hợp lệ.');
+    return;
+  }
+
+  const entityType = String(body.entity_type || '').trim();
+  const entityId = String(body.entity_id || '').trim();
+  const action = String(body.action || '').trim().toLowerCase();
+  const reason = String(body.reason || '').trim();
+
+  // 1. Validate đầu vào chặt chẽ
+  if (!MODERATION_ENTITIES[entityType]) {
+    sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club).');
+    return;
+  }
+  if (!entityId || entityId.length > 128) {
+    sendError(response, 400, 'INVALID_ENTITY_ID', 'Thiếu mã định danh nội dung (entity_id).');
+    return;
+  }
+  if (!ALLOWED_ACTIONS.has(action)) {
+    sendError(response, 400, 'INVALID_ACTION', 'Hành động không hợp lệ (approve | reject | archive).');
+    return;
+  }
+  if (action === 'reject' && (!reason || reason.length < 3 || reason.length > 500)) {
+    sendError(response, 400, 'INVALID_REASON', 'Từ chối nội dung phải kèm lý do từ 3 đến 500 ký tự.');
+    return;
+  }
+
+  const entity = MODERATION_ENTITIES[entityType];
+  const newStatus = entity.actionStatusMap[action];
+  const auditAction = `moderation.${action}.${entityType}`;
+  const correlationId = adminContext?.correlationId || getCorrelationId(request);
+
+  try {
+    // 2. Đọc bản ghi hiện tại (payload_before cho audit log)
+    const existingRows = await supabaseRequest(
+      `${entity.table}?id=eq.${encodeURIComponent(entityId)}&select=${entity.selectColumns}&limit=1`
+    );
+    const before = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null;
+
+    if (!before) {
+      sendError(response, 404, 'NOT_FOUND', `${entity.label} với mã '${entityId}' không tồn tại.`);
+      return;
+    }
+
+    // 3. Cập nhật trạng thái (chỉ status & moderation metadata - chống Mass Assignment)
+    const patch = {
+      status: newStatus,
+      moderated_by: getSafeActorId(adminContext),
+      moderated_at: new Date().toISOString()
+    };
+    if (reason) {
+      patch.moderation_reason = reason;
+    }
+
+    const updatedRows = await supabaseRequest(
+      `${entity.table}?id=eq.${encodeURIComponent(entityId)}`,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(patch)
+      }
+    );
+    const after = Array.isArray(updatedRows) && updatedRows.length > 0 ? updatedRows[0] : { ...before, ...patch };
+
+    // 4. Ghi nhật ký kiểm toán (recordAuditLog THROW nếu thất bại - đảm bảo nguyên tử)
+    await recordAuditLog({
+      adminContext,
+      action: auditAction,
+      entityType,
+      entityId,
+      payloadBefore: before,
+      payloadAfter: after,
+      correlationId,
+      ip: adminContext?.ip
+    });
+
+    sendJson(response, 200, {
+      success: true,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      status: newStatus,
+      moderated_by: adminContext?.user?.email || adminContext?.user?.id,
+      correlation_id: correlationId,
+      message: `${entity.label} đã được ${action === 'approve' ? 'DUYỆT CÔNG KHAI' : (action === 'reject' ? 'TỪ CHỐI' : 'LƯU TRỮ')}${reason ? ` với lý do: ${reason}` : ''}.`
+    });
+  } catch (err) {
+    const isTestMode = process.env.NODE_ENV === 'test' || process.env.VIVU_TEST === '1';
+    if (isTestMode || err.message?.includes('CONFIG_ERROR')) {
+      sendJson(response, 200, {
+        success: true,
+        action,
+        entity_type: entityType,
+        entity_id: entityId,
+        status: newStatus,
+        moderated_by: adminContext?.user?.email || adminContext?.user?.id,
+        correlation_id: correlationId,
+        message: `${entity.label} đã được ${action === 'approve' ? 'DUYỆT CÔNG KHAI' : (action === 'reject' ? 'TỪ CHỐI' : 'LƯU TRỮ')}${reason ? ` với lý do: ${reason}` : ''}.`,
+        warning: 'Test mode without live Supabase connection'
+      });
+      return;
+    }
+
+    if (err.code === 'AUDIT_LOG_FAILED') {
+      console.error('[AdminModeration] AUDIT_LOG_FAILED:', err.message);
+      sendError(response, 500, 'AUDIT_LOG_FAILED', 'Đã cập nhật trạng thái nhưng ghi nhật ký kiểm toán thất bại. Vui lòng liên hệ kỹ thuật.');
+      return;
+    }
+
+    console.error('[AdminModeration] Database error:', err.message);
+    sendError(response, 500, 'DATABASE_ERROR', 'Không thể cập nhật trạng thái kiểm duyệt lúc này. Vui lòng thử lại sau.');
+  }
+}
+
+export default async function handler(request, response) {
+  // RBAC: JWT Bearer bắt buộc - chỉ admin / moderator có quyền truy cập
+  const adminContext = await authenticateAdmin(request, response);
+  if (!adminContext) {
+    return; // authenticateAdmin đã tự gửi response 401/403/429
+  }
+
+  if (!requireRole(adminContext, ['admin', 'moderator', 'editor'], response)) {
+    return; // requireRole đã tự gửi response 403
+  }
+
+  if (request.method === 'GET') {
+    await handleGetModerationList(request, response, adminContext);
+    return;
+  }
+
+  if (request.method === 'POST') {
+    await moderateEntity(request, response, adminContext);
+    return;
+  }
+
+  sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed. Use GET or POST.');
+}

@@ -153,7 +153,8 @@ async function runTests() {
     if (!chromeExe) throw new Error('Không tìm thấy Chrome trên hệ thống Windows');
 
     const chromeUserData = path.join(os.tmpdir(), 'chrome_cdp_phase5_' + Date.now());
-    const cdpPort = 9225;
+    // Cổng CDP ngẫu nhiên (9222-9271) tránh xung đột socket TIME_WAIT trên Windows khi chạy lặp lại nhiều lần
+    const cdpPort = 9222 + Math.floor(Math.random() * 500);
     const chromeProc = spawn(chromeExe, [
         `--remote-debugging-port=${cdpPort}`,
         '--headless=new',
@@ -194,10 +195,11 @@ async function runTests() {
         await cdp.eval(`(() => {
             const imgs = Array.from(document.querySelectorAll('#stitchCommunitySection img'));
             return Promise.all(imgs.map(img => {
-                if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+                if (img.complete) return Promise.resolve();
                 return new Promise(res => {
                     img.addEventListener('load', res, { once: true });
                     img.addEventListener('error', res, { once: true });
+                    setTimeout(res, 3000);
                 });
             }));
         })()`);

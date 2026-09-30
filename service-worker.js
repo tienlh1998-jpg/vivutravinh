@@ -1,7 +1,7 @@
 // ViVuTraVinh Service Worker
-// Version 2.10.0 - Partitioned Caches & Atomic Precache
+// Version 2.11.0 - Partitioned Caches & Atomic Precache (đầy đủ 8 module dữ liệu Phase 5-11)
 
-const VERSION = '2.10.0';
+const VERSION = '2.11.0';
 const CACHE_SHELL = `vivutravinh-shell-v${VERSION}`;
 const CACHE_DATA = `vivutravinh-data-v${VERSION}`;
 const CACHE_IMAGES = `vivutravinh-images-v${VERSION}`;
@@ -31,6 +31,14 @@ const APP_SHELL_URLS = [
   './js/data.js',
   './js/festivals-data.js',
   './js/articles-data.js',
+  './js/clubs-data.js',
+  './js/profile-data.js',
+  './js/security-data.js',
+  './js/planner-data.js',
+  './js/admin-portal-data.js',
+  './js/place-detail-data.js',
+  './js/admin-auth.js',
+  './js/place-validator.js',
   './js/comments.js',
   './js/offline-sync.js',
   './js/telemetry.js',

@@ -16,6 +16,9 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  .app-view.hidden {
+    display: none !important;
+  }
 }
 
 html, body {

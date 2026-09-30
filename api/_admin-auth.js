@@ -150,7 +150,7 @@ export async function authenticateAdmin(request, response) {
         sendError(response, 403, 'FORBIDDEN', 'Tài khoản quản trị viên đã bị vô hiệu hóa.');
         return null;
       }
-      if (bearerToken === 'mock-unlisted-token') {
+      if (bearerToken === 'mock-unlisted-token' || bearerToken === 'mock-user-token' || bearerToken.startsWith('mock-user-')) {
         recordFailedAuth(ip, path);
         sendError(response, 403, 'FORBIDDEN', 'Tài khoản không nằm trong allowlist quản trị viên.');
         return null;
@@ -275,6 +275,97 @@ export async function authenticateAdmin(request, response) {
   recordFailedAuth(ip, path);
   sendError(response, 401, 'UNAUTHENTICATED', 'Yêu cầu xác thực: Vui lòng cung cấp Bearer token hợp lệ.');
   return null;
+}
+
+/**
+ * Xác thực người dùng thông thường (End-User) qua Supabase Auth JWT
+ * @param {object} request
+ * @param {object} response
+ * @returns {Promise<object|null>} Trả về context { user, token, ip, correlationId } hoặc null
+ */
+export async function authenticateUser(request, response) {
+  const ip = getClientIp(request);
+  const correlationId = getCorrelationId(request);
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+
+  const authHeader = request.headers['authorization'] || request.headers['Authorization'] || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+
+  if (!bearerToken) {
+    sendError(response, 401, 'UNAUTHENTICATED', 'Yêu cầu đăng nhập. Thiếu Bearer token.');
+    return null;
+  }
+
+  // Hỗ trợ mock token trong môi trường Test/Dev
+  if (!isProduction && bearerToken.startsWith('mock-')) {
+    const userRole = bearerToken === 'mock-admin-token' ? 'admin' : 'authenticated';
+    const email = bearerToken === 'mock-admin-token' ? 'admin@vivutravinh.test' : `${bearerToken.replace('mock-', '')}@vivutravinh.test`;
+    return {
+      user: {
+        id: `usr-${bearerToken.replace(/[^a-zA-Z0-9_-]/g, '')}`,
+        email,
+        role: userRole,
+        user_metadata: {
+          display_name: bearerToken === 'mock-admin-token' ? 'Admin ViVu' : `Người dùng ${bearerToken.replace('mock-', '')}`
+        }
+      },
+      token: bearerToken,
+      ip,
+      correlationId
+    };
+  }
+
+  let config;
+  try {
+    config = getSupabaseConfig();
+  } catch (err) {
+    sendError(response, 500, 'CONFIG_ERROR', 'Hệ thống xác thực chưa được cấu hình.');
+    return null;
+  }
+
+  try {
+    const authRes = await fetch(`${config.baseUrl}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${bearerToken}`,
+        'apikey': config.serviceRoleKey
+      }
+    });
+
+    if (!authRes.ok) {
+      sendError(response, 401, 'UNAUTHENTICATED', 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.');
+      return null;
+    }
+
+    const authUser = await authRes.json();
+    if (!authUser || !authUser.id) {
+      sendError(response, 401, 'UNAUTHENTICATED', 'Không nhận diện được người dùng từ token.');
+      return null;
+    }
+
+    // Đọc thông tin role từ admin_users nếu có để biết user có phải admin không
+    let role = 'member';
+    try {
+      const adminRes = await fetch(`${config.baseUrl}/rest/v1/admin_users?user_id=eq.${encodeURIComponent(authUser.id)}&select=role,is_active&is_active=eq.true`, {
+        headers: {
+          'apikey': config.serviceRoleKey,
+          'Authorization': `Bearer ${config.serviceRoleKey}`
+        }
+      });
+      if (adminRes.ok) {
+        const rows = await adminRes.json();
+        if (Array.isArray(rows) && rows.length > 0 && rows[0].role) {
+          role = rows[0].role;
+        }
+      }
+    } catch (_) {}
+
+    authUser.role = role;
+    return { user: authUser, token: bearerToken, ip, correlationId };
+  } catch (err) {
+    sendError(response, 500, 'AUTH_ERROR', 'Lỗi xác thực người dùng: ' + err.message);
+    return null;
+  }
 }
 
 /**
@@ -443,7 +534,9 @@ export async function supabaseRequest(path, options = {}) {
 
   if (response.status === 204) return null;
 
-  const data = await response.json();
+  const text = await response.text();
+  if (!text || text.trim() === '') return null;
+  const data = JSON.parse(text);
   if (options.count) {
     let contentRange = null;
     if (response.headers) {
