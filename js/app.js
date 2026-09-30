@@ -21,6 +21,10 @@ import {
     renderFestivalDetailModal,
     renderArticlesSection,
     renderArticleReaderModal,
+    renderSubmitArticleModal,
+    getArticleCategoryBadgeClass,
+    getArticleCategoryName,
+    sanitizeArticleContent,
     updateModalBookmarkButton,
     createCustomMapMarker,
     renderMapPlacesList,
@@ -647,6 +651,8 @@ export const state = {
     selectedModerationClubId: null,
     moderationEvents: getStoredModerationEvents(),
     selectedModerationEventId: null,
+    moderationArticles: [],
+    selectedModerationArticleId: null,
     moderationKpi: { ...MODERATION_KPI },
     moderationActiveTab: 'posts',
     moderationFilterCategory: 'all',
@@ -776,7 +782,10 @@ async function initApp() {
         renderArticlesSection(
             'travelStoriesContainer',
             state.articles,
-            openArticleModal
+            openArticleModal,
+            openSubmitArticleModal,
+            (article) => openSubmitArticleModal(article, true),
+            Boolean(getAdminSession()?.user && ['admin', 'editor', 'moderator'].includes(getAdminSession()?.user?.role))
         );
 
         // Render Section Câu Lạc Bộ & Hoạt Động Cộng Đồng Xứ Trà (Phase 5)
@@ -1599,6 +1608,166 @@ export function shareArticle(type) {
         } else {
             prompt('Sao chép liên kết:', url);
         }
+    }
+}
+
+/**
+ * Mở modal gửi hoặc biên tập bài viết cẩm nang du lịch
+ */
+export function openSubmitArticleModal(article = null, isAdmin = false) {
+    const adminSession = getAdminSession();
+    const adminRole = adminSession?.user?.role;
+    const isActuallyAdmin = isAdmin || (adminSession?.user && ['admin', 'editor', 'moderator'].includes(adminRole));
+
+    if (!isActuallyAdmin) {
+        const userSession = getUserSession();
+        if (!userSession || !userSession.user) {
+            showNoticeToast('Yêu cầu đăng nhập', 'Vui lòng đăng nhập tài khoản Thành viên để gửi bài cẩm nang.');
+            openAuthModal('signin', () => openSubmitArticleModal(article, isAdmin));
+            return;
+        }
+    }
+
+    renderSubmitArticleModal(submitArticle, article, isActuallyAdmin);
+    const modal = document.getElementById('submitArticleModal');
+    if (modal) modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+/**
+ * Đóng modal gửi / biên tập bài cẩm nang
+ */
+export function closeSubmitArticleModal() {
+    const modal = document.getElementById('submitArticleModal');
+    if (modal) modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+/**
+ * Xử lý submit bài viết cẩm nang (Tạo mới hoặc Cập nhật)
+ */
+export async function submitArticle(formData) {
+    const adminSession = getAdminSession();
+    const adminRole = adminSession?.user?.role;
+    const isAdmin = adminSession?.user && ['admin', 'editor', 'moderator'].includes(adminRole);
+
+    let token = null;
+    if (isAdmin) {
+        token = await getValidAdminToken();
+    } else {
+        token = await getValidUserToken();
+    }
+
+    if (!token) {
+        showNoticeToast('Phiên làm việc hết hạn', 'Vui lòng đăng nhập lại để tiếp tục.');
+        if (isAdmin) {
+            window.location.href = '/admin.html';
+        } else {
+            openAuthModal('signin', () => submitArticle(formData));
+        }
+        return;
+    }
+
+    const isEdit = Boolean(formData.id);
+    const method = isEdit ? 'PATCH' : 'POST';
+    const url = isEdit ? `/api/articles?id=${encodeURIComponent(formData.id)}` : '/api/articles';
+
+    try {
+        const res = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+            closeSubmitArticleModal();
+            if (isEdit) {
+                showSavedToast('✓ Đã cập nhật bài viết cẩm nang thành công!');
+            } else if (isAdmin && formData.status === 'approved') {
+                showSavedToast('✓ Đã xuất bản bài viết cẩm nang du lịch lên trang chủ!');
+            } else {
+                showSavedToast('✓ Đã gửi bài cẩm nang thành công! Ban Quản Trị sẽ thẩm định trước khi xuất bản.');
+            }
+
+            // Đồng bộ lại danh sách bài cẩm nang công khai
+            await syncArticlesFromSupabase().catch(() => {});
+
+            // Nếu đang mở moderation modal, làm mới danh sách duyệt
+            if (document.getElementById('adminModerationModal') && !document.getElementById('adminModerationModal').classList.contains('hidden')) {
+                await openAdminModerationModal('articles');
+            }
+        } else {
+            showNotification(data.message || 'Không thể lưu bài viết lúc này.');
+        }
+    } catch (e) {
+        console.warn('[Articles] Lỗi submit bài viết:', e.message);
+        showNotification('Có lỗi kết nối mạng. Vui lòng thử lại sau.');
+    }
+}
+
+/**
+ * Đồng bộ danh sách Bài viết Cẩm nang đã duyệt từ Supabase về State
+ */
+export async function syncArticlesFromSupabase() {
+    try {
+        const res = await fetch('/api/articles?status=approved');
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.articles)) {
+                const liveApprovedArticles = data.articles.map(a => ({
+                    id: a.id,
+                    slug: a.slug || a.id,
+                    title: a.title,
+                    category: a.category || 'van-hoa',
+                    categoryName: a.category_name || 'Văn Hóa Khmer',
+                    categoryBadge: a.category_badge || 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40',
+                    coverImage: a.cover_image || '/ao bà om.jpg',
+                    readTime: a.read_time || '4 phút đọc',
+                    excerpt: a.excerpt || '',
+                    content: a.content || '',
+                    author: {
+                        name: a.author_name || 'Thành viên Xứ Trà',
+                        role: a.is_editorial ? 'Ban Biên Tập ViVuTraVinh' : (a.author_role || 'Thành viên Xứ Trà'),
+                        avatar: a.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(a.author_name || 'TV')}`
+                    },
+                    authorName: a.author_name || 'Thành viên Xứ Trà',
+                    authorRole: a.is_editorial ? 'Ban Biên Tập ViVuTraVinh' : (a.author_role || 'Thành viên Xứ Trà'),
+                    authorAvatar: a.author_avatar || null,
+                    isEditorial: !!a.is_editorial,
+                    isSample: false,
+                    source: a.is_editorial ? 'editorial' : 'community_approved',
+                    relatedPlaceIds: a.related_place_ids || [],
+                    status: 'approved',
+                    publishedAt: a.created_at ? new Date(a.created_at).toLocaleDateString('vi-VN') : 'Mới cập nhật'
+                }));
+
+                const liveIds = new Set(liveApprovedArticles.map(a => a.id));
+                state.articles = [
+                    ...liveApprovedArticles,
+                    ...TRA_VINH_ARTICLES.filter(a => !liveIds.has(a.id))
+                ];
+
+                const session = getAdminSession();
+                const role = session?.user?.role;
+                const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
+
+                renderArticlesSection(
+                    'travelStoriesContainer',
+                    state.articles,
+                    openArticleModal,
+                    openSubmitArticleModal,
+                    (article) => openSubmitArticleModal(article, true),
+                    isAdmin
+                );
+            }
+        }
+    } catch (e) {
+        console.warn('[ArticlesSync] Lỗi đồng bộ cẩm nang:', e.message);
     }
 }
 
@@ -5166,6 +5335,9 @@ export async function syncCommunityUgcFeed() {
 
     // 3. Đồng bộ Sự kiện & Workshop cộng đồng
     await syncCommunityEventsFromSupabase().catch(e => console.warn('[CommunitySync] Events sync error:', e.message));
+
+    // 4. Đồng bộ Bài viết Cẩm nang du lịch
+    await syncArticlesFromSupabase().catch(e => console.warn('[CommunitySync] Articles sync error:', e.message));
 }
 
 /**
@@ -6984,6 +7156,8 @@ function renderModerationModal() {
         selectedClubId: state.selectedModerationClubId,
         events: state.moderationEvents,
         selectedEventId: state.selectedModerationEventId,
+        articles: state.moderationArticles || [],
+        selectedArticleId: state.selectedModerationArticleId,
         kpi: state.moderationKpi,
         filterCategory: state.moderationFilterCategory,
         riskFilter: state.moderationRiskFilter,
@@ -7098,16 +7272,41 @@ export async function openAdminModerationModal(tab = 'posts') {
                         creatorName: e.creator_name || 'Thành viên Xứ Trà'
                     }));
                 }
+                if (Array.isArray(data.articles)) {
+                    state.moderationArticles = data.articles.map(a => ({
+                        id: a.id,
+                        slug: a.slug,
+                        title: a.title,
+                        category: a.category,
+                        category_name: a.category_name,
+                        category_badge: a.category_badge,
+                        cover_image: a.cover_image,
+                        excerpt: a.excerpt,
+                        content: a.content,
+                        read_time: a.read_time,
+                        author: {
+                            name: a.author_name || 'Thành viên Xứ Trà',
+                            avatar: a.author_avatar || null
+                        },
+                        author_name: a.author_name || 'Thành viên Xứ Trà',
+                        author_role: a.author_role,
+                        is_editorial: a.is_editorial,
+                        status: a.status || 'pending',
+                        created_at: a.created_at,
+                        admin_notes: a.admin_notes || ''
+                    }));
+                }
                 if (data.kpi) {
                     state.moderationKpi = {
-                        pendingCount: (data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0),
-                        pendingNew: data.kpi.pendingEvents || 0,
+                        pendingCount: (data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0),
+                        pendingNew: (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0),
                         flaggedCount: 0,
                         approvedToday: state.moderationKpi.approvedToday || 0,
                         pointsIssued: 0,
                         violationRate: "0%",
                         pendingClubsCount: data.kpi.pendingClubs || 0,
-                        pendingEventsCount: data.kpi.pendingEvents || 0
+                        pendingEventsCount: data.kpi.pendingEvents || 0,
+                        pendingArticlesCount: data.kpi.pendingArticles || 0
                     };
                 }
             }
@@ -7147,6 +7346,11 @@ export function selectModerationClub(clubId) {
 
 export function selectModerationEvent(eventId) {
     state.selectedModerationEventId = eventId;
+    renderModerationModal();
+}
+
+export function selectModerationArticle(articleId) {
+    state.selectedModerationArticleId = articleId;
     renderModerationModal();
 }
 
@@ -7271,6 +7475,52 @@ export async function approveEvent(eventId) {
 
     renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và xuất bản sự kiện cộng đồng!');
+}
+
+export function openEditArticleFromModeration(articleId) {
+    const article = (state.moderationArticles || []).find(a => a.id === articleId);
+    if (!article) return;
+    openSubmitArticleModal(article, true);
+}
+
+export async function approveArticle(articleId) {
+    const article = (state.moderationArticles || []).find(a => a.id === articleId);
+    if (!article) return;
+
+    try {
+        const token = await getValidAdminToken();
+        if (token) {
+            const auditNoteEl = document.getElementById('moderatorAuditNote');
+            const adminNotes = auditNoteEl ? auditNoteEl.value.trim() : undefined;
+            await fetch('/api/admin-moderation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    entity_type: 'article',
+                    entity_id: articleId,
+                    action: 'approve',
+                    admin_notes: adminNotes
+                })
+            });
+        }
+    } catch (e) {
+        console.warn('[Moderation] API approveArticle error:', e.message);
+    }
+
+    article.status = 'approved';
+    state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
+    state.moderationArticles = (state.moderationArticles || []).filter(a => a.id !== articleId);
+    if (state.selectedModerationArticleId === articleId) {
+        state.selectedModerationArticleId = state.moderationArticles[0]?.id || null;
+    }
+
+    await syncArticlesFromSupabase().catch(() => {});
+
+    renderModerationModal();
+    showSavedToast('✓ Đã phê duyệt và xuất bản bài cẩm nang du lịch!');
 }
 
 export function openActionReasonModal(actionType, targetId, targetTitle) {
@@ -7398,6 +7648,37 @@ export async function submitActionReason(actionType, targetId) {
             console.warn('[Moderation] API reject event error:', e.message);
         }
         showSavedToast('Đã từ chối sự kiện và lưu lý do thẩm định.');
+    } else if (actionType.startsWith('reject_article')) {
+        const article = (state.moderationArticles || []).find(a => a.id === targetId);
+        if (article) {
+            article.status = 'rejected';
+            article.rejectionReason = reason;
+        }
+        try {
+            const token = await getValidAdminToken();
+            if (token) {
+                await fetch('/api/admin-moderation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        entity_type: 'article',
+                        entity_id: targetId,
+                        action: 'reject',
+                        reason: reason || 'Nội dung chưa đáp ứng tiêu chuẩn cẩm nang du lịch.'
+                    })
+                });
+            }
+        } catch (e) {
+            console.warn('[Moderation] API reject article error:', e.message);
+        }
+        state.moderationArticles = (state.moderationArticles || []).filter(a => a.id !== targetId);
+        if (state.selectedModerationArticleId === targetId) {
+            state.selectedModerationArticleId = state.moderationArticles[0]?.id || null;
+        }
+        showSavedToast('Đã từ chối bài cẩm nang và lưu lý do thẩm định.');
     }
 
     closeActionReasonModal();
@@ -7867,15 +8148,26 @@ if (typeof window !== 'undefined') {
         selectModerationPost,
         selectModerationClub,
         selectModerationEvent,
+        selectModerationArticle,
+        openEditArticleFromModeration,
+        getSelectedModerationArticle: () => (state.moderationArticles || []).find(a => a.id === state.selectedModerationArticleId) || (state.moderationArticles || [])[0] || null,
         handleModerationSearch,
         filterModerationRisk,
         approvePost,
         approveClub,
         approveEvent,
+        approveArticle,
         openActionReasonModal,
         closeActionReasonModal,
         submitActionReason,
         quickApproveHighTrust,
+        openSubmitArticleModal,
+        closeSubmitArticleModal,
+        submitArticle,
+        syncArticlesFromSupabase,
+        getArticleCategoryBadgeClass,
+        getArticleCategoryName,
+        sanitizeArticleContent,
         updateAdminRoleUI,
         // Deep Cultural Heritage & Saved Itinerary Folder Methods (Phase 11)
         openDeepPlaceDetail,

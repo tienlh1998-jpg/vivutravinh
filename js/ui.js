@@ -25,6 +25,200 @@ export function escapeHtml(str) {
 }
 
 /**
+ * Danh mục Badge CSS cố định của ứng dụng (Fixed Allowlist - Anti Class Injection)
+ * Tuyệt đối không dùng giá trị chuỗi tùy ý từ CSDL làm class CSS.
+ */
+export const ARTICLE_CATEGORY_BADGES = {
+    'van-hoa': 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40',
+    'am-thuc': 'bg-orange-100 text-orange-900 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200 dark:border-orange-800/40',
+    'ky-su': 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40',
+    'le-hoi': 'bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800/40',
+    'dia-diem': 'bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40',
+    'default': 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40'
+};
+
+export const ARTICLE_CATEGORY_NAMES = {
+    'van-hoa': 'Văn Hóa Khmer',
+    'am-thuc': 'Ẩm Thực Bản Địa',
+    'ky-su': 'Ký Sự Du Lịch',
+    'le-hoi': 'Lễ Hội & Sự Kiện',
+    'dia-diem': 'Điểm Đến Mới'
+};
+
+/**
+ * Lấy Badge CSS an toàn từ danh sách cố định theo category key hoặc tên chuyên mục
+ */
+export function getArticleCategoryBadgeClass(category) {
+    if (!category || typeof category !== 'string') return ARTICLE_CATEGORY_BADGES['default'];
+    const norm = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    if (norm.includes('van hoa') || norm.includes('van-hoa')) return ARTICLE_CATEGORY_BADGES['van-hoa'];
+    if (norm.includes('am thuc') || norm.includes('am-thuc')) return ARTICLE_CATEGORY_BADGES['am-thuc'];
+    if (norm.includes('ky su') || norm.includes('ky-su')) return ARTICLE_CATEGORY_BADGES['ky-su'];
+    if (norm.includes('le hoi') || norm.includes('le-hoi')) return ARTICLE_CATEGORY_BADGES['le-hoi'];
+    if (norm.includes('dia diem') || norm.includes('dia-diem')) return ARTICLE_CATEGORY_BADGES['dia-diem'];
+    return ARTICLE_CATEGORY_BADGES['default'];
+}
+
+/**
+ * Lấy tên chuyên mục chuẩn hóa an toàn
+ */
+export function getArticleCategoryName(category, fallbackName) {
+    if (fallbackName && typeof fallbackName === 'string') {
+        const normFb = fallbackName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+        if (normFb.includes('van hoa')) return 'Văn Hóa Khmer';
+        if (normFb.includes('am thuc')) return 'Ẩm Thực Bản Địa';
+        if (normFb.includes('ky su')) return 'Ký Sự Du Lịch';
+        if (normFb.includes('le hoi')) return 'Lễ Hội & Sự Kiện';
+        if (normFb.includes('dia diem')) return 'Điểm Đến Mới';
+    }
+    if (!category || typeof category !== 'string') return 'Cẩm Nang Du Lịch';
+    const norm = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    if (norm.includes('van hoa') || norm.includes('van-hoa')) return 'Văn Hóa Khmer';
+    if (norm.includes('am thuc') || norm.includes('am-thuc')) return 'Ẩm Thực Bản Địa';
+    if (norm.includes('ky su') || norm.includes('ky-su')) return 'Ký Sự Du Lịch';
+    if (norm.includes('le hoi') || norm.includes('le-hoi')) return 'Lễ Hội & Sự Kiện';
+    if (norm.includes('dia diem') || norm.includes('dia-diem')) return 'Điểm Đến Mới';
+    return 'Cẩm Nang Du Lịch';
+}
+
+/**
+ * Bộ lọc HTML an toàn cho nội dung bài viết cẩm nang (XSS Prevention)
+ * - Tự động bọc đoạn văn bản thuần thành các thẻ <p>
+ * - Lọc qua danh sách thẻ cho phép (Allowlist), loại bỏ triệt để <script>, <iframe>, <style>, <svg>, <object>...
+ * - Tước bỏ toàn bộ các thuộc tính nguy hiểm (on*, style, src, href, id) khỏi các thẻ được phép
+ */
+export function sanitizeArticleContent(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    const text = raw.trim();
+    if (!text) return '';
+
+    // Danh sách thẻ được phép giữ lại cho bài viết cẩm nang tạp chí
+    const ALLOWED_TAGS = new Set([
+        'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S',
+        'H2', 'H3', 'H4', 'H5', 'H6',
+        'UL', 'OL', 'LI', 'BLOCKQUOTE', 'HR', 'SPAN', 'DIV'
+    ]);
+
+    // Danh sách thẻ nguy hại bị xóa sổ hoàn toàn (cả nội dung bên trong)
+    const DANGEROUS_TAGS = new Set([
+        'SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'MATH',
+        'LINK', 'META', 'FORM', 'INPUT', 'BUTTON', 'TEXTAREA', 'SELECT',
+        'AUDIO', 'VIDEO', 'SOURCE', 'TRACK', 'APPLET', 'BASE', 'FRAME', 'FRAMESET',
+        'IMG', 'PICTURE', 'CANVAS'
+    ]);
+
+    // Nếu môi trường có DOMParser (trình duyệt web)
+    if (typeof DOMParser !== 'undefined') {
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            // 1. Quét đệ quy từ dưới lên (Bottom-up post-order traversal):
+            // Luôn làm sạch toàn bộ các tầng con trước khi tháo bỏ hoặc xử lý thẻ cha
+            function cleanSubtree(node) {
+                if (!node) return;
+
+                // Đệ quy làm sạch toàn bộ các node con trước tiên
+                let child = node.firstChild;
+                while (child) {
+                    const next = child.nextSibling;
+                    if (child.nodeType === 1) { // Element node
+                        cleanSubtree(child);
+                    } else if (child.nodeType === 8) { // Comment node
+                        child.remove();
+                    } else if (child.nodeType !== 3) { // Non-text node
+                        child.remove();
+                    }
+                    child = next;
+                }
+
+                // Xử lý node hiện tại nếu không phải BODY
+                if (node.nodeType === 1 && node.tagName.toUpperCase() !== 'BODY') {
+                    const tag = node.tagName.toUpperCase();
+
+                    // 1.1 Thẻ nguy hại: Xóa sổ cả tag và toàn bộ con
+                    if (DANGEROUS_TAGS.has(tag)) {
+                        node.remove();
+                        return;
+                    }
+
+                    // 1.2 Thẻ không thuộc allowlist: Đưa các con (đã được đệ quy làm sạch hoàn toàn) lên cha rồi xóa bỏ thẻ bọc
+                    if (!ALLOWED_TAGS.has(tag)) {
+                        const parent = node.parentNode;
+                        if (parent) {
+                            while (node.firstChild) {
+                                parent.insertBefore(node.firstChild, node);
+                            }
+                            node.remove();
+                        }
+                        return;
+                    }
+
+                    // 1.3 Thẻ thuộc allowlist: Tước bỏ toàn bộ thuộc tính ngoại trừ class an toàn
+                    const attrs = Array.from(node.attributes);
+                    for (const attr of attrs) {
+                        const attrName = attr.name.toLowerCase();
+                        if (attrName === 'class') {
+                            const cleanClass = attr.value.replace(/[^a-zA-Z0-9\s_\-:/.[\]]/g, '');
+                            node.setAttribute('class', cleanClass);
+                        } else {
+                            node.removeAttribute(attr.name);
+                        }
+                    }
+                }
+            }
+
+            cleanSubtree(doc.body);
+
+            // 2. Lớp bảo vệ thứ hai (Second-pass safety net):
+            // Quét lại toàn bộ cây DOM kết quả để đảm bảo 0% phần tử hay thuộc tính nguy hiểm nào có thể sót lại
+            const remainingElements = Array.from(doc.body.querySelectorAll('*'));
+            for (const el of remainingElements) {
+                const tag = el.tagName.toUpperCase();
+                if (!ALLOWED_TAGS.has(tag)) {
+                    el.remove();
+                    continue;
+                }
+                for (const attr of Array.from(el.attributes)) {
+                    const attrName = attr.name.toLowerCase();
+                    if (attrName === 'class') {
+                        const cleanClass = attr.value.replace(/[^a-zA-Z0-9\s_\-:/.[\]]/g, '');
+                        el.setAttribute('class', cleanClass);
+                    } else {
+                        el.removeAttribute(attr.name);
+                    }
+                }
+            }
+
+            const cleanHtml = doc.body.innerHTML.trim();
+
+            // Nếu sau khi lọc không còn thẻ HTML nào nhưng có nội dung text
+            if (!/<[a-z][\s\S]*>/i.test(cleanHtml)) {
+                if (!cleanHtml) return '';
+                return cleanHtml
+                    .split(/\n{2,}/)
+                    .map(p => {
+                        const trimmed = p.trim();
+                        return trimmed ? `<p class="mb-4 leading-relaxed">${escapeHtml(trimmed).replace(/\n/g, '<br/>')}</p>` : '';
+                    })
+                    .filter(Boolean)
+                    .join('');
+            }
+
+            return cleanHtml;
+        } catch (_) {
+            // Gặp lỗi parser thì fallback về escape văn bản an toàn
+        }
+    }
+
+    // Fallback khi không có DOMParser: Thoát toàn bộ HTML và bọc thẻ <p>
+    return text
+        .split(/\n{2,}/)
+        .map(p => `<p class="mb-4 leading-relaxed">${escapeHtml(p.trim()).replace(/\n/g, '<br/>')}</p>`)
+        .join('');
+}
+
+/**
  * Lấy giờ hiện tại chuẩn múi giờ Việt Nam (Asia/Ho_Chi_Minh, UTC+7)
  */
 export function getVietnamHours(currentTime = new Date()) {
@@ -3944,7 +4138,7 @@ export function renderHostEventModal(onSubmitHost) {
 /**
  * Render Lưới Bài Viết Magazine: Chuyên mục "Góc Chuyện Xứ Trà"
  */
-export function renderArticlesSection(containerId, articles, onOpenArticle) {
+export function renderArticlesSection(containerId, articles, onOpenArticle, onOpenSubmitArticle, onEditArticle, isAdmin = false) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -3969,28 +4163,75 @@ export function renderArticlesSection(containerId, articles, onOpenArticle) {
                         Những huyền tích trăm năm, bí mật ẩm thực miệt vườn và cẩm nang phượt thực chiến từ thổ địa Trà Vinh.
                     </p>
                 </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btnSubmitArticle"
+                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-white font-button text-xs font-semibold hover:bg-primary-container hover:text-on-primary transition-all shadow-xs min-h-[44px]">
+                        <span class="material-symbols-outlined text-[18px]">edit_note</span>
+                        <span>Gửi bài cẩm nang</span>
+                    </button>
+                    ${isAdmin ? `
+                    <button type="button" id="btnAdminCreateArticle"
+                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-secondary text-white font-button text-xs font-semibold hover:bg-secondary-container hover:text-on-secondary-container transition-all shadow-xs min-h-[44px]">
+                        <span class="material-symbols-outlined text-[18px]">post_add</span>
+                        <span>Viết bài (Admin)</span>
+                    </button>
+                    ` : ''}
+                </div>
             </div>
 
             <!-- Grid Lưới Bài Viết Magazine Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${articles.map(art => `
-                    <article class="article-card group bg-surface-container-lowest dark:bg-dark-card rounded-3xl border border-outline-variant/40 dark:border-dark-border overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer" data-article-id="${art.id}">
+                ${articles.map(art => {
+                    const coverImg = art.coverImage || art.cover_image || '/ao bà om.jpg';
+                    const categoryTxt = getArticleCategoryName(art.category, art.categoryName || art.category_name);
+                    const catBadgeClass = getArticleCategoryBadgeClass(art.category);
+                    const readTimeTxt = art.readTime || art.read_time || '4 phút đọc';
+                    const authorName = art.author?.name || art.author_name || 'Thành viên Xứ Trà';
+                    const authorAvatar = art.author?.avatar || art.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(authorName)}`;
+                    const authorRole = art.isSample ? 'Biên soạn tham khảo' : (art.author?.role || art.author_role || (art.isEditorial ? 'Ban Biên Tập ViVuTraVinh' : 'Thành viên đóng góp'));
+                    const publishedDate = art.publishedAt || (art.created_at ? new Date(art.created_at).toLocaleDateString('vi-VN') : 'Mới cập nhật');
+
+                    return `
+                    <article class="article-card group bg-surface-container-lowest dark:bg-dark-card rounded-3xl border border-outline-variant/40 dark:border-dark-border overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer relative" data-article-id="${art.id}">
                         <!-- Ảnh bìa -->
                         <div class="relative w-full h-52 sm:h-56 overflow-hidden bg-slate-200 dark:bg-zinc-800">
-                            <img src="${art.coverImage}" alt="${art.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <img src="${escapeHtml(coverImg)}" alt="${escapeHtml(art.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
 
-                            <!-- Badge Danh Mục -->
-                            <div class="absolute top-3 left-3">
-                                <span class="px-3 py-1 rounded-full text-xs font-bold shadow-sm ${art.categoryBadge}">
-                                    ${art.category}
+                            <!-- Badges Phân Biệt Bài Mẫu / Ban Biên Tập / Người Dùng Đóng Góp -->
+                            <div class="absolute top-3 left-3 flex flex-wrap gap-1.5 items-center z-10">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-bold shadow-sm ${catBadgeClass}">
+                                    ${escapeHtml(categoryTxt)}
                                 </span>
+                                ${art.isSample ? `
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm bg-zinc-900/85 text-amber-300 border border-amber-400/50 backdrop-blur-md flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[12px] text-amber-300">menu_book</span>
+                                        Biên soạn mẫu
+                                    </span>
+                                ` : (art.isEditorial ? `
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm bg-amber-600/90 text-white border border-amber-300 backdrop-blur-md flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[12px]">verified</span>
+                                        Ban Biên Tập
+                                    </span>
+                                ` : `
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm bg-emerald-700/90 text-white border border-emerald-300 backdrop-blur-md flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[12px]">groups</span>
+                                        Cộng đồng
+                                    </span>
+                                `)}
                             </div>
+
+                            ${isAdmin ? `
+                            <!-- Nút Biên Tập Dành Riêng Cho Admin -->
+                            <button type="button" class="btn-edit-article absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 dark:bg-zinc-800/90 hover:bg-white text-slate-800 dark:text-zinc-100 flex items-center justify-center shadow-md transition-transform active:scale-95 z-20" data-article-id="${art.id}" title="Biên tập bài viết">
+                                <span class="material-symbols-outlined text-sm">edit</span>
+                            </button>
+                            ` : ''}
 
                             <!-- Thời gian đọc -->
                             <div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-1 rounded-xl flex items-center gap-1 border border-white/20">
                                 <span class="material-symbols-outlined text-xs text-amber-300">timer</span>
-                                <span>${art.readTime}</span>
+                                <span>${escapeHtml(readTimeTxt)}</span>
                             </div>
                         </div>
 
@@ -3999,21 +4240,21 @@ export function renderArticlesSection(containerId, articles, onOpenArticle) {
                             <div class="space-y-2.5">
                                 <!-- Tác giả & Ngày đăng -->
                                 <div class="flex items-center gap-2.5">
-                                    <img src="${art.author.avatar}" alt="${art.author.name}" class="w-7 h-7 rounded-full bg-slate-100 dark:bg-zinc-700 object-cover border border-outline-variant/30">
+                                    <img src="${escapeHtml(authorAvatar)}" alt="${escapeHtml(authorName)}" class="w-7 h-7 rounded-full bg-slate-100 dark:bg-zinc-700 object-cover border border-outline-variant/30">
                                     <div class="text-xs">
-                                        <span class="font-bold text-slate-800 dark:text-zinc-200">${art.author.name}</span>
-                                        <span class="text-[10px] text-slate-500 dark:text-zinc-400 block">${art.author.role}</span>
+                                        <span class="font-bold text-slate-800 dark:text-zinc-200">${escapeHtml(authorName)}</span>
+                                        <span class="text-[10px] text-slate-500 dark:text-zinc-400 block">${escapeHtml(authorRole)}</span>
                                     </div>
                                 </div>
 
                                 <!-- Tiêu đề -->
                                 <h4 class="font-serif text-base sm:text-lg font-black text-slate-900 dark:text-zinc-100 group-hover:text-primary dark:group-hover:text-emerald-400 transition-colors line-clamp-2 leading-snug">
-                                    ${art.title}
+                                    ${escapeHtml(art.title)}
                                 </h4>
 
                                 <!-- Trích đoạn tóm tắt -->
                                 <p class="text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-3 leading-relaxed">
-                                    ${art.excerpt}
+                                    ${escapeHtml(art.excerpt || '')}
                                 </p>
                             </div>
 
@@ -4024,19 +4265,41 @@ export function renderArticlesSection(containerId, articles, onOpenArticle) {
                                     <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
                                 </span>
                                 <span class="text-[11px] font-normal text-slate-400 dark:text-zinc-500">
-                                    ${art.publishedAt}
+                                    ${escapeHtml(publishedDate)}
                                 </span>
                             </div>
                         </div>
                     </article>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         </div>
     `;
 
-    // Gắn sự kiện click mở modal đọc bài
+    // Gắn sự kiện click
+    const submitBtn = container.querySelector('#btnSubmitArticle');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', () => {
+            if (onOpenSubmitArticle) onOpenSubmitArticle();
+        });
+    }
+    const adminCreateBtn = container.querySelector('#btnAdminCreateArticle');
+    if (adminCreateBtn) {
+        adminCreateBtn.addEventListener('click', () => {
+            if (onOpenSubmitArticle) onOpenSubmitArticle(null, true);
+        });
+    }
+    container.querySelectorAll('.btn-edit-article').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const artId = btn.dataset.articleId;
+            const article = articles.find(a => a.id === artId);
+            if (article && onEditArticle) onEditArticle(article);
+        });
+    });
     container.querySelectorAll('.article-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-edit-article')) return;
             const artId = card.dataset.articleId;
             if (artId && onOpenArticle) {
                 onOpenArticle(artId);
@@ -4058,29 +4321,54 @@ export function renderArticleReaderModal(article, comments = [], allPlaces = [],
         return (allPlaces || []).find(p => (p.name || '').toLowerCase().includes(refLower) || (p.id || '').toLowerCase() === refLower);
     }).filter(Boolean);
 
+    const coverImg = article.coverImage || article.cover_image || '/ao bà om.jpg';
+    const categoryTxt = getArticleCategoryName(article.category, article.categoryName || article.category_name);
+    const catBadgeClass = getArticleCategoryBadgeClass(article.category);
+    const readTimeTxt = article.readTime || article.read_time || '4 phút đọc';
+    const authorName = article.author?.name || article.author_name || 'Thành viên Xứ Trà';
+    const authorAvatar = article.author?.avatar || article.author_avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(authorName)}`;
+    const authorRole = article.isSample ? 'Nội dung tham khảo / Mẫu' : (article.author?.role || article.author_role || (article.isEditorial ? 'Ban Biên Tập ViVuTraVinh' : 'Thành viên đóng góp'));
+    const publishedDate = article.publishedAt || (article.created_at ? new Date(article.created_at).toLocaleDateString('vi-VN') : 'Mới cập nhật');
+
     container.innerHTML = `
         <div class="flex flex-col bg-surface dark:bg-dark-card rounded-3xl overflow-hidden shadow-2xl">
             <!-- Hero Image Banner -->
             <div class="relative w-full h-64 sm:h-80 md:h-96 bg-slate-900 overflow-hidden">
-                <img src="${article.coverImage}" alt="${article.title}" class="w-full h-full object-cover opacity-85">
+                <img src="${escapeHtml(coverImg)}" alt="${escapeHtml(article.title)}" class="w-full h-full object-cover opacity-85">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
 
                 <!-- Category & Read Time -->
                 <div class="absolute bottom-6 left-6 right-6 space-y-2 text-white">
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="px-3 py-1 rounded-full text-xs font-bold ${article.categoryBadge}">
-                            ${article.category}
+                        <span class="px-3 py-1 rounded-full text-xs font-bold ${catBadgeClass}">
+                            ${escapeHtml(categoryTxt)}
                         </span>
+                        ${article.isSample ? `
+                            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm bg-zinc-900/85 text-amber-300 border border-amber-400/50 backdrop-blur-md flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs text-amber-300">menu_book</span>
+                                Biên soạn mẫu
+                            </span>
+                        ` : (article.isEditorial ? `
+                            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm bg-amber-600/90 text-white border border-amber-300 backdrop-blur-md flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">verified</span>
+                                Ban Biên Tập
+                            </span>
+                        ` : `
+                            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm bg-emerald-700/90 text-white border border-emerald-300 backdrop-blur-md flex items-center gap-1">
+                                <span class="material-symbols-outlined text-xs">groups</span>
+                                Đóng góp cộng đồng
+                            </span>
+                        `)}
                         <span class="bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-full text-[11px] font-medium border border-white/20 flex items-center gap-1">
                             <span class="material-symbols-outlined text-xs text-amber-300">timer</span>
-                            ${article.readTime}
+                            ${escapeHtml(readTimeTxt)}
                         </span>
                         <span class="text-xs text-zinc-300">
-                            • Ngày đăng: ${article.publishedAt}
+                            • Ngày đăng: ${escapeHtml(publishedDate)}
                         </span>
                     </div>
                     <h1 class="font-serif text-xl sm:text-2xl md:text-3xl font-black leading-tight text-white drop-shadow-md">
-                        ${article.title}
+                        ${escapeHtml(article.title)}
                     </h1>
                 </div>
             </div>
@@ -4090,13 +4378,13 @@ export function renderArticleReaderModal(article, comments = [], allPlaces = [],
                 <!-- Author Bio Header -->
                 <div class="flex items-center justify-between gap-4 pb-6 border-b border-outline-variant/30 dark:border-zinc-800">
                     <div class="flex items-center gap-3">
-                        <img src="${article.author.avatar}" alt="${article.author.name}" class="w-12 h-12 rounded-full border-2 border-emerald-500 shadow-sm object-cover bg-slate-100">
+                        <img src="${escapeHtml(authorAvatar)}" alt="${escapeHtml(authorName)}" class="w-12 h-12 rounded-full border-2 border-emerald-500 shadow-sm object-cover bg-slate-100">
                         <div>
                             <div class="font-bold text-sm sm:text-base text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
-                                <span>${article.author.name}</span>
+                                <span>${escapeHtml(authorName)}</span>
                                 <span class="material-symbols-outlined text-base text-emerald-600 dark:text-emerald-400">verified</span>
                             </div>
-                            <div class="text-xs text-on-surface-variant dark:text-zinc-400">${article.author.role}</div>
+                            <div class="text-xs text-on-surface-variant dark:text-zinc-400">${escapeHtml(authorRole)}</div>
                         </div>
                     </div>
 
@@ -4113,7 +4401,7 @@ export function renderArticleReaderModal(article, comments = [], allPlaces = [],
 
                 <!-- Rich Article Content -->
                 <div class="article-prose prose dark:prose-invert max-w-none text-slate-800 dark:text-zinc-200">
-                    ${article.contentHtml}
+                    ${sanitizeArticleContent(article.contentHtml || article.content || '')}
                 </div>
 
                 <!-- Related Places Widget (Nếu có địa điểm liên quan) -->
@@ -4261,6 +4549,214 @@ export function renderArticleReaderModal(article, comments = [], allPlaces = [],
             </div>
         </div>
     `;
+}
+
+/**
+ * Render Modal Gửi / Biên tập Bài Viết Cẩm Nang Du Lịch
+ */
+export function renderSubmitArticleModal(onSubmit, editingArticle = null, isAdmin = false) {
+    const container = document.getElementById('submitArticleModalContainer');
+    if (!container) return;
+
+    const isEdit = Boolean(editingArticle && editingArticle.id);
+    const titleText = isEdit 
+        ? (isAdmin ? 'Biên tập Bài viết Cẩm nang (Admin)' : 'Chỉnh sửa Bài viết Cẩm nang')
+        : (isAdmin ? 'Soạn thảo & Xuất bản Cẩm nang mới (Admin)' : 'Gửi Bài viết Cẩm nang / Ký sự Du lịch');
+
+    const defaultCover = editingArticle?.cover_image || editingArticle?.coverImage || '/ao bà om.jpg';
+    const defaultTitle = editingArticle?.title || '';
+    const defaultCategory = editingArticle?.category || 'van-hoa';
+    const defaultReadTime = editingArticle?.read_time || editingArticle?.readTime || '4 phút đọc';
+    const defaultExcerpt = editingArticle?.excerpt || '';
+    const defaultContent = editingArticle?.content || editingArticle?.contentHtml || '';
+    const defaultStatus = editingArticle?.status || (isAdmin ? 'approved' : 'pending');
+    const defaultIsEditorial = editingArticle?.is_editorial ?? editingArticle?.isEditorial ?? isAdmin;
+    const defaultAdminNotes = editingArticle?.admin_notes || '';
+
+    container.innerHTML = `
+        <div class="p-6 sm:p-8 space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-outline-variant/30 dark:border-zinc-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-2xl">auto_stories</span>
+                    </div>
+                    <div>
+                        <h2 class="font-headline-sm text-lg sm:text-xl font-bold text-primary dark:text-zinc-100">
+                            ${titleText}
+                        </h2>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                            ${isAdmin ? 'Ban Biên Tập ViVuTraVinh • Quyền Quản trị viên' : 'Chia sẻ góc nhìn, huyền tích &amp; cẩm nang vi vu cùng cộng đồng'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <form id="submitArticleForm" class="space-y-4" onsubmit="return false;">
+                <!-- Tiêu đề bài viết -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-bold text-primary dark:text-zinc-200">
+                        Tiêu đề bài viết cẩm nang <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="articleInputTitle" required
+                        value="${escapeHtml(defaultTitle)}"
+                        placeholder="VD: Ký sự một ngày khám phá Cù Lao Tân Qui rợp bóng cây ăn trái..."
+                        class="w-full px-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-secondary/40 min-h-[44px]" />
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Danh mục -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold text-primary dark:text-zinc-200">
+                            Chuyên mục cẩm nang <span class="text-rose-500">*</span>
+                        </label>
+                        <select id="articleInputCategory"
+                            class="w-full px-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 text-xs sm:text-sm text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary/40 min-h-[44px]">
+                            <option value="van-hoa" ${defaultCategory === 'van-hoa' ? 'selected' : ''}>Văn Hóa Khmer &amp; Huyền Tích</option>
+                            <option value="am-thuc" ${defaultCategory === 'am-thuc' ? 'selected' : ''}>Ẩm Thực Bản Địa Xứ Trà</option>
+                            <option value="ky-su" ${defaultCategory === 'ky-su' ? 'selected' : ''}>Ký Sự Du Lịch &amp; Trải Nghiệm</option>
+                            <option value="le-hoi" ${defaultCategory === 'le-hoi' ? 'selected' : ''}>Lễ Hội &amp; Sự Kiện Đặc Sắc</option>
+                            <option value="dia-diem" ${defaultCategory === 'dia-diem' ? 'selected' : ''}>Cẩm Nang Điểm Đến Mới</option>
+                        </select>
+                    </div>
+
+                    <!-- Thời gian đọc -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold text-primary dark:text-zinc-200">
+                            Thời gian đọc ước tính
+                        </label>
+                        <input type="text" id="articleInputReadTime"
+                            value="${escapeHtml(defaultReadTime)}"
+                            placeholder="VD: 5 phút đọc"
+                            class="w-full px-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-secondary/40 min-h-[44px]" />
+                    </div>
+                </div>
+
+                <!-- Ảnh bìa -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-bold text-primary dark:text-zinc-200">
+                        Đường dẫn ảnh bìa (Cover Image URL)
+                    </label>
+                    <input type="text" id="articleInputCoverImage"
+                        value="${escapeHtml(defaultCover)}"
+                        placeholder="/ao bà om.jpg hoặc https://..."
+                        class="w-full px-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-secondary/40 min-h-[44px]" />
+                </div>
+
+                <!-- Trích đoạn tóm tắt -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-bold text-primary dark:text-zinc-200">
+                        Đoạn tóm tắt mở đầu (Excerpt)
+                    </label>
+                    <textarea id="articleInputExcerpt" rows="2"
+                        placeholder="Tóm tắt 1-2 câu ngắn gọn dẫn dắt vào bài viết..."
+                        class="w-full px-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-secondary/40 resize-none">${escapeHtml(defaultExcerpt)}</textarea>
+                </div>
+
+                <!-- Nội dung chi tiết -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-bold text-primary dark:text-zinc-200">
+                        Nội dung bài viết chi tiết <span class="text-rose-500">*</span>
+                    </label>
+                    <textarea id="articleInputContent" rows="8" required
+                        placeholder="Nội dung bài cẩm nang, hỗ trợ các đoạn văn bản, danh sách, đề mục..."
+                        class="w-full px-4 py-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-secondary/40">${escapeHtml(defaultContent)}</textarea>
+                </div>
+
+                ${isAdmin ? `
+                <!-- Khu vực điều khiển Admin -->
+                <div class="p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/30 space-y-3">
+                    <div class="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
+                        <span class="material-symbols-outlined text-base">admin_panel_settings</span>
+                        <span>Thiết lập Quản trị &amp; Ban Biên Tập</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 mb-1">Trạng thái xuất bản</label>
+                            <select id="articleInputStatus" class="w-full px-3 py-2 rounded-xl bg-surface dark:bg-zinc-800 border border-outline-variant/30 text-xs text-on-surface dark:text-zinc-100">
+                                <option value="approved" ${defaultStatus === 'approved' ? 'selected' : ''}>Xuất bản công khai (Approved)</option>
+                                <option value="draft" ${defaultStatus === 'draft' ? 'selected' : ''}>Lưu nháp nội bộ (Draft)</option>
+                                <option value="pending" ${defaultStatus === 'pending' ? 'selected' : ''}>Chờ duyệt (Pending)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center pt-5">
+                            <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800 dark:text-zinc-200">
+                                <input type="checkbox" id="articleInputIsEditorial" ${defaultIsEditorial ? 'checked' : ''} class="w-4 h-4 rounded text-secondary focus:ring-secondary" />
+                                <span>Bài chính thức của Ban Biên Tập</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-700 dark:text-zinc-300 mb-1">Ghi chú nội bộ Admin (Admin Notes)</label>
+                        <input type="text" id="articleInputAdminNotes" value="${escapeHtml(defaultAdminNotes)}" placeholder="Ghi chú thẩm định, chỉ admin nhìn thấy..." class="w-full px-3 py-2 rounded-xl bg-surface dark:bg-zinc-800 border border-outline-variant/30 text-xs text-on-surface dark:text-zinc-100" />
+                    </div>
+                </div>
+                ` : `
+                <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 text-xs text-on-surface-variant dark:text-zinc-400 border border-outline-variant/30 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-base text-secondary shrink-0">info</span>
+                    <span>Bài viết sau khi gửi sẽ được Ban Quản Trị xem xét và duyệt xuất bản trong 24 giờ.</span>
+                </div>
+                `}
+
+                <div class="pt-3 flex items-center justify-end gap-3 border-t border-outline-variant/30 dark:border-zinc-800">
+                    <button type="button" onclick="window.ViVuApp?.closeSubmitArticleModal()"
+                        class="px-5 py-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-xs font-bold text-on-surface dark:text-zinc-200 transition-all min-h-[44px]">
+                        Hủy
+                    </button>
+                    <button type="button" id="btnSubmitArticleConfirm"
+                        class="px-6 py-2.5 rounded-xl bg-primary text-white hover:bg-primary-container hover:text-on-primary text-xs font-bold transition-all shadow-sm flex items-center gap-2 min-h-[44px]">
+                        <span class="material-symbols-outlined text-base">send</span>
+                        <span>${isEdit ? 'Lưu thay đổi' : (isAdmin ? 'Xuất bản ngay' : 'Gửi bài chờ duyệt')}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    const confirmBtn = container.querySelector('#btnSubmitArticleConfirm');
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+            const title = container.querySelector('#articleInputTitle')?.value?.trim();
+            const category = container.querySelector('#articleInputCategory')?.value;
+            const readTime = container.querySelector('#articleInputReadTime')?.value?.trim();
+            const coverImage = container.querySelector('#articleInputCoverImage')?.value?.trim();
+            const excerpt = container.querySelector('#articleInputExcerpt')?.value?.trim();
+            const content = container.querySelector('#articleInputContent')?.value?.trim();
+
+            if (!title || title.length < 5) {
+                alert('Vui lòng nhập tiêu đề bài viết từ 5 ký tự trở lên.');
+                return;
+            }
+            if (!content || content.length < 30) {
+                alert('Vui lòng nhập nội dung bài viết từ 30 ký tự trở lên.');
+                return;
+            }
+
+            const payload = {
+                title,
+                category,
+                read_time: readTime || '4 phút đọc',
+                cover_image: coverImage || '/ao bà om.jpg',
+                excerpt,
+                content
+            };
+
+            if (isEdit) {
+                payload.id = editingArticle.id;
+            }
+
+            if (isAdmin) {
+                payload.status = container.querySelector('#articleInputStatus')?.value || 'approved';
+                payload.is_editorial = container.querySelector('#articleInputIsEditorial')?.checked || false;
+                payload.admin_notes = container.querySelector('#articleInputAdminNotes')?.value?.trim() || '';
+            }
+
+            if (onSubmit) {
+                onSubmit(payload);
+            }
+        });
+    }
 }
 
 /**
@@ -8394,6 +8890,8 @@ export function renderAdminModerationModalContent({
     selectedClubId = null,
     events = [],
     selectedEventId = null,
+    articles = [],
+    selectedArticleId = null,
     kpi = {},
     filterCategory = 'all',
     riskFilter = 'all',
@@ -8402,6 +8900,7 @@ export function renderAdminModerationModalContent({
     const selectedPost = posts.find(p => p.id === selectedPostId) || posts[0] || null;
     const selectedClub = clubs.find(c => c.id === selectedClubId) || clubs[0] || null;
     const selectedEvent = events.find(e => e.id === selectedEventId) || events[0] || null;
+    const selectedArticle = articles.find(a => a.id === selectedArticleId) || articles[0] || null;
 
     let displayedPosts = posts;
     if (filterCategory !== 'all') {
@@ -8444,6 +8943,18 @@ export function renderAdminModerationModalContent({
         );
     }
 
+    let displayedArticles = articles;
+    if (searchQuery.trim() && activeTab === 'articles') {
+        const q = searchQuery.toLowerCase().trim();
+        displayedArticles = displayedArticles.filter(a =>
+            (a.title && a.title.toLowerCase().includes(q)) ||
+            (a.excerpt && a.excerpt.toLowerCase().includes(q)) ||
+            (a.author?.name && a.author.name.toLowerCase().includes(q)) ||
+            (a.author_name && a.author_name.toLowerCase().includes(q)) ||
+            (a.category && a.category.toLowerCase().includes(q))
+        );
+    }
+
     return `
         <div class="relative bg-surface dark:bg-zinc-950 text-on-surface dark:text-zinc-100 p-4 sm:p-6 lg:p-8 max-h-[92vh] overflow-y-auto no-scrollbar">
             <!-- Header bar & Close -->
@@ -8480,9 +8991,9 @@ export function renderAdminModerationModalContent({
 
             <div class="flex flex-col gap-6 pt-5">
                 <!-- KPI LIVE DASHBOARD CARDS -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
                     <!-- Stat 1: Pending Posts -->
-                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'posts' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
+                    <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'posts' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
                         onclick="window.ViVuApp.switchModerationTab('posts', 'all')">
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Bài viết chờ duyệt</p>
@@ -8490,15 +9001,15 @@ export function renderAdminModerationModalContent({
                                 <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${posts.length}</span>
                                 <span class="font-caption text-xs text-on-tertiary-container dark:text-amber-400 font-semibold">${posts.length > 0 ? 'Cần xử lý' : 'Đã sạch'}</span>
                             </div>
-                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Bài cộng đồng từ thành viên</p>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Bài cộng đồng</p>
                         </div>
-                        <div class="w-12 h-12 rounded-2xl bg-tertiary-fixed dark:bg-amber-950/60 text-on-tertiary-fixed-variant dark:text-amber-300 flex items-center justify-center shadow-xs">
-                            <span class="material-symbols-outlined text-[24px]">pending_actions</span>
+                        <div class="w-10 h-10 rounded-xl bg-tertiary-fixed dark:bg-amber-950/60 text-on-tertiary-fixed-variant dark:text-amber-300 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[20px]">pending_actions</span>
                         </div>
                     </div>
 
                     <!-- Stat 2: Pending Club Dossiers -->
-                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'clubs' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
+                    <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'clubs' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
                         onclick="window.ViVuApp.switchModerationTab('clubs')">
                         <div class="space-y-1">
                             <div class="flex items-center gap-1.5">
@@ -8507,17 +9018,17 @@ export function renderAdminModerationModalContent({
                             </div>
                             <div class="flex items-baseline gap-2">
                                 <span class="font-headline-lg text-2xl font-bold text-secondary dark:text-emerald-400">${clubs.length}</span>
-                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium">hồ sơ thẩm định</span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium">hồ sơ</span>
                             </div>
-                            <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Đề xuất thành lập CLB</p>
+                            <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Đề xuất CLB</p>
                         </div>
-                        <div class="w-12 h-12 rounded-2xl bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 flex items-center justify-center shadow-xs">
-                            <span class="material-symbols-outlined text-[24px]">diversity_3</span>
+                        <div class="w-10 h-10 rounded-xl bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[20px]">diversity_3</span>
                         </div>
                     </div>
 
                     <!-- Stat 3: Pending Events -->
-                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'events' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
+                    <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'events' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
                         onclick="window.ViVuApp.switchModerationTab('events')">
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Sự kiện &amp; Workshop</p>
@@ -8525,15 +9036,31 @@ export function renderAdminModerationModalContent({
                                 <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${events.length}</span>
                                 <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-semibold">${events.length > 0 ? 'Chờ duyệt' : 'Đã sạch'}</span>
                             </div>
-                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đăng ký tổ chức sự kiện</p>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đăng ký sự kiện</p>
                         </div>
-                        <div class="w-12 h-12 rounded-2xl bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 flex items-center justify-center shadow-xs">
-                            <span class="material-symbols-outlined text-[24px]">event</span>
+                        <div class="w-10 h-10 rounded-xl bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[20px]">event</span>
                         </div>
                     </div>
 
-                    <!-- Stat 4: Reports / Violations -->
-                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between">
+                    <!-- Stat 4: Pending Articles -->
+                    <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'articles' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
+                        onclick="window.ViVuApp.switchModerationTab('articles')">
+                        <div class="space-y-1">
+                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Cẩm nang du lịch</p>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-headline-lg text-2xl font-bold text-amber-600 dark:text-amber-400">${articles.length}</span>
+                                <span class="font-caption text-xs text-amber-600 dark:text-amber-400 font-semibold">${articles.length > 0 ? 'Chờ duyệt' : 'Đã sạch'}</span>
+                            </div>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Bài cẩm nang mới</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[20px]">auto_stories</span>
+                        </div>
+                    </div>
+
+                    <!-- Stat 5: Reports / Violations -->
+                    <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between">
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Báo cáo vi phạm</p>
                             <div class="flex items-baseline gap-2">
@@ -8542,8 +9069,8 @@ export function renderAdminModerationModalContent({
                             </div>
                             <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đã duyệt hôm nay: ${kpi.approvedToday || 0}</p>
                         </div>
-                        <div class="w-12 h-12 rounded-2xl bg-error-container dark:bg-rose-950/60 text-on-error-container dark:text-rose-300 flex items-center justify-center shadow-xs">
-                            <span class="material-symbols-outlined text-[24px]">flag_circle</span>
+                        <div class="w-10 h-10 rounded-xl bg-error-container dark:bg-rose-950/60 text-on-error-container dark:text-rose-300 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[20px]">flag_circle</span>
                         </div>
                     </div>
                 </div>
@@ -8556,7 +9083,7 @@ export function renderAdminModerationModalContent({
                             <input id="moderationSearchInput" type="text" value="${escapeHtml(searchQuery)}"
                                 oninput="window.ViVuApp.handleModerationSearch(this.value)"
                                 class="w-full h-11 pl-11 pr-4 bg-surface-container-low dark:bg-zinc-800 rounded-xl font-body-md text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-secondary/30 transition-all border border-transparent focus:border-secondary"
-                                placeholder="Tìm theo tiêu đề bài viết, sự kiện, tên tác giả, CLB..." />
+                                placeholder="Tìm theo tiêu đề bài viết, sự kiện, cẩm nang, tên tác giả, CLB..." />
                         </div>
                         <div class="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
                             <div class="relative shrink-0">
@@ -8589,6 +9116,12 @@ export function renderAdminModerationModalContent({
                             <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">event</span>
                             <span>Sự kiện &amp; Workshop</span>
                             <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${events.length}</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.switchModerationTab('articles')"
+                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'articles' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-amber-500/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                            <span class="material-symbols-outlined text-[16px] text-amber-500">auto_stories</span>
+                            <span>Cẩm nang du lịch</span>
+                            <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 text-[11px] flex items-center justify-center font-bold">${articles.length}</span>
                         </button>
                         <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'culture')"
                             class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'culture' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
@@ -9059,7 +9592,7 @@ export function renderAdminModerationModalContent({
                             `}
                         </div>
                     </div>
-                ` : `
+                ` : activeTab === 'events' ? `
                     <!-- SUB-VIEW C: COMMUNITY EVENTS & WORKSHOPS MODERATION -->
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                         <!-- LEFT COLUMN: Events Queue List (5 cols) -->
@@ -9209,6 +9742,165 @@ export function renderAdminModerationModalContent({
                             `}
                         </div>
                     </div>
+                ` : `
+                    <!-- SUB-VIEW D: ARTICLE MODERATION -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <!-- LEFT COLUMN: Articles Queue List (5 cols) -->
+                        <div class="lg:col-span-5 space-y-3">
+                            <div class="flex items-center justify-between px-1">
+                                <span class="font-button text-xs font-bold text-primary dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[18px] text-amber-500">auto_stories</span>
+                                    Hàng đợi cẩm nang (${displayedArticles.length})
+                                </span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">sync</span> Tự động làm mới
+                                </span>
+                            </div>
+
+                            ${displayedArticles.length === 0 ? `
+                                <div class="p-8 text-center bg-surface-container-low dark:bg-zinc-800/40 rounded-2xl border border-dashed border-outline-variant/50 dark:border-zinc-800 space-y-2">
+                                    <span class="material-symbols-outlined text-4xl text-amber-500">menu_book</span>
+                                    <p class="text-sm font-semibold text-primary dark:text-zinc-200">Không có bài cẩm nang nào chờ duyệt</p>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400">Tất cả bài viết cẩm nang gửi từ cộng đồng đã được xử lý xong.</p>
+                                </div>
+                            ` : `
+                                <div class="space-y-3">
+                                    ${displayedArticles.map(a => {
+                                        const isSelected = selectedArticle && selectedArticle.id === a.id;
+                                        return `
+                                            <div onclick="window.ViVuApp.selectModerationArticle('${a.id}')"
+                                                class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 ${isSelected ? 'ring-2 ring-amber-500 bg-amber-50/10 dark:bg-amber-950/20 shadow-md' : 'shadow-xs border border-outline-variant/30 dark:border-zinc-800 hover:shadow-sm'} transition-all cursor-pointer">
+                                                <div class="flex items-start justify-between gap-3 mb-1.5">
+                                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                                        <span class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 text-[11px] font-bold">
+                                                            ${escapeHtml(a.category_name || a.category || 'Cẩm nang')}
+                                                        </span>
+                                                        ${a.status === 'approved' ? `
+                                                            <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Đã duyệt</span>
+                                                        ` : `
+                                                            <span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold">Chờ duyệt</span>
+                                                        `}
+                                                        ${a.is_editorial ? `
+                                                            <span class="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-900 dark:text-purple-300 text-[10px] font-bold">Ban Biên Tập</span>
+                                                        ` : ''}
+                                                    </div>
+                                                    <span class="font-caption text-[11px] text-outline dark:text-zinc-500 shrink-0">${escapeHtml(a.read_time || '5 phút đọc')}</span>
+                                                </div>
+                                                <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-1 mb-1 leading-snug">
+                                                    ${escapeHtml(a.title)}
+                                                </h3>
+                                                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 mb-2">
+                                                    ${escapeHtml(a.excerpt || '')}
+                                                </p>
+                                                <div class="flex items-center justify-between pt-1 border-t border-outline-variant/20 dark:border-zinc-800 text-[11px] text-outline dark:text-zinc-400">
+                                                    <span class="flex items-center gap-1 font-medium text-primary dark:text-zinc-200">
+                                                        <span class="material-symbols-outlined text-[14px] text-amber-500">person</span>
+                                                        ${escapeHtml(a.author?.name || a.author_name || 'Tác giả')}
+                                                    </span>
+                                                    <span class="flex items-center gap-1">
+                                                        <span class="material-symbols-outlined text-[14px]">schedule</span>
+                                                        ${escapeHtml(a.created_at ? new Date(a.created_at).toLocaleDateString('vi-VN') : 'Mới gửi')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- RIGHT COLUMN: Article Detail & Moderation Studio (7 cols) -->
+                        <div class="lg:col-span-7 space-y-5">
+                            ${selectedArticle ? `
+                                <div class="p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 shadow-md border border-outline-variant/30 dark:border-zinc-800 space-y-6">
+                                    <!-- Header: Article Overview -->
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-4 border-b border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="flex items-center gap-3.5">
+                                            <div class="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                                                ${selectedArticle.cover_image ? `
+                                                    <img src="${escapeHtml(selectedArticle.cover_image)}" alt="" class="w-full h-full object-cover" />
+                                                ` : `
+                                                    <span class="material-symbols-outlined text-[32px]">auto_stories</span>
+                                                `}
+                                            </div>
+                                            <div>
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <h2 class="font-headline-sm text-base sm:text-lg font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedArticle.title)}</h2>
+                                                    <span class="px-2 py-0.5 rounded-full ${selectedArticle.status === 'approved' ? 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300' : 'bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300'} text-[10px] font-bold">
+                                                        ${selectedArticle.status === 'approved' ? 'Đã duyệt' : 'Chờ kiểm duyệt'}
+                                                    </span>
+                                                </div>
+                                                <p class="font-caption text-xs text-outline dark:text-zinc-400 mt-0.5">
+                                                    Tác giả: <strong class="text-primary dark:text-zinc-200 font-semibold">${escapeHtml(selectedArticle.author?.name || selectedArticle.author_name || 'Tác giả')}</strong> • Chuyên mục: ${escapeHtml(selectedArticle.category_name || selectedArticle.category || 'Cẩm nang')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Cover Image & Meta -->
+                                    ${selectedArticle.cover_image ? `
+                                        <div class="w-full h-48 rounded-2xl overflow-hidden bg-surface-container-high border border-outline-variant/20 dark:border-zinc-800">
+                                            <img src="${escapeHtml(selectedArticle.cover_image)}" alt="" class="w-full h-full object-cover" />
+                                        </div>
+                                    ` : ''}
+
+                                    <!-- Excerpt -->
+                                    <div class="space-y-1">
+                                        <span class="font-button text-xs font-bold text-primary dark:text-zinc-200">Tóm tắt bài viết:</span>
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 text-xs italic text-on-surface-variant dark:text-zinc-300 leading-relaxed border border-outline-variant/20 dark:border-zinc-800">
+                                            ${escapeHtml(selectedArticle.excerpt || 'Chưa có tóm tắt.')}
+                                        </div>
+                                    </div>
+
+                                    <!-- Article Content Preview -->
+                                    <div class="space-y-2">
+                                        <span class="font-button text-xs font-bold text-primary dark:text-zinc-200">Nội dung chi tiết:</span>
+                                        <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed border border-outline-variant/20 dark:border-zinc-800 max-h-60 overflow-y-auto whitespace-pre-line">
+                                            ${escapeHtml(selectedArticle.content || 'Chưa có nội dung.')}
+                                        </div>
+                                    </div>
+
+                                    <!-- Moderator Audit Note -->
+                                    <div class="space-y-2 pt-2 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <label class="flex items-center justify-between font-button text-xs font-bold text-primary dark:text-zinc-200">
+                                            <span class="flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px] text-amber-500">edit_note</span>
+                                                Ghi chú nội bộ Kiểm duyệt viên (Audit Note):
+                                            </span>
+                                            <span class="text-[11px] text-outline dark:text-zinc-500 font-normal">Chỉ ban quản trị nhìn thấy</span>
+                                        </label>
+                                        <textarea id="moderatorAuditNote" class="w-full p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 text-xs text-on-surface dark:text-zinc-200 placeholder:text-outline outline-none border border-outline-variant/30 dark:border-zinc-700 focus:border-amber-500 resize-none" rows="2">${escapeHtml(selectedArticle.admin_notes || selectedArticle.adminNotes || '')}</textarea>
+                                    </div>
+
+                                    <!-- Decision Action Bar -->
+                                    <div class="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                                            <button type="button" onclick="window.ViVuApp.openActionReasonModal('reject_article', '${selectedArticle.id}', '${escapeHtml(selectedArticle.title)}')"
+                                                class="px-4 py-2.5 min-h-[44px] rounded-xl bg-error text-white hover:bg-rose-700 transition-all font-button text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto">
+                                                <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                                <span>Từ chối bài cẩm nang</span>
+                                            </button>
+                                            <button type="button" onclick="window.ViVuApp.openEditArticleFromModeration('${selectedArticle.id}')"
+                                                class="px-4 py-2.5 min-h-[44px] rounded-xl bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300 hover:bg-amber-600 hover:text-white transition-all font-button text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto">
+                                                <span class="material-symbols-outlined text-[18px]">edit_note</span>
+                                                <span>Biên tập nội dung</span>
+                                            </button>
+                                        </div>
+                                        <button type="button" onclick="window.ViVuApp.approveArticle('${selectedArticle.id}')"
+                                            class="px-5 py-2.5 min-h-[44px] rounded-xl bg-secondary text-white hover:bg-primary transition-all font-button text-xs font-semibold flex items-center justify-center gap-2 shadow-md w-full sm:w-auto">
+                                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                            <span>Phê duyệt &amp; Xuất bản</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="p-12 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl border border-outline-variant/30 dark:border-zinc-800">
+                                    <span class="material-symbols-outlined text-4xl text-outline mb-2">auto_stories</span>
+                                    <p class="text-sm text-on-surface-variant dark:text-zinc-400">Không có bài cẩm nang nào được chọn.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
                 `}
             </div>
         </div>
@@ -9228,6 +9920,8 @@ export function renderAdminActionReasonModalContent({
     let presets = [];
     if (actionType.startsWith('reject_event')) {
         presets = ['Thời gian / địa điểm tổ chức không rõ ràng', 'Nội dung thương mại / bán hàng chưa đăng ký', 'Sự kiện trùng lặp với lịch trình đã có', 'Vi phạm quy định văn hóa / an toàn công cộng'];
+    } else if (actionType.startsWith('reject_article')) {
+        presets = ['Nội dung chưa chuẩn xác về văn hóa, lịch sử Trà Vinh', 'Hình ảnh bìa không rõ nét hoặc vi phạm bản quyền', 'Hành văn chưa phù hợp với chuyên mục cẩm nang du lịch', 'Nội dung quảng cáo quá đà, spam dịch vụ'];
     } else if (isReject) {
         presets = ['Nội dung spam, quảng cáo thương mại', 'Sai lệch tọa độ thực tế hoặc địa bàn', 'Hình ảnh vi phạm bản quyền / độ phân giải kém', 'Báng bổ hoặc xâm phạm tôn nghiêm văn hóa'];
     } else {

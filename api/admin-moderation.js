@@ -48,6 +48,16 @@ const MODERATION_ENTITIES = {
       archive: 'archived'
     },
     selectColumns: 'id,title,organizer,category,time_schedule,location,status,created_by,creator_name,contact_phone,created_at'
+  },
+  article: {
+    table: 'articles',
+    label: 'Bài cẩm nang du lịch',
+    actionStatusMap: {
+      approve: 'approved',
+      reject: 'rejected',
+      archive: 'archived'
+    },
+    selectColumns: 'id,title,category,category_name,status,author_id,author_name,excerpt,cover_image,created_at'
   }
 };
 
@@ -65,7 +75,7 @@ async function handleGetModerationList(request, response, adminContext) {
 
     if (entityType) {
       if (!MODERATION_ENTITIES[entityType]) {
-        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event).');
+        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article).');
         return;
       }
       const entity = MODERATION_ENTITIES[entityType];
@@ -85,12 +95,13 @@ async function handleGetModerationList(request, response, adminContext) {
       return;
     }
 
-    // Nếu không chỉ định entity_type: trả về tổng hợp cả 3 hàng đợi
+    // Nếu không chỉ định entity_type: trả về tổng hợp cả 4 hàng đợi
     const postsQuery = `community_posts?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const clubsQuery = `clubs?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const eventsQuery = `community_events?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
+    const articlesQuery = `articles?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
 
-    const [posts, clubs, events] = await Promise.all([
+    const [posts, clubs, events, articles] = await Promise.all([
       supabaseRequest(postsQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc posts queue:', err.message);
         return [];
@@ -102,6 +113,10 @@ async function handleGetModerationList(request, response, adminContext) {
       supabaseRequest(eventsQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc events queue:', err.message);
         return [];
+      }),
+      supabaseRequest(articlesQuery).catch(err => {
+        console.warn('[AdminModeration] Lỗi đọc articles queue:', err.message);
+        return [];
       })
     ]);
 
@@ -111,10 +126,12 @@ async function handleGetModerationList(request, response, adminContext) {
       posts: Array.isArray(posts) ? posts : [],
       clubs: Array.isArray(clubs) ? clubs : [],
       events: Array.isArray(events) ? events : [],
+      articles: Array.isArray(articles) ? articles : [],
       kpi: {
         pendingPosts: Array.isArray(posts) ? posts.filter(p => p.status === 'pending').length : 0,
         pendingClubs: Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0,
-        pendingEvents: Array.isArray(events) ? events.filter(e => e.status === 'pending').length : 0
+        pendingEvents: Array.isArray(events) ? events.filter(e => e.status === 'pending').length : 0,
+        pendingArticles: Array.isArray(articles) ? articles.filter(a => a.status === 'pending').length : 0
       }
     });
   } catch (err) {
@@ -146,7 +163,7 @@ async function moderateEntity(request, response, adminContext) {
 
   // 1. Validate đầu vào chặt chẽ
   if (!MODERATION_ENTITIES[entityType]) {
-    sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event).');
+    sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article).');
     return;
   }
   if (!entityId || entityId.length > 128) {
@@ -187,6 +204,9 @@ async function moderateEntity(request, response, adminContext) {
     };
     if (reason) {
       patch.moderation_reason = reason;
+    }
+    if (typeof body.admin_notes === 'string' && body.admin_notes.trim()) {
+      patch.admin_notes = body.admin_notes.trim();
     }
 
     const updatedRows = await supabaseRequest(

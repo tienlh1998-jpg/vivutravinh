@@ -141,6 +141,9 @@ async function run() {
     const moderationModule = await import(pathToFileURL(path.join(PROJECT_DIR, 'api', 'admin-moderation.js')).href);
     const moderationHandler = moderationModule.default;
 
+    const articlesModule = await import(pathToFileURL(path.join(PROJECT_DIR, 'api', 'articles.js')).href);
+    const articlesHandler = articlesModule.default;
+
     const eventsModule = await import(pathToFileURL(path.join(PROJECT_DIR, 'api', 'community-events.js')).href);
     const eventsHandler = eventsModule.default;
 
@@ -153,6 +156,10 @@ async function run() {
     const serverPort = 8890 + Math.floor(Math.random() * 100);
     localServer = http.createServer(async (req, res) => {
       const p = decodeURIComponent(req.url.split('?')[0]);
+      if (p.startsWith('/api/articles')) {
+        await articlesHandler(req, res);
+        return;
+      }
       if (p.startsWith('/api/admin-moderation')) {
         await moderationHandler(req, res);
         return;
@@ -296,7 +303,29 @@ async function run() {
     assert.strictEqual(eventsDomResult.eventCount, 0, 'state.moderationEvents phải có độ dài 0');
     console.log('  ✓ [DOM Tab Events] Hiển thị đúng card "Không có sự kiện nào chờ duyệt", 0% sự kiện mock.');
 
-    // 6. Chụp ảnh màn hình minh chứng
+    // 6. Chuyển sang Tab Articles và kiểm tra DOM
+    await cdp.eval(`window.ViVuApp.switchModerationTab('articles')`);
+    await sleep(400);
+
+    const articlesDomResult = await cdp.eval(`(() => {
+      const container = document.getElementById('adminModerationModalContent');
+      if (!container) return { found: false };
+      const text = container.innerText;
+      return {
+        found: true,
+        hasEmptyNotice: text.includes('Không có bài cẩm nang nào chờ duyệt'),
+        hasEmptyDesc: text.includes('Tất cả bài viết cẩm nang gửi từ cộng đồng đã được xử lý xong'),
+        hasMockArticle: text.includes('Sự tích Ao Bà Om') || text.includes('Bí mật Dừa Sáp Cầu Kè'),
+        articleCount: (window.ViVuApp.state.moderationArticles || []).length
+      };
+    })()`);
+
+    assert.ok(articlesDomResult.hasEmptyNotice, 'DOM tab articles phải hiển thị thông báo "Không có bài cẩm nang nào chờ duyệt"');
+    assert.ok(!articlesDomResult.hasMockArticle, 'DOM tab articles TUYỆT ĐỐI không chứa bài mẫu fallback');
+    assert.strictEqual(articlesDomResult.articleCount, 0, 'state.moderationArticles phải có độ dài 0');
+    console.log('  ✓ [DOM Tab Articles] Hiển thị đúng card "Không có bài cẩm nang nào chờ duyệt", 0% bài mẫu fallback.');
+
+    // 7. Chụp ảnh màn hình minh chứng
     await cdp.send('Emulation.setDeviceMetricsOverride', {
       width: 1280,
       height: 900,

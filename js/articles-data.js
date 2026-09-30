@@ -10,6 +10,9 @@ export const TRA_VINH_ARTICLES = [
         coverImage: '/ao bà om.jpg',
         readTime: '4 phút đọc',
         publishedAt: '2026-09-10',
+        isSample: true,
+        isEditorial: true,
+        source: 'editorial_sample',
         author: {
             name: 'Thạch Sa Vươn',
             role: 'Thổ Địa Di Sản Khmer',
@@ -68,6 +71,9 @@ export const TRA_VINH_ARTICLES = [
         coverImage: '/cù lao tân qui.jpg',
         readTime: '5 phút đọc',
         publishedAt: '2026-09-12',
+        isSample: true,
+        isEditorial: true,
+        source: 'editorial_sample',
         author: {
             name: 'Hai Miệt Vườn',
             role: 'Chuyên Gia Ẩm Thực Trà Vinh',
@@ -127,6 +133,9 @@ export const TRA_VINH_ARTICLES = [
         coverImage: '/cồn chim.jpg',
         readTime: '6 phút đọc',
         publishedAt: '2026-09-14',
+        isSample: true,
+        isEditorial: true,
+        source: 'editorial_sample',
         author: {
             name: 'Linh Đi Phượt',
             role: 'Blogger Du Lịch Gen Z',
