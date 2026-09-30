@@ -127,14 +127,14 @@ export const TRAVEL_GEAR_RECOMMENDATIONS = [
 ];
 
 export const MODERATION_KPI = {
-    pendingCount: 8,
-    pendingNew: 2,
-    flaggedCount: 3,
-    approvedToday: 42,
-    pointsIssued: 2100,
-    violationRate: "4.8%",
-    pendingClubsCount: 3,
-    eligibleClubsCount: 2
+    pendingCount: 0,
+    pendingNew: 0,
+    flaggedCount: 0,
+    approvedToday: 0,
+    pointsIssued: 0,
+    violationRate: "0%",
+    pendingClubsCount: 0,
+    eligibleClubsCount: 0
 };
 
 export const INITIAL_PENDING_POSTS = [
@@ -401,24 +401,25 @@ export const INITIAL_PENDING_CLUBS = [
 
 const MODERATION_POSTS_STORAGE_KEY = 'vivu_admin_moderation_posts';
 const MODERATION_CLUBS_STORAGE_KEY = 'vivu_admin_moderation_clubs';
+const MODERATION_EVENTS_STORAGE_KEY = 'vivu_admin_moderation_events';
 const DONATION_RECORDS_STORAGE_KEY = 'vivu_admin_donation_records';
 
 /**
- * Lấy danh sách bài viết kiểm duyệt từ LocalStorage
+ * Lấy danh sách bài viết kiểm duyệt từ LocalStorage (mặc định mảng rỗng, không fallback dữ liệu mẫu)
  */
 export function getStoredModerationPosts() {
     try {
         const raw = localStorage.getItem(MODERATION_POSTS_STORAGE_KEY);
-        if (raw) {
+        if (raw !== null) {
             const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
                 return parsed;
             }
         }
     } catch (e) {
         console.warn('Lỗi đọc moderation posts:', e);
     }
-    return JSON.parse(JSON.stringify(INITIAL_PENDING_POSTS));
+    return [];
 }
 
 /**
@@ -433,21 +434,21 @@ export function saveStoredModerationPosts(posts) {
 }
 
 /**
- * Lấy danh sách CLB kiểm duyệt từ LocalStorage
+ * Lấy danh sách CLB kiểm duyệt từ LocalStorage (mặc định mảng rỗng, không fallback dữ liệu mẫu)
  */
 export function getStoredModerationClubs() {
     try {
         const raw = localStorage.getItem(MODERATION_CLUBS_STORAGE_KEY);
-        if (raw) {
+        if (raw !== null) {
             const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
                 return parsed;
             }
         }
     } catch (e) {
         console.warn('Lỗi đọc moderation clubs:', e);
     }
-    return JSON.parse(JSON.stringify(INITIAL_PENDING_CLUBS));
+    return [];
 }
 
 /**
@@ -458,6 +459,35 @@ export function saveStoredModerationClubs(clubs) {
         localStorage.setItem(MODERATION_CLUBS_STORAGE_KEY, JSON.stringify(clubs));
     } catch (e) {
         console.warn('Lỗi lưu moderation clubs:', e);
+    }
+}
+
+/**
+ * Lấy danh sách Sự kiện kiểm duyệt từ LocalStorage (mặc định mảng rỗng)
+ */
+export function getStoredModerationEvents() {
+    try {
+        const raw = localStorage.getItem(MODERATION_EVENTS_STORAGE_KEY);
+        if (raw !== null) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        }
+    } catch (e) {
+        console.warn('Lỗi đọc moderation events:', e);
+    }
+    return [];
+}
+
+/**
+ * Lưu danh sách Sự kiện kiểm duyệt vào LocalStorage
+ */
+export function saveStoredModerationEvents(events) {
+    try {
+        localStorage.setItem(MODERATION_EVENTS_STORAGE_KEY, JSON.stringify(events));
+    } catch (e) {
+        console.warn('Lỗi lưu moderation events:', e);
     }
 }
 

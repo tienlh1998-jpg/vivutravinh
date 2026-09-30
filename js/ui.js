@@ -3894,6 +3894,14 @@ export function renderHostEventModal(onSubmitHost) {
                         class="w-full p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"></textarea>
                 </div>
 
+                <div>
+                    <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
+                        Số điện thoại / Zalo liên hệ <span class="text-xs text-outline dark:text-zinc-400 font-normal">(Bảo mật, chỉ Admin thấy)</span>
+                    </label>
+                    <input name="phone" type="tel" placeholder="Ví dụ: 0987 654 321"
+                        class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
+                </div>
+
                 <div class="pt-2 flex items-center justify-end gap-3">
                     <button type="button" onclick="window.ViVuApp?.closeHostEventModal()"
                         class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-button text-xs font-semibold min-h-[44px]">
@@ -3920,7 +3928,8 @@ export function renderHostEventModal(onSubmitHost) {
                 category: formData.get('category'),
                 datetime: formData.get('datetime'),
                 location: formData.get('location'),
-                description: formData.get('description')
+                description: formData.get('description'),
+                phone: formData.get('phone')
             };
             if (onSubmitHost) {
                 onSubmitHost(data);
@@ -8383,6 +8392,8 @@ export function renderAdminModerationModalContent({
     selectedPostId = null,
     clubs = [],
     selectedClubId = null,
+    events = [],
+    selectedEventId = null,
     kpi = {},
     filterCategory = 'all',
     riskFilter = 'all',
@@ -8390,6 +8401,7 @@ export function renderAdminModerationModalContent({
 }) {
     const selectedPost = posts.find(p => p.id === selectedPostId) || posts[0] || null;
     const selectedClub = clubs.find(c => c.id === selectedClubId) || clubs[0] || null;
+    const selectedEvent = events.find(e => e.id === selectedEventId) || events[0] || null;
 
     let displayedPosts = posts;
     if (filterCategory !== 'all') {
@@ -8405,9 +8417,9 @@ export function renderAdminModerationModalContent({
     if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         displayedPosts = displayedPosts.filter(p =>
-            p.title.toLowerCase().includes(q) ||
-            p.author.name.toLowerCase().includes(q) ||
-            p.excerpt.toLowerCase().includes(q)
+            (p.title && p.title.toLowerCase().includes(q)) ||
+            (p.author && p.author.name && p.author.name.toLowerCase().includes(q)) ||
+            (p.excerpt && p.excerpt.toLowerCase().includes(q))
         );
     }
 
@@ -8415,9 +8427,20 @@ export function renderAdminModerationModalContent({
     if (searchQuery.trim() && activeTab === 'clubs') {
         const q = searchQuery.toLowerCase().trim();
         displayedClubs = displayedClubs.filter(c =>
-            c.name.toLowerCase().includes(q) ||
-            c.founder.name.toLowerCase().includes(q) ||
-            c.desc.toLowerCase().includes(q)
+            (c.name && c.name.toLowerCase().includes(q)) ||
+            (c.founder && c.founder.name && c.founder.name.toLowerCase().includes(q)) ||
+            (c.desc && c.desc.toLowerCase().includes(q))
+        );
+    }
+
+    let displayedEvents = events;
+    if (searchQuery.trim() && activeTab === 'events') {
+        const q = searchQuery.toLowerCase().trim();
+        displayedEvents = displayedEvents.filter(e =>
+            (e.title && e.title.toLowerCase().includes(q)) ||
+            (e.organizer && e.organizer.toLowerCase().includes(q)) ||
+            (e.location && e.location.toLowerCase().includes(q)) ||
+            (e.description && e.description.toLowerCase().includes(q))
         );
     }
 
@@ -8459,14 +8482,15 @@ export function renderAdminModerationModalContent({
                 <!-- KPI LIVE DASHBOARD CARDS -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <!-- Stat 1: Pending Posts -->
-                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between">
+                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'posts' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
+                        onclick="window.ViVuApp.switchModerationTab('posts', 'all')">
                         <div class="space-y-1">
-                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Chờ phê duyệt</p>
+                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Bài viết chờ duyệt</p>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${kpi.pendingCount || posts.length}</span>
-                                <span class="font-caption text-xs text-on-tertiary-container dark:text-amber-400 font-semibold">+${kpi.pendingNew || 2} mới gửi</span>
+                                <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${posts.length}</span>
+                                <span class="font-caption text-xs text-on-tertiary-container dark:text-amber-400 font-semibold">${posts.length > 0 ? 'Cần xử lý' : 'Đã sạch'}</span>
                             </div>
-                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">4 bài văn hóa, 2 địa điểm, 2 review</p>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Bài cộng đồng từ thành viên</p>
                         </div>
                         <div class="w-12 h-12 rounded-2xl bg-tertiary-fixed dark:bg-amber-950/60 text-on-tertiary-fixed-variant dark:text-amber-300 flex items-center justify-center shadow-xs">
                             <span class="material-symbols-outlined text-[24px]">pending_actions</span>
@@ -8485,25 +8509,26 @@ export function renderAdminModerationModalContent({
                                 <span class="font-headline-lg text-2xl font-bold text-secondary dark:text-emerald-400">${clubs.length}</span>
                                 <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium">hồ sơ thẩm định</span>
                             </div>
-                            <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">2 đủ điều kiện ≥ 10 TV</p>
+                            <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Đề xuất thành lập CLB</p>
                         </div>
                         <div class="w-12 h-12 rounded-2xl bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 flex items-center justify-center shadow-xs">
                             <span class="material-symbols-outlined text-[24px]">diversity_3</span>
                         </div>
                     </div>
 
-                    <!-- Stat 3: Approved Today -->
-                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between">
+                    <!-- Stat 3: Pending Events -->
+                    <div class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'events' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
+                        onclick="window.ViVuApp.switchModerationTab('events')">
                         <div class="space-y-1">
-                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Đã duyệt hôm nay</p>
+                            <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Sự kiện &amp; Workshop</p>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-secondary dark:text-emerald-400">${kpi.approvedToday || 42}</span>
-                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-semibold">↑ 18%</span>
+                                <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${events.length}</span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-semibold">${events.length > 0 ? 'Chờ duyệt' : 'Đã sạch'}</span>
                             </div>
-                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đã cấp 2,100 Xu Xứ Trà</p>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đăng ký tổ chức sự kiện</p>
                         </div>
                         <div class="w-12 h-12 rounded-2xl bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 flex items-center justify-center shadow-xs">
-                            <span class="material-symbols-outlined text-[24px]">task_alt</span>
+                            <span class="material-symbols-outlined text-[24px]">event</span>
                         </div>
                     </div>
 
@@ -8512,10 +8537,10 @@ export function renderAdminModerationModalContent({
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Báo cáo vi phạm</p>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-error dark:text-rose-400">${kpi.flaggedCount || 3}</span>
+                                <span class="font-headline-lg text-2xl font-bold text-error dark:text-rose-400">${kpi.flaggedCount || 0}</span>
                                 <span class="font-caption text-xs text-error dark:text-rose-400 font-semibold">Ưu tiên xử lý</span>
                             </div>
-                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Tỷ lệ từ chối: ${kpi.violationRate || '4.8%'}</p>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đã duyệt hôm nay: ${kpi.approvedToday || 0}</p>
                         </div>
                         <div class="w-12 h-12 rounded-2xl bg-error-container dark:bg-rose-950/60 text-on-error-container dark:text-rose-300 flex items-center justify-center shadow-xs">
                             <span class="material-symbols-outlined text-[24px]">flag_circle</span>
@@ -8531,7 +8556,7 @@ export function renderAdminModerationModalContent({
                             <input id="moderationSearchInput" type="text" value="${escapeHtml(searchQuery)}"
                                 oninput="window.ViVuApp.handleModerationSearch(this.value)"
                                 class="w-full h-11 pl-11 pr-4 bg-surface-container-low dark:bg-zinc-800 rounded-xl font-body-md text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-secondary/30 transition-all border border-transparent focus:border-secondary"
-                                placeholder="Tìm theo tiêu đề bài viết, tên tác giả, CLB, từ khóa gắn thẻ di tích, chùa chiền..." />
+                                placeholder="Tìm theo tiêu đề bài viết, sự kiện, tên tác giả, CLB..." />
                         </div>
                         <div class="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
                             <div class="relative shrink-0">
@@ -8558,6 +8583,12 @@ export function renderAdminModerationModalContent({
                             <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">groups</span>
                             <span>Đề xuất tạo CLB</span>
                             <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${clubs.length}</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.switchModerationTab('events')"
+                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'events' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                            <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">event</span>
+                            <span>Sự kiện &amp; Workshop</span>
+                            <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${events.length}</span>
                         </button>
                         <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'culture')"
                             class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'culture' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
@@ -8589,63 +8620,71 @@ export function renderAdminModerationModalContent({
                                 </span>
                             </div>
 
-                            <div class="space-y-3">
-                                ${displayedPosts.map(p => {
-                                    const isSelected = selectedPost && selectedPost.id === p.id;
-                                    const isFlagged = p.aiSafeScore < 50;
-                                    return `
-                                        <div onclick="window.ViVuApp.selectModerationPost('${p.id}')"
-                                            class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 ${isSelected ? 'ring-2 ring-secondary dark:ring-emerald-500 bg-secondary/5 dark:bg-emerald-950/20 shadow-md' : 'shadow-xs border border-outline-variant/30 dark:border-zinc-800 hover:shadow-sm'} transition-all cursor-pointer">
-                                            <div class="flex items-start justify-between gap-3 mb-1.5">
-                                                <div class="flex items-center gap-1.5 flex-wrap">
-                                                    <span class="px-2 py-0.5 rounded-md ${isFlagged ? 'bg-error-container dark:bg-rose-950 text-error dark:text-rose-300 font-bold' : 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-bold'} text-[11px]">
-                                                        ${escapeHtml(p.category)}
-                                                    </span>
-                                                    <span class="px-2 py-0.5 rounded-md ${isFlagged ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300' : 'bg-surface-container-high dark:bg-zinc-800 text-secondary dark:text-emerald-400'} text-[11px] font-semibold flex items-center gap-0.5">
-                                                        <span class="material-symbols-outlined text-[13px]">${isFlagged ? 'warning' : 'verified'}</span>
-                                                        ${escapeHtml(p.aiStatus)}
-                                                    </span>
-                                                    ${p.status === 'approved' ? `
-                                                        <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Đã duyệt</span>
-                                                    ` : ''}
-                                                    ${p.status === 'rejected' ? `
-                                                        <span class="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold">Đã từ chối</span>
-                                                    ` : ''}
-                                                </div>
-                                                <span class="font-caption text-[11px] text-outline dark:text-zinc-500 shrink-0">${escapeHtml(p.timeAgo)}</span>
-                                            </div>
-                                            <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-2 mb-1.5 leading-snug">
-                                                ${escapeHtml(p.title)}
-                                            </h3>
-                                            <p class="font-body-sm text-xs ${isFlagged ? 'text-error dark:text-rose-400' : 'text-on-surface-variant dark:text-zinc-400'} line-clamp-2 mb-2.5">
-                                                ${escapeHtml(p.excerpt)}
-                                            </p>
-                                            <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-800">
-                                                <div class="flex items-center gap-2">
-                                                    <div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container-high dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-on-surface-variant shrink-0">
-                                                        ${p.author.avatar ? `
-                                                            <img src="${escapeHtml(p.author.avatar)}" alt="${escapeHtml(p.author.name)}" class="w-full h-full object-cover" />
-                                                        ` : `
-                                                            <span>${p.author.name.substring(0, 2).toUpperCase()}</span>
-                                                        `}
-                                                    </div>
-                                                    <div class="flex flex-col">
-                                                        <span class="font-button text-xs font-semibold text-primary dark:text-zinc-200 flex items-center gap-1">
-                                                            ${escapeHtml(p.author.name)}
-                                                            ${p.author.verified ? '<span class="material-symbols-outlined text-[13px] text-secondary dark:text-emerald-400">check_circle</span>' : ''}
+                            ${displayedPosts.length === 0 ? `
+                                <div class="p-8 text-center bg-surface-container-low dark:bg-zinc-800/40 rounded-2xl border border-dashed border-outline-variant/50 dark:border-zinc-800 space-y-2">
+                                    <span class="material-symbols-outlined text-4xl text-secondary dark:text-emerald-400">task_alt</span>
+                                    <p class="text-sm font-semibold text-primary dark:text-zinc-200">Không có bài viết nào chờ duyệt</p>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400">Hàng đợi bài viết cộng đồng đang trống.</p>
+                                </div>
+                            ` : `
+                                <div class="space-y-3">
+                                    ${displayedPosts.map(p => {
+                                        const isSelected = selectedPost && selectedPost.id === p.id;
+                                        const isFlagged = p.aiSafeScore < 50;
+                                        return `
+                                            <div onclick="window.ViVuApp.selectModerationPost('${p.id}')"
+                                                class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 ${isSelected ? 'ring-2 ring-secondary dark:ring-emerald-500 bg-secondary/5 dark:bg-emerald-950/20 shadow-md' : 'shadow-xs border border-outline-variant/30 dark:border-zinc-800 hover:shadow-sm'} transition-all cursor-pointer">
+                                                <div class="flex items-start justify-between gap-3 mb-1.5">
+                                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                                        <span class="px-2 py-0.5 rounded-md ${isFlagged ? 'bg-error-container dark:bg-rose-950 text-error dark:text-rose-300 font-bold' : 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-bold'} text-[11px]">
+                                                            ${escapeHtml(p.category)}
                                                         </span>
-                                                        <span class="font-caption text-[10px] text-outline dark:text-zinc-500">${escapeHtml(p.author.level)}</span>
+                                                        <span class="px-2 py-0.5 rounded-md ${isFlagged ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300' : 'bg-surface-container-high dark:bg-zinc-800 text-secondary dark:text-emerald-400'} text-[11px] font-semibold flex items-center gap-0.5">
+                                                            <span class="material-symbols-outlined text-[13px]">${isFlagged ? 'warning' : 'verified'}</span>
+                                                            ${escapeHtml(p.aiStatus)}
+                                                        </span>
+                                                        ${p.status === 'approved' ? `
+                                                            <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Đã duyệt</span>
+                                                        ` : ''}
+                                                        ${p.status === 'rejected' ? `
+                                                            <span class="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-bold">Đã từ chối</span>
+                                                        ` : ''}
+                                                    </div>
+                                                    <span class="font-caption text-[11px] text-outline dark:text-zinc-500 shrink-0">${escapeHtml(p.timeAgo)}</span>
+                                                </div>
+                                                <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-2 mb-1.5 leading-snug">
+                                                    ${escapeHtml(p.title)}
+                                                </h3>
+                                                <p class="font-body-sm text-xs ${isFlagged ? 'text-error dark:text-rose-400' : 'text-on-surface-variant dark:text-zinc-400'} line-clamp-2 mb-2.5">
+                                                    ${escapeHtml(p.excerpt)}
+                                                </p>
+                                                <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-800">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container-high dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-on-surface-variant shrink-0">
+                                                            ${p.author.avatar ? `
+                                                                <img src="${escapeHtml(p.author.avatar)}" alt="${escapeHtml(p.author.name)}" class="w-full h-full object-cover" />
+                                                            ` : `
+                                                                <span>${p.author.name.substring(0, 2).toUpperCase()}</span>
+                                                            `}
+                                                        </div>
+                                                        <div class="flex flex-col">
+                                                            <span class="font-button text-xs font-semibold text-primary dark:text-zinc-200 flex items-center gap-1">
+                                                                ${escapeHtml(p.author.name)}
+                                                                ${p.author.verified ? '<span class="material-symbols-outlined text-[13px] text-secondary dark:text-emerald-400">check_circle</span>' : ''}
+                                                            </span>
+                                                            <span class="font-caption text-[10px] text-outline dark:text-zinc-500">${escapeHtml(p.author.level)}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex items-center gap-2 text-on-surface-variant dark:text-zinc-400 text-[11px]">
+                                                        <span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[14px]">photo_library</span> ${p.images.length}</span>
+                                                        <span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[14px]">schedule</span> ${escapeHtml(p.readTime)}</span>
                                                     </div>
                                                 </div>
-                                                <div class="flex items-center gap-2 text-on-surface-variant dark:text-zinc-400 text-[11px]">
-                                                    <span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[14px]">photo_library</span> ${p.images.length}</span>
-                                                    <span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[14px]">schedule</span> ${escapeHtml(p.readTime)}</span>
-                                                </div>
                                             </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `}
                         </div>
 
                         <!-- RIGHT COLUMN: Detailed Assessment & Action Studio (7 cols) -->
@@ -8795,7 +8834,7 @@ export function renderAdminModerationModalContent({
                             `}
                         </div>
                     </div>
-                ` : `
+                ` : activeTab === 'clubs' ? `
                     <!-- SUB-VIEW B: CLUB DOSSIER MODERATION -->
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                         <!-- LEFT COLUMN: Club Dossiers Queue List (5 cols) -->
@@ -8810,66 +8849,74 @@ export function renderAdminModerationModalContent({
                                 </span>
                             </div>
 
-                            <div class="space-y-3">
-                                ${displayedClubs.map(c => {
-                                    const isSelected = selectedClub && selectedClub.id === c.id;
-                                    return `
-                                        <div onclick="window.ViVuApp.selectModerationClub('${c.id}')"
-                                            class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 ${isSelected ? 'ring-2 ring-secondary dark:ring-emerald-500 bg-secondary/5 dark:bg-emerald-950/20 shadow-md' : 'shadow-xs border border-outline-variant/30 dark:border-zinc-800 hover:shadow-sm'} transition-all cursor-pointer">
-                                            <div class="flex items-start justify-between gap-3 mb-1.5">
-                                                <div class="flex items-center gap-1.5 flex-wrap">
-                                                    <span class="px-2 py-0.5 rounded-md ${c.isEligible ? 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-bold' : 'bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300 font-bold'} text-[11px] flex items-center gap-1">
-                                                        <span class="material-symbols-outlined text-[13px]">${c.isEligible ? 'verified' : 'hourglass_top'}</span>
-                                                        ${c.isEligible ? 'Đạt chuẩn thẩm định' : 'Đang ấp ủ (' + c.membersCount + '/10)'}
-                                                    </span>
-                                                    <span class="px-2 py-0.5 rounded-md bg-surface-container-high dark:bg-zinc-800 text-[11px] text-on-surface-variant dark:text-zinc-300">
-                                                        ${escapeHtml(c.category)}
-                                                    </span>
-                                                    ${c.status === 'approved' ? `
-                                                        <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Đã cấp Tích Xanh</span>
-                                                    ` : ''}
-                                                </div>
-                                                <span class="font-caption text-[11px] text-outline dark:text-zinc-500 shrink-0">${escapeHtml(c.timeAgo)}</span>
-                                            </div>
-                                            <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-1 mb-1 leading-snug">
-                                                ${escapeHtml(c.name)}
-                                            </h3>
-                                            <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 mb-2.5">
-                                                ${escapeHtml(c.desc)}
-                                            </p>
-
-                                            <!-- Progress Bar for Members -->
-                                            <div class="p-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 mb-2.5 space-y-1 border border-outline-variant/20 dark:border-zinc-700/40">
-                                                <div class="flex items-center justify-between text-xs">
-                                                    <span class="text-on-surface-variant dark:text-zinc-400 font-medium">Tiến độ thành viên sáng lập:</span>
-                                                    <span class="font-bold ${c.isEligible ? 'text-secondary dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">
-                                                        ${c.membersCount}/${c.membersRequired} (${c.progressPercent}%)
-                                                    </span>
-                                                </div>
-                                                <div class="w-full h-2 rounded-full bg-surface-container-high dark:bg-zinc-700 overflow-hidden">
-                                                    <div class="h-full ${c.isEligible ? 'bg-secondary dark:bg-emerald-500' : 'bg-amber-500'} rounded-full" style="width: ${Math.min(c.progressPercent, 100)}%;"></div>
-                                                </div>
-                                            </div>
-
-                                            <div class="flex items-center justify-between pt-1 border-t border-outline-variant/20 dark:border-zinc-800">
-                                                <div class="flex items-center gap-2">
-                                                    <div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container-high dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-on-surface-variant shrink-0">
-                                                        ${c.founder.avatar ? `
-                                                            <img src="${escapeHtml(c.founder.avatar)}" alt="${escapeHtml(c.founder.name)}" class="w-full h-full object-cover" />
-                                                        ` : `
-                                                            <span>${c.founder.name.substring(0, 2).toUpperCase()}</span>
-                                                        `}
+                            ${displayedClubs.length === 0 ? `
+                                <div class="p-8 text-center bg-surface-container-low dark:bg-zinc-800/40 rounded-2xl border border-dashed border-outline-variant/50 dark:border-zinc-800 space-y-2">
+                                    <span class="material-symbols-outlined text-4xl text-secondary dark:text-emerald-400">diversity_3</span>
+                                    <p class="text-sm font-semibold text-primary dark:text-zinc-200">Không có hồ sơ CLB nào chờ duyệt</p>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400">Hàng đợi đề xuất thành lập CLB đang trống.</p>
+                                </div>
+                            ` : `
+                                <div class="space-y-3">
+                                    ${displayedClubs.map(c => {
+                                        const isSelected = selectedClub && selectedClub.id === c.id;
+                                        return `
+                                            <div onclick="window.ViVuApp.selectModerationClub('${c.id}')"
+                                                class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 ${isSelected ? 'ring-2 ring-secondary dark:ring-emerald-500 bg-secondary/5 dark:bg-emerald-950/20 shadow-md' : 'shadow-xs border border-outline-variant/30 dark:border-zinc-800 hover:shadow-sm'} transition-all cursor-pointer">
+                                                <div class="flex items-start justify-between gap-3 mb-1.5">
+                                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                                        <span class="px-2 py-0.5 rounded-md ${c.isEligible ? 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-bold' : 'bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300 font-bold'} text-[11px] flex items-center gap-1">
+                                                            <span class="material-symbols-outlined text-[13px]">${c.isEligible ? 'verified' : 'hourglass_top'}</span>
+                                                            ${c.isEligible ? 'Đạt chuẩn thẩm định' : 'Đang ấp ủ (' + c.membersCount + '/10)'}
+                                                        </span>
+                                                        <span class="px-2 py-0.5 rounded-md bg-surface-container-high dark:bg-zinc-800 text-[11px] text-on-surface-variant dark:text-zinc-300">
+                                                            ${escapeHtml(c.category)}
+                                                        </span>
+                                                        ${c.status === 'approved' ? `
+                                                            <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Đã cấp Tích Xanh</span>
+                                                        ` : ''}
                                                     </div>
-                                                    <span class="text-xs font-semibold text-primary dark:text-zinc-200">${escapeHtml(c.founder.name)}</span>
+                                                    <span class="font-caption text-[11px] text-outline dark:text-zinc-500 shrink-0">${escapeHtml(c.timeAgo)}</span>
                                                 </div>
-                                                <span class="px-2 py-0.5 rounded bg-surface-container-high dark:bg-zinc-800 text-[10px] font-semibold text-outline dark:text-zinc-400">
-                                                    ${escapeHtml(c.code)}
-                                                </span>
+                                                <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-1 mb-1 leading-snug">
+                                                    ${escapeHtml(c.name)}
+                                                </h3>
+                                                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 mb-2.5">
+                                                    ${escapeHtml(c.desc)}
+                                                </p>
+
+                                                <!-- Progress Bar for Members -->
+                                                <div class="p-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 mb-2.5 space-y-1 border border-outline-variant/20 dark:border-zinc-700/40">
+                                                    <div class="flex items-center justify-between text-xs">
+                                                        <span class="text-on-surface-variant dark:text-zinc-400 font-medium">Tiến độ thành viên sáng lập:</span>
+                                                        <span class="font-bold ${c.isEligible ? 'text-secondary dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">
+                                                            ${c.membersCount}/${c.membersRequired} (${c.progressPercent}%)
+                                                        </span>
+                                                    </div>
+                                                    <div class="w-full h-2 rounded-full bg-surface-container-high dark:bg-zinc-700 overflow-hidden">
+                                                        <div class="h-full ${c.isEligible ? 'bg-secondary dark:bg-emerald-500' : 'bg-amber-500'} rounded-full" style="width: ${Math.min(c.progressPercent, 100)}%;"></div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="flex items-center justify-between pt-1 border-t border-outline-variant/20 dark:border-zinc-800">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-6 h-6 rounded-full overflow-hidden bg-surface-container-high dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-on-surface-variant shrink-0">
+                                                            ${c.founder.avatar ? `
+                                                                <img src="${escapeHtml(c.founder.avatar)}" alt="${escapeHtml(c.founder.name)}" class="w-full h-full object-cover" />
+                                                            ` : `
+                                                                <span>${c.founder.name.substring(0, 2).toUpperCase()}</span>
+                                                            `}
+                                                        </div>
+                                                        <span class="text-xs font-semibold text-primary dark:text-zinc-200">${escapeHtml(c.founder.name)}</span>
+                                                    </div>
+                                                    <span class="px-2 py-0.5 rounded bg-surface-container-high dark:bg-zinc-800 text-[10px] font-semibold text-outline dark:text-zinc-400">
+                                                        ${escapeHtml(c.code)}
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `}
                         </div>
 
                         <!-- RIGHT COLUMN: Club Dossier Assessment Detail (7 cols) -->
@@ -9012,6 +9059,156 @@ export function renderAdminModerationModalContent({
                             `}
                         </div>
                     </div>
+                ` : `
+                    <!-- SUB-VIEW C: COMMUNITY EVENTS & WORKSHOPS MODERATION -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <!-- LEFT COLUMN: Events Queue List (5 cols) -->
+                        <div class="lg:col-span-5 space-y-3">
+                            <div class="flex items-center justify-between px-1">
+                                <span class="font-button text-xs font-bold text-primary dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary">event</span>
+                                    Hồ sơ Sự kiện chờ duyệt (${displayedEvents.length})
+                                </span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">sync</span> Tự động làm mới
+                                </span>
+                            </div>
+
+                            ${displayedEvents.length === 0 ? `
+                                <div class="p-8 text-center bg-surface-container-low dark:bg-zinc-800/40 rounded-2xl border border-dashed border-outline-variant/50 dark:border-zinc-800 space-y-2">
+                                    <span class="material-symbols-outlined text-4xl text-secondary dark:text-emerald-400">event_available</span>
+                                    <p class="text-sm font-semibold text-primary dark:text-zinc-200">Không có sự kiện nào chờ duyệt</p>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400">Hàng đợi sự kiện &amp; workshop đang trống.</p>
+                                </div>
+                            ` : `
+                                <div class="space-y-3">
+                                    ${displayedEvents.map(e => {
+                                        const isSelected = selectedEvent && selectedEvent.id === e.id;
+                                        return `
+                                            <div onclick="window.ViVuApp.selectModerationEvent('${e.id}')"
+                                                class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 ${isSelected ? 'ring-2 ring-secondary dark:ring-emerald-500 bg-secondary/5 dark:bg-emerald-950/20 shadow-md' : 'shadow-xs border border-outline-variant/30 dark:border-zinc-800 hover:shadow-sm'} transition-all cursor-pointer">
+                                                <div class="flex items-start justify-between gap-3 mb-1.5">
+                                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                                        <span class="px-2 py-0.5 rounded-md bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-bold text-[11px]">
+                                                            ${escapeHtml(e.category)}
+                                                        </span>
+                                                        ${e.status === 'approved' ? `
+                                                            <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Đã duyệt</span>
+                                                        ` : `
+                                                            <span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold">Chờ duyệt</span>
+                                                        `}
+                                                    </div>
+                                                    <span class="font-caption text-[11px] text-outline dark:text-zinc-500 shrink-0">${escapeHtml(e.submittedAt || '')}</span>
+                                                </div>
+                                                <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-1 mb-1 leading-snug">
+                                                    ${escapeHtml(e.title)}
+                                                </h3>
+                                                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 line-clamp-2 mb-2">
+                                                    ${escapeHtml(e.description || 'Không có mô tả chi tiết.')}
+                                                </p>
+                                                <div class="flex items-center justify-between pt-1 border-t border-outline-variant/20 dark:border-zinc-800 text-[11px] text-outline dark:text-zinc-400">
+                                                    <span class="flex items-center gap-1 font-medium text-primary dark:text-zinc-200">
+                                                        <span class="material-symbols-outlined text-[14px] text-secondary">person</span>
+                                                        ${escapeHtml(e.organizer || e.creatorName || '')}
+                                                    </span>
+                                                    <span class="flex items-center gap-1">
+                                                        <span class="material-symbols-outlined text-[14px]">schedule</span>
+                                                        ${escapeHtml(e.datetime || e.timeSchedule || '')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- RIGHT COLUMN: Event Detail & Action Studio (7 cols) -->
+                        <div class="lg:col-span-7 space-y-5">
+                            ${selectedEvent ? `
+                                <div class="p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 shadow-md border border-outline-variant/30 dark:border-zinc-800 space-y-6">
+                                    <!-- Header: Event Overview -->
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-4 border-b border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="flex items-center gap-3.5">
+                                            <div class="w-14 h-14 rounded-2xl bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-sm">
+                                                <span class="material-symbols-outlined text-[32px]">event</span>
+                                            </div>
+                                            <div>
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <h2 class="font-headline-sm text-base sm:text-lg font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedEvent.title)}</h2>
+                                                    <span class="px-2 py-0.5 rounded-full ${selectedEvent.status === 'approved' ? 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300' : 'bg-tertiary-fixed dark:bg-amber-950 text-on-tertiary-fixed-variant dark:text-amber-300'} text-[10px] font-bold">
+                                                        ${selectedEvent.status === 'approved' ? 'Đã duyệt' : 'Chờ kiểm duyệt'}
+                                                    </span>
+                                                </div>
+                                                <p class="font-caption text-xs text-outline dark:text-zinc-400 mt-0.5">
+                                                    Đơn vị tổ chức: <strong class="text-secondary dark:text-emerald-400 font-semibold">${escapeHtml(selectedEvent.organizer)}</strong>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Event Details Grid -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-1">
+                                            <span class="text-[11px] text-outline dark:text-zinc-400 font-medium">Thời gian tổ chức</span>
+                                            <p class="font-button text-xs font-bold text-primary dark:text-zinc-100 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px] text-secondary">schedule</span>
+                                                ${escapeHtml(selectedEvent.datetime || selectedEvent.timeSchedule || 'Chưa cập nhật')}
+                                            </p>
+                                        </div>
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-1">
+                                            <span class="text-[11px] text-outline dark:text-zinc-400 font-medium">Địa điểm</span>
+                                            <p class="font-button text-xs font-bold text-primary dark:text-zinc-100 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px] text-secondary">location_on</span>
+                                                ${escapeHtml(selectedEvent.location || 'Chưa cập nhật')}
+                                            </p>
+                                        </div>
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-1">
+                                            <span class="text-[11px] text-outline dark:text-zinc-400 font-medium">Phí tham gia</span>
+                                            <p class="font-button text-xs font-bold text-primary dark:text-zinc-100 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px] text-secondary">payments</span>
+                                                ${escapeHtml(selectedEvent.fee || 'Miễn phí')}
+                                            </p>
+                                        </div>
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-1">
+                                            <span class="text-[11px] text-outline dark:text-zinc-400 font-medium">SĐT liên hệ (Bảo mật - Chỉ Admin)</span>
+                                            <p class="font-button text-xs font-bold text-secondary dark:text-emerald-400 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px]">call</span>
+                                                ${escapeHtml(selectedEvent.contactPhone || selectedEvent.phone || 'Chưa cung cấp')}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Description -->
+                                    <div class="space-y-2">
+                                        <span class="font-button text-xs font-bold text-primary dark:text-zinc-200">Mô tả sự kiện:</span>
+                                        <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed border border-outline-variant/20 dark:border-zinc-800">
+                                            ${escapeHtml(selectedEvent.description || 'Không có mô tả chi tiết.')}
+                                        </div>
+                                    </div>
+
+                                    <!-- Decision Action Bar -->
+                                    <div class="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <button type="button" onclick="window.ViVuApp.openActionReasonModal('reject_event', '${selectedEvent.id}', '${escapeHtml(selectedEvent.title)}')"
+                                            class="px-4 py-2.5 min-h-[44px] rounded-xl bg-error text-white hover:bg-rose-700 transition-all font-button text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto">
+                                            <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                            <span>Từ chối sự kiện</span>
+                                        </button>
+                                        <button type="button" onclick="window.ViVuApp.approveEvent('${selectedEvent.id}')"
+                                            class="px-5 py-2.5 min-h-[44px] rounded-xl bg-secondary text-white hover:bg-primary transition-all font-button text-xs font-semibold flex items-center justify-center gap-2 shadow-md w-full sm:w-auto">
+                                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                            <span>Phê duyệt &amp; Xuất bản sự kiện</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="p-12 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl border border-outline-variant/30 dark:border-zinc-800">
+                                    <span class="material-symbols-outlined text-4xl text-outline mb-2">event</span>
+                                    <p class="text-sm text-on-surface-variant dark:text-zinc-400">Không có sự kiện nào được chọn.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
                 `}
             </div>
         </div>
@@ -9028,9 +9225,14 @@ export function renderAdminActionReasonModalContent({
 }) {
     const isReject = actionType.startsWith('reject');
     const titleText = isReject ? 'Từ chối phê duyệt' : 'Yêu cầu chỉnh sửa / bổ sung thông tin';
-    const presets = isReject
-        ? ['Nội dung spam, quảng cáo thương mại', 'Sai lệch tọa độ thực tế hoặc địa bàn', 'Hình ảnh vi phạm bản quyền / độ phân giải kém', 'Báng bổ hoặc xâm phạm tôn nghiêm văn hóa']
-        : ['Bổ sung thêm hình ảnh chất lượng cao', 'Cần xác thực thêm danh tính thành viên sáng lập', 'Cập nhật lại giá vé tham quan chính xác', 'Chi tiết hóa kế hoạch 3 tháng đầu'];
+    let presets = [];
+    if (actionType.startsWith('reject_event')) {
+        presets = ['Thời gian / địa điểm tổ chức không rõ ràng', 'Nội dung thương mại / bán hàng chưa đăng ký', 'Sự kiện trùng lặp với lịch trình đã có', 'Vi phạm quy định văn hóa / an toàn công cộng'];
+    } else if (isReject) {
+        presets = ['Nội dung spam, quảng cáo thương mại', 'Sai lệch tọa độ thực tế hoặc địa bàn', 'Hình ảnh vi phạm bản quyền / độ phân giải kém', 'Báng bổ hoặc xâm phạm tôn nghiêm văn hóa'];
+    } else {
+        presets = ['Bổ sung thêm hình ảnh chất lượng cao', 'Cần xác thực thêm danh tính thành viên sáng lập', 'Cập nhật lại giá vé tham quan chính xác', 'Chi tiết hóa kế hoạch 3 tháng đầu'];
+    }
 
     return `
         <div class="relative bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl shadow-2xl p-6 border border-outline-variant/30 dark:border-zinc-800 space-y-4">

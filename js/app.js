@@ -122,12 +122,12 @@ import {
     ADMIN_TECH_CLEARANCE,
     TRAVEL_GEAR_RECOMMENDATIONS,
     MODERATION_KPI,
-    INITIAL_PENDING_POSTS,
-    INITIAL_PENDING_CLUBS,
     getStoredModerationPosts,
     saveStoredModerationPosts,
     getStoredModerationClubs,
     saveStoredModerationClubs,
+    getStoredModerationEvents,
+    saveStoredModerationEvents,
     getStoredDonationRecords,
     saveStoredDonationRecords,
     addDonationRecord
@@ -642,9 +642,11 @@ export const state = {
     travelGear: TRAVEL_GEAR_RECOMMENDATIONS,
     recentSupporters: getStoredDonationRecords(),
     moderationPosts: getStoredModerationPosts(),
-    selectedModerationPostId: 'post-01',
+    selectedModerationPostId: null,
     moderationClubs: getStoredModerationClubs(),
-    selectedModerationClubId: 'club-pending-01',
+    selectedModerationClubId: null,
+    moderationEvents: getStoredModerationEvents(),
+    selectedModerationEventId: null,
     moderationKpi: { ...MODERATION_KPI },
     moderationActiveTab: 'posts',
     moderationFilterCategory: 'all',
@@ -1082,9 +1084,109 @@ export function closeHostEventModal() {
 /**
  * Submit Đăng Ký Tổ Chức Sự Kiện Mới
  */
-export function submitHostEvent(hostData) {
-    closeHostEventModal();
-    showNotification(`Cảm ơn bạn! Thông tin sự kiện "${hostData.title || ''}" đã gửi tới Ban Quản Trị ViVuTraVinh.`);
+export async function submitHostEvent(hostData) {
+    const session = getUserSession();
+    if (!session || !session.user) {
+        showNoticeToast('Yêu cầu đăng nhập', 'Vui lòng đăng nhập tài khoản Thành viên để gửi hồ sơ tổ chức sự kiện.');
+        openAuthModal('signin', () => submitHostEvent(hostData));
+        return;
+    }
+
+    try {
+        const token = await getValidUserToken();
+        if (!token) {
+            showNoticeToast('Phiên làm việc hết hạn', 'Vui lòng đăng nhập lại.');
+            openAuthModal('signin', () => submitHostEvent(hostData));
+            return;
+        }
+
+        const res = await fetch('/api/community-events', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                title: hostData.title,
+                organizer: hostData.organizer,
+                category: hostData.category,
+                time_schedule: hostData.datetime,
+                location: hostData.location,
+                description: hostData.description,
+                contact_phone: hostData.phone || ''
+            })
+        });
+
+        if (res.ok) {
+            closeHostEventModal();
+            showSavedToast('✓ Đã gửi hồ sơ sự kiện thành công! Ban Quản Trị sẽ phê duyệt trong 24h.');
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            showNotification(errData.message || 'Không thể gửi hồ sơ sự kiện lúc này.');
+        }
+    } catch (e) {
+        console.warn('[CommunityEvents] Lỗi gửi sự kiện:', e.message);
+        showNotification('Có lỗi kết nối mạng. Vui lòng thử lại sau.');
+    }
+}
+
+/**
+ * Đồng bộ danh sách Sự kiện & Workshop đã phê duyệt từ Supabase về State
+ */
+export async function syncCommunityEventsFromSupabase() {
+    try {
+        const res = await fetch('/api/community-events?status=approved');
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.events)) {
+                const liveApprovedEvents = data.events.map(e => ({
+                    id: e.id,
+                    title: e.title,
+                    month: 'Sắp tới',
+                    day: '•',
+                    timeSchedule: e.time_schedule || 'Sắp diễn ra',
+                    location: e.location,
+                    region: e.region || 'tp-tra-vinh',
+                    regionName: e.region === 'cau-ke' ? 'Huyện Cầu Kè' : (e.region === 'tra-cu' ? 'Huyện Trà Cú' : 'TP. Trà Vinh'),
+                    category: e.category === 'workshop' ? 'Workshop văn hóa' : (e.category === 'sports' ? 'Thể thao & Trải nghiệm' : 'Giao lưu cộng đồng'),
+                    categoryKey: e.category || 'community',
+                    fee: e.fee || 'Miễn phí',
+                    feeType: e.fee_type || 'free',
+                    attendees: `${e.max_attendees || 50} người`,
+                    image: '/ao bà om.jpg',
+                    ctaText: 'Đăng ký giữ chỗ',
+                    actionType: 'rsvp',
+                    summary: e.description || `Sự kiện do ${e.organizer || e.creator_name} tổ chức.`,
+                    status: 'approved',
+                    organizer: e.organizer
+                }));
+                const liveIds = new Set(liveApprovedEvents.map(e => e.id));
+                state.eventsAndMeetups = [
+                    ...liveApprovedEvents,
+                    ...TRA_VINH_EVENTS_AND_MEETUPS.filter(e => !liveIds.has(e.id))
+                ];
+                renderFestivalsSection(
+                    'festivalsPortalContainer',
+                    state.festivals,
+                    state.activeFestivalSeason,
+                    openFestivalModal,
+                    openDetailModal,
+                    handleSeasonFilter,
+                    state.eventsAndMeetups,
+                    state.activeEventCategory,
+                    state.activeEventRegion,
+                    handleEventCategoryFilter,
+                    handleEventRegionFilter,
+                    openEventRsvpModal,
+                    toggleBookmarkEvent,
+                    state.bookmarkedEvents,
+                    openHostEventModal
+                );
+            }
+        }
+    } catch (err) {
+        console.warn('[CommunityEvents] Fallback sự kiện:', err.message);
+    }
 }
 
 /**
@@ -5061,6 +5163,9 @@ export async function syncCommunityUgcFeed() {
             console.warn('[CommunitySync] Supabase direct public_clubs fetch:', e.message);
         }
     }
+
+    // 3. Đồng bộ Sự kiện & Workshop cộng đồng
+    await syncCommunityEventsFromSupabase().catch(e => console.warn('[CommunitySync] Events sync error:', e.message));
 }
 
 /**
@@ -6868,6 +6973,24 @@ export function updateAdminRoleUI() {
     }
 }
 
+function renderModerationModal() {
+    const container = document.getElementById('adminModerationModalContent');
+    if (!container) return;
+    container.innerHTML = renderAdminModerationModalContent({
+        activeTab: state.moderationActiveTab,
+        posts: state.moderationPosts,
+        selectedPostId: state.selectedModerationPostId,
+        clubs: state.moderationClubs,
+        selectedClubId: state.selectedModerationClubId,
+        events: state.moderationEvents,
+        selectedEventId: state.selectedModerationEventId,
+        kpi: state.moderationKpi,
+        filterCategory: state.moderationFilterCategory,
+        riskFilter: state.moderationRiskFilter,
+        searchQuery: state.moderationSearchQuery
+    });
+}
+
 export async function openAdminModerationModal(tab = 'posts') {
     const session = getAdminSession();
     const role = session?.user?.role;
@@ -6898,8 +7021,8 @@ export async function openAdminModerationModal(tab = 'posts') {
             });
             if (res.ok) {
                 const data = await res.json();
-                if (Array.isArray(data.posts) && data.posts.length > 0) {
-                    const livePosts = data.posts.map(p => ({
+                if (Array.isArray(data.posts)) {
+                    state.moderationPosts = data.posts.map(p => ({
                         id: p.id,
                         author: {
                             name: p.author_name || 'Thành viên Xứ Trà',
@@ -6910,34 +7033,82 @@ export async function openAdminModerationModal(tab = 'posts') {
                         category: p.category || 'Tự do',
                         title: p.title || 'Bài chia sẻ cộng đồng',
                         excerpt: p.content ? (p.content.slice(0, 160) + (p.content.length > 160 ? '...' : '')) : '',
-                        fullContent: p.content,
-                        image: (p.images && p.images[0]) || null,
+                        fullContent: p.content ? [p.content] : [],
+                        images: (p.images || []).map(img => typeof img === 'string' ? { src: img, caption: 'Hình ảnh' } : img),
+                        tags: ['Cộng đồng', 'Trà Vinh'],
                         submittedAt: p.created_at || 'Vừa xong',
                         status: p.status || 'pending',
                         aiSafeScore: 90,
                         flagsCount: 0
                     }));
-                    const liveIds = new Set(livePosts.map(lp => lp.id));
-                    state.moderationPosts = [...livePosts, ...state.moderationPosts.filter(p => !liveIds.has(p.id))];
                 }
-                if (Array.isArray(data.clubs) && data.clubs.length > 0) {
-                    const liveClubs = data.clubs.map(c => ({
+                if (Array.isArray(data.clubs)) {
+                    state.moderationClubs = data.clubs.map(c => ({
                         id: c.id,
                         name: c.name,
                         category: c.category,
-                        categoryName: c.category_name,
+                        categoryName: c.category_name || c.category,
+                        founder: {
+                            name: c.leader_name || 'Chủ nhiệm CLB',
+                            avatar: null
+                        },
                         leaderName: c.leader_name || 'Chủ nhiệm CLB',
                         leaderPhone: c.leader_phone || '',
                         submittedAt: c.created_at || 'Vừa xong',
                         status: c.status || 'pending',
                         membersCount: c.members_count || 1,
-                        description: c.description,
+                        membersRequired: 10,
+                        progressPercent: Math.round(((c.members_count || 1) / 10) * 100),
+                        desc: c.description || '',
+                        operatingHub: c.meeting_place || 'TP. Trà Vinh',
+                        code: c.id,
                         meetingPlace: c.meeting_place || 'TP. Trà Vinh',
                         scheduleInfo: c.schedule_info || 'Định kỳ hàng tuần',
-                        isEligible: false
+                        isEligible: (c.members_count || 1) >= 10,
+                        notableFounders: [
+                            { name: c.leader_name || 'Chủ nhiệm CLB', role: 'Chủ nhiệm sáng lập' }
+                        ],
+                        criteriaList: [
+                            { title: 'Điều lệ hoạt động', desc: 'Có tôn chỉ sinh hoạt lành mạnh', passed: true },
+                            { title: 'Địa bàn hoạt động', desc: c.meeting_place || 'Tại tỉnh Trà Vinh', passed: true }
+                        ],
+                        threeMonthsPlan: [
+                            'Kiện toàn danh sách thành viên sáng lập',
+                            'Tổ chức buổi sinh hoạt định kỳ đầu tiên',
+                            'Đăng ký kế hoạch hoạt động quý với BQT'
+                        ]
                     }));
-                    const liveClubIds = new Set(liveClubs.map(lc => lc.id));
-                    state.moderationClubs = [...liveClubs, ...state.moderationClubs.filter(c => !liveClubIds.has(c.id))];
+                }
+                if (Array.isArray(data.events)) {
+                    state.moderationEvents = data.events.map(e => ({
+                        id: e.id,
+                        title: e.title,
+                        organizer: e.organizer,
+                        category: e.category,
+                        datetime: e.time_schedule,
+                        timeSchedule: e.time_schedule,
+                        location: e.location,
+                        region: e.region,
+                        description: e.description,
+                        fee: e.fee,
+                        contactPhone: e.contact_phone || '',
+                        phone: e.contact_phone || '',
+                        submittedAt: e.created_at || 'Vừa xong',
+                        status: e.status || 'pending',
+                        creatorName: e.creator_name || 'Thành viên Xứ Trà'
+                    }));
+                }
+                if (data.kpi) {
+                    state.moderationKpi = {
+                        pendingCount: (data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0),
+                        pendingNew: data.kpi.pendingEvents || 0,
+                        flaggedCount: 0,
+                        approvedToday: state.moderationKpi.approvedToday || 0,
+                        pointsIssued: 0,
+                        violationRate: "0%",
+                        pendingClubsCount: data.kpi.pendingClubs || 0,
+                        pendingEventsCount: data.kpi.pendingEvents || 0
+                    };
                 }
             }
         }
@@ -6945,17 +7116,7 @@ export async function openAdminModerationModal(tab = 'posts') {
         console.warn('[AdminModeration] Dùng dữ liệu hàng đợi cục bộ:', e.message);
     }
 
-    container.innerHTML = renderAdminModerationModalContent({
-        activeTab: state.moderationActiveTab,
-        posts: state.moderationPosts,
-        selectedPostId: state.selectedModerationPostId,
-        clubs: state.moderationClubs,
-        selectedClubId: state.selectedModerationClubId,
-        kpi: state.moderationKpi,
-        filterCategory: state.moderationFilterCategory,
-        riskFilter: state.moderationRiskFilter,
-        searchQuery: state.moderationSearchQuery
-    });
+    renderModerationModal();
     modal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
 }
@@ -6971,92 +7132,32 @@ export function closeAdminModerationModal() {
 export function switchModerationTab(tab, category = 'all') {
     state.moderationActiveTab = tab;
     state.moderationFilterCategory = category;
-    const container = document.getElementById('adminModerationModalContent');
-    if (container) {
-        container.innerHTML = renderAdminModerationModalContent({
-            activeTab: state.moderationActiveTab,
-            posts: state.moderationPosts,
-            selectedPostId: state.selectedModerationPostId,
-            clubs: state.moderationClubs,
-            selectedClubId: state.selectedModerationClubId,
-            kpi: state.moderationKpi,
-            filterCategory: state.moderationFilterCategory,
-            riskFilter: state.moderationRiskFilter,
-            searchQuery: state.moderationSearchQuery
-        });
-    }
+    renderModerationModal();
 }
 
 export function selectModerationPost(postId) {
     state.selectedModerationPostId = postId;
-    const container = document.getElementById('adminModerationModalContent');
-    if (container) {
-        container.innerHTML = renderAdminModerationModalContent({
-            activeTab: state.moderationActiveTab,
-            posts: state.moderationPosts,
-            selectedPostId: state.selectedModerationPostId,
-            clubs: state.moderationClubs,
-            selectedClubId: state.selectedModerationClubId,
-            kpi: state.moderationKpi,
-            filterCategory: state.moderationFilterCategory,
-            riskFilter: state.moderationRiskFilter,
-            searchQuery: state.moderationSearchQuery
-        });
-    }
+    renderModerationModal();
 }
 
 export function selectModerationClub(clubId) {
     state.selectedModerationClubId = clubId;
-    const container = document.getElementById('adminModerationModalContent');
-    if (container) {
-        container.innerHTML = renderAdminModerationModalContent({
-            activeTab: state.moderationActiveTab,
-            posts: state.moderationPosts,
-            selectedPostId: state.selectedModerationPostId,
-            clubs: state.moderationClubs,
-            selectedClubId: state.selectedModerationClubId,
-            kpi: state.moderationKpi,
-            filterCategory: state.moderationFilterCategory,
-            riskFilter: state.moderationRiskFilter,
-            searchQuery: state.moderationSearchQuery
-        });
-    }
+    renderModerationModal();
+}
+
+export function selectModerationEvent(eventId) {
+    state.selectedModerationEventId = eventId;
+    renderModerationModal();
 }
 
 export function handleModerationSearch(query) {
     state.moderationSearchQuery = query;
-    const container = document.getElementById('adminModerationModalContent');
-    if (container) {
-        container.innerHTML = renderAdminModerationModalContent({
-            activeTab: state.moderationActiveTab,
-            posts: state.moderationPosts,
-            selectedPostId: state.selectedModerationPostId,
-            clubs: state.moderationClubs,
-            selectedClubId: state.selectedModerationClubId,
-            kpi: state.moderationKpi,
-            filterCategory: state.moderationFilterCategory,
-            riskFilter: state.moderationRiskFilter,
-            searchQuery: state.moderationSearchQuery
-        });
-    }
+    renderModerationModal();
 }
 
 export function filterModerationRisk(risk) {
     state.moderationRiskFilter = risk;
-    const container = document.getElementById('adminModerationModalContent');
-    if (container) {
-        container.innerHTML = renderAdminModerationModalContent({
-            activeTab: state.moderationActiveTab,
-            posts: state.moderationPosts,
-            selectedPostId: state.selectedModerationPostId,
-            clubs: state.moderationClubs,
-            selectedClubId: state.selectedModerationClubId,
-            kpi: state.moderationKpi,
-            filterCategory: state.moderationFilterCategory,
-            riskFilter: state.moderationRiskFilter,
-            searchQuery: state.moderationSearchQuery
-        });
-    }
+    renderModerationModal();
 }
 
 export async function approvePost(postId) {
@@ -7095,20 +7196,7 @@ export async function approvePost(postId) {
     }
     renderCommunityFeed();
 
-    const container = document.getElementById('adminModerationModalContent');
-    if (container) {
-        container.innerHTML = renderAdminModerationModalContent({
-            activeTab: state.moderationActiveTab,
-            posts: state.moderationPosts,
-            selectedPostId: state.selectedModerationPostId,
-            clubs: state.moderationClubs,
-            selectedClubId: state.selectedModerationClubId,
-            kpi: state.moderationKpi,
-            filterCategory: state.moderationFilterCategory,
-            riskFilter: state.moderationRiskFilter,
-            searchQuery: state.moderationSearchQuery
-        });
-    }
+    renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và xuất bản bài viết thành công (+50 Xu thưởng)!');
 }
 
@@ -7146,21 +7234,43 @@ export async function approveClub(clubId) {
     }
     renderClubsGrid();
 
-    const container = document.getElementById('adminModerationModalContent');
-    if (container) {
-        container.innerHTML = renderAdminModerationModalContent({
-            activeTab: state.moderationActiveTab,
-            posts: state.moderationPosts,
-            selectedPostId: state.selectedModerationPostId,
-            clubs: state.moderationClubs,
-            selectedClubId: state.selectedModerationClubId,
-            kpi: state.moderationKpi,
-            filterCategory: state.moderationFilterCategory,
-            riskFilter: state.moderationRiskFilter,
-            searchQuery: state.moderationSearchQuery
-        });
-    }
+    renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và cấp Tích Xanh chính thức cho CLB (+500 Xu quỹ khởi đầu)!');
+}
+
+export async function approveEvent(eventId) {
+    const event = state.moderationEvents.find(e => e.id === eventId);
+    if (!event) return;
+
+    try {
+        const token = await getValidAdminToken();
+        if (token) {
+            await fetch('/api/admin-moderation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    entity_type: 'community_event',
+                    entity_id: eventId,
+                    action: 'approve'
+                })
+            });
+        }
+    } catch (e) {
+        console.warn('[Moderation] API approveEvent error:', e.message);
+    }
+
+    event.status = 'approved';
+    state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
+    saveStoredModerationEvents(state.moderationEvents);
+
+    // Đồng bộ lại events công khai
+    await syncCommunityEventsFromSupabase().catch(() => {});
+
+    renderModerationModal();
+    showSavedToast('✓ Đã phê duyệt và xuất bản sự kiện cộng đồng!');
 }
 
 export function openActionReasonModal(actionType, targetId, targetTitle) {
@@ -7260,24 +7370,38 @@ export async function submitActionReason(actionType, targetId) {
             saveStoredModerationClubs(state.moderationClubs);
         }
         showSavedToast('Đã gửi yêu cầu bổ sung thông tin cho Trưởng nhóm CLB.');
+    } else if (actionType.startsWith('reject_event')) {
+        const event = state.moderationEvents.find(e => e.id === targetId);
+        if (event) {
+            event.status = 'rejected';
+            event.rejectionReason = reason;
+            saveStoredModerationEvents(state.moderationEvents);
+        }
+        try {
+            const token = await getValidAdminToken();
+            if (token) {
+                await fetch('/api/admin-moderation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        entity_type: 'community_event',
+                        entity_id: targetId,
+                        action: 'reject',
+                        reason: reason || 'Nội dung sự kiện không phù hợp tiêu chuẩn.'
+                    })
+                });
+            }
+        } catch (e) {
+            console.warn('[Moderation] API reject event error:', e.message);
+        }
+        showSavedToast('Đã từ chối sự kiện và lưu lý do thẩm định.');
     }
 
     closeActionReasonModal();
-
-    const container = document.getElementById('adminModerationModalContent');
-    if (container) {
-        container.innerHTML = renderAdminModerationModalContent({
-            activeTab: state.moderationActiveTab,
-            posts: state.moderationPosts,
-            selectedPostId: state.selectedModerationPostId,
-            clubs: state.moderationClubs,
-            selectedClubId: state.selectedModerationClubId,
-            kpi: state.moderationKpi,
-            filterCategory: state.moderationFilterCategory,
-            riskFilter: state.moderationRiskFilter,
-            searchQuery: state.moderationSearchQuery
-        });
-    }
+    renderModerationModal();
 }
 
 export function quickApproveHighTrust() {
@@ -7291,20 +7415,7 @@ export function quickApproveHighTrust() {
     if (count > 0) {
         state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + count;
         saveStoredModerationPosts(state.moderationPosts);
-        const container = document.getElementById('adminModerationModalContent');
-        if (container) {
-            container.innerHTML = renderAdminModerationModalContent({
-                activeTab: state.moderationActiveTab,
-                posts: state.moderationPosts,
-                selectedPostId: state.selectedModerationPostId,
-                clubs: state.moderationClubs,
-                selectedClubId: state.selectedModerationClubId,
-                kpi: state.moderationKpi,
-                filterCategory: state.moderationFilterCategory,
-                riskFilter: state.moderationRiskFilter,
-                searchQuery: state.moderationSearchQuery
-            });
-        }
+        renderModerationModal();
         showSavedToast(`✓ Đã duyệt nhanh ${count} bài viết đạt chuẩn an toàn cao!`);
     } else {
         showSavedToast('Không có bài viết mới đạt chuẩn duyệt nhanh.');
@@ -7661,6 +7772,7 @@ if (typeof window !== 'undefined') {
         getUserSession,
         fetchUserProfile,
         syncCommunityUgcFeed,
+        syncCommunityEventsFromSupabase,
         // Profile & Saved Collections Methods (Phase 7)
         openProfileModal,
         closeProfileModal,
@@ -7754,10 +7866,12 @@ if (typeof window !== 'undefined') {
         switchModerationTab,
         selectModerationPost,
         selectModerationClub,
+        selectModerationEvent,
         handleModerationSearch,
         filterModerationRisk,
         approvePost,
         approveClub,
+        approveEvent,
         openActionReasonModal,
         closeActionReasonModal,
         submitActionReason,

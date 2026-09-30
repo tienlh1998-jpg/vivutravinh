@@ -38,6 +38,16 @@ const MODERATION_ENTITIES = {
       archive: 'archived'
     },
     selectColumns: 'id,name,category,status,leader_id,leader_name,leader_phone,created_at'
+  },
+  community_event: {
+    table: 'community_events',
+    label: 'Sự kiện cộng đồng',
+    actionStatusMap: {
+      approve: 'approved',
+      reject: 'rejected',
+      archive: 'archived'
+    },
+    selectColumns: 'id,title,organizer,category,time_schedule,location,status,created_by,creator_name,contact_phone,created_at'
   }
 };
 
@@ -55,7 +65,7 @@ async function handleGetModerationList(request, response, adminContext) {
 
     if (entityType) {
       if (!MODERATION_ENTITIES[entityType]) {
-        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club).');
+        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event).');
         return;
       }
       const entity = MODERATION_ENTITIES[entityType];
@@ -75,17 +85,22 @@ async function handleGetModerationList(request, response, adminContext) {
       return;
     }
 
-    // Nếu không chỉ định entity_type: trả về tổng hợp cả 2 hàng đợi
+    // Nếu không chỉ định entity_type: trả về tổng hợp cả 3 hàng đợi
     const postsQuery = `community_posts?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const clubsQuery = `clubs?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
+    const eventsQuery = `community_events?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
 
-    const [posts, clubs] = await Promise.all([
+    const [posts, clubs, events] = await Promise.all([
       supabaseRequest(postsQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc posts queue:', err.message);
         return [];
       }),
       supabaseRequest(clubsQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc clubs queue:', err.message);
+        return [];
+      }),
+      supabaseRequest(eventsQuery).catch(err => {
+        console.warn('[AdminModeration] Lỗi đọc events queue:', err.message);
         return [];
       })
     ]);
@@ -95,9 +110,11 @@ async function handleGetModerationList(request, response, adminContext) {
       status,
       posts: Array.isArray(posts) ? posts : [],
       clubs: Array.isArray(clubs) ? clubs : [],
+      events: Array.isArray(events) ? events : [],
       kpi: {
         pendingPosts: Array.isArray(posts) ? posts.filter(p => p.status === 'pending').length : 0,
-        pendingClubs: Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0
+        pendingClubs: Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0,
+        pendingEvents: Array.isArray(events) ? events.filter(e => e.status === 'pending').length : 0
       }
     });
   } catch (err) {
@@ -129,7 +146,7 @@ async function moderateEntity(request, response, adminContext) {
 
   // 1. Validate đầu vào chặt chẽ
   if (!MODERATION_ENTITIES[entityType]) {
-    sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club).');
+    sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event).');
     return;
   }
   if (!entityId || entityId.length > 128) {
