@@ -37,6 +37,8 @@
     "test:rsvp:live": "node scripts/test-live-rsvp-duplicate.cjs",
     "test:rsvp:e2e": "node --experimental-websocket scripts/verify-rsvp-e2e-browser.cjs",
     "test:prod:live": "node scripts/verify-production-live.cjs",
+    "test:tabs:browser": "node --experimental-websocket scripts/verify-tabs-browser-acceptance.cjs",
+    "test:perf:load": "node scripts/measure-load-performance.cjs",
     "test:sanitizer": "node --experimental-websocket scripts/test-sanitizer-browser.cjs",
     "test:queue:empty": "node --experimental-websocket scripts/verify-admin-empty-queue-browser.cjs",
     "test:security:hardening": "node scripts/test-rest-security-hardening.cjs",

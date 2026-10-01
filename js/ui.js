@@ -3426,7 +3426,7 @@ export function renderFestivalDetailModal(festival, allFestivals = [], onSelectP
                                         </span>
                                         <div>
                                             <span class="font-caption text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Hỏi Đáp Du Khách</span>
-                                            <h2 class="font-headline-md text-lg sm:text-xl text-on-surface dark:text-zinc-100 font-bold">Thảo Luận Trực Tiếp (48 phản hồi)</h2>
+                                            <h2 class="font-headline-md text-lg sm:text-xl text-on-surface dark:text-zinc-100 font-bold">Thảo Luận Trực Tiếp${(festival.faqDiscussions && festival.faqDiscussions.length > 0) ? ` (${festival.faqDiscussions.length} phản hồi)` : ''}</h2>
                                         </div>
                                     </div>
                                 </div>
@@ -5195,7 +5195,7 @@ export function renderClubsBentoGrid(clubs, joinedClubIds = []) {
         const safeLastAct = escapeHtml(club.lastActivity || 'Hoạt động hàng tuần');
         const safeImage = escapeHtml(club.image || NEUTRAL_PLACEHOLDER_IMAGE);
         const isJoined = joinedClubIds.includes(club.id);
-        const isSample = club.isSample || ['clb-chay-bo-long-binh', 'clb-phuot-checkin', 'clb-don-ca-tai-tu', 'clb-nhiep-anh-khmer'].includes(club.id);
+        const isSample = club.isSample || ['clb-chay-bo-long-binh', 'clb-phuot-checkin', 'clb-don-ca-tai-tu', 'clb-nhiep-anh-khmer', 'clb-am-thuc-xu-tra'].includes(club.id);
 
         return `
             <article class="flex flex-col bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all border border-outline-variant/40 dark:border-zinc-800 group">
@@ -5537,8 +5537,8 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                                         <span class="material-symbols-outlined text-[13px]">verified_user</span> Đã xác thực Supabase Auth (${authEmail})
                                     </span>
                                 ` : `
-                                    <span class="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold text-[11px] inline-flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-[13px]">person_outline</span> Khách vãng lai
+                                    <span class="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 font-semibold text-[11px] inline-flex items-center gap-1">
+                                        <span class="material-symbols-outlined text-[13px]">person_outline</span> Khách vãng lai (Hồ sơ mẫu tham khảo)
                                     </span>
                                 `}
                                 <span class="px-2.5 py-0.5 rounded-full bg-secondary-container/80 dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-semibold text-[11px]">

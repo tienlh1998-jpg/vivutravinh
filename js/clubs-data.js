@@ -8,6 +8,7 @@ export const TRA_VINH_CLUBS = [
         category: 'di-san',
         categoryName: 'Nhiếp ảnh & Di sản',
         badge: 'Văn hóa & Di sản',
+        isSample: true,
         membersCount: 215,
         activitiesCount: 14,
         image: './chùa hang.jpg',
@@ -24,6 +25,7 @@ export const TRA_VINH_CLUBS = [
         category: 'da-ngoai',
         categoryName: 'Đạp xe & Trekking',
         badge: 'Dã ngoại & Khám phá',
+        isSample: true,
         membersCount: 340,
         activitiesCount: 28,
         image: './cù lao tân qui.jpg',
@@ -40,6 +42,7 @@ export const TRA_VINH_CLUBS = [
         category: 'am-thuc',
         categoryName: 'Ẩm thực xứ Trà',
         badge: 'Ẩm thực & Cà phê',
+        isSample: true,
         membersCount: 480,
         activitiesCount: 36,
         image: './ao bà om.jpg',
@@ -56,6 +59,7 @@ export const TRA_VINH_CLUBS = [
         category: 'the-thao',
         categoryName: 'Thể thao & Sức khỏe',
         badge: 'Thể thao & Sức khỏe',
+        isSample: true,
         membersCount: 510,
         activitiesCount: 42,
         image: './ao bà om.jpg',
@@ -72,6 +76,7 @@ export const TRA_VINH_CLUBS = [
         category: 'nghe-thuat',
         categoryName: 'Nghệ thuật Khmer & Dân gian',
         badge: 'Nghệ thuật Dân gian',
+        isSample: true,
         membersCount: 180,
         activitiesCount: 19,
         image: './nhà cổ huỳnh kỳ.jpg',
@@ -87,6 +92,7 @@ export const TRA_VINH_CLUBS = [
 export const TRA_VINH_WEEKLY_ACTIVITIES = [
     {
         id: 'act-1',
+        isSample: true,
         title: 'Chạy bộ ngắm hoàng hôn Bờ kè Long Bình',
         clubId: 'clb-chay-bo-long-binh',
         clubName: 'CLB Chạy Bộ Bờ Kè Long Bình',
@@ -99,6 +105,7 @@ export const TRA_VINH_WEEKLY_ACTIVITIES = [
     },
     {
         id: 'act-2',
+        isSample: true,
         title: 'Đạp xe khám phá cù lao bưởi Tân Quy',
         clubId: 'clb-phuot-checkin',
         clubName: 'CLB Phượt & Check-in Trà Vinh',
@@ -111,6 +118,7 @@ export const TRA_VINH_WEEKLY_ACTIVITIES = [
     },
     {
         id: 'act-3',
+        isSample: true,
         title: 'Giao lưu đờn ca tài tử & trà thảo mộc',
         clubId: 'clb-don-ca-tai-tu',
         clubName: 'CLB Đờn Ca Tài Tử Xứ Dừa',
@@ -123,6 +131,7 @@ export const TRA_VINH_WEEKLY_ACTIVITIES = [
     },
     {
         id: 'act-4',
+        isSample: true,
         title: 'Săn bình minh Ao Bà Om & Workshop ảnh film',
         clubId: 'clb-nhiep-anh-khmer',
         clubName: 'CLB Nhiếp Ảnh & Văn Hóa Khmer',
@@ -138,6 +147,7 @@ export const TRA_VINH_WEEKLY_ACTIVITIES = [
 export const TRA_VINH_COMMUNITY_POSTS = [
     {
         id: 'post-1',
+        isSample: true,
         author: 'Thạch Sa Vươn',
         avatarText: 'SV',
         badge: 'CLB Văn Hóa',
@@ -152,6 +162,7 @@ export const TRA_VINH_COMMUNITY_POSTS = [
     },
     {
         id: 'post-2',
+        isSample: true,
         author: 'Nguyễn Bích Vy',
         avatarText: 'BV',
         badge: 'Thành viên mới',
@@ -166,6 +177,7 @@ export const TRA_VINH_COMMUNITY_POSTS = [
     },
     {
         id: 'post-3',
+        isSample: true,
         author: 'Trần Tiến',
         avatarText: 'TT',
         badge: 'Thành viên tích cực',
