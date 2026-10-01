@@ -289,8 +289,9 @@ async function handlePatch(request, response) {
       patch.category_name = CATEGORY_NAMES[body.category] || 'Cộng đồng';
     }
     if (body.meeting_place !== undefined) patch.meeting_place = String(body.meeting_place).trim();
-    if (body.schedule_info !== undefined) patch.schedule_info = String(body.schedule_info).trim();
-    if (body.submit_for_review === true) patch.status = 'pending';
+    if (body.submit_for_review === true || body.status === 'pending' || club.status === 'rejected') {
+      patch.status = 'pending';
+    }
 
     patch.updated_at = new Date().toISOString();
 

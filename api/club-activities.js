@@ -258,9 +258,110 @@ async function handlePost(request, response) {
   }
 }
 
+/**
+ * PATCH: Chỉnh sửa hoặc gửi lại lịch sinh hoạt sau khi bị từ chối / nháp
+ */
+async function handlePatch(request, response) {
+  const userContext = await authenticateUser(request, response);
+  if (!userContext) return;
+
+  const url = new URL(request.url, 'http://localhost');
+  const activityId = url.searchParams.get('id');
+  if (!activityId) {
+    sendError(response, 400, 'MISSING_ID', 'Thiếu mã định danh lịch sinh hoạt cần sửa (id).');
+    return;
+  }
+
+  let body;
+  try {
+    body = await readBody(request, MAX_PAYLOAD_SIZE);
+  } catch (err) {
+    sendError(response, 400, 'INVALID_BODY', 'Dữ liệu không hợp lệ.');
+    return;
+  }
+
+  try {
+    const rows = await supabaseRequest(`${TABLE_NAME}?id=eq.${encodeURIComponent(activityId)}&select=*&limit=1`);
+    const activity = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+    if (!activity) {
+      sendError(response, 404, 'NOT_FOUND', 'Lịch sinh hoạt không tồn tại.');
+      return;
+    }
+
+    const isOwner = activity.creator_id === userContext.user.id;
+    const isAdmin = ['admin', 'moderator', 'editor'].includes(userContext.user.role);
+
+    if (!isOwner && !isAdmin) {
+      sendError(response, 403, 'FORBIDDEN', 'Bạn không có quyền chỉnh sửa lịch sinh hoạt này.');
+      return;
+    }
+
+    if (!isAdmin && !['draft', 'rejected', 'pending'].includes(activity.status)) {
+      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa lịch sinh hoạt khi đang ở bản nháp, chờ duyệt hoặc bị từ chối.');
+      return;
+    }
+
+    const patch = {};
+    if (body.title !== undefined) {
+      const title = sanitizeText(body.title);
+      if (title.length < 3 || title.length > 150) {
+        sendError(response, 400, 'INVALID_TITLE', 'Tiêu đề buổi sinh hoạt phải từ 3 đến 150 ký tự.');
+        return;
+      }
+      patch.title = title;
+    }
+    if (body.time_schedule !== undefined || body.timeSchedule !== undefined || body.time !== undefined) {
+      const timeSchedule = sanitizeText(body.time_schedule || body.timeSchedule || body.time);
+      if (timeSchedule.length < 3) {
+        sendError(response, 400, 'INVALID_SCHEDULE', 'Thời gian sinh hoạt không được để trống.');
+        return;
+      }
+      patch.time_schedule = timeSchedule;
+    }
+    if (body.location !== undefined) {
+      const location = sanitizeText(body.location);
+      if (location.length < 3) {
+        sendError(response, 400, 'INVALID_LOCATION', 'Địa điểm sinh hoạt không được để trống.');
+        return;
+      }
+      patch.location = location;
+    }
+    if (body.description !== undefined) patch.description = sanitizeText(body.description);
+    if (body.max_attendees !== undefined || body.maxAttendees !== undefined) {
+      patch.max_attendees = Math.min(Math.max(parseInt(body.max_attendees || body.maxAttendees || '50', 10) || 50, 5), 500);
+    }
+    if (body.is_free !== undefined) patch.is_free = Boolean(body.is_free);
+    if (body.icon !== undefined) patch.icon = sanitizeText(body.icon) || 'event';
+
+    // Resubmit / đưa về pending khi tác giả sửa bài bị từ chối
+    if (!isAdmin || body.submit_for_review === true || body.status === 'pending') {
+      patch.status = 'pending';
+    } else if (isAdmin && body.status) {
+      patch.status = body.status;
+    }
+
+    patch.updated_at = new Date().toISOString();
+
+    const updated = await supabaseRequest(`${TABLE_NAME}?id=eq.${encodeURIComponent(activityId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(patch)
+    });
+
+    sendJson(response, 200, {
+      success: true,
+      message: 'Cập nhật lịch sinh hoạt thành công.',
+      activity: Array.isArray(updated) && updated.length > 0 ? updated[0] : { ...activity, ...patch }
+    });
+  } catch (err) {
+    console.error('[ClubActivities] Error updating activity:', err.message);
+    sendError(response, 500, 'UPDATE_ACTIVITY_FAILED', 'Không thể cập nhật lịch sinh hoạt lúc này.');
+  }
+}
+
 export default async function handler(request, response) {
   response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-secret');
 
   if (request.method === 'OPTIONS') {
@@ -273,6 +374,8 @@ export default async function handler(request, response) {
     await handleGet(request, response);
   } else if (request.method === 'POST') {
     await handlePost(request, response);
+  } else if (request.method === 'PATCH') {
+    await handlePatch(request, response);
   } else {
     sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Phương thức HTTP không được hỗ trợ.');
   }

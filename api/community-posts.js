@@ -238,8 +238,9 @@ async function handlePatch(request, response) {
     if (body.content !== undefined) patch.content = String(body.content).trim();
     if (body.title !== undefined) patch.title = String(body.title).trim();
     if (body.category !== undefined) patch.category = String(body.category).trim();
-    if (Array.isArray(body.images)) patch.images = body.images.slice(0, 5);
-    if (body.submit_for_review === true) patch.status = 'pending';
+    if (body.submit_for_review === true || body.status === 'pending' || post.status === 'rejected') {
+      patch.status = 'pending';
+    }
 
     patch.updated_at = new Date().toISOString();
 
