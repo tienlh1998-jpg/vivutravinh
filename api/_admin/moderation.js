@@ -10,6 +10,7 @@ import {
   sendError,
   readBody,
   supabaseRequest,
+  supabaseRpc,
   getSafeActorId,
   getCorrelationId,
   recordAuditLog
@@ -198,54 +199,26 @@ async function moderateEntity(request, response, adminContext) {
 
   const entity = MODERATION_ENTITIES[entityType];
   const newStatus = entity.actionStatusMap[action];
-  const auditAction = `moderation.${action}.${entityType}`;
   const correlationId = adminContext?.correlationId || getCorrelationId(request);
+  const actorId = getSafeActorId(adminContext);
+  const actorEmail = adminContext?.user?.email || adminContext?.user?.id || 'admin@vivutravinh.id.vn';
+  const actorRole = adminContext?.role || 'admin';
+  const adminNotes = typeof body.admin_notes === 'string' && body.admin_notes.trim() ? body.admin_notes.trim() : null;
 
   try {
-    // 2. Đọc bản ghi hiện tại (payload_before cho audit log)
-    const existingRows = await supabaseRequest(
-      `${entity.table}?id=eq.${encodeURIComponent(entityId)}&select=${entity.selectColumns}&limit=1`
-    );
-    const before = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null;
-
-    if (!before) {
-      sendError(response, 404, 'NOT_FOUND', `${entity.label} với mã '${entityId}' không tồn tại.`);
-      return;
-    }
-
-    // 3. Cập nhật trạng thái (chỉ status & moderation metadata - chống Mass Assignment)
-    const patch = {
-      status: newStatus,
-      moderated_by: getSafeActorId(adminContext),
-      moderated_at: new Date().toISOString()
-    };
-    if (reason) {
-      patch.moderation_reason = reason;
-    }
-    if (typeof body.admin_notes === 'string' && body.admin_notes.trim()) {
-      patch.admin_notes = body.admin_notes.trim();
-    }
-
-    const updatedRows = await supabaseRequest(
-      `${entity.table}?id=eq.${encodeURIComponent(entityId)}`,
-      {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(patch)
-      }
-    );
-    const after = Array.isArray(updatedRows) && updatedRows.length > 0 ? updatedRows[0] : { ...before, ...patch };
-
-    // 4. Ghi nhật ký kiểm toán (recordAuditLog THROW nếu thất bại - đảm bảo nguyên tử)
-    await recordAuditLog({
-      adminContext,
-      action: auditAction,
-      entityType,
-      entityId,
-      payloadBefore: before,
-      payloadAfter: after,
-      correlationId,
-      ip: adminContext?.ip
+    // 1. Thử thực thi qua PostgreSQL Stored Function admin_moderate_entity_atomic:
+    // Đảm bảo CẬP NHẬT TRẠNG THÁI VÀ GHI AUDIT LOG CHẠY TRONG CÙNG MỘT TRANSACTION NGUYÊN TỬ (ACID)
+    await supabaseRpc('admin_moderate_entity_atomic', {
+      p_actor_id: actorId,
+      p_actor_email: actorEmail,
+      p_actor_role: actorRole,
+      p_entity_type: entityType,
+      p_entity_id: entityId,
+      p_action: action,
+      p_reason: reason || null,
+      p_admin_notes: adminNotes,
+      p_ip: adminContext?.ip || null,
+      p_correlation_id: correlationId
     });
 
     sendJson(response, 200, {
@@ -254,8 +227,9 @@ async function moderateEntity(request, response, adminContext) {
       entity_type: entityType,
       entity_id: entityId,
       status: newStatus,
-      moderated_by: adminContext?.user?.email || adminContext?.user?.id,
+      moderated_by: actorEmail,
       correlation_id: correlationId,
+      atomic: true,
       message: `${entity.label} đã được ${action === 'approve' ? 'DUYỆT CÔNG KHAI' : (action === 'reject' ? 'TỪ CHỐI' : 'LƯU TRỮ')}${reason ? ` với lý do: ${reason}` : ''}.`
     });
   } catch (err) {
@@ -267,7 +241,7 @@ async function moderateEntity(request, response, adminContext) {
         entity_type: entityType,
         entity_id: entityId,
         status: newStatus,
-        moderated_by: adminContext?.user?.email || adminContext?.user?.id,
+        moderated_by: actorEmail,
         correlation_id: correlationId,
         message: `${entity.label} đã được ${action === 'approve' ? 'DUYỆT CÔNG KHAI' : (action === 'reject' ? 'TỪ CHỐI' : 'LƯU TRỮ')}${reason ? ` với lý do: ${reason}` : ''}.`,
         warning: 'Test mode without live Supabase connection'
@@ -275,9 +249,29 @@ async function moderateEntity(request, response, adminContext) {
       return;
     }
 
-    if (err.code === 'AUDIT_LOG_FAILED') {
-      console.error('[AdminModeration] AUDIT_LOG_FAILED:', err.message);
-      sendError(response, 500, 'AUDIT_LOG_FAILED', 'Đã cập nhật trạng thái nhưng ghi nhật ký kiểm toán thất bại. Vui lòng liên hệ kỹ thuật.');
+    // Nếu RPC chưa được kích hoạt trên Supabase (chưa chạy g14_admin_moderate_entity_atomic.sql):
+    // Báo lỗi rõ ràng, tuyệt đối KHÔNG tự động chuyển sang cách duyệt tuần tự thiếu tính nguyên tử.
+    const isRpcNotFound = err.message?.includes('admin_moderate_entity_atomic') ||
+                          err.message?.includes('PGRST202') ||
+                          err.message?.includes('Could not find the function');
+    if (isRpcNotFound) {
+      console.error('[AdminModeration] RPC admin_moderate_entity_atomic chưa được cài đặt trong CSDL.');
+      sendError(
+        response,
+        500,
+        'RPC_NOT_INSTALLED',
+        'Chức năng kiểm duyệt nguyên tử (admin_moderate_entity_atomic) chưa được cài đặt trong cơ sở dữ liệu. Vui lòng thực thi migration supabase/g14_admin_moderate_entity_atomic.sql trên Supabase để kích hoạt giao dịch nguyên tử.'
+      );
+      return;
+    }
+
+    if (err.message?.includes('NOT_FOUND') || err.message?.includes('P0002')) {
+      sendError(response, 404, 'NOT_FOUND', `${entity.label} với mã '${entityId}' không tồn tại.`);
+      return;
+    }
+
+    if (err.message?.includes('FORBIDDEN') || err.message?.includes('42501')) {
+      sendError(response, 403, 'FORBIDDEN', 'Bạn không có quyền thực hiện thao tác kiểm duyệt này.');
       return;
     }
 

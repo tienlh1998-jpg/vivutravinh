@@ -296,8 +296,18 @@ export async function authenticateUser(request, response) {
     return null;
   }
 
+  // Chặn tuyệt đối Mock Token trên Production
+  if (isProduction && bearerToken.startsWith('mock-')) {
+    sendError(response, 401, 'UNAUTHENTICATED', 'Mock tokens bị từ chối tuyệt đối trên môi trường Production.');
+    return null;
+  }
+
   // Hỗ trợ mock token trong môi trường Test/Dev
   if (!isProduction && bearerToken.startsWith('mock-')) {
+    if (bearerToken === 'mock-expired-token' || bearerToken === 'mock-invalid-token') {
+      sendError(response, 401, 'UNAUTHENTICATED', 'Token xác thực không hợp lệ hoặc đã hết hạn.');
+      return null;
+    }
     const userRole = bearerToken === 'mock-admin-token' ? 'admin' : 'authenticated';
     const email = bearerToken === 'mock-admin-token' ? 'admin@vivutravinh.test' : `${bearerToken.replace('mock-', '')}@vivutravinh.test`;
     return {

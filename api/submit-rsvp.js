@@ -3,7 +3,9 @@
 // Rate Limit theo IP, validate số điện thoại VN, sinh mã vé OKB-2026-XXXX,
 // ghi bản ghi vào bảng public.event_rsvps trên Supabase bằng service_role_key.
 
+import crypto from 'crypto';
 import {
+  authenticateUser,
   sendJson,
   sendError
 } from './_admin-auth.js';
@@ -253,6 +255,20 @@ export default async function handler(request, response) {
 
   const ip = getClientIp(request);
 
+  // Đọc ngữ cảnh người dùng đăng nhập nếu có (Supabase Auth Bearer)
+  let userContext = null;
+  const authHeader = request.headers['authorization'] || request.headers['Authorization'];
+  if (authHeader) {
+    userContext = await authenticateUser(request, response).catch(() => null);
+    if (!userContext) {
+      // authenticateUser đã gửi response 401 hoặc lỗi tương ứng. Dừng xử lý ngay lập tức!
+      if (!response.headersSent) {
+        return sendError(response, 401, 'UNAUTHENTICATED', 'Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.');
+      }
+      return;
+    }
+  }
+
   let rateLimitCheck;
   try {
     rateLimitCheck = await checkDistributedRateLimit(ip);
@@ -296,37 +312,177 @@ export default async function handler(request, response) {
     return sendError(response, 400, valErr.code || 'VALIDATION_ERROR', valErr.message || 'Dữ liệu không hợp lệ.');
   }
 
-  // Idempotency: nếu client_rsvp_id đã tồn tại, trả về bản ghi cũ, không sinh vé mới
+  function formatRsvpRecord(row, fallbackSeat = null, fallbackSector = null, includeClaimToken = null) {
+    let parsed = {};
+    if (row?.qr_data) {
+      try {
+        parsed = JSON.parse(row.qr_data);
+      } catch (e) {}
+    }
+    const res = {
+      id: row.id,
+      ticket_code: row.ticket_code,
+      client_rsvp_id: row.client_rsvp_id || null,
+      fullname: row.attendee_name,
+      phone: row.phone,
+      stand_zone: row.stand_zone,
+      sector: parsed.sector || fallbackSector || (row.stand_zone?.includes('Long Bình') ? 'long-binh' : 'ao-ba-om'),
+      seat: parsed.seat || fallbackSeat || 'A1-01',
+      status: row.status || 'confirmed',
+      created_at: row.created_at
+    };
+    if (includeClaimToken) {
+      res.claim_token = includeClaimToken;
+    }
+    return res;
+  }
+
+  /**
+   * Xác minh quyền sở hữu vé:
+   * 1. Bằng phiên đăng nhập (Supabase Auth Session) nếu userContext trùng user_id của vé.
+   * 2. Bằng token bí mật do server cấp (Server-Issued Claim Token).
+   * TUYỆT ĐỐI KHÔNG DÙNG HỌ TÊN VÀ SĐT LÀM BẰNG CHỨNG SỞ HỮU!
+   */
+  function verifyTicketOwnership(storedRow, requestBody, requestHeaders, currentAuthUser) {
+    let parsed = {};
+    if (storedRow?.qr_data) {
+      try {
+        parsed = JSON.parse(storedRow.qr_data);
+      } catch (e) {}
+    }
+
+    // Cách 1: Xác minh qua phiên đăng nhập người dùng (User Auth Session)
+    if (parsed.user_id && currentAuthUser?.user?.id) {
+      if (parsed.user_id === currentAuthUser.user.id) {
+        return { verified: true, method: 'auth_session' };
+      }
+    }
+
+    // Cách 2: Xác minh qua token bí mật do server cấp (Server-Issued Claim Token)
+    const clientClaimToken = requestBody?.claim_token ||
+                             requestHeaders['x-ticket-claim-token'] ||
+                             requestHeaders['x-claim-token'];
+
+    if (clientClaimToken && typeof clientClaimToken === 'string' && parsed.claim_token_hash) {
+      const providedHash = crypto.createHash('sha256').update(clientClaimToken.trim()).digest('hex');
+      try {
+        const isMatch = crypto.timingSafeEqual(
+          Buffer.from(providedHash, 'hex'),
+          Buffer.from(parsed.claim_token_hash, 'hex')
+        );
+        if (isMatch) {
+          return { verified: true, method: 'claim_token' };
+        }
+      } catch {
+        // Buffer length mismatch
+      }
+    }
+
+    return { verified: false };
+  }
+
+  const SELECT_COLUMNS = 'id,event_id,client_rsvp_id,attendee_name,phone,stand_zone,ticket_code,qr_data,status,created_at';
+
+  // Idempotency: nếu client_rsvp_id đã tồn tại, BẮT BUỘC XÁC MINH QUYỀN SỞ HỮU
   try {
     const existing = await supabaseRequest(
-      `${TABLE_NAME}?client_rsvp_id=eq.${encodeURIComponent(validated.client_rsvp_id)}&select=id,ticket_code,seat,sector,status,created_at&limit=1`
+      `${TABLE_NAME}?client_rsvp_id=eq.${encodeURIComponent(validated.client_rsvp_id)}&select=${SELECT_COLUMNS}&limit=1`
     );
     if (Array.isArray(existing) && existing.length > 0) {
-      return sendJson(response, 200, {
-        success: true,
-        idempotent: true,
-        data: existing[0],
-        message: 'Đăng ký vé này đã được tiếp nhận trước đó.'
-      });
+      const stored = existing[0];
+      const ownership = verifyTicketOwnership(stored, body, request.headers, userContext);
+
+      if (ownership.verified) {
+        const clientClaimToken = body?.claim_token || request.headers['x-ticket-claim-token'] || request.headers['x-claim-token'];
+        const formatted = formatRsvpRecord(stored, null, null, clientClaimToken);
+        return sendJson(response, 200, {
+          success: true,
+          idempotent: true,
+          status: formatted.status,
+          data: formatted,
+          message: `Đăng ký vé này đã được tiếp nhận trước đó. Mã vé: ${formatted.ticket_code}, ghế: ${formatted.seat}.`
+        });
+      }
+
+      // Người biết đủ client_rsvp_id, họ tên và SĐT nhưng thiếu thông tin xác thực (không có token bí mật hoặc phiên đăng nhập)
+      // -> BẮT BUỘC TỪ CHỐI HTTP 403, TUYỆT ĐỐI KHÔNG TRẢ VỀ DỮ LIỆU VÉ!
+      return sendError(
+        response,
+        403,
+        'UNAUTHORIZED_TICKET_ACCESS',
+        'Từ chối truy cập: Thiếu token xác thực bí mật hoặc phiên đăng nhập của người sở hữu vé.'
+      );
     }
   } catch (checkErr) {
     console.warn('[SubmitRsvp] Không thể kiểm tra idempotency, tiếp tục ghi mới:', checkErr.message);
   }
 
+  // Xác thực duy nhất theo số điện thoại: Mỗi số điện thoại chỉ được đăng ký tối đa 1 vé cho sự kiện
+  try {
+    const phoneCheck = await supabaseRequest(
+      `${TABLE_NAME}?phone=eq.${encodeURIComponent(validated.phone)}&event_id=eq.ok-om-bok&select=${SELECT_COLUMNS}&order=created_at.desc&limit=1`
+    );
+    if (Array.isArray(phoneCheck) && phoneCheck.length > 0) {
+      const stored = phoneCheck[0];
+      const ownership = verifyTicketOwnership(stored, body, request.headers, userContext);
+
+      // Nếu có bằng chứng sở hữu xác thực (Auth session hoặc Claim token hợp lệ)
+      if (ownership.verified) {
+        const clientClaimToken = body?.claim_token || request.headers['x-ticket-claim-token'] || request.headers['x-claim-token'];
+        const formatted = formatRsvpRecord(stored, null, null, clientClaimToken);
+        return sendJson(response, 200, {
+          success: true,
+          idempotent: true,
+          status: formatted.status,
+          data: formatted,
+          message: `Đăng ký vé này đã được tiếp nhận trước đó. Mã vé: ${formatted.ticket_code}, ghế: ${formatted.seat}.`
+        });
+      }
+
+      // Số điện thoại đã được đăng ký nhưng request KHÔNG CHỨNG MINH ĐƯỢC QUYỀN SỞ HỮU (thiếu token / auth):
+      // Tuyệt đối không trả về bất kỳ dữ liệu vé nào của người khác, trả về HTTP 409 DUPLICATE_REGISTRATION
+      return sendError(
+        response,
+        409,
+        'DUPLICATE_REGISTRATION',
+        'Số điện thoại này đã được đăng ký vé trước đó. Mỗi số điện thoại chỉ được đăng ký tối đa 1 vé.'
+      );
+    }
+  } catch (phoneErr) {
+    console.warn('[SubmitRsvp] Lỗi kiểm tra số điện thoại:', phoneErr.message);
+  }
+
   const ticketCode = validated.client_ticket_code || generateTicketCode();
   const seat = validated.client_seat || generateSeat();
 
+  const standZoneMap = {
+    'long-binh': 'Khán đài Sông Long Bình',
+    'ao-ba-om': 'Khán đài Danh Thắng Ao Bà Om',
+    'combo': 'Khán đài Danh Dự Combo'
+  };
+  const standZone = standZoneMap[validated.sector] || 'Khán đài A';
+
+  // Sinh token bí mật do server cấp (32 bytes cryptographically secure)
+  const serverClaimToken = 'clm_' + crypto.randomBytes(32).toString('hex');
+  const claimTokenHash = crypto.createHash('sha256').update(serverClaimToken).digest('hex');
+
   const recordToInsert = {
-    event_slug: validated.event_slug,
-    fullname: validated.fullname,
-    phone: validated.phone,
-    sector: validated.sector,
-    ticket_code: ticketCode,
-    seat,
+    event_id: 'ok-om-bok',
     client_rsvp_id: validated.client_rsvp_id,
-    status: 'confirmed',
-    ip_address: ip,
-    created_at: new Date().toISOString()
+    attendee_name: validated.fullname,
+    phone: validated.phone,
+    email: typeof body.email === 'string' && body.email.trim() ? body.email.trim() : null,
+    stand_zone: standZone,
+    ticket_code: ticketCode,
+    qr_data: JSON.stringify({
+      ticket_code: ticketCode,
+      seat,
+      sector: validated.sector,
+      event_slug: validated.event_slug,
+      user_id: userContext?.user?.id || null,
+      claim_token_hash: claimTokenHash
+    }),
+    status: 'confirmed'
   };
 
   try {
@@ -336,7 +492,11 @@ export default async function handler(request, response) {
       body: JSON.stringify(recordToInsert),
     });
 
-    const saved = Array.isArray(inserted) ? inserted[0] : inserted;
+    const rawSaved = Array.isArray(inserted) ? inserted[0] : inserted;
+    if (rawSaved && !rawSaved.client_rsvp_id) {
+      rawSaved.client_rsvp_id = validated.client_rsvp_id;
+    }
+    const saved = formatRsvpRecord(rawSaved, seat, validated.sector, serverClaimToken);
     return sendJson(response, 201, {
       success: true,
       status: 'confirmed',
@@ -345,13 +505,44 @@ export default async function handler(request, response) {
     });
   } catch (dbErr) {
     if (/duplicate key|unique constraint|23505/i.test(dbErr.message)) {
-      return sendJson(response, 200, {
-        success: true,
-        idempotent: true,
-        status: 'confirmed',
-        data: { client_rsvp_id: validated.client_rsvp_id, ticket_code: ticketCode, seat },
-        message: 'Đăng ký vé này đã được tiếp nhận trước đó.'
-      });
+      try {
+        const existing = await supabaseRequest(
+          `${TABLE_NAME}?client_rsvp_id=eq.${encodeURIComponent(validated.client_rsvp_id)}&select=${SELECT_COLUMNS}&limit=1`
+        );
+        if (Array.isArray(existing) && existing.length > 0) {
+          const stored = existing[0];
+          const ownership = verifyTicketOwnership(stored, body, request.headers, userContext);
+
+          if (ownership.verified) {
+            const clientClaimToken = body?.claim_token || request.headers['x-ticket-claim-token'] || request.headers['x-claim-token'];
+            const actualSaved = formatRsvpRecord(stored, null, null, clientClaimToken);
+            return sendJson(response, 200, {
+              success: true,
+              idempotent: true,
+              status: actualSaved.status || 'confirmed',
+              data: actualSaved,
+              message: `Đăng ký vé này đã được tiếp nhận trước đó. Mã vé: ${actualSaved.ticket_code}, ghế: ${actualSaved.seat}.`
+            });
+          } else {
+            return sendError(
+              response,
+              403,
+              'UNAUTHORIZED_TICKET_ACCESS',
+              'Từ chối truy cập: Thiếu token xác thực bí mật hoặc phiên đăng nhập của người sở hữu vé.'
+            );
+          }
+        }
+      } catch (lookupErr) {
+        console.warn('[SubmitRsvp] Lỗi truy vấn vé trùng khóa:', lookupErr.message);
+      }
+
+      // Trùng số điện thoại hoặc mã vé -> 409 không rò rỉ dữ liệu
+      return sendError(
+        response,
+        409,
+        'DUPLICATE_REGISTRATION',
+        'Thông tin đăng ký vé bị trùng lặp trong hệ thống (số điện thoại hoặc mã yêu cầu đã tồn tại).'
+      );
     }
 
     console.error('[SubmitRsvp] Database insert error:', dbErr.message);

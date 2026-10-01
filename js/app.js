@@ -1067,11 +1067,11 @@ export function closeEventRsvpModal() {
 }
 
 /**
- * Submit Đăng Ký Vé / Chỗ Tham Gia Hoạt Động
+ * Submit Đăng Ký Vé / Chỗ Tham Gia Hoạt Động (Chưa hỗ trợ trực tuyến)
  */
 export function submitEventRsvp(rsvpData) {
     closeEventRsvpModal();
-    showNotification(`Đăng ký thành công vé tham dự cho ${rsvpData.fullname || 'bạn'}! Mã QR xác nhận đã gửi về Zalo.`);
+    showNoticeToast('Chưa hỗ trợ đăng ký trực tuyến', 'Sự kiện hiện chưa hỗ trợ đăng ký vé qua hệ thống. Du khách có thể đến tham quan, tham gia tự do hoặc liên hệ trực tiếp ban tổ chức.');
 }
 
 /**
@@ -1202,36 +1202,115 @@ export async function syncCommunityEventsFromSupabase() {
 }
 
 /**
+/**
  * Xử lý Đăng Ký Vé Khán Đài Miễn Phí (Ok Om Bok Grandstand Pass)
- * NVT5 - Offline QR Ticket Pass: sinh vé OKB-2026-XXXX, lưu localStorage (vivu_user_passes)
- * và mở modal thẻ vé kèm mã QR SVG để du khách xuất trình khi mất sóng tại Ao Bà Om.
+ * Gửi lên /api/submit-rsvp để máy chủ xác thực và cấp mã vé chính thức.
+ * Chỉ khi máy chủ xác nhận thành công mới lưu vé và hiển thị thẻ vé.
  */
-export function handleGrandstandRsvp(rsvpData) {
-    const fullname = String(rsvpData?.fullname || '').trim() || 'Du khách ViVuTraVinh';
+export async function handleGrandstandRsvp(rsvpData) {
+    const fullname = String(rsvpData?.fullname || '').trim();
     const phone = String(rsvpData?.phone || '').trim();
     const sector = String(rsvpData?.sector || 'ao-ba-om').trim();
 
-    const ticket = {
-        code: `OKB-2026-${generateTicketCodeSuffix()}`,
-        fullname,
-        phone,
-        sector,
-        sectorLabel: TICKET_SECTOR_LABELS[sector] || sector,
-        seat: generateRandomSeat(),
-        registeredAt: new Date().toISOString(),
-        offline: true
-    };
+    if (!fullname || fullname.length < 2 || fullname.length > 80) {
+        showNoticeToast('Dữ liệu chưa hợp lệ', 'Họ và tên người đăng ký phải từ 2 đến 80 ký tự.');
+        return;
+    }
 
-    const passes = getStoredPasses();
-    passes.unshift(ticket);
-    saveStoredPasses(passes.slice(0, 20));
+    const cleanPhone = phone.replace(/[\s.-]/g, '');
+    const vnPhoneRegex = /^(?:0|\+84)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-9])\d{7}$/;
+    if (!vnPhoneRegex.test(cleanPhone)) {
+        showNoticeToast('Số điện thoại không hợp lệ', 'Vui lòng nhập đúng số điện thoại di động Việt Nam (10 chữ số).');
+        return;
+    }
 
-    // Đồng bộ best-effort lên máy chủ (không chặn luồng ngoại tuyến)
-    syncRsvpToServer(ticket);
+    if (!navigator.onLine) {
+        showNoticeToast('Không có kết nối mạng', 'Thiết bị đang ngoại tuyến. Vui lòng kết nối Internet để gửi đăng ký vé lên máy chủ xác nhận.');
+        return;
+    }
 
-    openOfflineTicketModal(ticket);
+    // Kiểm tra xem khách (hoặc thành viên) đã có vé lưu trong localStorage chưa (theo số điện thoại)
+    const normPhone = (p) => String(p || '').replace(/[\s.-]/g, '').replace(/^\+84/, '0');
+    const storedPasses = getStoredPasses();
+    const existingTicket = storedPasses.find(p => normPhone(p.phone) === normPhone(cleanPhone));
 
-    showNotification(`Đã xác nhận giữ chỗ thành công cho ${fullname}! Mã vé ${ticket.code} đã lưu trên máy của bạn.`);
+    const clientTicketCode = existingTicket?.code || `OKB-2026-${generateTicketCodeSuffix()}`;
+    const clientSeat = existingTicket?.seat || generateRandomSeat();
+    const clientRsvpId = existingTicket?.client_rsvp_id || `${clientTicketCode}-${Date.now()}`;
+    const claimTokenToSend = existingTicket?.claimToken || rsvpData?.claim_token || null;
+
+    showNoticeToast('Đang xử lý', 'Đang gửi thông tin đăng ký vé lên máy chủ...');
+
+    try {
+        const userToken = await getValidUserToken().catch(() => null);
+        const headers = { 'Content-Type': 'application/json' };
+        if (userToken) {
+            headers['Authorization'] = `Bearer ${userToken}`;
+        }
+        if (claimTokenToSend) {
+            headers['X-Ticket-Claim-Token'] = claimTokenToSend;
+        }
+
+        const requestPayload = {
+            fullname,
+            phone: cleanPhone,
+            sector,
+            event_slug: 'ok-om-bok-2026',
+            ticket_code: clientTicketCode,
+            seat: clientSeat,
+            client_rsvp_id: clientRsvpId
+        };
+        if (claimTokenToSend) {
+            requestPayload.claim_token = claimTokenToSend;
+        }
+
+        const response = await fetch('/api/submit-rsvp', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(requestPayload)
+        });
+
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok || !result || !result.success) {
+            const errorMsg = result?.error?.message || result?.message || `Máy chủ từ chối đăng ký (Mã ${response.status}).`;
+            showNoticeToast('Đăng ký không thành công', errorMsg);
+            return;
+        }
+
+        const ticketData = result.data || {};
+        const confirmedTicket = {
+            code: ticketData.ticket_code || clientTicketCode,
+            client_rsvp_id: ticketData.client_rsvp_id || clientRsvpId,
+            fullname: ticketData.fullname || fullname,
+            phone: ticketData.phone || cleanPhone,
+            sector: ticketData.sector || sector,
+            sectorLabel: TICKET_SECTOR_LABELS[ticketData.sector || sector] || sector,
+            seat: ticketData.seat || clientSeat,
+            claimToken: ticketData.claim_token || existingTicket?.claimToken || null,
+            registeredAt: ticketData.created_at || new Date().toISOString(),
+            status: ticketData.status || 'confirmed',
+            offline: false
+        };
+
+        const currentPasses = getStoredPasses();
+        const existingIdx = currentPasses.findIndex(p => {
+            return normPhone(p.phone) === normPhone(cleanPhone) || p.code === confirmedTicket.code;
+        });
+
+        if (existingIdx >= 0) {
+            currentPasses[existingIdx] = confirmedTicket;
+        } else {
+            currentPasses.unshift(confirmedTicket);
+        }
+        saveStoredPasses(currentPasses.slice(0, 20));
+
+        openOfflineTicketModal(confirmedTicket);
+        showNoticeToast('Đăng ký thành công', result.message || `Đã xác nhận giữ chỗ thành công cho ${fullname}! Mã vé: ${confirmedTicket.code}`);
+    } catch (err) {
+        console.error('[RSVP Error]', err);
+        showNoticeToast('Lỗi kết nối', 'Không thể kết nối với máy chủ đăng ký vé. Vui lòng thử lại sau.');
+    }
 }
 
 /** Sinh mã vé 4 ký tự chữ-số (loại ký tự dễ nhầm O/0, I/1) */
@@ -1253,28 +1332,6 @@ function generateRandomSeat() {
     const num1 = 1 + Math.floor(Math.random() * 20);
     const num2 = 1 + Math.floor(Math.random() * 40);
     return `${row}${num1}-${String(num2).padStart(2, '0')}`;
-}
-
-/** Gửi đăng ký vé lên api/submit-rsvp (fire-and-forget, im lặng khi offline) */
-function syncRsvpToServer(ticket) {
-    try {
-        if (!navigator.onLine || !window.fetch) return;
-        fetch('/api/submit-rsvp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fullname: ticket.fullname,
-                phone: ticket.phone,
-                sector: ticket.sector,
-                event_slug: 'ok-om-bok-2026',
-                ticket_code: ticket.code,
-                seat: ticket.seat,
-                client_rsvp_id: `${ticket.code}-${Date.now()}`
-            })
-        }).catch(() => { /* Offline-first: bỏ qua lỗi mạng */ });
-    } catch (e) {
-        // Không bao giờ làm vỡ luồng vé ngoại tuyến vì lỗi đồng bộ
-    }
 }
 
 /**
@@ -5478,34 +5535,22 @@ export function toggleLikePost(postId) {
 }
 
 /**
- * Đăng ký / Hủy chỗ Hoạt Động Tuần Này
+/**
+ * Thông báo chưa hỗ trợ đặt chỗ trực tuyến cho Hoạt Động Tuần Này
+ */
+export function showActivityRsvpNotice(actId) {
+    const act = state.weeklyActivities?.find(a => a.id === actId);
+    showNoticeToast(
+        'Chưa hỗ trợ đăng ký trực tuyến',
+        act ? `Hoạt động "${act.title}" hiện chưa hỗ trợ đặt chỗ qua hệ thống. Bạn có thể đến tham gia trực tiếp theo lịch đã công bố.` : 'Hoạt động này hiện chưa hỗ trợ đặt chỗ trực tuyến. Bạn có thể đến tham gia trực tiếp theo lịch đã công bố.'
+    );
+}
+
+/**
+ * Đăng ký / Hủy chỗ Hoạt Động Tuần Này (Đã cập nhật để không báo thành công giả)
  */
 export function toggleRsvpActivity(actId) {
-    if (!actId) return;
-    const act = state.weeklyActivities.find(a => a.id === actId);
-    const isRegistered = state.registeredActivities.includes(actId);
-
-    if (isRegistered) {
-        state.registeredActivities = state.registeredActivities.filter(id => id !== actId);
-        showNotification(act ? `Đã hủy đặt chỗ cho: "${act.title}"` : 'Đã hủy đặt chỗ');
-    } else {
-        state.registeredActivities.push(actId);
-        showNotification(act ? `Đặt chỗ thành công: "${act.title}"!` : 'Đặt chỗ thành công!');
-    }
-
-    try {
-        localStorage.setItem('vivu_registered_activities', JSON.stringify(state.registeredActivities));
-    } catch (e) {
-        console.warn('Lỗi lưu registered activities:', e);
-    }
-
-    const weeklyActivitiesContainer = document.getElementById('weeklyActivitiesList');
-    if (weeklyActivitiesContainer) {
-        weeklyActivitiesContainer.innerHTML = renderWeeklyActivitiesWidget(
-            state.weeklyActivities,
-            state.registeredActivities
-        );
-    }
+    showActivityRsvpNotice(actId);
 }
 
 /**
@@ -8334,6 +8379,7 @@ if (typeof window !== 'undefined') {
         filterCommunityFeed,
         toggleLikePost,
         toggleRsvpActivity,
+        showActivityRsvpNotice,
         shareCommunityPost,
         handleCommentPrompt,
         promptAddPostPhoto,

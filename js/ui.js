@@ -2772,17 +2772,10 @@ export function renderFestivalsSection(
                                     </div>
                                 </div>
 
-                                <!-- Social proof & Avatars -->
-                                <div class="flex items-center gap-4 mt-6 pt-5 border-t border-white/15">
-                                    <div class="flex -space-x-2 overflow-hidden">
-                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-secondary text-white text-[11px] font-semibold ring-2 ring-primary">TV</span>
-                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#EA580C] text-white text-[11px] font-semibold ring-2 ring-primary">TH</span>
-                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#006C4A] text-white text-[11px] font-semibold ring-2 ring-primary">LN</span>
-                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/20 text-white text-[11px] font-semibold ring-2 ring-primary">+3k</span>
-                                    </div>
-                                    <span class="font-body-sm text-xs sm:text-sm text-emerald-100">
-                                        <strong class="text-white font-semibold">3,450+</strong> người dự kiến tham gia
-                                    </span>
+                                <!-- Festival Heritage Info -->
+                                <div class="flex items-center gap-2 mt-6 pt-5 border-t border-white/15 text-emerald-100 font-body-sm text-xs sm:text-sm">
+                                    <span class="material-symbols-outlined text-[18px] text-amber-300 shrink-0">verified</span>
+                                    <span>Di sản văn hóa phi vật thể quốc gia • Tổ chức thường niên rằm tháng 10 Âm lịch</span>
                                 </div>
                             </div>
 
@@ -2931,6 +2924,11 @@ export function renderFestivalsSection(
 
                                 <!-- Category & Status pill on media -->
                                 <div class="absolute bottom-3 left-3 flex flex-wrap items-center gap-2">
+                                    ${(evt.isSample || evt.status !== 'approved') ? `
+                                        <span class="px-2.5 py-1 rounded-full bg-amber-600/90 text-white font-badge text-[11px] font-medium backdrop-blur-xs">
+                                            Sự kiện mẫu tham khảo
+                                        </span>
+                                    ` : ''}
                                     <span class="px-2.5 py-1 rounded-full bg-secondary text-white font-badge text-[11px] font-semibold">
                                         ${escapeHtml(evt.category || 'Sự kiện')}
                                     </span>
@@ -3007,7 +3005,7 @@ export function renderFestivalsSection(
                             Bạn muốn tổ chức một buổi gặp gỡ, workshop hay chuyến đi tại Trà Vinh?
                         </h3>
                         <p class="font-body-md text-xs sm:text-sm text-emerald-100 mt-2 leading-relaxed">
-                            ViVuTraVinh hỗ trợ lan tỏa thông tin miễn phí đến hơn 5,000+ bạn trẻ và du khách yêu mến văn hóa Trà Vinh. Đồng hành cùng nhau quảng bá nét đẹp xứ sở trù phú!
+                            ViVuTraVinh hỗ trợ kết nối và lan tỏa thông tin đến cộng đồng du khách và bạn trẻ yêu mến văn hóa Trà Vinh. Đồng hành cùng nhau quảng bá nét đẹp xứ sở trù phú!
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 shrink-0">
@@ -3218,8 +3216,8 @@ export function renderFestivalDetailModal(festival, allFestivals = [], onSelectP
                                 <span class="font-semibold text-white">${escapeHtml(festival.locationName)}</span>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="material-symbols-outlined text-secondary-fixed text-[18px]">group</span>
-                                <span>Dự kiến hơn 120.000 lượt du khách và kiều bào</span>
+                                <span class="material-symbols-outlined text-secondary-fixed text-[18px]">verified</span>
+                                <span>Lễ hội truyền thống lớn nhất trong năm của đồng bào Khmer</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="material-symbols-outlined text-secondary-fixed text-[18px]">confirmation_number</span>
@@ -3719,9 +3717,9 @@ export function renderFestivalDetailModal(festival, allFestivals = [], onSelectP
         if (btnVolunteer) {
             btnVolunteer.addEventListener('click', () => {
                 if (window.ViVuApp?.showNotification) {
-                    window.ViVuApp.showNotification('Cảm ơn bạn đã đăng ký tham gia Đội Tình Nguyện Xanh Ao Bà Om!');
+                    window.ViVuApp.showNotification('Đội Tình Nguyện Xanh hiện chưa mở cổng đăng ký trực tuyến. Thông tin tuyển tình nguyện viên sẽ được thông báo trực tiếp qua Tỉnh Đoàn Trà Vinh.', 'info');
                 } else {
-                    alert('Đã ghi nhận đăng ký tham gia Đội Tình Nguyện Xanh!');
+                    alert('Đội Tình Nguyện Xanh hiện chưa mở cổng đăng ký trực tuyến.');
                 }
             });
         }
@@ -3914,13 +3912,25 @@ export function renderEventRsvpModal(event, onSubmitRsvp) {
                         ${escapeHtml(event.category || 'Sự kiện')}
                     </span>
                     <h3 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100">
-                        Đăng Ký Tham Gia: ${escapeHtml(event.title)}
+                        Thông Tin Sự Kiện: ${escapeHtml(event.title)}
                     </h3>
                 </div>
             </div>
 
+            <!-- Notice: Chưa hỗ trợ đăng ký trực tuyến -->
+            <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
+                <span class="material-symbols-outlined text-amber-600 dark:text-amber-400 text-lg shrink-0 mt-0.5">info</span>
+                <div class="space-y-1">
+                    <strong class="font-semibold block text-[13px]">Chưa hỗ trợ đăng ký trực tuyến</strong>
+                    <p class="leading-relaxed">
+                        Hệ thống hiện <strong>chưa mở cổng đặt vé hoặc giữ chỗ trực tuyến</strong> cho sự kiện này.
+                        Quý khách vui lòng đến tham gia trực tiếp tại địa điểm tổ chức theo thời gian công bố, hoặc liên hệ trực tiếp Ban tổ chức để được hướng dẫn.
+                    </p>
+                </div>
+            </div>
+
             <!-- Event Brief Card -->
-            <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700 flex flex-col gap-2 text-xs">
+            <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700 flex flex-col gap-2.5 text-xs">
                 <div class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
                     <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">schedule</span>
                     <span><strong>Thời gian:</strong> ${escapeHtml(event.timeSchedule || '')}</span>
@@ -3931,84 +3941,24 @@ export function renderEventRsvpModal(event, onSubmitRsvp) {
                 </div>
                 <div class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
                     <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">payments</span>
-                    <span><strong>Chi phí:</strong> ${escapeHtml(event.fee || 'Miễn phí')} ${event.feeDetail ? escapeHtml(event.feeDetail) : ''}</span>
+                    <span><strong>Chi phí tham gia:</strong> ${escapeHtml(event.fee || 'Mở cửa tự do')} ${event.feeDetail ? escapeHtml(event.feeDetail) : ''}</span>
                 </div>
+                ${event.organizer ? `
+                <div class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
+                    <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">person</span>
+                    <span><strong>Đơn vị tổ chức:</strong> ${escapeHtml(event.organizer)}</span>
+                </div>
+                ` : ''}
             </div>
 
-            <!-- Registration Form -->
-            <form id="eventRsvpSubmitForm" class="flex flex-col gap-4">
-                <div>
-                    <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
-                        Họ và tên người đăng ký <span class="text-rose-500">*</span>
-                    </label>
-                    <input name="fullname" type="text" required placeholder="Nguyễn Văn A" value="Trần Tiến"
-                        class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
-                            Số điện thoại (Nhận vé Zalo) <span class="text-rose-500">*</span>
-                        </label>
-                        <input name="phone" type="tel" required placeholder="0901 xxx xxx"
-                            class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
-                    </div>
-                    <div>
-                        <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
-                            Số lượng người tham gia
-                        </label>
-                        <select name="seats"
-                            class="w-full h-11 px-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700">
-                            <option value="1">1 người</option>
-                            <option value="2">2 người</option>
-                            <option value="3">3 - 5 người (Đi nhóm)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
-                        Ghi chú hoặc yêu cầu đặc biệt
-                    </label>
-                    <textarea name="notes" rows="2" placeholder="Ví dụ: Mang theo xe đạp riêng / Cần hướng dẫn viên hỗ trợ..."
-                        class="w-full p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"></textarea>
-                </div>
-
-                <div class="pt-2 flex items-center justify-end gap-3">
-                    <button type="button" onclick="window.ViVuApp?.closeEventRsvpModal()"
-                        class="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-button text-xs font-semibold min-h-[44px]">
-                        Hủy
-                    </button>
-                    <button type="submit"
-                        class="px-6 py-2.5 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-button text-xs font-semibold shadow-xs min-h-[44px] flex items-center gap-1.5">
-                        <span class="material-symbols-outlined text-[18px]">how_to_reg</span>
-                        <span>Xác Nhận Đăng Ký</span>
-                    </button>
-                </div>
-            </form>
+            <div class="pt-2 flex items-center justify-end gap-3">
+                <button type="button" onclick="window.ViVuApp?.closeEventRsvpModal()"
+                    class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-button text-xs font-semibold min-h-[44px]">
+                    Đóng
+                </button>
+            </div>
         </div>
     `;
-
-    const form = container.querySelector('#eventRsvpSubmitForm');
-    if (form) {
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const formData = new FormData(form);
-            const data = {
-                eventId: event.id,
-                eventTitle: event.title,
-                fullname: formData.get('fullname'),
-                phone: formData.get('phone'),
-                seats: formData.get('seats'),
-                notes: formData.get('notes')
-            };
-            if (onSubmitRsvp) {
-                onSubmitRsvp(data);
-            } else if (window.ViVuApp?.submitEventRsvp) {
-                window.ViVuApp.submitEventRsvp(data);
-            }
-        });
-    }
 }
 
 /**
@@ -5245,6 +5195,7 @@ export function renderClubsBentoGrid(clubs, joinedClubIds = []) {
         const safeLastAct = escapeHtml(club.lastActivity || 'Hoạt động hàng tuần');
         const safeImage = escapeHtml(club.image || NEUTRAL_PLACEHOLDER_IMAGE);
         const isJoined = joinedClubIds.includes(club.id);
+        const isSample = club.isSample || ['clb-chay-bo-long-binh', 'clb-phuot-checkin', 'clb-don-ca-tai-tu', 'clb-nhiep-anh-khmer'].includes(club.id);
 
         return `
             <article class="flex flex-col bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all border border-outline-variant/40 dark:border-zinc-800 group">
@@ -5252,9 +5203,21 @@ export function renderClubsBentoGrid(clubs, joinedClubIds = []) {
                     <img src="${safeImage}" alt="${safeName}"
                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         onerror="this.onerror=null; this.src='${NEUTRAL_PLACEHOLDER_IMAGE}';">
-                    <span class="absolute top-3 left-3 px-3 py-1 rounded-full ${club.status === 'pending' ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300' : 'bg-surface-container-lowest/90 dark:bg-zinc-900/90 text-primary dark:text-emerald-400'} backdrop-blur-md text-xs font-semibold shadow-sm flex items-center gap-1">
-                        ${club.status === 'pending' ? '<span class="material-symbols-outlined text-[14px]">hourglass_top</span> Chờ duyệt' : safeBadge}
-                    </span>
+                    <div class="absolute top-3 left-3 flex flex-wrap gap-1.5 items-center">
+                        ${club.status === 'pending' ? `
+                            <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 backdrop-blur-md text-xs font-semibold shadow-sm flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">hourglass_top</span> Chờ duyệt
+                            </span>
+                        ` : (isSample ? `
+                            <span class="px-2.5 py-1 rounded-full bg-amber-100/90 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 backdrop-blur-md text-[11px] font-medium shadow-sm">
+                                CLB mẫu tham khảo
+                            </span>
+                        ` : `
+                            <span class="px-2.5 py-1 rounded-full bg-surface-container-lowest/90 dark:bg-zinc-900/90 text-primary dark:text-emerald-400 backdrop-blur-md text-xs font-semibold shadow-sm">
+                                ${safeBadge}
+                            </span>
+                        `)}
+                    </div>
                     <button type="button" onclick="window.ViVuApp.toggleBookmarkClub('${safeId}', this)"
                         class="absolute top-3 right-3 w-11 h-11 min-h-[44px] min-w-[44px] rounded-full bg-surface-container-lowest/85 dark:bg-zinc-800/85 backdrop-blur-md flex items-center justify-center text-slate-600 dark:text-zinc-300 hover:text-red-500 dark:hover:text-red-400 transition-colors shadow-sm"
                         title="Lưu câu lạc bộ" aria-label="Lưu ${safeName}">
@@ -5264,8 +5227,10 @@ export function renderClubsBentoGrid(clubs, joinedClubIds = []) {
                 <div class="p-5 flex flex-col flex-1 justify-between gap-4">
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full bg-secondary"></span>
-                            <span class="text-xs text-on-surface-variant dark:text-zinc-400">${club.membersCount} thành viên • ${club.activitiesCount} hoạt động</span>
+                            <span class="w-2 h-2 rounded-full ${isSample ? 'bg-amber-500' : 'bg-secondary'}"></span>
+                            <span class="text-xs text-on-surface-variant dark:text-zinc-400">
+                                ${isSample ? 'CLB văn hóa - thể thao mẫu' : `${club.members_count || club.membersCount || 1} thành viên`}
+                            </span>
                         </div>
                         <h3 class="font-bold text-base text-on-surface dark:text-zinc-100 group-hover:text-secondary dark:group-hover:text-emerald-400 transition-colors">
                             ${safeName}
@@ -5318,7 +5283,7 @@ export function renderCommunityPostsFeed(posts, likedPostIds = []) {
         const safeContent = escapeHtml(post.content || '');
         const safeImage = post.image ? escapeHtml(post.image) : null;
         const isLiked = likedPostIds.includes(post.id);
-        const likesCount = (post.likes || 0) + (isLiked ? 1 : 0);
+        const isSample = post.isSample || String(post.id).startsWith('post-');
 
         return `
             <article class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
@@ -5335,11 +5300,15 @@ export function renderCommunityPostsFeed(posts, likedPostIds = []) {
                                     <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[11px] font-semibold inline-flex items-center gap-1">
                                         <span class="material-symbols-outlined text-[13px]">hourglass_top</span> Chờ duyệt (Chỉ bạn thấy)
                                     </span>
+                                ` : (isSample ? `
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-100/90 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 text-[11px] font-medium">
+                                        Bài viết minh họa
+                                    </span>
                                 ` : `
                                     <span class="px-2 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-[11px] font-semibold">
                                         ${safeBadge}
                                     </span>
-                                `}
+                                `)}
                             </div>
                             <div class="flex items-center gap-1.5 text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
                                 <span>${safeTime}</span>
@@ -5369,19 +5338,17 @@ export function renderCommunityPostsFeed(posts, likedPostIds = []) {
                     </div>
                 ` : ''}
 
-                <!-- Stats Row -->
-                <div class="pt-2 flex items-center justify-between text-xs text-on-surface-variant dark:text-zinc-400">
-                    <div class="flex items-center gap-1.5">
-                        <span class="w-5 h-5 rounded-full bg-secondary text-white flex items-center justify-center text-[10px]">
-                            <span class="material-symbols-outlined text-[13px]">thumb_up</span>
-                        </span>
-                        <span>${likesCount} Thích</span>
+                <!-- Stats Row (Chỉ hiển thị khi có dữ liệu thật, không tạo số giả) -->
+                ${!isSample && (post.likes || isLiked) ? `
+                    <div class="pt-2 flex items-center justify-between text-xs text-on-surface-variant dark:text-zinc-400">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-secondary text-white flex items-center justify-center text-[10px]">
+                                <span class="material-symbols-outlined text-[13px]">thumb_up</span>
+                            </span>
+                            <span>${(post.likes || 0) + (isLiked ? 1 : 0)} Thích</span>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <span>${post.commentsCount || 0} Bình luận</span>
-                        <span>${post.shares || 0} Chia sẻ</span>
-                    </div>
-                </div>
+                ` : ''}
 
                 <!-- Action Buttons -->
                 <div class="pt-2 flex items-center justify-between border-t border-outline-variant/30 dark:border-zinc-800 text-on-surface-variant dark:text-zinc-400">
@@ -5422,14 +5389,13 @@ export function renderWeeklyActivitiesWidget(activities, registeredActivityIds =
         const safeTime = escapeHtml(act.time || act.time_schedule || '');
         const safeLocation = escapeHtml(act.location || '');
         const safeClub = (act.clubName || act.club_name) ? escapeHtml(act.clubName || act.club_name) : '';
-        const isRegistered = registeredActivityIds.includes(act.id);
-        const attendeesCount = act.attendeesCount ?? act.attendees_count ?? 0;
-        const currentCount = attendeesCount + (isRegistered ? 1 : 0);
+        const isSample = act.isSample || String(act.id).startsWith('act-');
+        const maxCapacity = act.maxAttendees || act.max_attendees || 30;
         const isPending = act.status === 'pending';
 
         return `
             <div class="p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/80 hover:bg-surface-container dark:hover:bg-zinc-800 transition-colors flex flex-col gap-2 group border ${isPending ? 'border-amber-400/50 bg-amber-500/5 dark:bg-amber-950/20' : 'border-outline-variant/20 dark:border-zinc-700/40'}">
-                <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
                     ${safeClub ? `
                         <span class="text-[11px] font-semibold text-secondary dark:text-emerald-400 truncate max-w-[180px]">
                             ${safeClub}
@@ -5439,7 +5405,11 @@ export function renderWeeklyActivitiesWidget(activities, registeredActivityIds =
                         <span class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1 shrink-0">
                             <span class="material-symbols-outlined text-[12px]">hourglass_top</span> Chờ duyệt (Chủ nhiệm)
                         </span>
-                    ` : ''}
+                    ` : (isSample ? `
+                        <span class="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-medium shrink-0">
+                            Lịch mẫu tham khảo
+                        </span>
+                    ` : '')}
                 </div>
                 <span class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 group-hover:text-secondary dark:group-hover:text-emerald-400 transition-colors leading-snug">
                     ${safeTitle}
@@ -5449,26 +5419,24 @@ export function renderWeeklyActivitiesWidget(activities, registeredActivityIds =
                         <span class="material-symbols-outlined text-[15px] text-outline">schedule</span>
                         ${safeTime}
                     </span>
-                    <span class="inline-flex items-center gap-1 text-secondary dark:text-emerald-400 font-semibold">
-                        <span class="material-symbols-outlined text-[15px]">group</span>
-                        ${currentCount} người đi
+                    <span class="inline-flex items-center gap-1 text-on-surface-variant dark:text-zinc-400">
+                        <span class="material-symbols-outlined text-[15px]">groups</span>
+                        Tối đa ${maxCapacity} người
                     </span>
                 </div>
-                <div class="pt-1.5 flex items-center justify-between border-t border-outline-variant/20 dark:border-zinc-700/40">
+                <div class="pt-1.5 flex items-center justify-between border-t border-outline-variant/20 dark:border-zinc-700/40 gap-2">
                     <span class="text-[11px] text-slate-500 dark:text-zinc-400 truncate max-w-[160px]">${safeLocation}</span>
                     ${isPending ? `
                         <button type="button" disabled
-                            class="px-3.5 py-2 min-h-[44px] rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed">
+                            class="px-3 py-1.5 min-h-[40px] rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed">
                             Chờ duyệt
                         </button>
                     ` : `
-                        <button type="button" onclick="window.ViVuApp.toggleRsvpActivity('${safeId}')"
-                            class="px-3.5 py-2 min-h-[44px] rounded-xl text-xs font-semibold transition-all ${
-                                isRegistered
-                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                                    : 'bg-secondary hover:bg-primary-container text-white shadow-xs'
-                            }">
-                            ${isRegistered ? '✓ Đã đặt chỗ' : 'Đặt chỗ'}
+                        <button type="button" onclick="window.ViVuApp?.showActivityRsvpNotice?.('${safeId}')"
+                            class="px-3 py-1.5 min-h-[40px] rounded-xl text-xs font-medium transition-all bg-surface-container-high hover:bg-surface-container-highest dark:bg-zinc-800 dark:hover:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 flex items-center gap-1 shrink-0"
+                            title="Chưa hỗ trợ đăng ký trực tuyến">
+                            <span class="material-symbols-outlined text-[14px]">info</span>
+                            <span>Chưa hỗ trợ trực tuyến</span>
                         </button>
                     `}
                 </div>
@@ -6080,8 +6048,8 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             "Nước lèo nấu từ cá lóc đồng và mắm bò hóc thơm lừng, thịt quay giòn rụm không ngấy, ăn kèm đĩa rau ghém hoa chuối tươi ngon tuyệt đỉnh!"
                         </p>
                         <div class="flex items-center gap-2 text-xs text-secondary dark:text-emerald-400 font-semibold">
-                            <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">thumb_up</span>
-                            <span>42 lượt cảm ơn từ cộng đồng</span>
+                            <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">recommend</span>
+                            <span>Đóng góp trải nghiệm cộng đồng</span>
                         </div>
                     </div>
                 </div>

@@ -462,10 +462,11 @@ export const EVENT_REGIONS = [
     { id: 'duyen-hai', label: 'Huyện Duyên Hải' }
 ];
 
-// Danh sách sự kiện, workshop và gặp gỡ cộng đồng (Stitch design events grid)
+// Danh sách sự kiện, workshop và gặp gỡ cộng đồng (Dữ liệu mẫu tham khảo)
 export const TRA_VINH_EVENTS_AND_MEETUPS = [
     {
         id: 'dua-ghe-ngo-2024',
+        isSample: true,
         title: 'Giải Đua Ghe Ngo Tranh Cúp Sông Long Bình 2026',
         month: 'Tháng 11',
         day: '15',
@@ -477,7 +478,6 @@ export const TRA_VINH_EVENTS_AND_MEETUPS = [
         categoryKey: 'sports',
         fee: 'Mở cửa tự do',
         feeType: 'free',
-        attendees: '1,800+ khán giả',
         image: '/ao bà om.jpg',
         ctaText: 'Chi tiết & Điểm xem',
         actionType: 'modal',
@@ -486,6 +486,7 @@ export const TRA_VINH_EVENTS_AND_MEETUPS = [
     },
     {
         id: 'workshop-den-sen',
+        isSample: true,
         title: 'Workshop: Tự tay làm lồng đèn hoa sen & Chạm khắc gáo dừa Khmer',
         month: 'Tháng 10',
         day: '20',
@@ -498,15 +499,15 @@ export const TRA_VINH_EVENTS_AND_MEETUPS = [
         fee: '50.000đ',
         feeDetail: '(gồm trà)',
         feeType: 'paid',
-        statusBadge: 'Còn 12/35 vé',
-        attendees: '35 người',
+        statusBadge: 'Giới hạn 35 chỗ',
         image: '/ao bà om.jpg',
-        ctaText: 'Đăng ký giữ chỗ',
+        ctaText: 'Xem thông tin tham gia',
         actionType: 'rsvp',
         summary: 'Trải nghiệm tự tay làm lồng đèn hoa sen lung linh và chạm khắc hoa văn Khmer tinh tế trên gáo dừa cùng nghệ nhân.'
     },
     {
         id: 'dap-xe-chua-co',
+        isSample: true,
         title: 'Cuối tuần đạp xe: Cung đường Chùa Cổ & Rừng dừa Cù lao Tân Quy',
         month: 'Tháng 10',
         day: '27',
@@ -518,15 +519,15 @@ export const TRA_VINH_EVENTS_AND_MEETUPS = [
         categoryKey: 'sports',
         fee: 'Miễn phí',
         feeType: 'free',
-        statusBadge: '24/40 người',
-        attendees: '40 người',
+        statusBadge: 'Tối đa 40 xe',
         image: '/cù lao tân qui.jpg',
-        ctaText: 'Tham gia đoàn xe',
+        ctaText: 'Xem thông tin tham gia',
         actionType: 'rsvp',
         summary: 'Đoàn xe đạp trẻ khám phá cung đường rợp bóng dừa, viếng chùa cổ Khmer và trải nghiệm phà qua miệt vườn sông nước.'
     },
     {
         id: 'photo-tour-chua-hang',
+        isSample: true,
         title: 'Photo Tour Bình Minh: Đàn Chim Về Tổ & Kiến Trúc Chùa Hang',
         month: 'Tháng 11',
         day: '03',
@@ -539,7 +540,6 @@ export const TRA_VINH_EVENTS_AND_MEETUPS = [
         fee: 'Miễn phí',
         feeType: 'free',
         statusBadge: 'Sắp diễn ra',
-        attendees: '25 nhiếp ảnh gia',
         image: '/chùa hang.jpg',
         ctaText: 'Xem lịch trình',
         actionType: 'rsvp',
@@ -547,6 +547,7 @@ export const TRA_VINH_EVENTS_AND_MEETUPS = [
     },
     {
         id: 'don-ca-tai-tu-co-chien',
+        isSample: true,
         title: 'Đêm Trà & Đờn Ca Tài Tử Nam Bộ Bên Sông Cổ Chiên',
         month: 'Tháng 11',
         day: '08',
@@ -558,15 +559,15 @@ export const TRA_VINH_EVENTS_AND_MEETUPS = [
         categoryKey: 'community',
         fee: 'Gọi nước tự túc',
         feeType: 'drink',
-        statusBadge: 'Còn 15 chỗ',
-        attendees: '30 người',
+        statusBadge: 'Tối đa 30 chỗ',
         image: '/nhà cổ huỳnh kỳ.jpg',
-        ctaText: 'Đăng ký tham gia',
+        ctaText: 'Xem thông tin tham gia',
         actionType: 'rsvp',
         summary: 'Thưởng thức trà thảo mộc thơm lành và lắng nghe giai điệu vọng cổ ngọt ngào, tiếng đờn kìm réo rắt bên dòng Cổ Chiên.'
     },
     {
         id: 'don-dep-ao-ba-om',
+        isSample: true,
         title: 'Ngày hội Trồng Cây Cổ Thụ & Dọn Dẹp Xanh Rừng Ao Bà Om',
         month: 'Tháng 11',
         day: '22',
@@ -578,10 +579,9 @@ export const TRA_VINH_EVENTS_AND_MEETUPS = [
         categoryKey: 'community',
         fee: 'Cộng đồng tự do',
         feeType: 'free',
-        statusBadge: 'Tình nguyện',
-        attendees: '120 tình nguyện viên',
+        statusBadge: 'Hoạt động tự do',
         image: '/ao bà om.jpg',
-        ctaText: 'Đăng ký tình nguyện',
+        ctaText: 'Xem thông tin tham gia',
         actionType: 'rsvp',
         summary: 'Cùng thanh niên và người dân chăm sóc vườn cây sao dầu cổ thụ, nhặt rác bảo vệ cảnh quan mặt hồ danh thắng Ao Bà Om.'
     }
