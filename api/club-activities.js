@@ -97,6 +97,7 @@ async function handleGet(request, response) {
   }
 
   try {
+    const rows = await supabaseRequest(query);
     const sanitized = (Array.isArray(rows) ? rows : []).map(act => {
       if (isPrivileged) {
         return act;

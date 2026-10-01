@@ -85,7 +85,7 @@ async function handleGetModerationList(request, response, adminContext) {
 
     if (entityType) {
       if (!MODERATION_ENTITIES[entityType]) {
-        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article).');
+        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article | club_activity).');
         return;
       }
       const entity = MODERATION_ENTITIES[entityType];
@@ -180,7 +180,7 @@ async function moderateEntity(request, response, adminContext) {
 
   // 1. Validate đầu vào chặt chẽ
   if (!MODERATION_ENTITIES[entityType]) {
-    sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article).');
+    sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article | club_activity).');
     return;
   }
   if (!entityId || entityId.length > 128) {

@@ -22,6 +22,7 @@ const envPath = path.join(PROJECT_DIR, '.env.live.tmp');
 const envContent = fs.readFileSync(envPath, 'utf8');
 const supabaseUrl = envContent.match(/SUPABASE_URL="([^"]+)"/)[1];
 const serviceRoleKey = envContent.match(/SUPABASE_SERVICE_ROLE_KEY="([^"]+)"/)[1];
+const ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_ThGdyDQHqdNXPFgKRr0XaA_copz_ulU';
 
 const testIdsToCleanup = {
   activities: [],
@@ -93,6 +94,29 @@ async function runLiveSecurityTests() {
   console.log(' BẮT ĐẦU KIỂM THỬ AN NINH VÒNG ĐỜI LỊCH SINH HOẠT CLB (G13) - LIVE SUPABASE');
   console.log('================================================================================\n');
 
+  // Kiểm tra bảng club_activities trên Live DB
+  const probeRes = await fetch(`${supabaseUrl}/rest/v1/club_activities?limit=1`, {
+    headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` }
+  });
+
+  if (probeRes.status === 404) {
+    console.log('⚠️ BẢNG public.club_activities CHƯA TỒN TẠI TRÊN SUPABASE LIVE!');
+    console.log('--------------------------------------------------------------------------------');
+    console.log('Hệ thống phát hiện migration g13_club_activities_moderation.sql chưa được thực thi trên DB.');
+    console.log('Vui lòng mở Supabase Dashboard > SQL Editor và chạy toàn bộ nội dung file:');
+    console.log('  supabase/g13_club_activities_moderation.sql\n');
+    console.log('Kịch bản kiểm thử trực tiếp đã được chuẩn bị sẵn sàng bao gồm 7 ca kiểm định:');
+    console.log('  [Ca 1] Member thường tạo lịch cho CLB đã duyệt -> BỊ CHẶN (403)');
+    console.log('  [Ca 2] Chủ nhiệm tạo lịch cho CLB pending -> BỊ CHẶN (403)');
+    console.log('  [Ca 3] Chủ nhiệm giả mạo tên CLB / tự duyệt status -> BỊ TRIGGER CHẶN & GHI ĐÈ PENDING');
+    console.log('  [Ca 4] Chủ nhiệm tạo lịch hợp lệ (status: pending) -> THÀNH CÔNG (201)');
+    console.log('  [Ca 5] Lịch pending KHÔNG xuất hiện trên Secure View công khai');
+    console.log('  [Ca 6] Admin phê duyệt lịch kèm ghi chú nội bộ (admin_notes)');
+    console.log('  [Ca 7] Lịch đã duyệt xuất hiện trên Secure View & KHÔNG lộ admin_notes\n');
+    console.log('Hãy chạy migration trên Supabase Dashboard, sau đó chạy lại: npm run test:activities:live');
+    return;
+  }
+
   try {
     // 0. Tạo 2 tài khoản test: 1 Leader và 1 Member thường
     const timestamp = Date.now();
@@ -130,7 +154,7 @@ async function runLiveSecurityTests() {
     const leaderAuthRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: {
-        apikey: serviceRoleKey,
+        apikey: ANON_KEY,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ email: leaderEmail, password: testPassword })
@@ -141,7 +165,7 @@ async function runLiveSecurityTests() {
     const memberAuthRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: {
-        apikey: serviceRoleKey,
+        apikey: ANON_KEY,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ email: memberEmail, password: testPassword })
@@ -189,7 +213,7 @@ async function runLiveSecurityTests() {
     const memberCreateRes = await fetch(`${supabaseUrl}/rest/v1/club_activities`, {
       method: 'POST',
       headers: {
-        apikey: serviceRoleKey,
+        apikey: ANON_KEY,
         Authorization: `Bearer ${memberToken}`,
         'Content-Type': 'application/json',
         Prefer: 'return=representation'
@@ -213,7 +237,7 @@ async function runLiveSecurityTests() {
     const pendingClubActRes = await fetch(`${supabaseUrl}/rest/v1/club_activities`, {
       method: 'POST',
       headers: {
-        apikey: serviceRoleKey,
+        apikey: ANON_KEY,
         Authorization: `Bearer ${leaderToken}`,
         'Content-Type': 'application/json',
         Prefer: 'return=representation'
@@ -240,7 +264,7 @@ async function runLiveSecurityTests() {
     const forgeRes = await fetch(`${supabaseUrl}/rest/v1/club_activities`, {
       method: 'POST',
       headers: {
-        apikey: serviceRoleKey,
+        apikey: ANON_KEY,
         Authorization: `Bearer ${leaderToken}`,
         'Content-Type': 'application/json',
         Prefer: 'return=representation'
@@ -275,10 +299,11 @@ async function runLiveSecurityTests() {
     const validActId = `act-test-valid-${timestamp}`;
     testIdsToCleanup.activities.push(validActId);
 
-    const validCreateRes = await fetch(`${supabaseUrl}/rest/v1/club_activities`, {
+    // Chỉ trả về các cột chủ nhiệm được phép đọc; SELECT * gồm admin_notes bị khóa.
+    const validCreateRes = await fetch(`${supabaseUrl}/rest/v1/club_activities?select=id,status,club_name,creator_role,creator_id`, {
       method: 'POST',
       headers: {
-        apikey: serviceRoleKey,
+        apikey: ANON_KEY,
         Authorization: `Bearer ${leaderToken}`,
         'Content-Type': 'application/json',
         Prefer: 'return=representation'
@@ -294,8 +319,9 @@ async function runLiveSecurityTests() {
       })
     });
 
-    assert(validCreateRes.status === 201, `Chủ nhiệm tạo lịch thành công (Status ${validCreateRes.status})`);
-    const validActData = (await validCreateRes.json())[0];
+    const validCreateBody = await validCreateRes.json();
+    assert(validCreateRes.status === 201, `Chủ nhiệm tạo lịch thành công (Status ${validCreateRes.status}; ${validCreateBody.message || ''})`);
+    const validActData = validCreateBody[0];
     assert(validActData.status === 'pending', 'Lịch mới tạo có status = "pending"');
     assert(validActData.club_name === 'CLB Trải Nghiệm Văn Hóa Thử Nghiệm', 'Tên CLB chính xác');
     assert(validActData.creator_role === 'Chủ nhiệm CLB', 'Vai trò người tạo chính xác');
@@ -306,7 +332,7 @@ async function runLiveSecurityTests() {
     console.log('\n[Test 5] Kiểm tra Secure View công khai...');
     const publicViewRes = await fetch(`${supabaseUrl}/rest/v1/public_club_activities?id=eq.${encodeURIComponent(validActId)}`, {
       headers: {
-        apikey: serviceRoleKey,
+        apikey: ANON_KEY,
         Authorization: `Bearer ${memberToken}`
       }
     });
@@ -314,14 +340,15 @@ async function runLiveSecurityTests() {
     assert(Array.isArray(publicViewData) && publicViewData.length === 0, 'Lịch pending KHÔNG xuất hiện trên Secure View công khai');
 
     // -------------------------------------------------------------------------
-    // TEST 6: Admin phê duyệt buổi sinh hoạt
+    // TEST 6: Admin phê duyệt buổi sinh hoạt kèm admin_notes nội bộ
     // -------------------------------------------------------------------------
-    console.log('\n[Test 6] Admin phê duyệt buổi sinh hoạt...');
+    console.log('\n[Test 6] Admin phê duyệt buổi sinh hoạt kèm ghi chú nội bộ...');
     const approveRes = await adminSupabase(`/rest/v1/club_activities?id=eq.${encodeURIComponent(validActId)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=representation' },
       body: JSON.stringify({
         status: 'approved',
+        admin_notes: 'Ghi chú nội bộ BQT: Đã kiểm tra uy tín chủ nhiệm CLB',
         moderated_at: new Date().toISOString()
       })
     });
@@ -330,18 +357,20 @@ async function runLiveSecurityTests() {
     assert(approvedRecord.status === 'approved', 'Trạng thái chuyển thành "approved"');
 
     // -------------------------------------------------------------------------
-    // TEST 7: Lịch đã duyệt xuất hiện công khai trên Secure View
+    // TEST 7: Lịch đã duyệt xuất hiện công khai trên Secure View & KHÔNG lộ admin_notes
     // -------------------------------------------------------------------------
-    console.log('\n[Test 7] Kiểm tra lịch đã duyệt xuất hiện trên Secure View công khai...');
+    console.log('\n[Test 7] Kiểm tra lịch đã duyệt xuất hiện trên Secure View công khai & che chắn admin_notes...');
     const publicAfterApproveRes = await fetch(`${supabaseUrl}/rest/v1/public_club_activities?id=eq.${encodeURIComponent(validActId)}`, {
       headers: {
-        apikey: serviceRoleKey,
+        apikey: ANON_KEY,
         Authorization: `Bearer ${memberToken}`
       }
     });
     const publicAfterData = await publicAfterApproveRes.json();
     assert(Array.isArray(publicAfterData) && publicAfterData.length === 1, 'Lịch đã duyệt XUẤT HIỆN công khai trên Secure View');
     assert(publicAfterData[0].title === 'Chụp ảnh bình minh Chùa Hang cùng CLB', 'Tiêu đề hiển thị chính xác');
+    assert(publicAfterData[0].admin_notes === undefined, 'Secure View công khai tuyệt đối KHÔNG có cột admin_notes');
+    assert(publicAfterData[0].moderation_reason === undefined, 'Secure View công khai tuyệt đối KHÔNG có cột moderation_reason');
 
     console.log('\n================================================================================');
     console.log(` TẤT CẢ ${passedCount}/${totalCount} BÀI KIỂM THỬ AN NINH ĐÃ VƯỢT QUA XUẤT SẮC!`);

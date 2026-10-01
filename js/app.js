@@ -37,6 +37,7 @@ import {
     renderCommunityGuidelinesWidget,
     renderEventRsvpModal,
     renderHostEventModal,
+    renderSubmitClubActivityModal,
     renderUserProfileModalContent,
     renderSavedCollectionsModalContent,
     renderRedeemGiftModalContent,
@@ -653,6 +654,8 @@ export const state = {
     selectedModerationEventId: null,
     moderationArticles: [],
     selectedModerationArticleId: null,
+    moderationActivities: [],
+    selectedModerationActivityId: null,
     moderationKpi: { ...MODERATION_KPI },
     moderationActiveTab: 'posts',
     moderationFilterCategory: 'all',
@@ -5252,6 +5255,8 @@ export async function syncCommunityUgcFeed() {
         const apiClubs = clubsList.map(c => ({
             id: c.id,
             name: c.name,
+            leader_id: c.leader_id || c.leaderId || null,
+            leaderId: c.leader_id || c.leaderId || null,
             category: c.category,
             categoryName: c.category_name,
             badge: c.badge || c.category_name,
@@ -5264,7 +5269,7 @@ export async function syncCommunityUgcFeed() {
             meetingPlace: c.meeting_place || 'TP. Trà Vinh',
             icon: c.icon || 'groups',
             color: c.color || 'emerald',
-            status: 'approved'
+            status: c.status || 'approved'
         }));
         const apiClubIds = new Set(apiClubs.map(c => c.id));
         const userPendingClubs = state.clubs.filter(c => c.status === 'pending');
@@ -5338,6 +5343,9 @@ export async function syncCommunityUgcFeed() {
 
     // 4. Đồng bộ Bài viết Cẩm nang du lịch
     await syncArticlesFromSupabase().catch(e => console.warn('[CommunitySync] Articles sync error:', e.message));
+
+    // 5. Đồng bộ Lịch sinh hoạt định kỳ CLB (G13)
+    await syncClubActivitiesFromSupabase().catch(e => console.warn('[CommunitySync] Club activities sync error:', e.message));
 }
 
 /**
@@ -5921,6 +5929,211 @@ export function focusClubSearch() {
     const pills = document.getElementById('clubCategoryPills');
     if (pills) {
         pills.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+/**
+ * Mở modal tạo lịch sinh hoạt CLB (Chỉ dành cho Chủ nhiệm CLB đã duyệt - G13)
+ */
+export async function openSubmitClubActivityModal() {
+    const userSession = getUserSession();
+    if (!userSession || !userSession.user) {
+        showNoticeToast('Yêu cầu đăng nhập', 'Vui lòng đăng nhập để tạo lịch sinh hoạt cho Câu lạc bộ của bạn.');
+        openAuthModal('signin', () => openSubmitClubActivityModal());
+        return;
+    }
+
+    const currentUserId = userSession.user.id;
+    let userClubs = (state.clubs || []).filter(c => (c.leader_id === currentUserId || c.leaderId === currentUserId) && (c.status === 'approved' || !c.status));
+
+    if (userClubs.length === 0 && SUPABASE_URL && SUPABASE_ANON_KEY) {
+        try {
+            const token = userSession.access_token;
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/clubs?leader_id=eq.${encodeURIComponent(currentUserId)}&status=eq.approved&select=id,name,status,leader_id`, {
+                headers: {
+                    apikey: SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            if (res.ok) {
+                const fetched = await res.json();
+                if (Array.isArray(fetched) && fetched.length > 0) {
+                    userClubs = fetched;
+                }
+            }
+        } catch (_) {}
+    }
+
+    renderSubmitClubActivityModal(submitClubActivity, userClubs);
+    const modal = document.getElementById('submitClubActivityModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+}
+
+export function closeSubmitClubActivityModal() {
+    const modal = document.getElementById('submitClubActivityModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+export async function submitClubActivity(event) {
+    if (event) event.preventDefault();
+    const userSession = getUserSession();
+    if (!userSession || !userSession.user) {
+        showNoticeToast('Yêu cầu đăng nhập', 'Vui lòng đăng nhập để gửi lịch sinh hoạt.');
+        return;
+    }
+
+    const form = document.getElementById('submitClubActivityForm');
+    if (!form) return;
+
+    const clubId = form.elements['club_id']?.value;
+    const title = form.elements['title']?.value?.trim();
+    const timeSchedule = form.elements['time_schedule']?.value?.trim();
+    const location = form.elements['location']?.value?.trim();
+    const maxAttendees = parseInt(form.elements['max_attendees']?.value, 10) || 30;
+    const isFree = form.elements['is_free']?.value === 'true';
+    const icon = form.elements['icon']?.value || 'event';
+    const description = form.elements['description']?.value?.trim() || '';
+
+    if (!clubId) {
+        showNoticeToast('Chưa chọn CLB', 'Vui lòng chọn Câu lạc bộ tổ chức.');
+        return;
+    }
+    if (!title || title.length < 3) {
+        showNoticeToast('Tiêu đề không hợp lệ', 'Tiêu đề buổi sinh hoạt phải từ 3 ký tự.');
+        return;
+    }
+    if (!timeSchedule) {
+        showNoticeToast('Thiếu thời gian', 'Vui lòng nhập thời gian sinh hoạt dự kiến.');
+        return;
+    }
+    if (!location) {
+        showNoticeToast('Thiếu địa điểm', 'Vui lòng nhập địa điểm tập trung.');
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitClubActivityBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> Đang gửi duyệt...';
+    }
+
+    try {
+        const token = userSession.access_token;
+        const res = await fetch('/api/club-activities', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                club_id: clubId,
+                title,
+                time_schedule: timeSchedule,
+                location,
+                max_attendees: maxAttendees,
+                is_free: isFree,
+                icon,
+                description
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.message || 'Lỗi khi gửi lịch sinh hoạt CLB.');
+        }
+
+        closeSubmitClubActivityModal();
+        showSavedToast('✓ Đã gửi lịch sinh hoạt thành công! Ban Quản Trị sẽ duyệt trong 24h.');
+
+        await syncClubActivitiesFromSupabase().catch(() => {});
+    } catch (err) {
+        console.error('[SubmitClubActivity] Error:', err);
+        showNoticeToast('Không thể gửi lịch', err.message || 'Đã có lỗi xảy ra.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">calendar_add_on</span> <span>Gửi Duyệt Lịch Sinh Hoạt</span>';
+        }
+    }
+}
+
+export async function syncClubActivitiesFromSupabase() {
+    try {
+        const userSession = getUserSession();
+        const currentUserId = userSession?.user?.id;
+        const token = userSession?.access_token;
+
+        // 1. Tải các buổi sinh hoạt đã duyệt công khai
+        const res = await fetch('/api/club-activities?status=approved');
+        let approvedActivities = [];
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.activities)) {
+                approvedActivities = data.activities;
+            }
+        }
+
+        // 2. Nếu chủ nhiệm đang đăng nhập, tải thêm các buổi sinh hoạt pending do chính họ tạo
+        let ownPendingActivities = [];
+        if (currentUserId && token) {
+            try {
+                const ownRes = await fetch(`/api/club-activities?creator_id=${encodeURIComponent(currentUserId)}&status=pending`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (ownRes.ok) {
+                    const ownData = await ownRes.json();
+                    if (Array.isArray(ownData.activities)) {
+                        ownPendingActivities = ownData.activities;
+                    }
+                }
+            } catch (_) {}
+        }
+
+        const combined = [...ownPendingActivities, ...approvedActivities];
+        const liveMap = combined.map(act => ({
+            id: act.id,
+            title: act.title,
+            clubId: act.club_id,
+            clubName: act.club_name,
+            time: act.time_schedule,
+            time_schedule: act.time_schedule,
+            location: act.location,
+            attendeesCount: act.attendees_count || 0,
+            maxAttendees: act.max_attendees || 50,
+            isFree: act.is_free,
+            icon: act.icon || 'event',
+            status: act.status || 'approved',
+            creator_id: act.creator_id,
+            creator_name: act.creator_name,
+            description: act.description
+        }));
+        const liveIds = new Set(liveMap.map(a => a.id));
+        state.weeklyActivities = [
+            ...liveMap,
+            ...TRA_VINH_WEEKLY_ACTIVITIES.filter(a => !liveIds.has(a.id))
+        ];
+
+        const weeklyActivitiesContainer = document.getElementById('weeklyActivitiesList');
+        if (weeklyActivitiesContainer) {
+            weeklyActivitiesContainer.innerHTML = renderWeeklyActivitiesWidget(
+                state.weeklyActivities,
+                state.registeredActivities
+            );
+        }
+        const weeklyBadge = document.getElementById('weeklyActivitiesCountBadge');
+        if (weeklyBadge) {
+            weeklyBadge.textContent = `${state.weeklyActivities.length} sự kiện`;
+        }
+    } catch (e) {
+        console.warn('[ClubActivitiesSync] Error:', e.message);
     }
 }
 
@@ -7158,6 +7371,8 @@ function renderModerationModal() {
         selectedEventId: state.selectedModerationEventId,
         articles: state.moderationArticles || [],
         selectedArticleId: state.selectedModerationArticleId,
+        activities: state.moderationActivities || [],
+        selectedActivityId: state.selectedModerationActivityId,
         kpi: state.moderationKpi,
         filterCategory: state.moderationFilterCategory,
         riskFilter: state.moderationRiskFilter,
@@ -7296,17 +7511,39 @@ export async function openAdminModerationModal(tab = 'posts') {
                         admin_notes: a.admin_notes || ''
                     }));
                 }
+                if (Array.isArray(data.activities)) {
+                    state.moderationActivities = data.activities.map(act => ({
+                        id: act.id,
+                        club_id: act.club_id,
+                        club_name: act.club_name,
+                        title: act.title,
+                        time_schedule: act.time_schedule,
+                        location: act.location,
+                        max_attendees: act.max_attendees || 50,
+                        attendees_count: act.attendees_count || 0,
+                        is_free: act.is_free,
+                        icon: act.icon || 'event',
+                        description: act.description,
+                        creator_id: act.creator_id,
+                        creator_name: act.creator_name || 'Chủ nhiệm CLB',
+                        creator_role: act.creator_role || 'Chủ nhiệm CLB',
+                        status: act.status || 'pending',
+                        created_at: act.created_at,
+                        admin_notes: act.admin_notes || ''
+                    }));
+                }
                 if (data.kpi) {
                     state.moderationKpi = {
-                        pendingCount: (data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0),
-                        pendingNew: (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0),
+                        pendingCount: (data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0),
+                        pendingNew: (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0),
                         flaggedCount: 0,
                         approvedToday: state.moderationKpi.approvedToday || 0,
                         pointsIssued: 0,
                         violationRate: "0%",
                         pendingClubsCount: data.kpi.pendingClubs || 0,
                         pendingEventsCount: data.kpi.pendingEvents || 0,
-                        pendingArticlesCount: data.kpi.pendingArticles || 0
+                        pendingArticlesCount: data.kpi.pendingArticles || 0,
+                        pendingActivitiesCount: data.kpi.pendingActivities || 0
                     };
                 }
             }
@@ -7351,6 +7588,11 @@ export function selectModerationEvent(eventId) {
 
 export function selectModerationArticle(articleId) {
     state.selectedModerationArticleId = articleId;
+    renderModerationModal();
+}
+
+export function selectModerationActivity(activityId) {
+    state.selectedModerationActivityId = activityId;
     renderModerationModal();
 }
 
@@ -7523,6 +7765,46 @@ export async function approveArticle(articleId) {
     showSavedToast('✓ Đã phê duyệt và xuất bản bài cẩm nang du lịch!');
 }
 
+export async function approveClubActivity(activityId) {
+    const act = (state.moderationActivities || []).find(a => a.id === activityId);
+    if (!act) return;
+
+    try {
+        const token = await getValidAdminToken();
+        if (token) {
+            const auditNoteEl = document.getElementById('moderatorAuditNote');
+            const adminNotes = auditNoteEl ? auditNoteEl.value.trim() : undefined;
+            await fetch('/api/admin-moderation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    entity_type: 'club_activity',
+                    entity_id: activityId,
+                    action: 'approve',
+                    admin_notes: adminNotes
+                })
+            });
+        }
+    } catch (e) {
+        console.warn('[Moderation] API approveClubActivity error:', e.message);
+    }
+
+    act.status = 'approved';
+    state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
+    state.moderationActivities = (state.moderationActivities || []).filter(a => a.id !== activityId);
+    if (state.selectedModerationActivityId === activityId) {
+        state.selectedModerationActivityId = state.moderationActivities[0]?.id || null;
+    }
+
+    await syncClubActivitiesFromSupabase().catch(() => {});
+
+    renderModerationModal();
+    showSavedToast('✓ Đã phê duyệt và xuất bản lịch sinh hoạt CLB!');
+}
+
 export function openActionReasonModal(actionType, targetId, targetTitle) {
     state.actionReasonModalState = { actionType, targetId, targetTitle };
     const modal = document.getElementById('adminActionReasonModal');
@@ -7679,6 +7961,37 @@ export async function submitActionReason(actionType, targetId) {
             state.selectedModerationArticleId = state.moderationArticles[0]?.id || null;
         }
         showSavedToast('Đã từ chối bài cẩm nang và lưu lý do thẩm định.');
+    } else if (actionType.startsWith('reject_activity')) {
+        const act = (state.moderationActivities || []).find(a => a.id === targetId);
+        if (act) {
+            act.status = 'rejected';
+            act.rejectionReason = reason;
+        }
+        try {
+            const token = await getValidAdminToken();
+            if (token) {
+                await fetch('/api/admin-moderation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        entity_type: 'club_activity',
+                        entity_id: targetId,
+                        action: 'reject',
+                        reason: reason || 'Lịch sinh hoạt chưa đáp ứng tiêu chuẩn cộng đồng.'
+                    })
+                });
+            }
+        } catch (e) {
+            console.warn('[Moderation] API reject activity error:', e.message);
+        }
+        state.moderationActivities = (state.moderationActivities || []).filter(a => a.id !== targetId);
+        if (state.selectedModerationActivityId === targetId) {
+            state.selectedModerationActivityId = state.moderationActivities[0]?.id || null;
+        }
+        showSavedToast('Đã từ chối lịch sinh hoạt CLB và lưu lý do thẩm định.');
     }
 
     closeActionReasonModal();
@@ -8165,6 +8478,12 @@ if (typeof window !== 'undefined') {
         closeSubmitArticleModal,
         submitArticle,
         syncArticlesFromSupabase,
+        openSubmitClubActivityModal,
+        closeSubmitClubActivityModal,
+        submitClubActivity,
+        syncClubActivitiesFromSupabase,
+        selectModerationActivity,
+        approveClubActivity,
         getArticleCategoryBadgeClass,
         getArticleCategoryName,
         sanitizeArticleContent,
