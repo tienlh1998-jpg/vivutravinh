@@ -7744,8 +7744,8 @@ export function updateAdminRoleUI() {
         profileBtn.setAttribute('aria-label', communityUser ? 'Xem tài khoản cộng đồng' : 'Đăng nhập hoặc tạo tài khoản cộng đồng');
         profileBtn.title = communityUser ? 'Tài khoản cộng đồng' : 'Đăng nhập cộng đồng';
         profileBtn.innerHTML = communityUser
-            ? '<span class="material-symbols-outlined" aria-hidden="true">account_circle</span><span>Tài khoản</span>'
-            : '<span class="material-symbols-outlined" aria-hidden="true">login</span><span>Đăng nhập</span>';
+            ? '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">account_circle</span><span class="hidden sm:inline">Tài khoản</span>'
+            : '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span><span class="hidden sm:inline">Đăng nhập</span>';
     }
     const role = session?.user?.role;
     const isAdmin = ['admin', 'editor', 'moderator'].includes(role);

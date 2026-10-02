@@ -23,8 +23,9 @@ try {
         cwd: ROOT_DIR,
         stdio: 'inherit'
     });
+    fs.copyFileSync(path.join(DIST_DIR, 'css', 'tailwind.css'), path.join(ROOT_DIR, 'css', 'tailwind.css'));
     const cssStat = fs.statSync(path.join(DIST_DIR, 'css', 'tailwind.css'));
-    console.log(`  ✓ Đã sinh dist/css/tailwind.css (${(cssStat.size / 1024).toFixed(1)} KB)`);
+    console.log(`  ✓ Đã sinh dist/css/tailwind.css & css/tailwind.css (${(cssStat.size / 1024).toFixed(1)} KB)`);
 } catch (err) {
     console.error('  ❌ Lỗi khi biên dịch Tailwind CSS:', err);
     process.exit(1);

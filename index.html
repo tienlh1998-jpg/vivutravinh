@@ -101,8 +101,26 @@
         }
 
         html, body {
-            overflow-x: hidden;
+            overflow-x: clip;
             max-width: 100%;
+        }
+
+        html {
+            scroll-padding-top: 110px;
+        }
+        @media (min-width: 1024px) {
+            html {
+                scroll-padding-top: 124px;
+            }
+        }
+
+        section[id], [id$="Section"], [id$="Container"], [id$="Grid"] {
+            scroll-margin-top: 110px;
+        }
+        @media (min-width: 1024px) {
+            section[id], [id$="Section"], [id$="Container"], [id$="Grid"] {
+                scroll-margin-top: 124px;
+            }
         }
     </style>
 
@@ -211,23 +229,24 @@
     </script>
 </head>
 
-<body class="bg-surface dark:bg-dark-bg text-on-surface dark:text-zinc-100 font-sans antialiased min-h-screen flex flex-col pb-20 lg:pb-0 transition-colors duration-300 overflow-x-hidden">
+<body class="bg-surface dark:bg-dark-bg text-on-surface dark:text-zinc-100 font-sans antialiased min-h-screen flex flex-col pb-20 lg:pb-0 transition-colors duration-300 overflow-x-clip">
 
     <!-- ======================================================== -->
     <!-- DESKTOP FIXED SIDEBAR NAVIGATION (STITCH DESIGN - lg+)  -->
     <!-- ======================================================== -->
-    <aside class="hidden lg:flex fixed left-0 top-0 h-screen w-[248px] bg-surface-container-lowest dark:bg-zinc-900 border-r border-[#E4E4E7] dark:border-zinc-800 z-50 flex-col justify-between select-none">
-        <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar">
-            <!-- Brand Logo Header -->
-            <div class="p-space-lg border-b border-[#E4E4E7] dark:border-zinc-800 flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">eco</span>
-                </div>
-                <div class="flex flex-col">
-                    <span class="font-headline-sm text-base text-primary dark:text-emerald-400 font-bold leading-none tracking-tight">ViVuTraVinh</span>
-                    <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400 mt-1">Khám Phá &amp; Kết Nối Trà Vinh</span>
-                </div>
+    <aside class="hidden lg:flex fixed left-0 top-0 h-screen w-[248px] bg-surface-container-lowest dark:bg-zinc-900 border-r border-[#E4E4E7] dark:border-zinc-800 z-40 flex-col justify-between select-none">
+        <!-- Brand Logo Header (Căn chuẩn chiều cao 104px khớp đường đáy với header nội dung) -->
+        <div id="sidebarBrandHeader" class="h-[104px] border-b border-[#E4E4E7] dark:border-zinc-800 flex items-center px-6 gap-3 shrink-0">
+            <div class="w-9 h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">eco</span>
             </div>
+            <div class="flex flex-col">
+                <span class="font-headline-sm text-base text-primary dark:text-emerald-400 font-bold leading-none tracking-tight">ViVuTraVinh</span>
+                <span class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400 mt-1">Khám Phá &amp; Kết Nối Trà Vinh</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar">
 
             <!-- Navigation Links -->
             <div class="py-space-md flex flex-col gap-6">
@@ -340,31 +359,32 @@
     <!-- ======================================================== -->
     <div class="lg:pl-[248px] flex flex-col flex-1 min-w-0 w-full transition-all">
 
-        <!-- 1. DÒNG THÔNG BÁO / HUY HIỆU DI SẢN ĐẦU TRANG -->
-        <div class="bg-primary text-primary-fixed py-2 px-4 text-center text-xs font-medium border-b border-primary-container flex items-center justify-center gap-2">
-            <span class="material-symbols-outlined text-sm text-secondary-container" style="font-variation-settings: 'FILL' 1;">eco</span>
-            <span>Cẩm nang Khám phá Trà Vinh • Hơn 140 ngôi chùa Khmer cổ &amp; Ẩm thực trứ danh miền Tây Nam Bộ</span>
-            <span class="hidden md:inline-block text-primary-fixed-dim">• Cập nhật 2026</span>
-        </div>
+        <!-- CỤM HEADER NỘI DUNG CHÍNH (STICKY TOP 0 - NỀN KÍN - CĂN KHỚP ĐƯỜNG ĐÁY VỚI SIDEBAR) -->
+        <header id="appMainHeader" class="sticky top-0 z-30 bg-surface dark:bg-dark-bg border-b border-[#E4E4E7] dark:border-zinc-800 transition-colors">
+            <!-- 1. Dòng thông báo / Huy hiệu di sản đầu trang -->
+            <div id="heritageAnnouncementBanner" class="bg-primary text-primary-fixed py-2 px-3 sm:px-4 text-center text-[11px] sm:text-xs font-medium border-b border-primary-container/20 flex items-center justify-center gap-2 shrink-0 lg:h-9 lg:py-0">
+                <span class="material-symbols-outlined text-sm text-secondary-container" style="font-variation-settings: 'FILL' 1;">eco</span>
+                <span>Cẩm nang Khám phá Trà Vinh • Hơn 140 ngôi chùa Khmer cổ &amp; Ẩm thực trứ danh miền Tây Nam Bộ</span>
+                <span class="hidden md:inline-block text-primary-fixed-dim">• Cập nhật 2026</span>
+            </div>
 
-        <!-- THANH TRẠNG THÁI NGOẠI TUYẾN (GLOBAL OFFLINE BANNER) -->
-        <div id="offlineStatusBar" class="hidden bg-amber-500 text-stone-950 py-1.5 px-4 text-center text-xs font-semibold border-b border-amber-600 flex items-center justify-center gap-2 z-50 transition-all" role="status" aria-live="polite">
-            <span class="material-symbols-outlined text-sm">cloud_off</span>
-            <span>Bạn đang ở chế độ ngoại tuyến. Dữ liệu và hình ảnh được phục vụ từ bộ nhớ đệm thiết bị.</span>
-        </div>
+            <!-- Thanh trạng thái ngoại tuyến (Global Offline Banner) -->
+            <div id="offlineStatusBar" class="hidden bg-amber-500 text-stone-950 py-1.5 px-4 text-center text-xs font-semibold border-b border-amber-600 flex items-center justify-center gap-2 transition-all shrink-0" role="status" aria-live="polite">
+                <span class="material-symbols-outlined text-sm">cloud_off</span>
+                <span>Bạn đang ở chế độ ngoại tuyến. Dữ liệu và hình ảnh được phục vụ từ bộ nhớ đệm thiết bị.</span>
+            </div>
 
-        <!-- 2. THANH ĐIỀU HƯỚNG CHÍNH (TOP NAV & SEARCH PILL) -->
-        <header class="sticky top-0 z-40 bg-surface/90 dark:bg-dark-bg/90 backdrop-blur-md border-b border-outline-variant/40 dark:border-dark-border transition-colors">
-            <div class="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
+            <!-- 2. Thanh điều hướng chính (Top Nav & Search Pill) -->
+            <div id="topNavSearchContainer" class="max-w-[1200px] mx-auto px-3 sm:px-6 lg:px-8 w-full">
+                <div class="flex items-center justify-between h-16 lg:h-[68px] gap-1.5 sm:gap-4">
                     <!-- Mobile Brand Logo (< lg) -->
-                    <a href="/" class="flex items-center lg:hidden shrink-0 group gap-2" aria-label="ViVuTraVinh - Trang chủ">
-                        <div class="w-9 h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
-                            <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">eco</span>
+                    <a href="/" class="flex items-center lg:hidden shrink-0 group gap-1.5 sm:gap-2" aria-label="ViVuTraVinh - Trang chủ">
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-lg sm:text-xl" style="font-variation-settings: 'FILL' 1;">eco</span>
                         </div>
                         <div class="flex flex-col justify-center leading-tight">
-                            <span class="font-headline-sm text-sm text-primary dark:text-emerald-400 tracking-tight font-bold">ViVuTraVinh</span>
-                            <span class="font-caption text-[10px] text-on-surface-variant dark:text-zinc-400">Xứ Trà</span>
+                            <span class="font-headline-sm text-xs sm:text-sm text-primary dark:text-emerald-400 tracking-tight font-bold">ViVuTraVinh</span>
+                            <span class="font-caption text-[9px] sm:text-[10px] text-on-surface-variant dark:text-zinc-400">Xứ Trà</span>
                         </div>
                     </a>
 
@@ -387,7 +407,7 @@
                     </div>
 
                     <!-- Các nút hành động bên phải: touch targets >= 44x44px chuẩn W3C -->
-                    <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                    <div class="flex items-center gap-1 sm:gap-3 shrink-0">
                         <!-- Nút PWA Install (ẩn mặc định, hiện khi browser trigger prompt) -->
                         <button id="pwaInstallHeaderBtn" onclick="window.ViVuApp.promptPwaInstall()"
                             class="hidden px-3 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 text-xs font-bold transition-all items-center gap-1.5 shadow-xs"
@@ -404,11 +424,11 @@
                             <span id="savedHeaderCount" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">0</span>
                         </button>
 
-                        <!-- Nút Hồ sơ cá nhân & Thành tích (Header Profile) -->
+                        <!-- Nút Hồ sơ cá nhân & Thành tích / Đăng nhập (Header Profile) -->
                         <button id="headerProfileBtn" type="button" onclick="window.ViVuApp.openAuthModal('signin')"
-                            class="min-h-[44px] px-3 rounded-xl border border-outline-variant/40 dark:border-zinc-700 hover:ring-2 hover:ring-secondary transition-all flex items-center justify-center gap-2 shrink-0 text-xs font-bold"
+                            class="min-h-[44px] px-2.5 sm:px-3 rounded-xl border border-outline-variant/40 dark:border-zinc-700 hover:ring-2 hover:ring-secondary transition-all flex items-center justify-center gap-1.5 shrink-0 text-xs font-bold"
                             title="Đăng nhập cộng đồng" aria-label="Đăng nhập hoặc tạo tài khoản cộng đồng">
-                            <span class="material-symbols-outlined" aria-hidden="true">login</span><span>Đăng nhập</span>
+                            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span><span class="hidden sm:inline">Đăng nhập</span>
                         </button>
 
                         <!-- Nút Cài đặt & Bảo mật (Header Settings) -->
@@ -420,7 +440,7 @@
 
                         <!-- Nút Đổi Dark/Light Mode (Touch target >= 44x44px chuẩn W3C) -->
                         <button id="themeToggleBtn" onclick="window.ViVuApp.toggleTheme()"
-                            class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-amber-400 hover:bg-surface-container dark:hover:bg-zinc-700 flex items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700"
+                            class="w-10 h-10 sm:w-11 sm:h-11 min-w-[40px] sm:min-w-[44px] min-h-[40px] sm:min-h-[44px] rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-amber-400 hover:bg-surface-container dark:hover:bg-zinc-700 flex items-center justify-center transition-colors border border-outline-variant/40 dark:border-zinc-700 shrink-0"
                             title="Đổi giao diện" aria-label="Chuyển đổi chế độ sáng tối">
                             <span id="themeToggleIcon" class="material-symbols-outlined text-lg">dark_mode</span>
                         </button>
@@ -436,7 +456,7 @@
 
                         <!-- Nút Đóng góp địa điểm -->
                         <button onclick="window.ViVuApp.openContributeModal()"
-                            class="bg-primary hover:bg-primary-container dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white min-h-[44px] px-3.5 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-button font-bold flex items-center justify-center sm:justify-start gap-1.5 transition-all shadow-xs active:scale-95"
+                            class="bg-primary hover:bg-primary-container dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white min-h-[40px] sm:min-h-[44px] px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-button font-bold flex items-center justify-center gap-1 transition-all shadow-xs active:scale-95 shrink-0"
                             title="Đóng góp địa điểm mới" aria-label="Đóng góp địa điểm mới">
                             <span class="material-symbols-outlined text-base">add_location_alt</span>
                             <span class="hidden sm:inline">+ Đóng góp</span>
