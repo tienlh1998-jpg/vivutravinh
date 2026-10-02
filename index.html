@@ -279,9 +279,9 @@
                             <span class="material-symbols-outlined text-[20px]">event</span>
                             <span>Sự kiện &amp; Gặp gỡ</span>
                         </a>
-                        <a href="#tripPlannerModal" onclick="window.ViVuApp?.openTripPlannerModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
-                            <span class="material-symbols-outlined text-[20px] text-emerald-600 dark:text-emerald-400">route</span>
-                            <span>Lập kế hoạch lộ trình</span>
+                        <a href="#/planner" id="sidebarLinkPlanner" onclick="window.ViVuApp?.navGoPlanner?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px]">route</span>
+                            <span>Lên kế hoạch chuyến đi</span>
                         </a>
                     </div>
                 </div>
@@ -305,10 +305,6 @@
                         <a href="#securityModal" onclick="window.ViVuApp?.openSecurityModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px] text-emerald-600 dark:text-emerald-400">shield_lock</span>
                             <span>Cài đặt &amp; Bảo mật</span>
-                        </a>
-                        <a href="#tours" onclick="window.ViVuApp?.navGoSection ? window.ViVuApp.navGoSection('tourItinerariesSection') : null; return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
-                            <span class="material-symbols-outlined text-[20px]">route</span>
-                            <span>Lịch trình tour 1 ngày</span>
                         </a>
                     </div>
                 </div>
@@ -681,12 +677,12 @@
                     </div>
                 </div>
                 <div class="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0">
-                    <button onclick="window.ViVuApp.openTourItinerariesModal()" type="button"
+                    <button onclick="window.ViVuApp?.navGoPlanner ? window.ViVuApp.navGoPlanner({ tab: 'suggested' }) : window.ViVuApp?.openTourItinerariesModal?.(); return false;" type="button"
                         class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-secondary dark:bg-emerald-600 hover:bg-secondary/90 text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 min-h-[44px]">
                         <span class="material-symbols-outlined text-lg">route</span>
                         <span>Xem lịch trình</span>
                     </button>
-                    <button onclick="window.ViVuApp.handleGenerateRandomTour()" type="button"
+                    <button onclick="window.ViVuApp?.handleGenerateRandomTour?.(); window.ViVuApp?.navGoPlanner ? window.ViVuApp.navGoPlanner({ tab: 'suggested', randomize: true }) : null; return false;" type="button"
                         class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 text-on-surface hover:bg-surface-container dark:hover:bg-zinc-700 font-semibold text-xs transition-colors min-h-[44px]">
                         <span class="material-symbols-outlined text-base text-amber-500">casino</span>
                         <span>Đổi tour ngẫu hứng</span>
@@ -1100,6 +1096,13 @@
                         <!-- Festivals portal injected via ui.js -->
                     </div>
                 </section>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VIEW: PLANNER (LÊN KẾ HOẠCH CHUYẾN ĐI)     -->
+            <!-- ========================================== -->
+            <div id="view-planner" class="app-view space-y-8 hidden" data-view="planner" role="region" aria-label="Lên kế hoạch chuyến đi" tabindex="-1">
+                <!-- Rendered dynamically by window.ViVuApp.renderPlannerMainView() via ui.js -->
             </div>
 
             <!-- ========================================== -->

@@ -1489,7 +1489,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Nạp năng lượng với tô bún nước lèo chuẩn vị miền Tây: nước súp nấu từ mắm bò hóc đậm đà, thịt heo quay da giòn rụm và cá lóc đồng ngọt thịt.',
                 tip: 'Nên ăn kèm bắp chuối ghém, rau muống non chẻ và vắt ít chanh ớt cay nồng.',
                 icon: 'ramen_dining',
-                placeKeyword: 'Bún Nước Lèo'
+                placeKeyword: 'Bún Nước Lèo',
+                lat: 9.9385,
+                lng: 106.3421
             },
             {
                 time: '08:15 – 10:30',
@@ -1497,7 +1499,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Tản bộ dưới tán rừng sao dầu đại thụ có bộ rễ nổi kỳ vĩ uốn lượn tựa tác phẩm điêu khắc thiên nhiên. Chiêm bái ngôi cổ tự Angkorian nguy nga bậc nhất Trà Vinh.',
                 tip: 'Góc chụp ảnh rễ cây đẹp nhất ở bờ nam hồ; nên vào viếng chánh điện trước 10h sáng.',
                 icon: 'temple_buddhist',
-                placeKeyword: 'Ao Bà Om'
+                placeKeyword: 'Ao Bà Om',
+                lat: 9.9442,
+                lng: 106.3135
             },
             {
                 time: '10:45 – 11:45',
@@ -1505,7 +1509,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Tìm hiểu kho tàng hơn 500 hiện vật quý giá: nhạc cụ ngũ âm Pinpeat, mặt nạ tuồng Chầm-riêng, trang phục cưới truyền thống và kinh Phật chép trên lá buông.',
                 tip: 'Bảo tàng nằm ngay đối diện Chùa Âng, rất tiện đi bộ tham quan liên hoàn.',
                 icon: 'museum',
-                placeKeyword: 'Chùa Âng'
+                placeKeyword: 'Chùa Âng',
+                lat: 9.9426,
+                lng: 106.3105
             },
             {
                 time: '12:00 – 13:30',
@@ -1513,7 +1519,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Thưởng thức mâm cơm đồng quê thanh mát: canh chua cá ngát, cá lóc kho tộ, rau luộc kho quẹt tại quán sân vườn thoáng mát.',
                 tip: 'Uống thêm một trái dừa tươi mát rượi để giải nhiệt trưa hè.',
                 icon: 'restaurant',
-                placeKeyword: 'Quán ăn'
+                placeKeyword: 'Quán ăn',
+                lat: 9.9350,
+                lng: 106.3300
             },
             {
                 time: '14:00 – 16:30',
@@ -1521,7 +1529,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Chiêm ngưỡng cổng chùa độc đáo hình vòm hang đá cổ xưa, tham quan xưởng điêu khắc gỗ của các nghệ nhân sư thầy và ngắm đàn chim hoang dã bay về tổ.',
                 tip: 'Thời điểm ngắm đàn chim về rợp bóng cây đẹp nhất là từ 15:30 đến 16:30.',
                 icon: 'nature_people',
-                placeKeyword: 'Chùa Hang'
+                placeKeyword: 'Chùa Hang',
+                lat: 9.9142,
+                lng: 106.3056
             }
         ]
     },
@@ -1545,7 +1555,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Món ăn quốc hồn quốc túy nức tiếng với nước lèo thơm dậy mùi mắm ngải bún bò hóc, miếng heo quay giòn tan và cá lóc đồng thơm lừng.',
                 tip: 'Ăn tại các quán nổi tiếng quanh đường Đồng Khởi hoặc Điện Biên Phủ, TP. Trà Vinh.',
                 icon: 'ramen_dining',
-                placeKeyword: 'Bún Nước Lèo'
+                placeKeyword: 'Bún Nước Lèo',
+                lat: 9.9385,
+                lng: 106.3421
             },
             {
                 time: '09:00 – 11:00',
@@ -1553,7 +1565,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Trải nghiệm dừa sáp Cầu Kè béo ngậy được xay nhuyễn hòa cùng cà phê phin đậm đà trong không gian hiên dừa lộng gió mát rượi.',
                 tip: 'Dừa sáp chuẩn độ dẻo quánh, ăn một muỗng như tan chảy trên đầu lưỡi.',
                 icon: 'local_cafe',
-                placeKeyword: 'Cafe'
+                placeKeyword: 'Cafe',
+                lat: 9.9392,
+                lng: 106.3405
             },
             {
                 time: '11:30 – 13:30',
@@ -1561,7 +1575,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Tô bánh canh Bến Có nức tiếng với sợi bánh dẻo mềm, nước dùng trong vắt ngọt xương hầm và đĩa lòng heo tươi giòn sần sật.',
                 tip: 'Bánh canh Bến Có cách trung tâm khoảng 5km về hướng Cầu Kè.',
                 icon: 'soup_kitchen',
-                placeKeyword: 'Bánh Canh'
+                placeKeyword: 'Bánh Canh',
+                lat: 9.9120,
+                lng: 106.2800
             },
             {
                 time: '14:30 – 16:00',
@@ -1569,7 +1585,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Thưởng thức bánh ống lá dứa nghi ngút khói thơm nồng hương dừa nạo và ly chè thốt nốt thanh mát giải nhiệt buổi chiều.',
                 tip: 'Các gánh bánh ống thường xuất hiện ven các cổng chùa hoặc chợ Trà Vinh.',
                 icon: 'bakery_dining',
-                placeKeyword: 'Ăn vặt'
+                placeKeyword: 'Ăn vặt',
+                lat: 9.9398,
+                lng: 106.3450
             },
             {
                 time: '16:30 – 18:00',
@@ -1577,7 +1595,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Tham quan lò gói bánh tét nổi tiếng, tìm hiểu công thức nếp dẻo trộn nước lá ngót và nhân trứng muối đậu xanh béo ngậy mua về làm quà biếu.',
                 tip: 'Có thể chọn mua bánh tét chay hoặc bánh tét mặn nhân thịt mỡ trứng muối.',
                 icon: 'inventory_2',
-                placeKeyword: 'Bánh Tét'
+                placeKeyword: 'Bánh Tét',
+                lat: 9.8520,
+                lng: 106.3680
             }
         ]
     },
@@ -1601,7 +1621,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Đến bến phà Bà Trầm rồi đi xuồng máy lướt sóng sông Cổ Chiên để đặt chân lên ốc đảo Cồn Chim xanh mướt rặng bần.',
                 tip: 'Cồn Chim không dùng rác thải nhựa một lần, hãy chuẩn bị bình nước cá nhân.',
                 icon: 'directions_boat',
-                placeKeyword: 'Cồn Chim'
+                placeKeyword: 'Cồn Chim',
+                lat: 9.9180,
+                lng: 106.4250
             },
             {
                 time: '08:30 – 11:30',
@@ -1609,7 +1631,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Đạp xe trên đường hoa mười giờ, trải nghiệm câu cua, dỡ chà bắt tôm càng xanh, tự tay làm bánh lá mơ và uống nước dừa ngọt mát tận vườn.',
                 tip: 'Người dân Cồn Chim vô cùng hiền hậu, phục vụ từng món ăn thức uống bằng cả tấm lòng.',
                 icon: 'nature_people',
-                placeKeyword: 'Cồn Chim'
+                placeKeyword: 'Cồn Chim',
+                lat: 9.9167,
+                lng: 106.4274
             },
             {
                 time: '11:45 – 13:30',
@@ -1617,7 +1641,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Thưởng thức mâm cơm quê miệt vườn đậm đà: gỏi tép rong bông điên điển, cá lóc nướng trui rơm, canh chua bần cá bông lau tươi rói.',
                 tip: 'Các nguyên liệu đều được nuôi trồng hữu cơ ngay trên cồn đảo.',
                 icon: 'flatware',
-                placeKeyword: 'Cồn Chim'
+                placeKeyword: 'Cồn Chim',
+                lat: 9.9150,
+                lng: 106.4285
             },
             {
                 time: '14:00 – 15:30',
@@ -1625,7 +1651,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Chuyến xe xuyên qua những rặng phi lao phòng hộ và những cánh đồng muối ven biển Duyên Hải lộng gió.',
                 tip: 'Đường đi thoáng đãng, nhiều góc cảnh quan ruộng lúa ngập mặn thanh bình.',
                 icon: 'two_wheeler',
-                placeKeyword: 'Biển Ba Động'
+                placeKeyword: 'Biển Ba Động',
+                lat: 9.7153,
+                lng: 106.3572
             },
             {
                 time: '15:30 – 18:00',
@@ -1633,7 +1661,9 @@ export const SAMPLE_TOURS = [
                 desc: 'Dạo bước trên bãi cát mịn thoai thoải, ngắm hoàng hôn rực rỡ buông xuống sau những trụ turbine điện gió khổng lồ vươn mình ra biển lớn.',
                 tip: 'Thưởng thức nghêu hấp sả, chù ụ nướng giòn rụm tại các quán hải sản ven biển.',
                 icon: 'surfing',
-                placeKeyword: 'Biển Ba Động'
+                placeKeyword: 'Biển Ba Động',
+                lat: 9.6587,
+                lng: 106.5642
             }
         ]
     }
@@ -1769,7 +1799,9 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             tip: p1?.note || 'Nên ghé sớm để thưởng thức trọn vẹn hương vị nước dùng trong lành đầu ngày.',
             icon: 'ramen_dining',
             placeKeyword: p1?.name || 'Bún Nước Lèo',
-            placeId: p1?.id
+            placeId: p1?.id,
+            lat: p1?.lat || p1?.latitude || null,
+            lng: p1?.lng || p1?.longitude || null
         },
         {
             time: '09:00 – 11:30',
@@ -1778,7 +1810,9 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             tip: p2?.note || 'Trang phục chỉnh tề, giữ thái độ tôn nghiêm khi vào chiêm bái di tích/chùa chiền.',
             icon: 'temple_buddhist',
             placeKeyword: p2?.name || 'Chùa Âng',
-            placeId: p2?.id
+            placeId: p2?.id,
+            lat: p2?.lat || p2?.latitude || null,
+            lng: p2?.lng || p2?.longitude || null
         },
         {
             time: '12:00 – 13:30',
@@ -1787,7 +1821,9 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             tip: p3?.note || 'Uống thêm một trái dừa tươi giải nhiệt trưa hè.',
             icon: 'flatware',
             placeKeyword: p3?.name || 'Ẩm thực',
-            placeId: p3?.id
+            placeId: p3?.id,
+            lat: p3?.lat || p3?.latitude || null,
+            lng: p3?.lng || p3?.longitude || null
         },
         {
             time: '14:30 – 17:00',
@@ -1796,7 +1832,9 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             tip: p4?.note || 'Khoảng 15h30 đến 17h00 là khung giờ ánh sáng vàng đẹp nhất để chụp ảnh phong cảnh.',
             icon: 'photo_camera',
             placeKeyword: p4?.name || 'Ao Bà Om',
-            placeId: p4?.id
+            placeId: p4?.id,
+            lat: p4?.lat || p4?.latitude || null,
+            lng: p4?.lng || p4?.longitude || null
         },
         {
             time: '18:30 – 21:00',
@@ -1805,7 +1843,9 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             tip: p5?.note || 'Thưởng thức ngụm trà nóng hoặc cà phê dừa sáp trò chuyện cùng bạn bè.',
             icon: 'local_cafe',
             placeKeyword: p5?.name || 'Cà phê',
-            placeId: p5?.id
+            placeId: p5?.id,
+            lat: p5?.lat || p5?.latitude || null,
+            lng: p5?.lng || p5?.longitude || null
         }
     ];
 
@@ -1895,6 +1935,14 @@ export function renderTourItineraries(containerId, activeTourId = 'khmer-culture
                     <button id="btnGenerateRandomTour" type="button" class="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all shrink-0">
                         <span class="material-symbols-outlined text-base">casino</span>
                         <span>🎲 Đổi tour ngẫu hứng</span>
+                    </button>
+
+                    <!-- Nút Chọn Mẫu Để Tùy Chỉnh -->
+                    <button type="button" onclick="window.ViVuApp?.applyTourTemplateToPlanner ? window.ViVuApp.applyTourTemplateToPlanner('${tour.id}') : null"
+                        title="Sao chép các điểm dừng của tour này vào Tự lên lịch trình để tự do tùy biến"
+                        class="px-3.5 py-2 rounded-2xl bg-secondary dark:bg-emerald-600 hover:bg-secondary/90 active:scale-95 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all shrink-0 min-h-[36px]">
+                        <span class="material-symbols-outlined text-base">tune</span>
+                        <span>Chọn mẫu để tùy chỉnh</span>
                     </button>
                 </div>
             </div>
@@ -7788,22 +7836,23 @@ export function renderTripPlannerModalContent(plan, placePool = [], activeDay = 
                         </button>
 
                         <button id="btnSmartOptimize" type="button" onclick="window.ViVuApp.optimizePlanAiRoute()"
-                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-200 text-xs font-semibold hover:opacity-90 transition-all shadow-xs min-h-[44px]">
-                            <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400 animate-pulse">auto_fix_high</span>
-                            <span>Tối ưu AI Route</span>
+                            title="Mô phỏng thuật toán thử nghiệm (đảo thứ tự & trừ 3.2 km)"
+                            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-semibold hover:opacity-90 transition-all shadow-xs min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px] text-amber-600 dark:text-amber-400 animate-pulse">auto_fix_high</span>
+                            <span>Mô phỏng AI Route</span>
                         </button>
 
                         <button id="btnExportGpx" type="button" onclick="window.ViVuApp.exportGpxFile()"
-                            title="Xuất tệp GPX cho đồng hồ & máy định vị GPS"
+                            title="Xuất tệp GPX chỉ bao gồm các điểm có tọa độ GPS hợp lệ"
                             class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-xs font-semibold hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-all min-h-[44px]">
                             <span class="material-symbols-outlined text-[18px]">file_download</span>
-                            <span>GPX</span>
+                            <span>GPX (Điểm hợp lệ)</span>
                         </button>
 
                         <button id="btnSaveStartNav" type="button" onclick="window.ViVuApp.openGpsNavModal()"
                             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-white text-xs sm:text-sm font-semibold shadow-md transition-all active:scale-95 min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px] text-secondary-fixed">play_arrow</span>
-                            <span>Lưu &amp; Bắt đầu</span>
+                            <span>Bắt đầu GPS</span>
                         </button>
 
                         <button type="button" onclick="window.ViVuApp.closeTripPlannerModal()"
@@ -7811,6 +7860,18 @@ export function renderTripPlannerModalContent(plan, placePool = [], activeDay = 
                             class="w-10 h-10 rounded-xl flex items-center justify-center text-outline dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 transition-colors min-h-[44px] min-w-[44px]">
                             <span class="material-symbols-outlined text-[22px]">close</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Simulation & Prototype Notice -->
+                <div class="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/40 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2">
+                    <span class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">info</span>
+                    <div class="space-y-0.5">
+                        <span class="font-bold">Minh bạch chức năng thử nghiệm:</span>
+                        <p class="text-[10.5px] text-amber-800 dark:text-amber-300">
+                            • <b>Mô phỏng AI Route:</b> Đang thử nghiệm đảo thứ tự điểm dừng & trừ 3.2 km (chưa phải định tuyến thực tế từ bản đồ số).<br>
+                            • <b>Xuất GPX:</b> Chỉ xuất các điểm có tọa độ GPS hợp lệ (tự động lọc bỏ điểm thiếu tọa độ).
+                        </p>
                     </div>
                 </div>
 
@@ -7998,6 +8059,20 @@ export function renderTripPlannerModalContent(plan, placePool = [], activeDay = 
                                                 Chặng 0${idx + 1} • ${escapeHtml(stop.timeRange)} (${stop.durationMinutes} phút)
                                             </span>
                                             <div class="flex items-center gap-1">
+                                                <button type="button" onclick="window.ViVuApp?.movePlannerStop ? window.ViVuApp.movePlannerStop('${stop.id}', -1) : null"
+                                                    ${idx === 0 ? 'disabled' : ''}
+                                                    title="Di chuyển lên trước"
+                                                    aria-label="Di chuyển ${escapeHtml(stop.title)} lên trước"
+                                                    class="p-1 rounded-lg text-outline dark:text-zinc-400 hover:text-secondary dark:hover:text-emerald-400 hover:bg-surface-container dark:hover:bg-zinc-700 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed">
+                                                    <span class="material-symbols-outlined text-[16px]">arrow_upward</span>
+                                                </button>
+                                                <button type="button" onclick="window.ViVuApp?.movePlannerStop ? window.ViVuApp.movePlannerStop('${stop.id}', 1) : null"
+                                                    ${idx === (currentDayData.stops || []).length - 1 ? 'disabled' : ''}
+                                                    title="Di chuyển xuống sau"
+                                                    aria-label="Di chuyển ${escapeHtml(stop.title)} xuống sau"
+                                                    class="p-1 rounded-lg text-outline dark:text-zinc-400 hover:text-secondary dark:hover:text-emerald-400 hover:bg-surface-container dark:hover:bg-zinc-700 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed">
+                                                    <span class="material-symbols-outlined text-[16px]">arrow_downward</span>
+                                                </button>
                                                 <button type="button" onclick="window.ViVuApp.removePlaceFromPlan('${stop.id}')"
                                                     title="Xóa khỏi lịch trình"
                                                     aria-label="Xóa ${escapeHtml(stop.title)}"
@@ -8174,6 +8249,506 @@ export function renderTripPlannerModalContent(plan, placePool = [], activeDay = 
             </div>
         </div>
     `;
+}
+
+/**
+ * Render View: Lên Kế Hoạch Chuyến Đi (Dedicated view với 2 tab: Tự lên lịch trình & Lịch trình gợi ý)
+ */
+export function renderPlannerView(containerId, plan, placePool = [], activeDay = 1, currentFilter = 'all', searchQuery = '', activeTab = 'custom', isAuth = false, activeTourId = 'khmer-culture', userName = null) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!plan) plan = { days: [], title: 'Lên Kế Hoạch Chuyến Đi' };
+    const currentDayData = plan.days?.find(d => d.dayNumber === activeDay) || plan.days?.[0] || { stops: [] };
+    const allStopsCount = plan.days?.reduce((acc, d) => acc + (d.stops?.length || 0), 0) || 0;
+
+    // Filter place pool
+    let filteredPool = placePool || [];
+    if (currentFilter && currentFilter !== 'all') {
+        filteredPool = filteredPool.filter(p => p.category === currentFilter);
+    }
+    if (searchQuery && searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        filteredPool = filteredPool.filter(p => 
+            p.title.toLowerCase().includes(q) || 
+            (p.categoryTag && p.categoryTag.toLowerCase().includes(q)) ||
+            (p.description && p.description.toLowerCase().includes(q))
+        );
+    }
+
+    const categories = [
+        { id: 'all', label: 'Tất cả' },
+        { id: 'Chùa cổ', label: 'Chùa cổ' },
+        { id: 'Ẩm thực', label: 'Ẩm thực' },
+        { id: 'Cù lao', label: 'Cù lao' },
+        { id: 'Thắng cảnh', label: 'Thắng cảnh' }
+    ];
+
+    container.innerHTML = `
+        <div class="flex flex-col w-full space-y-6">
+            <!-- 1. Header & Navigation Banner -->
+            <div class="rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-800 p-6 sm:p-8 shadow-xs flex flex-col gap-6">
+                <!-- Breadcrumb & Title -->
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="space-y-1.5">
+                        <nav aria-label="Đường dẫn trang" class="flex items-center gap-1.5 text-xs text-outline dark:text-zinc-400">
+                            <a href="#/home" onclick="window.ViVuApp?.navGoHome?.(); return false;" class="min-h-[44px] inline-flex items-center py-2 px-1 hover:text-secondary dark:hover:text-emerald-400 transition-colors">Trang chủ</a>
+                            <span class="material-symbols-outlined text-sm">chevron_right</span>
+                            <span class="text-on-surface-variant dark:text-zinc-400 font-medium">Khám Phá &amp; Kết Nối</span>
+                            <span class="material-symbols-outlined text-sm">chevron_right</span>
+                            <span class="text-primary dark:text-emerald-400 font-semibold truncate">Lên kế hoạch chuyến đi</span>
+                        </nav>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/70 dark:bg-emerald-950/60 text-secondary dark:text-emerald-300 text-xs font-bold uppercase tracking-wider font-sans">
+                                <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-pulse"></span>
+                                Trip Planner • ViVu Trà Vinh
+                            </span>
+                        </div>
+                        <h1 class="font-headline-lg text-2xl sm:text-3xl lg:text-4xl text-primary dark:text-zinc-100 font-black tracking-tight font-sans">
+                            Lên Kế Hoạch Chuyến Đi
+                        </h1>
+                        <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-2xl leading-relaxed">
+                            Tự do sắp đặt điểm đến, tối ưu cung đường khám phá hoặc chọn nhanh các lịch trình tour 1 ngày đặc sắc tại Trà Vinh.
+                        </p>
+                    </div>
+
+                    <!-- 2 Tabs Switcher Buttons -->
+                    <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/30 dark:border-zinc-700 shrink-0 self-start lg:self-center">
+                        <button id="plannerTabBtnCustom" type="button" onclick="window.ViVuApp?.switchPlannerTab ? window.ViVuApp.switchPlannerTab('custom') : null"
+                            class="px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px] ${
+                                activeTab === 'custom'
+                                    ? 'bg-primary dark:bg-emerald-600 text-white shadow-xs'
+                                    : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface hover:bg-surface-container dark:hover:bg-zinc-700'
+                            }">
+                            <span class="material-symbols-outlined text-[19px]">tune</span>
+                            <span>Tự lên lịch trình</span>
+                        </button>
+                        <button id="plannerTabBtnSuggested" type="button" onclick="window.ViVuApp?.switchPlannerTab ? window.ViVuApp.switchPlannerTab('suggested') : null"
+                            class="px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px] ${
+                                activeTab === 'suggested'
+                                    ? 'bg-primary dark:bg-emerald-600 text-white shadow-xs'
+                                    : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface hover:bg-surface-container dark:hover:bg-zinc-700'
+                            }">
+                            <span class="material-symbols-outlined text-[19px]">auto_awesome</span>
+                            <span>Lịch trình gợi ý (1 ngày)</span>
+                            <span class="hidden sm:inline-flex px-1.5 py-0.5 rounded-full bg-secondary-fixed/40 dark:bg-emerald-950 text-secondary dark:text-emerald-300 text-[10px] font-bold">4 tour</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. "Chuyến Đi Của Tôi" & Auth Bar -->
+                <div id="plannerMyTripCard" class="rounded-2xl p-4 sm:p-5 bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-start sm:items-center gap-3.5">
+                        <div class="w-11 h-11 rounded-2xl bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-2xl">hiking</span>
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-xs uppercase tracking-wider text-outline dark:text-zinc-400 font-bold">Chuyến đi của tôi:</span>
+                                <h3 class="font-bold text-sm sm:text-base text-primary dark:text-zinc-100 truncate max-w-sm sm:max-w-md">
+                                    ${escapeHtml(plan.title || 'Hành trình khám phá Trà Vinh')}
+                                </h3>
+                                ${isAuth ? `
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold" title="Lưu trên trình duyệt này, chưa đồng bộ giữa các thiết bị">
+                                        <span class="material-symbols-outlined text-[13px]">person</span>
+                                        Tài khoản: ${escapeHtml(userName || 'Thành viên')} • Lưu trên thiết bị này
+                                    </span>
+                                ` : `
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[11px] font-bold" title="Lưu trên trình duyệt này, chưa đồng bộ giữa các thiết bị">
+                                        <span class="material-symbols-outlined text-[13px]">devices</span>
+                                        Khách vãng lai • Lưu trên thiết bị này
+                                    </span>
+                                `}
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-on-surface-variant dark:text-zinc-400">
+                                <span>${plan.durationDays || 1} ngày</span>
+                                <span>•</span>
+                                <span>${allStopsCount} điểm dừng</span>
+                                <span>•</span>
+                                <span>${plan.totalDistanceKm || 0} km</span>
+                                <span>•</span>
+                                <span class="text-emerald-700 dark:text-emerald-400 font-semibold">~${plan.estimatedCo2Kg || 0} kg CO₂</span>
+                            </div>
+                            <p class="text-[11px] text-outline dark:text-zinc-400 mt-1 flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[13px] text-amber-600 dark:text-amber-400">info</span>
+                                <span>Lưu trên trình duyệt này, chưa đồng bộ giữa các thiết bị</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 shrink-0">
+                        <button type="button" id="btnSaveTripPlanDevice" onclick="window.ViVuApp?.saveTripPlanToDevice ? window.ViVuApp.saveTripPlanToDevice() : null"
+                            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-secondary dark:bg-emerald-600 hover:bg-secondary/90 text-white text-xs font-semibold shadow-xs transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px]">save</span>
+                            <span>Lưu trên thiết bị này</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp?.resetTripPlanToDefault ? window.ViVuApp.resetTripPlanToDefault() : null"
+                            title="Khôi phục lộ trình mẫu ban đầu"
+                            aria-label="Khôi phục lộ trình mẫu"
+                            class="p-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 text-outline hover:text-red-500 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-xs font-semibold transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[20px]">restart_alt</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- TAB CONTENT 1: TỰ LÊN LỊCH TRÌNH (CUSTOM)  -->
+            <!-- ========================================== -->
+            <div id="plannerTabContentCustom" class="${activeTab === 'custom' ? '' : 'hidden'} space-y-6">
+                <!-- 3-Column Interactive Workspace -->
+                <div class="grid grid-cols-12 gap-6 items-start">
+                    
+                    <!-- COLUMN 1: Ngân hàng địa điểm (3 cols on XL) -->
+                    <div class="col-span-12 xl:col-span-3 flex flex-col gap-3.5 bg-surface-container-lowest dark:bg-zinc-900 p-4 rounded-2xl shadow-xs border border-outline-variant/30 dark:border-zinc-800">
+                        <div class="flex items-center justify-between pb-1">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-secondary dark:text-emerald-400">explore</span>
+                                <h2 class="font-headline-sm text-sm sm:text-base text-primary dark:text-zinc-100 font-bold">Ngân hàng địa điểm</h2>
+                            </div>
+                            <span class="text-[11px] px-2 py-0.5 rounded-full bg-surface-container dark:bg-zinc-800 text-outline dark:text-zinc-400 font-semibold">
+                                ${filteredPool.length} sẵn sàng
+                            </span>
+                        </div>
+
+                        <!-- Search Input -->
+                        <div class="relative">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline dark:text-zinc-400 text-lg">search</span>
+                            <input id="plannerPoolSearch" type="text" value="${escapeHtml(searchQuery)}"
+                                oninput="window.ViVuApp?.searchPlannerPool ? window.ViVuApp.searchPlannerPool(this.value) : null"
+                                placeholder="Lọc theo tên, danh mục..."
+                                class="w-full h-10 pl-9 pr-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-secondary/30 transition-all border border-outline-variant/30 dark:border-zinc-700" />
+                        </div>
+
+                        <!-- Category Pills Filter -->
+                        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                            ${categories.map(cat => `
+                                <button type="button" onclick="window.ViVuApp?.filterPlannerPool ? window.ViVuApp.filterPlannerPool('${cat.id}') : null"
+                                    class="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors min-h-[32px] ${
+                                        currentFilter === cat.id
+                                            ? 'bg-primary dark:bg-emerald-600 text-white shadow-xs'
+                                            : 'bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
+                                    }">
+                                    ${cat.label}
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <!-- Place Pool Cards Stack -->
+                        <div class="flex flex-col gap-3 max-h-[560px] overflow-y-auto pr-1 no-scrollbar" id="pool-list">
+                            ${filteredPool.length === 0 ? `
+                                <div class="p-6 text-center text-xs text-outline dark:text-zinc-500">
+                                    Không có địa điểm phù hợp bộ lọc.
+                                </div>
+                            ` : filteredPool.map(item => `
+                                <div class="pool-card group relative flex gap-3 p-3 rounded-xl bg-surface dark:bg-zinc-800/80 hover:bg-surface-container-low dark:hover:bg-zinc-800 shadow-2xs transition-all border-l-4 border-l-secondary dark:border-l-emerald-500 border border-outline-variant/20 dark:border-zinc-700">
+                                    <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" class="w-16 h-16 sm:w-18 sm:h-18 rounded-lg object-cover shrink-0" />
+                                    <div class="flex flex-col justify-between flex-1 min-w-0">
+                                        <div>
+                                            <div class="flex items-center justify-between gap-1">
+                                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-secondary-fixed/40 dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-semibold truncate">
+                                                    ${escapeHtml(item.categoryTag || item.category)}
+                                                </span>
+                                                <button type="button" onclick="window.ViVuApp?.addPlaceToPlan ? window.ViVuApp.addPlaceToPlan('${item.placeId}') : null"
+                                                    title="Thêm vào lộ trình Ngày ${activeDay}"
+                                                    aria-label="Thêm ${escapeHtml(item.title)} vào ngày ${activeDay}"
+                                                    class="w-8 h-8 rounded-lg flex items-center justify-center bg-secondary/10 dark:bg-emerald-950 hover:bg-secondary text-secondary hover:text-white dark:text-emerald-400 dark:hover:text-white transition-colors min-h-[32px] min-w-[32px]">
+                                                    <span class="material-symbols-outlined text-[18px]">add</span>
+                                                </button>
+                                            </div>
+                                            <h3 class="text-xs sm:text-sm font-semibold text-primary dark:text-zinc-100 truncate mt-1">
+                                                ${escapeHtml(item.title)}
+                                            </h3>
+                                            <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 truncate">${escapeHtml(item.location)}</p>
+                                        </div>
+                                        <div class="flex items-center justify-between pt-1 text-[11px]">
+                                            <span class="text-outline dark:text-zinc-400">Thời lượng: ${item.durationHours}h</span>
+                                            <span class="inline-flex items-center gap-0.5 font-bold text-amber-600 dark:text-amber-400">
+                                                <span class="material-symbols-outlined text-xs text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                ${item.rating}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Add Custom Stop Action Button -->
+                        <button type="button" onclick="window.ViVuApp?.addCustomStopToPlan ? window.ViVuApp.addCustomStopToPlan() : null"
+                            class="w-full py-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-secondary dark:text-emerald-400 text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors min-h-[44px] border border-dashed border-outline-variant/40 dark:border-zinc-700">
+                            <span class="material-symbols-outlined text-[18px]">add_location_alt</span>
+                            <span>+ Thêm điểm hẹn hoặc khách sạn</span>
+                        </button>
+                    </div>
+
+                    <!-- COLUMN 2: Timeline Lộ Trình (5 cols on XL) -->
+                    <div class="col-span-12 xl:col-span-5 flex flex-col gap-4 bg-surface-container-lowest dark:bg-zinc-900 p-4 sm:p-5 rounded-2xl shadow-xs border border-outline-variant/30 dark:border-zinc-800">
+                        <!-- Day Tabs Navigation -->
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-1.5 p-1 rounded-xl bg-surface-container-low dark:bg-zinc-800">
+                                ${plan.days.map(d => `
+                                    <button type="button" onclick="window.ViVuApp?.switchPlannerDay ? window.ViVuApp.switchPlannerDay(${d.dayNumber}) : null"
+                                        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all min-h-[36px] ${
+                                            activeDay === d.dayNumber
+                                                ? 'bg-surface-container-lowest dark:bg-zinc-700 text-primary dark:text-white shadow-xs'
+                                                : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-white'
+                                        }">
+                                        ${escapeHtml(d.label)} (${d.stops?.length || 0} điểm)
+                                    </button>
+                                `).join('')}
+                                <button type="button" onclick="window.ViVuApp?.addNewPlannerDay ? window.ViVuApp.addNewPlannerDay() : null"
+                                    title="Thêm ngày mới"
+                                    class="p-1.5 rounded-lg text-secondary dark:text-emerald-400 hover:bg-surface-container dark:hover:bg-zinc-700 min-h-[36px] min-w-[36px] flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-[18px]">add</span>
+                                </button>
+                            </div>
+                            <div class="hidden sm:flex items-center gap-1 text-[11px]">
+                                <span class="text-outline dark:text-zinc-400">Khung giờ:</span>
+                                <span class="font-bold text-primary dark:text-emerald-400">${escapeHtml(currentDayData.activeHours || '07:30 - 13:00')}</span>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Timeline List Container -->
+                        <div class="relative flex flex-col gap-3 pt-1" id="timeline-container">
+                            <!-- Departure Milestone (Start of Day) -->
+                            <div class="flex items-start gap-3 p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700">
+                                <div class="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 shadow-xs">
+                                    <span class="material-symbols-outlined text-lg">flag</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-surface-container-highest dark:bg-zinc-700 text-primary dark:text-zinc-200 font-bold">
+                                            Xuất phát • ${escapeHtml(plan.departure?.time || '07:30')}
+                                        </span>
+                                        <span class="text-[11px] text-outline dark:text-zinc-400">${escapeHtml(plan.departure?.type || 'Điểm tập kết')}</span>
+                                    </div>
+                                    <h4 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100 mt-1 truncate">
+                                        ${escapeHtml(plan.departure?.title || 'Khách sạn Cửu Long (TP. Trà Vinh)')}
+                                    </h4>
+                                    <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                                        ${escapeHtml(plan.departure?.note || 'Kiểm tra xe đạp & đồ dùng cá nhân.')}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Timeline Stops for Active Day -->
+                            ${(currentDayData.stops || []).map((stop, idx) => `
+                                <!-- Transfer connector (if present) -->
+                                ${stop.transfer ? `
+                                    <div class="flex items-center justify-center py-0.5">
+                                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-fixed/30 dark:bg-emerald-950 text-secondary dark:text-emerald-300 text-[11px] font-medium shadow-2xs border border-secondary/20">
+                                            <span class="material-symbols-outlined text-sm">${escapeHtml(stop.transfer.mode || 'directions_bike')}</span>
+                                            <span class="font-bold">${escapeHtml(stop.transfer.distance || '1.5 km')}</span>
+                                            <span>• ${escapeHtml(stop.transfer.time || '10 phút')}</span>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                <!-- Stop Slot Card -->
+                                <div class="timeline-stop relative flex flex-col gap-2 p-3.5 rounded-xl bg-surface dark:bg-zinc-800 shadow-2xs hover:shadow-md transition-shadow group border-l-4 border-l-secondary dark:border-l-emerald-500 border border-outline-variant/30 dark:border-zinc-700">
+                                    <div class="flex items-start gap-3">
+                                        <div class="text-outline dark:text-zinc-500 pt-1 shrink-0" title="Chặng thứ tự ${idx + 1}">
+                                            <span class="w-6 h-6 rounded-full bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center text-xs font-bold">
+                                                ${idx + 1}
+                                            </span>
+                                        </div>
+                                        <img src="${escapeHtml(stop.image)}" alt="${escapeHtml(stop.title)}" class="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover shrink-0" />
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between gap-1">
+                                                <span class="text-[11px] text-secondary dark:text-emerald-400 font-bold">
+                                                    Chặng 0${idx + 1} • ${escapeHtml(stop.timeRange)} (${stop.durationMinutes} phút)
+                                                </span>
+                                                <div class="flex items-center gap-1">
+                                                    <button type="button" onclick="window.ViVuApp?.movePlannerStop ? window.ViVuApp.movePlannerStop('${stop.id}', -1) : null"
+                                                        ${idx === 0 ? 'disabled' : ''}
+                                                        title="Di chuyển lên trước"
+                                                        aria-label="Di chuyển ${escapeHtml(stop.title)} lên trước"
+                                                        class="p-1 rounded-lg text-outline dark:text-zinc-400 hover:text-secondary dark:hover:text-emerald-400 hover:bg-surface-container dark:hover:bg-zinc-700 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed">
+                                                        <span class="material-symbols-outlined text-[16px]">arrow_upward</span>
+                                                    </button>
+                                                    <button type="button" onclick="window.ViVuApp?.movePlannerStop ? window.ViVuApp.movePlannerStop('${stop.id}', 1) : null"
+                                                        ${idx === (currentDayData.stops || []).length - 1 ? 'disabled' : ''}
+                                                        title="Di chuyển xuống sau"
+                                                        aria-label="Di chuyển ${escapeHtml(stop.title)} xuống sau"
+                                                        class="p-1 rounded-lg text-outline dark:text-zinc-400 hover:text-secondary dark:hover:text-emerald-400 hover:bg-surface-container dark:hover:bg-zinc-700 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors disabled:opacity-25 disabled:cursor-not-allowed">
+                                                        <span class="material-symbols-outlined text-[16px]">arrow_downward</span>
+                                                    </button>
+                                                    <button type="button" onclick="window.ViVuApp?.removePlaceFromPlan ? window.ViVuApp.removePlaceFromPlan('${stop.id}') : null"
+                                                        title="Xóa khỏi lịch trình"
+                                                        aria-label="Xóa ${escapeHtml(stop.title)}"
+                                                        class="p-1 rounded-lg text-outline dark:text-zinc-400 hover:text-red-500 hover:bg-surface-container dark:hover:bg-zinc-700 min-h-[32px] min-w-[32px] flex items-center justify-center transition-colors">
+                                                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <h4 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100 truncate mt-0.5">
+                                                ${escapeHtml(stop.title)}
+                                            </h4>
+                                            <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 line-clamp-2 mt-1">
+                                                ${escapeHtml(stop.note)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-700 text-[11px] text-outline dark:text-zinc-400">
+                                        <span class="inline-flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-xs text-secondary dark:text-emerald-400">verified</span>
+                                            ${escapeHtml(stop.badge || 'Điểm đến đề xuất')}
+                                        </span>
+                                        ${stop.hasAudioGuide ? `
+                                            <span class="text-secondary dark:text-emerald-400 font-semibold flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-xs">headphones</span>
+                                                Audio guide
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+
+                            <!-- Drop Placeholder Zone -->
+                            <div id="drop-target-zone" onclick="document.getElementById('plannerPoolSearch')?.focus()"
+                                class="flex flex-col items-center justify-center p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/40 border-2 border-dashed border-outline-variant dark:border-zinc-700 hover:border-secondary dark:hover:border-emerald-500 transition-all cursor-pointer text-center group">
+                                <div class="w-9 h-9 rounded-full bg-surface dark:bg-zinc-800 flex items-center justify-center text-outline group-hover:text-secondary dark:group-hover:text-emerald-400 group-hover:scale-110 transition-all shadow-xs mb-1">
+                                    <span class="material-symbols-outlined text-lg">add_circle</span>
+                                </div>
+                                <p class="text-xs font-semibold text-primary dark:text-zinc-200">Thêm điểm dừng tiếp theo vào Ngày ${activeDay}</p>
+                                <p class="text-[11px] text-on-surface-variant dark:text-zinc-400">Chọn từ Ngân hàng địa điểm bên trái hoặc gõ tìm kiếm</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLUMN 3: Bản đồ lộ trình trực tiếp & Action buttons (4 cols on XL) -->
+                    <div class="col-span-12 xl:col-span-4 flex flex-col gap-4">
+                        <!-- Action Toolbar -->
+                        <div class="flex flex-col gap-2.5 p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button id="btnSmartOptimize" type="button" onclick="window.ViVuApp?.optimizePlanAiRoute ? window.ViVuApp.optimizePlanAiRoute() : null"
+                                    title="Mô phỏng thuật toán thử nghiệm (đảo thứ tự & trừ 3.2 km)"
+                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-semibold hover:opacity-90 transition-all shadow-xs min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[18px] text-amber-600 dark:text-amber-400 animate-pulse">auto_fix_high</span>
+                                    <span>Mô phỏng AI Route</span>
+                                </button>
+                                <button id="btnExportGpx" type="button" onclick="window.ViVuApp?.exportGpxFile ? window.ViVuApp.exportGpxFile() : null"
+                                    title="Xuất tệp GPX chỉ bao gồm các điểm có tọa độ GPS hợp lệ"
+                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-xs font-semibold hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-all min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[18px]">file_download</span>
+                                    <span>Xuất GPX (Điểm hợp lệ)</span>
+                                </button>
+                                <button id="btnSaveStartNav" type="button" onclick="window.ViVuApp?.openGpsNavModal ? window.ViVuApp.openGpsNavModal() : null"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-container text-white text-xs font-semibold shadow-xs transition-all active:scale-95 min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary-fixed">play_arrow</span>
+                                    <span>Bắt đầu GPS</span>
+                                </button>
+                            </div>
+
+                            <!-- Minh bạch chức năng thử nghiệm -->
+                            <div class="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/40 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2">
+                                <span class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">info</span>
+                                <div class="space-y-0.5">
+                                    <span class="font-bold">Minh bạch chức năng thử nghiệm / mô phỏng:</span>
+                                    <p class="text-[10.5px] text-amber-800 dark:text-amber-300">
+                                        • <b>“Mô phỏng AI Route”</b>: Đang chạy thuật toán thử nghiệm (đảo thứ tự điểm dừng và trừ ước tính 3.2 km). <i>Chưa phải kết quả định tuyến thực tế từ bản đồ số.</i><br>
+                                        • <b>“Xuất GPX”</b>: Chỉ xuất các điểm có tọa độ GPS hợp lệ (tự động lọc bỏ điểm thiếu tọa độ). <i>Không phải kết quả định tuyến đường đi thực tế.</i>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Map Canvas Card -->
+                        <div class="relative rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 shadow-xs border border-outline-variant/30 dark:border-zinc-800 flex flex-col">
+                            <div class="flex items-center justify-between px-1 mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400">map</span>
+                                    <h3 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100">Bản đồ lộ trình tương tác</h3>
+                                </div>
+                                <span class="text-[11px] px-2 py-0.5 rounded-full bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 font-semibold">
+                                    GPS Trực tiếp
+                                </span>
+                            </div>
+
+                            <!-- Map Simulated Vector Display -->
+                            <div class="relative w-full h-[260px] sm:h-[280px] rounded-xl bg-emerald-950/20 dark:bg-zinc-950 overflow-hidden flex items-end p-3 border border-outline-variant/30 dark:border-zinc-800">
+                                <img src="ao bà om.jpg" alt="Bản đồ Trà Vinh" class="absolute inset-0 w-full h-full object-cover opacity-20 filter saturate-50" />
+                                <svg class="absolute inset-0 w-full h-full pointer-events-none" fill="none" viewBox="0 0 400 320">
+                                    <path d="M 40 250 C 90 220, 140 260, 200 180 C 240 130, 290 140, 350 80" stroke="#006c4a" stroke-dasharray="6 6" stroke-linecap="round" stroke-width="4" opacity="0.8"></path>
+                                    <path d="M 40 250 C 90 220, 140 260, 200 180" stroke="#10b981" stroke-linecap="round" stroke-width="4"></path>
+                                    <circle cx="40" cy="250" fill="#003527" r="10"></circle>
+                                    <circle cx="40" cy="250" fill="#ffffff" r="4"></circle>
+                                    <circle cx="140" cy="240" fill="#006c4a" r="12"></circle>
+                                    <circle cx="140" cy="240" fill="#ffffff" r="5"></circle>
+                                    <circle cx="200" cy="180" fill="#006c4a" r="12"></circle>
+                                    <circle cx="200" cy="180" fill="#ffffff" r="5"></circle>
+                                    <circle cx="320" cy="100" fill="#ea580c" r="12"></circle>
+                                    <circle cx="320" cy="100" fill="#ffffff" r="5"></circle>
+                                </svg>
+
+                                <div class="absolute left-4 bottom-14 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-xs text-[10px] font-bold text-primary dark:text-zinc-100 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-primary dark:bg-emerald-400"></span> Xuất phát
+                                </div>
+                                <div class="absolute left-24 bottom-22 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-xs text-[10px] font-bold text-secondary dark:text-emerald-400 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-secondary dark:bg-emerald-400"></span> 1. Chùa Âng
+                                </div>
+                                <div class="absolute left-40 top-32 bg-surface/90 dark:bg-zinc-900/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-xs text-[10px] font-bold text-secondary dark:text-emerald-400 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-secondary dark:bg-emerald-400"></span> 2. Ao Bà Om
+                                </div>
+
+                                <div class="relative w-full z-10 p-2 rounded-xl bg-surface/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-sm flex items-center justify-between border border-outline-variant/30 dark:border-zinc-800">
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-lg">route</span>
+                                        <p class="text-xs font-bold text-primary dark:text-zinc-100">${plan.totalDistanceKm || 7.5} km • Ngày ${activeDay}</p>
+                                    </div>
+                                    <button type="button" onclick="window.ViVuApp?.openFullMapModal?.()"
+                                        title="Xem bản đồ toàn màn hình"
+                                        class="p-1 rounded-lg bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 min-h-[32px] min-w-[32px] flex items-center justify-center">
+                                        <span class="material-symbols-outlined text-base">fullscreen</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Eco Impact Card -->
+                        <div class="rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 p-4 shadow-xs border border-outline-variant/30 dark:border-zinc-800 flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-xl bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-2xl">eco</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="text-xs sm:text-sm font-bold text-primary dark:text-zinc-100 truncate">Cam kết Du lịch Có Trách Nhiệm</h4>
+                                <p class="text-[11px] text-on-surface-variant dark:text-zinc-400">
+                                    Lộ trình giảm 82% dấu chân carbon so với ô tô. Tôn trọng nếp sống và văn hóa nhà chùa.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- TAB CONTENT 2: LỊCH TRÌNH GỢI Ý (SUGGESTED)-->
+            <!-- ========================================== -->
+            <div id="plannerTabContentSuggested" class="${activeTab === 'suggested' ? '' : 'hidden'} space-y-6">
+                <div id="plannerSuggestedToursContainer">
+                    <!-- Suggested tours content injected below -->
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Render suggested tours into #plannerSuggestedToursContainer
+    renderTourItineraries(
+        'plannerSuggestedToursContainer',
+        activeTourId,
+        (tourId) => {
+            if (typeof window !== 'undefined' && window.ViVuApp?.selectTourInPlanner) {
+                window.ViVuApp.selectTourInPlanner(tourId);
+            }
+        },
+        null,
+        null,
+        () => {
+            if (typeof window !== 'undefined' && window.ViVuApp?.handleGenerateRandomTourInPlanner) {
+                window.ViVuApp.handleGenerateRandomTourInPlanner();
+            }
+        }
+    );
 }
 
 /**

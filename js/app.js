@@ -48,6 +48,7 @@ import {
     renderLink2FAModalContent,
     renderBackupCodesModalContent,
     renderTripPlannerModalContent,
+    renderPlannerView,
     renderGpsNavigationModalContent,
     renderTripSummaryModalContent,
     renderSocialStoryModalContent,
@@ -522,20 +523,59 @@ function saveStoredSecuritySettings(settings) {
     } catch (e) {}
 }
 
-function getStoredTripPlan() {
+export function getActiveUserIdentifier() {
+    try {
+        const userSession = typeof getUserSession === 'function' ? getUserSession() : null;
+        if (userSession && userSession.user) {
+            return userSession.user.id || userSession.user.email || 'user';
+        }
+        const adminSession = typeof getAdminSession === 'function' ? getAdminSession() : null;
+        if (adminSession && adminSession.user) {
+            return adminSession.user.id || adminSession.user.email || 'admin';
+        }
+    } catch (e) {}
+    return 'guest';
+}
+
+export function getTripPlanStorageKey(customIdent = null) {
+    const ident = customIdent || getActiveUserIdentifier();
+    if (ident === 'guest') {
+        return 'vivu_trip_plan_guest';
+    }
+    const safeIdent = String(ident).replace(/[^a-zA-Z0-9_-]/g, '_');
+    return `vivu_trip_plan_${safeIdent}`;
+}
+
+export function getStoredTripPlan(targetIdent = null) {
     try {
         if (typeof window !== 'undefined' && window.localStorage) {
-            const raw = localStorage.getItem('vivu_trip_plan');
-            if (raw) return JSON.parse(raw);
+            const key = getTripPlanStorageKey(targetIdent);
+            let raw = localStorage.getItem(key);
+            // Tương thích ngược: Chỉ khách vãng lai mới fallback sang key 'vivu_trip_plan' cũ
+            if (!raw && key === 'vivu_trip_plan_guest') {
+                raw = localStorage.getItem('vivu_trip_plan');
+            }
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && Array.isArray(parsed.days)) {
+                    return parsed;
+                }
+            }
         }
     } catch (e) {}
     return JSON.parse(JSON.stringify(INITIAL_TRIP_PLAN));
 }
 
-function saveStoredTripPlan(plan) {
+export function saveStoredTripPlan(plan, targetIdent = null) {
     try {
         if (typeof window !== 'undefined' && window.localStorage) {
-            localStorage.setItem('vivu_trip_plan', JSON.stringify(plan));
+            const key = getTripPlanStorageKey(targetIdent);
+            const str = JSON.stringify(plan);
+            localStorage.setItem(key, str);
+            // Giữ đồng bộ key cũ cho khách vãng lai để đảm bảo tương thích ngược
+            if (key === 'vivu_trip_plan_guest') {
+                localStorage.setItem('vivu_trip_plan', str);
+            }
         }
     } catch (e) {}
 }
@@ -643,6 +683,7 @@ export const state = {
     plannerActiveDay: 1,
     plannerPoolCategory: 'all',
     plannerSearchQuery: '',
+    plannerCurrentTab: 'custom',
     gpsNavState: JSON.parse(JSON.stringify(GPS_NAVIGATION_STATE)),
     tripSummaryState: JSON.parse(JSON.stringify(TRIP_SUMMARY_STATE)),
     storyTheme: 'heritage',
@@ -4469,16 +4510,17 @@ function handleDeepLink() {
         return;
     }
 
-    // Modal Lập kế hoạch lộ trình
-    if (hash === '#planner' || hash === '#tripplanner') {
-        setTimeout(() => openTripPlannerModal(), 150);
+    // Lên kế hoạch chuyến đi View (Unified Planner View: Tự lên lịch trình)
+    if (hash === '#/planner' || hash === '#planner' || hash === '#tripplanner' || hash === '#/kehoach' || hash === '#kehoach' || hash === '#/planner/custom') {
+        state.plannerCurrentTab = 'custom';
+        switchView('planner', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
         return;
     }
 
-    // Lịch trình Tour (trong view home)
-    if (hash === '#tours' || hash === '#/tours' || hash === '#touritinerariessection') {
-        switchView('home', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'tourItinerariesSection' });
-        openTourItinerariesModal({ updateHash: false });
+    // Lên kế hoạch chuyến đi View (Unified Planner View: Lịch trình gợi ý & tương thích #tours)
+    if (hash === '#/planner/suggested' || hash === '#/planner/tours' || hash === '#/tours' || hash === '#tours' || hash === '#touritinerariessection') {
+        state.plannerCurrentTab = 'suggested';
+        switchView('planner', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
         return;
     }
 
@@ -4703,16 +4745,24 @@ function initEventListeners() {
         }
     }, true);
 
-    // Lắng nghe sự kiện đăng nhập / đăng xuất Quản trị viên để đồng bộ UI
+    // Lắng nghe sự kiện đăng nhập / đăng xuất để đồng bộ vai trò và dữ liệu chuyến đi theo tài khoản
     window.addEventListener('storage', (e) => {
         if (e.key === 'vivu_admin_session' || e.key === 'vivu_user_session' || e.key === null) {
             updateAdminRoleUI();
+            handleAuthTripPlanSync();
         }
     });
-    window.addEventListener('vivu:auth-login', () => updateAdminRoleUI());
-    window.addEventListener('vivu:auth-logout', () => updateAdminRoleUI());
+    window.addEventListener('vivu:auth-login', () => {
+        updateAdminRoleUI();
+        handleAuthTripPlanSync();
+    });
+    window.addEventListener('vivu:auth-logout', () => {
+        updateAdminRoleUI();
+        handleAuthTripPlanSync();
+    });
     window.addEventListener('vivu:user-auth-changed', () => {
         updateAdminRoleUI();
+        handleAuthTripPlanSync();
         const profileModal = document.getElementById('userProfileModal');
         if (profileModal && !profileModal.classList.contains('hidden')) {
             const profileContent = document.getElementById('userProfileModalContent');
@@ -4895,6 +4945,7 @@ export function updateSidebarNavActive(target) {
         community: 'sidebarLinkCommunity',
         blog: 'sidebarLinkBlog',
         events: 'sidebarLinkEvents',
+        planner: 'sidebarLinkPlanner',
         saved: 'sidebarLinkSaved'
     };
     const activeId = map[target] || null;
@@ -4905,6 +4956,7 @@ export function updateSidebarNavActive(target) {
         { id: 'sidebarLinkCommunity', iconColor: '' },
         { id: 'sidebarLinkBlog', iconColor: '' },
         { id: 'sidebarLinkEvents', iconColor: '' },
+        { id: 'sidebarLinkPlanner', iconColor: '' },
         { id: 'sidebarLinkSaved', iconColor: 'text-rose-500' }
     ];
 
@@ -4956,7 +5008,7 @@ export function switchView(viewName, options = {}) {
         scrollTop = !scrollTo
     } = options;
 
-    const validViews = ['home', 'clubs', 'community', 'blog', 'events', 'search'];
+    const validViews = ['home', 'clubs', 'community', 'blog', 'events', 'planner', 'search'];
     if (!validViews.includes(viewName)) {
         console.warn(`[Router] View "${viewName}" không hợp lệ, chuyển về "home"`);
         viewName = 'home';
@@ -5063,6 +5115,10 @@ export function switchView(viewName, options = {}) {
         }
     }
 
+    if (viewName === 'planner') {
+        renderPlannerMainView();
+    }
+
     // Cuộn trang
     if (scrollTo) {
         setTimeout(() => {
@@ -5115,6 +5171,19 @@ export function navGoBlog() {
 
 export function navGoEvents() {
     switchView('events', { updateHash: true, pushState: true, customHash: '#/events', closeOverlays: true, scrollTop: true });
+}
+
+export function navGoPlanner(options = {}) {
+    const tab = options.tab || state.plannerCurrentTab || 'custom';
+    state.plannerCurrentTab = tab;
+    const targetHash = options.customHash || (tab === 'suggested' ? '#/planner/suggested' : '#/planner');
+    switchView('planner', {
+        updateHash: true,
+        pushState: true,
+        customHash: targetHash,
+        closeOverlays: true,
+        scrollTop: true
+    });
 }
 
 export function navGoSaved() {
@@ -7316,6 +7385,202 @@ export function exportUserData() {
 // PHASE 9: TRIP PLANNER, GPS NAVIGATION & SOCIAL STORIES CONTROLLERS
 // ============================================================================
 
+export function handleAuthTripPlanSync() {
+    state.tripPlan = getStoredTripPlan();
+    state.plannerActiveDay = 1;
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
+    const modalContainer = document.getElementById('tripPlannerModalContent');
+    if (modalContainer && !document.getElementById('tripPlannerModal')?.classList.contains('hidden')) {
+        modalContainer.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+}
+
+export function renderPlannerMainView() {
+    const container = document.getElementById('view-planner');
+    if (!container) return;
+    const session = getUserSession() || getAdminSession();
+    const isAuth = Boolean(session?.user);
+    const userName = session?.user?.user_metadata?.display_name || session?.user?.email?.split('@')[0] || (session?.user ? 'Thành viên' : null);
+    renderPlannerView(
+        'view-planner',
+        state.tripPlan,
+        state.placePool,
+        state.plannerActiveDay,
+        state.plannerPoolCategory,
+        state.plannerSearchQuery,
+        state.plannerCurrentTab || 'custom',
+        isAuth,
+        state.activeTourId || 'khmer-culture',
+        userName
+    );
+}
+
+export function switchPlannerTab(tabName) {
+    state.plannerCurrentTab = tabName === 'suggested' ? 'suggested' : 'custom';
+    const targetHash = state.plannerCurrentTab === 'suggested' ? '#/planner/suggested' : '#/planner';
+    try {
+        if (window.location.hash !== targetHash) {
+            history.replaceState({ view: 'planner', tab: state.plannerCurrentTab }, '', targetHash);
+        }
+    } catch (e) {
+        window.location.hash = targetHash;
+    }
+    renderPlannerMainView();
+}
+
+export function selectTourInPlanner(tourId) {
+    state.activeTourId = tourId;
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
+}
+
+export function handleGenerateRandomTourInPlanner() {
+    const dynamic = generateSmartTour();
+    state.activeTourId = dynamic.id;
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
+    showSavedToast('Đã tạo lịch trình ngẫu hứng mới!');
+}
+
+export function movePlannerStop(stopId, direction) {
+    if (!state.tripPlan) return;
+    const currentDayData = state.tripPlan.days?.find(d => d.dayNumber === state.plannerActiveDay);
+    if (!currentDayData || !Array.isArray(currentDayData.stops)) return;
+    const index = currentDayData.stops.findIndex(s => s.id === stopId);
+    if (index === -1) return;
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= currentDayData.stops.length) return;
+
+    const [moved] = currentDayData.stops.splice(index, 1);
+    currentDayData.stops.splice(newIndex, 0, moved);
+
+    saveStoredTripPlan(state.tripPlan);
+
+    const modalContainer = document.getElementById('tripPlannerModalContent');
+    if (modalContainer && !document.getElementById('tripPlannerModal')?.classList.contains('hidden')) {
+        modalContainer.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
+    showSavedToast('Đã cập nhật thứ tự điểm dừng trong lộ trình!');
+}
+
+export function applyTourTemplateToPlanner(tourId) {
+    let tour = SAMPLE_TOURS.find(t => t.id === tourId);
+    if (!tour && tourId === 'smart-dynamic') {
+        tour = getDynamicTour();
+    }
+    if (!tour) {
+        tour = SAMPLE_TOURS[0];
+    }
+    if (!tour) return;
+
+    const stops = (tour.stops || []).map((s, idx) => {
+        const kw = (s.placeKeyword || s.title).toLowerCase();
+        const matchedPlace = state.placePool.find(p =>
+            p.title.toLowerCase().includes(kw) ||
+            kw.includes(p.title.toLowerCase())
+        );
+
+        return {
+            id: `stop-tmpl-${Date.now()}-${idx}`,
+            placeId: matchedPlace?.placeId || `tmpl-${idx}`,
+            title: s.title,
+            timeRange: s.time || `${String(7 + idx * 2).padStart(2, '0')}:00 - ${String(9 + idx * 2).padStart(2, '0')}:00`,
+            durationMinutes: 90,
+            category: matchedPlace?.category || 'Di sản',
+            image: matchedPlace?.image || 'ao bà om.jpg',
+            note: `${s.desc || ''} ${s.tip ? '💡 Mẹo: ' + s.tip : ''}`.trim(),
+            badge: tour.tag || 'Mẫu tour gợi ý',
+            hasAudioGuide: s.title.toLowerCase().includes('chùa') || s.title.toLowerCase().includes('bảo tàng'),
+            lat: s.lat || matchedPlace?.lat || null,
+            lng: s.lng || matchedPlace?.lng || null,
+            transfer: idx > 0 ? {
+                mode: 'motorcycle',
+                modeLabel: 'Xe máy / Ô tô',
+                distance: '4.0 km',
+                time: '12 phút di chuyển'
+            } : null
+        };
+    });
+
+    state.tripPlan = {
+        title: tour.title,
+        description: tour.desc,
+        durationDays: 1,
+        totalDistanceKm: Number.parseFloat(tour.distance?.replace(/[^0-9.]/g, '')) || 25,
+        estimatedCo2Kg: 1.2,
+        days: [
+            {
+                dayNumber: 1,
+                label: 'Ngày 1',
+                activeHours: tour.duration || '07:30 - 17:30',
+                stops: stops
+            }
+        ]
+    };
+    state.plannerActiveDay = 1;
+    saveStoredTripPlan(state.tripPlan);
+
+    switchPlannerTab('custom');
+    showSavedToast(`Đã áp dụng mẫu "${tour.title}" vào kế hoạch chuyến đi của bạn!`);
+}
+
+export function saveTripPlanToDevice() {
+    const ident = getActiveUserIdentifier();
+    saveStoredTripPlan(state.tripPlan);
+
+    const isGuest = ident === 'guest';
+    const noticeMsg = isGuest
+        ? 'Đã lưu kế hoạch chuyến đi trên trình duyệt này, chưa đồng bộ giữa các thiết bị.'
+        : 'Đã lưu kế hoạch chuyến đi của tài khoản trên trình duyệt này, chưa đồng bộ giữa các thiết bị.';
+
+    showSavedToast(noticeMsg);
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
+}
+
+// Giữ alias tương thích ngược cho các lời gọi cũ
+export const saveTripPlanToAccount = saveTripPlanToDevice;
+
+export function resetTripPlanToDefault() {
+    state.tripPlan = JSON.parse(JSON.stringify(INITIAL_TRIP_PLAN));
+    state.plannerActiveDay = 1;
+    saveStoredTripPlan(state.tripPlan);
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
+    const modalContainer = document.getElementById('tripPlannerModalContent');
+    if (modalContainer && !document.getElementById('tripPlannerModal')?.classList.contains('hidden')) {
+        modalContainer.innerHTML = renderTripPlannerModalContent(
+            state.tripPlan,
+            state.placePool,
+            state.plannerActiveDay,
+            state.plannerPoolCategory,
+            state.plannerSearchQuery
+        );
+    }
+    showSavedToast('Đã khôi phục kế hoạch chuyến đi mặc định!');
+}
+
 export function openTripPlannerModal() {
     const modal = document.getElementById('tripPlannerModal');
     const container = document.getElementById('tripPlannerModalContent');
@@ -7352,6 +7617,9 @@ export function switchPlannerDay(dayNumber) {
             state.plannerSearchQuery
         );
     }
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
 }
 
 export function addNewPlannerDay() {
@@ -7381,6 +7649,9 @@ export function addNewPlannerDay() {
             state.plannerSearchQuery
         );
     }
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
     showSavedToast(`Đã thêm Ngày ${nextDayNum} vào kế hoạch!`);
 }
 
@@ -7395,6 +7666,9 @@ export function filterPlannerPool(catId) {
             state.plannerPoolCategory,
             state.plannerSearchQuery
         );
+    }
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
     }
 }
 
@@ -7465,6 +7739,10 @@ export function addPlaceToPlan(placeId) {
     const endHour = startHour + Math.round(place.durationHours);
     const timeStr = `${String(startHour).padStart(2, '0')}:00 - ${String(endHour).padStart(2, '0')}:00`;
 
+    const matchedDbPlace = (state.allPlaces || []).find(p => p.id === place.placeId || p.slug === place.placeId);
+    const stopLat = place.lat || matchedDbPlace?.lat || matchedDbPlace?.latitude || null;
+    const stopLng = place.lng || matchedDbPlace?.lng || matchedDbPlace?.longitude || null;
+
     const newStop = {
         id: `stop-${Date.now()}`,
         placeId: place.placeId,
@@ -7476,6 +7754,8 @@ export function addPlaceToPlan(placeId) {
         note: place.description,
         badge: place.categoryTag || 'Điểm đến mới thêm',
         hasAudioGuide: place.category === 'Chùa cổ',
+        lat: stopLat,
+        lng: stopLng,
         transfer: stopCount > 1 ? {
             mode: 'pedal_bike',
             modeLabel: 'Xe đạp',
@@ -7499,6 +7779,9 @@ export function addPlaceToPlan(placeId) {
             state.plannerSearchQuery
         );
     }
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
     showSavedToast(`Đã thêm "${place.title}" vào Ngày ${state.plannerActiveDay}!`);
 }
 
@@ -7520,6 +7803,9 @@ export function removePlaceFromPlan(stopId) {
             state.plannerPoolCategory,
             state.plannerSearchQuery
         );
+    }
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
     }
     showSavedToast('Đã xóa điểm dừng khỏi lịch trình!');
 }
@@ -7561,6 +7847,9 @@ export function addCustomStopToPlan() {
             state.plannerSearchQuery
         );
     }
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
     showSavedToast('Đã thêm điểm hẹn tùy chỉnh vào lịch trình!');
 }
 
@@ -7568,7 +7857,7 @@ export function optimizePlanAiRoute() {
     if (!state.tripPlan) return;
     const currentDayData = state.tripPlan.days?.find(d => d.dayNumber === state.plannerActiveDay);
     if (!currentDayData || currentDayData.stops.length < 2) {
-        showSavedToast('AI Route: Cần ít nhất 2 điểm dừng để tối ưu lộ trình!');
+        showNoticeToast('Mô phỏng AI Route', 'Cần ít nhất 2 điểm dừng để chạy thử nghiệm tối ưu!');
         return;
     }
 
@@ -7587,31 +7876,69 @@ export function optimizePlanAiRoute() {
             state.plannerSearchQuery
         );
     }
-    showSavedToast('AI Route đã tối ưu cung đường: Tiết kiệm 3.2 km và giảm 0.2 kg CO₂!');
+    if (state.currentView === 'planner') {
+        renderPlannerMainView();
+    }
+    showNoticeToast('Mô phỏng AI Route (Thử nghiệm)', 'Đã đảo thứ tự điểm dừng và ước tính giảm 3.2 km (Lưu ý: Đây là thuật toán mô phỏng thử nghiệm, không phải kết quả định tuyến thực tế từ bản đồ số).');
+}
+
+export function isValidGpxCoordinate(val, min, max) {
+    if (val === null || val === undefined) return false;
+    if (typeof val === 'string' && val.trim() === '') return false;
+    const num = Number(val);
+    if (!Number.isFinite(num)) return false;
+    if (num < min || num > max) return false;
+    return true;
+}
+
+export function filterValidGpxStops(stops = []) {
+    if (!Array.isArray(stops)) return [];
+    return stops.filter(s => {
+        if (!s) return false;
+        const hasValidLat = isValidGpxCoordinate(s.lat, -90, 90);
+        const hasValidLng = isValidGpxCoordinate(s.lng, -180, 180);
+        if (!hasValidLat || !hasValidLng) return false;
+        const lat = Number(s.lat);
+        const lng = Number(s.lng);
+        if (lat === 0 && lng === 0) return false;
+        return true;
+    });
 }
 
 export function exportGpxFile() {
     if (!state.tripPlan) return;
-    const stops = state.tripPlan.days?.flatMap(d => d.stops || []) || [];
-    const waypointsXml = stops.map((s, idx) => `
-    <wpt lat="${s.lat || (9.9 + idx * 0.05)}" lon="${s.lng || (106.3 + idx * 0.05)}">
+    const allStops = state.tripPlan.days?.flatMap(d => d.stops || []) || [];
+
+    // Chỉ xuất điểm có tọa độ hợp lệ, tuyệt đối không dùng tọa độ giả
+    const validStops = filterValidGpxStops(allStops);
+
+    if (validStops.length === 0) {
+        showNoticeToast(
+            'Không có tọa độ GPS hợp lệ',
+            'Không có điểm dừng nào có tọa độ GPS hợp lệ để xuất tệp GPX. Hệ thống chỉ xuất điểm có tọa độ chuẩn từ cơ sở dữ liệu.'
+        );
+        return;
+    }
+
+    const waypointsXml = validStops.map(s => `
+    <wpt lat="${Number(s.lat)}" lon="${Number(s.lng)}">
         <name>${escapeHtml(s.title)}</name>
         <desc>${escapeHtml(s.note || '')}</desc>
-        <sym>Flag</sym>
+        <sym>Waypoint</sym>
     </wpt>`).join('\n');
 
     const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="ViVuTraVinh - https://vivutravinh.vn" xmlns="http://www.topografix.com/GPX/1/1">
     <metadata>
-        <name>${escapeHtml(state.tripPlan.title)}</name>
-        <desc>${escapeHtml(state.tripPlan.description)}</desc>
+        <name>${escapeHtml(state.tripPlan.title || 'Lộ trình ViVu Trà Vinh')}</name>
+        <desc>${escapeHtml(state.tripPlan.description || 'Danh sách tọa độ điểm dừng GPS hợp lệ')}</desc>
         <time>${new Date().toISOString()}</time>
     </metadata>
     ${waypointsXml}
     <trk>
-        <name>${escapeHtml(state.tripPlan.title)} (Track)</name>
+        <name>${escapeHtml(state.tripPlan.title || 'Lộ trình')} (Danh sách waypoint GPS)</name>
         <trkseg>
-            ${stops.map((s, idx) => `<trkpt lat="${s.lat || (9.9 + idx * 0.05)}" lon="${s.lng || (106.3 + idx * 0.05)}"><time>${new Date().toISOString()}</time></trkpt>`).join('\n            ')}
+            ${validStops.map(s => `<trkpt lat="${Number(s.lat)}" lon="${Number(s.lng)}"><time>${new Date().toISOString()}</time></trkpt>`).join('\n            ')}
         </trkseg>
     </trk>
 </gpx>`;
@@ -7620,10 +7947,15 @@ export function exportGpxFile() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `vivutravinh_lo_trinh_${new Date().toISOString().slice(0, 10)}.gpx`;
+    a.download = `vivutravinh_waypoints_${new Date().toISOString().slice(0, 10)}.gpx`;
     a.click();
     URL.revokeObjectURL(url);
-    showSavedToast('Đã tải tệp GPX cho thiết bị định vị GPS & đồng hồ thông minh!');
+
+    if (validStops.length < allStops.length) {
+        showSavedToast(`Đã xuất ${validStops.length} điểm GPS hợp lệ (đã lọc bỏ ${allStops.length - validStops.length} điểm thiếu tọa độ). Không phải định tuyến thực tế.`);
+    } else {
+        showSavedToast(`Đã xuất tệp GPX gồm ${validStops.length} điểm có tọa độ GPS hợp lệ (không phải định tuyến thực tế)!`);
+    }
 }
 
 export function openGpsNavModal() {
@@ -8852,6 +9184,7 @@ if (typeof window !== 'undefined') {
         navGoCommunity,
         navGoBlog,
         navGoEvents,
+        navGoPlanner,
         navGoSaved,
         navGoSearch,
         navGoSection,
@@ -9016,6 +9349,18 @@ if (typeof window !== 'undefined') {
         // Trip Planner, GPS Navigation & Social Stories Methods (Phase 9)
         openTripPlannerModal,
         closeTripPlannerModal,
+        renderPlannerMainView,
+        switchPlannerTab,
+        selectTourInPlanner,
+        handleGenerateRandomTourInPlanner,
+        movePlannerStop,
+        applyTourTemplateToPlanner,
+        saveTripPlanToDevice,
+        saveTripPlanToAccount,
+        getActiveUserIdentifier,
+        getTripPlanStorageKey,
+        handleAuthTripPlanSync,
+        resetTripPlanToDefault,
         switchPlannerDay,
         addNewPlannerDay,
         filterPlannerPool,
@@ -9025,6 +9370,8 @@ if (typeof window !== 'undefined') {
         addCustomStopToPlan,
         optimizePlanAiRoute,
         exportGpxFile,
+        isValidGpxCoordinate,
+        filterValidGpxStops,
         openGpsNavModal,
         closeGpsNavModal,
         toggleGpsVoice,

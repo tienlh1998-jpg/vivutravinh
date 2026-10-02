@@ -157,7 +157,9 @@ export const PLACE_POOL = [
         image: 'chùa hang.jpg',
         durationHours: 1.5,
         rating: 4.8,
-        description: 'Ngôi chùa cổ với cổng hang độc đáo, nơi chim muông làm tổ và các sư thầy gìn giữ nghệ thuật điêu khắc gỗ tinh xảo.'
+        description: 'Ngôi chùa cổ với cổng hang độc đáo, nơi chim muông làm tổ và các sư thầy gìn giữ nghệ thuật điêu khắc gỗ tinh xảo.',
+        lat: 9.9142,
+        lng: 106.3056
     },
     {
         id: 'pool-vuon-co',
@@ -169,7 +171,9 @@ export const PLACE_POOL = [
         image: 'vuon co cu lao.png',
         durationHours: 1.0,
         rating: 4.6,
-        description: 'Không gian miệt vườn thanh bình, thưởng thức đồ uống bản địa mát lành giữa bóng dừa và hàng cau xanh ngát.'
+        description: 'Không gian miệt vườn thanh bình, thưởng thức đồ uống bản địa mát lành giữa bóng dừa và hàng cau xanh ngát.',
+        lat: 9.9214,
+        lng: 106.1823
     },
     {
         id: 'pool-chua-ang',
@@ -181,7 +185,9 @@ export const PLACE_POOL = [
         image: 'chùa âng.jpg',
         durationHours: 1.5,
         rating: 4.9,
-        description: 'Ngôi chùa Khmer cổ nhất Trà Vinh với bề dày lịch sử hơn 1000 năm và kiến trúc nóc nhọn điêu khắc tượng thần Naga.'
+        description: 'Ngôi chùa Khmer cổ nhất Trà Vinh với bề dày lịch sử hơn 1000 năm và kiến trúc nóc nhọn điêu khắc tượng thần Naga.',
+        lat: 9.9431,
+        lng: 106.3112
     },
     {
         id: 'pool-ao-ba-om',
@@ -193,7 +199,9 @@ export const PLACE_POOL = [
         image: 'ao bà om.jpg',
         durationHours: 1.0,
         rating: 4.8,
-        description: 'Danh lam thắng cảnh gắn liền huyền tích đào ao của người Khmer, bao quanh bởi hơn 500 cây dầu sao cổ thụ rễ trồi kỳ thú.'
+        description: 'Danh lam thắng cảnh gắn liền huyền tích đào ao của người Khmer, bao quanh bởi hơn 500 cây dầu sao cổ thụ rễ trồi kỳ thú.',
+        lat: 9.9442,
+        lng: 106.3135
     },
     {
         id: 'pool-bun-nuoc-leo',
@@ -205,7 +213,9 @@ export const PLACE_POOL = [
         image: 'bun nuoc leo.png',
         durationHours: 0.75,
         rating: 4.7,
-        description: 'Hương vị bún nước lèo đậm đà mắm bò hóc truyền thống kết hợp cá lóc đồng, thịt quay và rau thơm tươi ngon.'
+        description: 'Hương vị bún nước lèo đậm đà mắm bò hóc truyền thống kết hợp cá lóc đồng, thịt quay và rau thơm tươi ngon.',
+        lat: 9.9385,
+        lng: 106.3421
     },
     {
         id: 'pool-con-chim',
@@ -217,7 +227,9 @@ export const PLACE_POOL = [
         image: 'cồn chim.jpg',
         durationHours: 3.0,
         rating: 4.9,
-        description: 'Ốc đảo du lịch sinh thái nói không với rác thải nhựa, trải nghiệm câu cua, làm bánh dân gian và uống dừa tươi.'
+        description: 'Ốc đảo du lịch sinh thái nói không với rác thải nhựa, trải nghiệm câu cua, làm bánh dân gian và uống dừa tươi.',
+        lat: 9.9167,
+        lng: 106.4274
     },
     {
         id: 'pool-den-tho-bac',
@@ -229,7 +241,9 @@ export const PLACE_POOL = [
         image: 'đền thờ Bác.jpg',
         durationHours: 1.0,
         rating: 4.7,
-        description: 'Công trình biểu tượng tấm lòng son sắt của đồng bào Trà Vinh với Bác Hồ trong kháng chiến bom đạn.'
+        description: 'Công trình biểu tượng tấm lòng son sắt của đồng bào Trà Vinh với Bác Hồ trong kháng chiến bom đạn.',
+        lat: 9.9725,
+        lng: 106.3412
     },
     {
         id: 'pool-nha-co-huynh-ky',
@@ -241,7 +255,9 @@ export const PLACE_POOL = [
         image: 'nhà cổ huỳnh kỳ.jpg',
         durationHours: 1.0,
         rating: 4.8,
-        description: 'Biệt thự cổ kết hợp tinh hoa kiến trúc Pháp cổ điển và hoa văn chạm khắc gỗ Nam Bộ thế kỷ 20.'
+        description: 'Biệt thự cổ kết hợp tinh hoa kiến trúc Pháp cổ điển và hoa văn chạm khắc gỗ Nam Bộ thế kỷ 20.',
+        lat: 9.8973,
+        lng: 106.0125
     }
 ];
 
