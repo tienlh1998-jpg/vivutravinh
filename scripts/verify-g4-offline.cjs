@@ -269,6 +269,20 @@ async function runOfflineVerification() {
             mobile: false
         });
 
+        // Thiết lập nguồn dữ liệu 'mock' riêng biệt cho bài test offline qua CDP
+        // Đảm bảo không thay đổi cấu hình production mà bài test offline vẫn chạy đúng nguồn mock
+        await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
+            source: `
+                window.VIVUTRAVINH_CONFIG = Object.assign(window.VIVUTRAVINH_CONFIG || {}, {
+                    dataSource: 'mock'
+                });
+            `
+        });
+        await cdp.eval(`
+            window.VIVUTRAVINH_CONFIG = Object.assign(window.VIVUTRAVINH_CONFIG || {}, { dataSource: 'mock' });
+            if (window.ViVuData?.setDataSource) window.ViVuData.setDataSource('mock');
+        `);
+
         // Chờ ứng dụng và DOM sẵn sàng
         await waitForAppReady(cdp);
 

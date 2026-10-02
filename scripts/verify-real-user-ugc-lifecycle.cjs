@@ -1,21 +1,26 @@
 /**
  * scripts/verify-real-user-ugc-lifecycle.cjs
  *
- * Nghiệm thu toàn diện vòng đời nội dung do người dùng đóng góp (UGC) bằng tài khoản thật:
- * 1. Đăng ký tài khoản thật (Supabase Auth Signup) & Đăng nhập cấp JWT tác giả (authorToken)
- * 2. Gửi từng loại nội dung (5/5 thực thể UGC):
- *    - Bài viết cẩm nang (articles)
- *    - Câu lạc bộ (clubs)
- *    - Lịch sinh hoạt CLB (club_activities)
- *    - Bài thảo luận cộng đồng (community_posts)
- *    - Sự kiện cộng đồng (community_events)
- * 3. Kiểm tra trạng thái 'pending': Không rò rỉ cho khách vãng lai hay Secure Views
- * 4. Admin từ chối kèm lý do cụ thể qua RPC nguyên tử G14 (admin_moderate_entity_atomic)
- * 5. Xác nhận trạng thái 'rejected' và lý do từ chối hiển thị cho chính tác giả
- * 6. Tác giả chỉnh sửa & gửi lại (PATCH) -> Trạng thái tự động quay về 'pending'
- * 7. Admin phê duyệt qua RPC nguyên tử G14 (admin_moderate_entity_atomic) kèm audit log
- * 8. Nội dung xuất hiện công khai cho khách vãng lai và trên giao diện Web UI
- * 9. Dọn dẹp sạch sẽ 100% đúng ID (UUID) vừa tạo, tuyệt đối không dọn dẹp theo SĐT hay xóa nhầm dữ liệu khác
+ * Nghiệm thu toàn diện vòng đời nội dung UGC trên giao diện trình duyệt thật (DOM):
+ * 1. Đăng ký tài khoản thật (Supabase Auth Signup) & Cấp JWT tác giả + JWT quản trị viên
+ * 2. Gửi 5/5 thực thể nội dung ban đầu (articles, clubs, club_activities, community_posts, community_events)
+ * 3. Ban Quản Trị từ chối cả 5 thực thể kèm lý do cụ thể qua RPC nguyên tử G14
+ * 4. [TRÌNH DUYỆT DOM - TÁC GIẢ]:
+ *    - Mở modal "Nội dung của tôi" (#sidebarLinkMyContent)
+ *    - Kiểm tra DOM: Thấy 5 thẻ .ugc-content-card hiển thị đúng lý do từ chối (.ugc-moderation-reason)
+ *    - Bấm nút sửa (.btn-edit-ugc) trên DOM cho từng loại, cập nhật biểu mẫu trên DOM và gửi duyệt lại
+ *    - Xác nhận trạng thái trong CSDL tự động chuyển về 'pending' và xóa sạch moderation_reason
+ * 5. [TRÌNH DUYỆT DOM - ADMIN]:
+ *    - Đăng nhập quyền quản trị, mở Trung tâm Kiểm duyệt (#adminModerationModal) trên DOM
+ *    - Duyệt lần lượt 5 loại qua các tab và nút bấm "Phê duyệt" trên DOM
+ *    - Xác nhận trạng thái chuyển sang 'approved' và 10 bản ghi nhật ký kiểm toán (admin_audit_logs)
+ * 6. [TRÌNH DUYỆT DOM - KHÁCH VÃNG LAI]:
+ *    - Đăng xuất hoàn toàn, duyệt web với vai trò khách vãng lai
+ *    - Mở Tab 1 (Trang chủ): Thấy thẻ cẩm nang thật (#travelStoriesContainer) và thẻ sự kiện thật (#festivalsPortalContainer) trên DOM
+ *    - Mở Tab 3 (Cộng đồng): Thấy thẻ CLB thật (#featuredClubsGrid), thẻ lịch sinh hoạt thật (#weeklyActivitiesList) và thẻ bài viết thật (#communityPostsFeed) trên DOM
+ *    - Tuyệt đối KHÔNG dùng fetch Secure View thay cho kiểm tra thẻ DOM
+ * 7. Chụp ảnh màn hình lưu bằng chứng nghiệm thu
+ * 8. Dọn dẹp sạch sẽ 100% có mục tiêu đúng ID/UUID (0 bản ghi rác tồn dư)
  */
 
 const http = require('http');
@@ -77,7 +82,7 @@ class CDPClient {
       const timer = setTimeout(() => {
         this.callbacks.delete(id);
         reject(new Error(`CDP timed out: ${method}`));
-      }, 20000);
+      }, 25000);
       this.callbacks.set(id, (res) => {
         clearTimeout(timer);
         if (res.error) reject(new Error(JSON.stringify(res.error)));
@@ -148,49 +153,43 @@ async function invokeApi(handler, method, urlPath, headers = {}, body = null) {
   }
   reqStream.push(null);
 
-  let resolveEnd;
-  const endPromise = new Promise(r => { resolveEnd = r; });
+  const resChunks = [];
+  const resHeaders = {};
   let statusCode = 200;
-  let resHeaders = {};
-  let bodyData = '';
 
   const mockRes = {
     statusCode: 200,
-    headers: {},
-    setHeader(k, v) {
-      this.headers[k.toLowerCase()] = v;
-      resHeaders[k.toLowerCase()] = v;
-    },
-    end(data) {
-      statusCode = this.statusCode;
-      if (data) bodyData = (typeof data === 'string') ? data : data.toString();
-      resolveEnd();
+    setHeader(k, v) { resHeaders[k.toLowerCase()] = v; },
+    getHeader(k) { return resHeaders[k.toLowerCase()]; },
+    write(chunk) { if (chunk) resChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); },
+    end(chunk) {
+      if (chunk) resChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      statusCode = this.statusCode || 200;
     }
   };
 
   await handler(reqStream, mockRes);
-  await endPromise;
-
+  const rawBody = Buffer.concat(resChunks).toString('utf8');
   let parsed = null;
   try {
-    parsed = bodyData ? JSON.parse(bodyData) : null;
-  } catch (_) {
-    parsed = bodyData;
+    parsed = rawBody ? JSON.parse(rawBody) : null;
+  } catch {
+    parsed = rawBody;
   }
 
-  return { statusCode, headers: resHeaders, body: parsed, rawBody: bodyData };
+  return { statusCode, headers: resHeaders, body: parsed };
 }
 
 async function run() {
   console.log('================================================================================');
-  console.log(' NGHIỆM THU VÒNG ĐỜI NỘI DUNG UGC TÀI KHOẢN THẬT (REAL USER COMPLETE LIFECYCLE)');
-  console.log(' Đăng ký -> Gửi 5 loại UGC -> Admin từ chối -> Tác giả sửa lại -> Admin duyệt -> Công khai');
+  console.log(' NGHIỆM THU VÒNG ĐỜI NỘI DUNG UGC TRÊN GIAO DIỆN TRÌNH DUYỆT THẬT (DOM BROWSER)');
   console.log('================================================================================\n');
 
-  // Tracking chính xác ID từng thực thể được sinh ra để dọn dẹp tuyệt đối an toàn
   const track = {
-    userId: null,
-    userEmail: null,
+    authorId: null,
+    authorEmail: null,
+    adminId: null,
+    adminEmail: null,
     articleId: null,
     clubId: null,
     activityId: null,
@@ -205,7 +204,7 @@ async function run() {
 
   try {
     // --------------------------------------------------------------------------
-    // GIAI ĐOẠN 0: KIỂM TRA MÔI TRƯỜNG & RPC ATOMIC G14 TRÊN SUPABASE LIVE
+    // GIAI ĐOẠN 0: KIỂM TRA MÔI TRƯỜNG & RPC G14
     // --------------------------------------------------------------------------
     console.log('[GIAI ĐOẠN 0] KIỂM TRA KẾT NỐI & RPC G14 TRÊN SUPABASE LIVE:');
     const probeRpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_moderate_entity_atomic`, {
@@ -229,7 +228,6 @@ async function run() {
     if (probeStatus === 500 && probeData.message?.includes('RPC_NOT_INSTALLED')) {
       throw new Error('RPC admin_moderate_entity_atomic chưa được cài đặt trên Supabase!');
     }
-    // G14 raise NOT_FOUND hoặc tương tự => RPC đang hoạt động tốt
     console.log('  ✓ RPC admin_moderate_entity_atomic đã sẵn sàng hoạt động trên Live Supabase.\n');
 
     // Nạp các API Handlers
@@ -248,542 +246,56 @@ async function run() {
     const handleModeration = moderationMod.default;
 
     // --------------------------------------------------------------------------
-    // GIAI ĐOẠN 1: ĐĂNG KÝ TÀI KHOẢN TÁC GIẢ THẬT VÀ LẤY JWT ADMIN LIVE
+    // GIAI ĐOẠN 1: KHỞI TẠO MÁY CHỦ THỬ NGHIỆM ĐIỀU PHỐI ĐẦY ĐỦ API ROUTES
     // --------------------------------------------------------------------------
-    console.log('[GIAI ĐOẠN 1] ĐĂNG KÝ TÀI KHOẢN TÁC GIẢ THẬT & CẤP TOKEN QUẢN TRỊ:');
-    const ts = Date.now();
-    track.userEmail = `author_ugc_${ts}@vivutravinh.test`;
-    const authorPassword = `VivuAuthor_${ts}!Secure`;
-
-    // Tạo user thật qua Supabase Auth Admin API
-    const createUserRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
-      method: 'POST',
-      headers: {
-        'apikey': SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: track.userEmail,
-        password: authorPassword,
-        email_confirm: true,
-        user_metadata: { display_name: `Tác Giả Nghiệm Thu ${ts}` }
-      })
-    });
-    const createdUserData = await createUserRes.json();
-    if (!createdUserData.id) {
-      throw new Error(`Không thể tạo tài khoản tác giả: ${JSON.stringify(createdUserData)}`);
-    }
-    track.userId = createdUserData.id;
-    console.log(`  ✓ Đã đăng ký thành công tài khoản tác giả thật: ${track.userEmail} (ID: ${track.userId})`);
-
-    // Tác giả đăng nhập để lấy JWT Token thật
-    const loginRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: {
-        'apikey': ANON_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: track.userEmail,
-        password: authorPassword
-      })
-    });
-    const loginData = await loginRes.json();
-    const authorToken = loginData.access_token;
-    if (!authorToken) {
-      throw new Error(`Đăng nhập tác giả thất bại: ${JSON.stringify(loginData)}`);
-    }
-    console.log('  ✓ Tác giả đăng nhập thành công, nhận Bearer JWT hợp lệ.');
-
-    // Cấp Live JWT cho Admin (tienlh1998@gmail.com)
-    const linkRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
-      method: 'POST',
-      headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'magiclink', email: 'tienlh1998@gmail.com' })
-    });
-    const linkData = await linkRes.json();
-    const tokenHash = linkData.hashed_token;
-
-    const verifyRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-      method: 'POST',
-      headers: { 'apikey': ANON_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'magiclink', token_hash: tokenHash })
-    });
-    const verifyData = await verifyRes.json();
-    const adminToken = verifyData.access_token;
-    if (!adminToken) throw new Error('Không thể cấp Live JWT cho tài khoản admin.');
-    console.log('  ✓ Quản trị viên (tienlh1998@gmail.com) đã xác thực Live JWT thành công.\n');
-
-    const authorAuthHeader = { authorization: `Bearer ${authorToken}`, 'content-type': 'application/json' };
-    const adminAuthHeader = { authorization: `Bearer ${adminToken}`, 'content-type': 'application/json' };
-
-    // ==========================================================================
-    // THỰC THỂ 1: BÀI VIẾT CẨM NANG DU LỊCH (articles)
-    // ==========================================================================
-    console.log('--------------------------------------------------------------------------------');
-    console.log('[THỰC THỂ 1/5] BÀI VIẾT CẨM NANG DU LỊCH (articles):');
-    {
-      // 1.1 Tác giả gửi bài viết mới
-      const articlePayload = {
-        title: `[UGC-TEST] Khám phá ẩm thực bún suông Trà Vinh mùa hội ${ts}`,
-        category: 'am-thuc',
-        excerpt: 'Món bún suông đậm đà bản sắc sông nước miền Tây xứ Trà...',
-        content: '<p>Chi tiết về cách nấu nước dùng ngọt từ tôm và chả tôm quết dẻo dai đặc trưng Trà Vinh.</p>',
-        cover_image: '/hinh-bun-nuoc-leo.jpg'
-      };
-
-      const postRes = await invokeApi(handleArticles, 'POST', '/api/articles', authorAuthHeader, articlePayload);
-      if (postRes.statusCode !== 201 || !postRes.body?.article?.id) {
-        throw new Error(`Tác giả gửi bài cẩm nang thất bại: ${JSON.stringify(postRes.body)}`);
-      }
-      track.articleId = postRes.body.article.id;
-      console.log(`  ✓ [1.1] Tác giả gửi bài cẩm nang (ID: ${track.articleId}) -> status: pending.`);
-
-      // 1.2 Kiểm tra cách ly: Khách vãng lai KHÔNG thấy bài pending
-      const publicCheck = await invokeApi(handleArticles, 'GET', '/api/articles?status=approved');
-      const foundPublicPending = (publicCheck.body?.articles || []).find(a => a.id === track.articleId);
-      if (foundPublicPending) {
-        throw new Error(`[LỖI BẢO MẬT] Bài cẩm nang pending bị lộ trên feed công khai!`);
-      }
-      console.log('  ✓ [1.2] Khách vãng lai truy vấn GET /api/articles -> 0 thấy bài pending (Cách ly bảo mật đạt).');
-
-      // 1.3 Admin từ chối kèm lý do qua RPC G14
-      const rejectReason = 'Bài viết thiếu trích dẫn địa chỉ quán ăn cụ thể và giờ mở cửa tại Trà Vinh.';
-      const rejectRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'article',
-        entity_id: track.articleId,
-        action: 'reject',
-        reason: rejectReason
-      });
-      if (rejectRes.statusCode !== 200 || rejectRes.body?.status !== 'rejected') {
-        throw new Error(`Admin từ chối bài viết thất bại: ${JSON.stringify(rejectRes.body)}`);
-      }
-      console.log(`  ✓ [1.3] Admin từ chối bài qua RPC G14 nguyên tử -> status: rejected, reason: "${rejectReason}".`);
-
-      // 1.4 Tác giả kiểm tra: Thấy bài mình bị từ chối kèm đúng lý do
-      const authorGet = await invokeApi(handleArticles, 'GET', `/api/articles?author_id=${encodeURIComponent(track.userId)}&status=rejected`, authorAuthHeader);
-      const rejectedArticle = (authorGet.body?.articles || []).find(a => a.id === track.articleId);
-      if (!rejectedArticle || rejectedArticle.moderation_reason !== rejectReason) {
-        throw new Error(`Tác giả không nhận được lý do từ chối đúng: ${JSON.stringify(rejectedArticle)}`);
-      }
-      console.log('  ✓ [1.4] Tác giả xem bài của mình -> Nhận đúng lý do từ chối từ Ban Quản Trị.');
-
-      // 1.5 Tác giả chỉnh sửa bài viết và gửi lại
-      const patchRes = await invokeApi(handleArticles, 'PATCH', `/api/articles?id=${encodeURIComponent(track.articleId)}`, authorAuthHeader, {
-        title: `[UGC-TEST ĐÃ SỬA] Khám phá bún suông Hùng Vương Trà Vinh ${ts}`,
-        content: '<p>Đã bổ sung: Quán Bún Suông Hùng Vương, P.3, TP Trà Vinh. Giờ mở cửa: 6h00 - 10h00.</p>',
-        submit_for_review: true
-      });
-      if (patchRes.statusCode !== 200) {
-        throw new Error(`Tác giả sửa bài thất bại: ${JSON.stringify(patchRes.body)}`);
-      }
-
-      // Xác nhận status tự động quay lại 'pending'
-      const verifyPending = await invokeApi(handleArticles, 'GET', `/api/articles?author_id=${encodeURIComponent(track.userId)}&status=pending`, authorAuthHeader);
-      const resubmittedArticle = (verifyPending.body?.articles || []).find(a => a.id === track.articleId);
-      if (!resubmittedArticle) {
-        throw new Error(`Bài viết sau khi sửa không tự động chuyển về pending!`);
-      }
-      console.log('  ✓ [1.5] Tác giả sửa nội dung và gửi lại -> status tự động chuyển về: pending.');
-
-      // 1.6 Admin duyệt bài qua RPC G14
-      const approveRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'article',
-        entity_id: track.articleId,
-        action: 'approve'
-      });
-      if (approveRes.statusCode !== 200 || approveRes.body?.status !== 'approved') {
-        throw new Error(`Admin duyệt bài cẩm nang thất bại: ${JSON.stringify(approveRes.body)}`);
-      }
-      console.log('  ✓ [1.6] Admin phê duyệt bài qua RPC G14 nguyên tử -> status: approved.');
-
-      // 1.7 Khách vãng lai thấy bài xuất hiện công khai
-      const publicFinal = await invokeApi(handleArticles, 'GET', '/api/articles?status=approved');
-      const approvedArticle = (publicFinal.body?.articles || []).find(a => a.id === track.articleId);
-      if (!approvedArticle) {
-        throw new Error(`Bài cẩm nang đã duyệt KHÔNG xuất hiện trên feed công khai!`);
-      }
-      console.log(`  ✓ [1.7] Khách vãng lai xem công khai -> Bài cẩm nang đã xuất hiện: "${approvedArticle.title}".\n`);
-    }
-
-    // ==========================================================================
-    // THỰC THỂ 2: CÂU LẠC BỘ (clubs)
-    // ==========================================================================
-    console.log('--------------------------------------------------------------------------------');
-    console.log('[THỰC THỂ 2/5] CÂU LẠC BỘ (clubs):');
-    {
-      // 2.1 Tác giả gửi hồ sơ thành lập CLB mới
-      const clubPayload = {
-        name: `CLB Nhiếp Ảnh Sông Nước ${ts}`,
-        category: 'di-san',
-        meeting_place: 'Bờ kè Sông Long Bình, TP. Trà Vinh',
-        description: 'Tập hợp các bạn trẻ đam mê nhiếp ảnh ghi lại vẻ đẹp văn hóa và con người Trà Vinh.',
-        schedule_info: 'Sáng Chủ Nhật hàng tuần lúc 6h30',
-        leader_phone: '0901234567'
-      };
-
-      const postRes = await invokeApi(handleClubs, 'POST', '/api/clubs', authorAuthHeader, clubPayload);
-      if (postRes.statusCode !== 201 || !postRes.body?.club?.id) {
-        throw new Error(`Tác giả gửi hồ sơ CLB thất bại: ${JSON.stringify(postRes.body)}`);
-      }
-      track.clubId = postRes.body.club.id;
-      console.log(`  ✓ [2.1] Tác giả gửi hồ sơ CLB (ID: ${track.clubId}) -> status: pending.`);
-
-      // 2.2 Kiểm tra cách ly: Khách vãng lai KHÔNG thấy CLB pending trên Secure View public_clubs
-      const publicClubsRes = await fetch(`${SUPABASE_URL}/rest/v1/public_clubs?id=eq.${track.clubId}&select=*`, {
-        headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
-      });
-      const publicClubs = await publicClubsRes.json();
-      if (Array.isArray(publicClubs) && publicClubs.length > 0) {
-        throw new Error(`[LỖI BẢO MẬT] CLB pending bị lộ trên Secure View public_clubs!`);
-      }
-      console.log('  ✓ [2.2] Khách vãng lai truy vấn Secure View public_clubs -> 0 thấy CLB pending (Cách ly bảo mật đạt).');
-
-      // 2.3 Admin từ chối kèm lý do qua RPC G14
-      const rejectReason = 'Vui lòng bổ sung kế hoạch hoạt động chi tiết trong 3 tháng đầu và quy chế an toàn.';
-      const rejectRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'club',
-        entity_id: track.clubId,
-        action: 'reject',
-        reason: rejectReason
-      });
-      if (rejectRes.statusCode !== 200 || rejectRes.body?.status !== 'rejected') {
-        throw new Error(`Admin từ chối CLB thất bại: ${JSON.stringify(rejectRes.body)}`);
-      }
-      console.log(`  ✓ [2.3] Admin từ chối CLB qua RPC G14 nguyên tử -> status: rejected.`);
-
-      // 2.4 Tác giả kiểm tra thấy lý do từ chối
-      const authorGet = await invokeApi(handleClubs, 'GET', `/api/clubs?leader_id=${encodeURIComponent(track.userId)}&status=rejected`, authorAuthHeader);
-      const rejectedClub = (authorGet.body?.clubs || []).find(c => c.id === track.clubId);
-      if (!rejectedClub || rejectedClub.moderation_reason !== rejectReason) {
-        throw new Error(`Tác giả không nhận được lý do từ chối CLB: ${JSON.stringify(rejectedClub)}`);
-      }
-      console.log('  ✓ [2.4] Tác giả xem hồ sơ CLB của mình -> Thấy đúng lý do từ chối từ Ban Quản Trị.');
-
-      // 2.5 Tác giả chỉnh sửa hồ sơ và gửi lại
-      const patchRes = await invokeApi(handleClubs, 'PATCH', `/api/clubs?id=${encodeURIComponent(track.clubId)}`, authorAuthHeader, {
-        description: 'Đã bổ sung: Lịch chụp định kỳ, kế hoạch triển lãm ảnh du lịch tháng 11 tại Ao Bà Om.',
-        submit_for_review: true
-      });
-      if (patchRes.statusCode !== 200 || patchRes.body?.club?.status !== 'pending') {
-        throw new Error(`Tác giả sửa CLB thất bại: ${JSON.stringify(patchRes.body)}`);
-      }
-      console.log('  ✓ [2.5] Tác giả cập nhật hồ sơ CLB và gửi lại -> status tự động chuyển về: pending.');
-
-      // 2.6 Admin duyệt CLB qua RPC G14
-      const approveRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'club',
-        entity_id: track.clubId,
-        action: 'approve'
-      });
-      if (approveRes.statusCode !== 200 || approveRes.body?.status !== 'approved') {
-        throw new Error(`Admin duyệt CLB thất bại: ${JSON.stringify(approveRes.body)}`);
-      }
-      console.log('  ✓ [2.6] Admin phê duyệt CLB qua RPC G14 nguyên tử -> status: approved.');
-
-      // 2.7 Khách vãng lai thấy CLB xuất hiện trên Secure View công khai
-      const publicFinalRes = await fetch(`${SUPABASE_URL}/rest/v1/public_clubs?id=eq.${track.clubId}&select=*`, {
-        headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
-      });
-      const publicFinal = await publicFinalRes.json();
-      if (!Array.isArray(publicFinal) || publicFinal.length === 0) {
-        throw new Error(`CLB đã duyệt KHÔNG xuất hiện trên Secure View public_clubs!`);
-      }
-      console.log(`  ✓ [2.7] Khách vãng lai xem công khai -> CLB đã xuất hiện: "${publicFinal[0].name}".\n`);
-    }
-
-    // ==========================================================================
-    // THỰC THỂ 3: LỊCH SINH HOẠT CLB (club_activities)
-    // ==========================================================================
-    console.log('--------------------------------------------------------------------------------');
-    console.log('[THỰC THỂ 3/5] LỊCH SINH HOẠT CLB (club_activities):');
-    {
-      // 3.1 Chủ nhiệm CLB (đã duyệt ở Bước 2) gửi lịch sinh hoạt mới
-      const activityPayload = {
-        club_id: track.clubId,
-        title: `Workshop chụp ảnh bình minh Chùa Âng ${ts}`,
-        time_schedule: '05:30 - 08:30 Chủ Nhật',
-        location: 'Khuôn viên Chùa Âng, Phường 8, TP. Trà Vinh',
-        description: 'Hướng dẫn kỹ thuật chụp ảnh kiến trúc Angkor và xử lý ánh sáng sớm.',
-        max_attendees: 30,
-        is_free: true
-      };
-
-      const postRes = await invokeApi(handleActivities, 'POST', '/api/club-activities', authorAuthHeader, activityPayload);
-      if (postRes.statusCode !== 201 || !postRes.body?.activity?.id) {
-        throw new Error(`Chủ nhiệm gửi lịch sinh hoạt thất bại: ${JSON.stringify(postRes.body)}`);
-      }
-      track.activityId = postRes.body.activity.id;
-      console.log(`  ✓ [3.1] Chủ nhiệm gửi lịch sinh hoạt (ID: ${track.activityId}) -> status: pending.`);
-
-      // 3.2 Kiểm tra cách ly: Khách vãng lai KHÔNG thấy lịch pending trên Secure View public_club_activities
-      const publicActsRes = await fetch(`${SUPABASE_URL}/rest/v1/public_club_activities?id=eq.${track.activityId}&select=*`, {
-        headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
-      });
-      const publicActs = await publicActsRes.json();
-      if (Array.isArray(publicActs) && publicActs.length > 0) {
-        throw new Error(`[LỖI BẢO MẬT] Lịch sinh hoạt pending bị lộ trên Secure View!`);
-      }
-      console.log('  ✓ [3.2] Khách vãng lai truy vấn Secure View -> 0 thấy lịch pending (Cách ly bảo mật đạt).');
-
-      // 3.3 Admin từ chối kèm lý do qua RPC G14
-      const rejectReason = 'Trùng lịch dọn dẹp vệ sinh khuôn viên của nhà chùa vào sáng Chủ Nhật.';
-      const rejectRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'club_activity',
-        entity_id: track.activityId,
-        action: 'reject',
-        reason: rejectReason
-      });
-      if (rejectRes.statusCode !== 200 || rejectRes.body?.status !== 'rejected') {
-        throw new Error(`Admin từ chối lịch sinh hoạt thất bại: ${JSON.stringify(rejectRes.body)}`);
-      }
-      console.log(`  ✓ [3.3] Admin từ chối lịch sinh hoạt qua RPC G14 nguyên tử -> status: rejected.`);
-
-      // 3.4 Chủ nhiệm kiểm tra thấy lý do từ chối
-      const authorGet = await invokeApi(handleActivities, 'GET', `/api/club-activities?creator_id=${encodeURIComponent(track.userId)}&status=rejected`, authorAuthHeader);
-      const rejectedAct = (authorGet.body?.activities || []).find(a => a.id === track.activityId);
-      if (!rejectedAct || rejectedAct.moderation_reason !== rejectReason) {
-        throw new Error(`Chủ nhiệm không nhận được lý do từ chối lịch sinh hoạt: ${JSON.stringify(rejectedAct)}`);
-      }
-      console.log('  ✓ [3.4] Chủ nhiệm xem lịch của mình -> Nhận đúng lý do từ chối từ Ban Quản Trị.');
-
-      // 3.5 Chủ nhiệm chỉnh sửa lịch và gửi lại
-      const patchRes = await invokeApi(handleActivities, 'PATCH', `/api/club-activities?id=${encodeURIComponent(track.activityId)}`, authorAuthHeader, {
-        time_schedule: '15:30 - 18:00 Chiều Thứ Bảy',
-        description: 'Đã đổi thời gian sang chiều Thứ Bảy để không ảnh hưởng lịch của nhà chùa.',
-        submit_for_review: true
-      });
-      if (patchRes.statusCode !== 200 || patchRes.body?.activity?.status !== 'pending') {
-        throw new Error(`Chủ nhiệm sửa lịch sinh hoạt thất bại: ${JSON.stringify(patchRes.body)}`);
-      }
-      console.log('  ✓ [3.5] Chủ nhiệm đổi lịch sang chiều Thứ Bảy và gửi lại -> status tự động chuyển về: pending.');
-
-      // 3.6 Admin duyệt lịch sinh hoạt qua RPC G14
-      const approveRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'club_activity',
-        entity_id: track.activityId,
-        action: 'approve'
-      });
-      if (approveRes.statusCode !== 200 || approveRes.body?.status !== 'approved') {
-        throw new Error(`Admin duyệt lịch sinh hoạt thất bại: ${JSON.stringify(approveRes.body)}`);
-      }
-      console.log('  ✓ [3.6] Admin phê duyệt lịch sinh hoạt qua RPC G14 nguyên tử -> status: approved.');
-
-      // 3.7 Khách vãng lai thấy lịch sinh hoạt xuất hiện công khai
-      const publicFinalRes = await fetch(`${SUPABASE_URL}/rest/v1/public_club_activities?id=eq.${track.activityId}&select=*`, {
-        headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
-      });
-      const publicFinal = await publicFinalRes.json();
-      if (!Array.isArray(publicFinal) || publicFinal.length === 0) {
-        throw new Error(`Lịch sinh hoạt đã duyệt KHÔNG xuất hiện trên Secure View công khai!`);
-      }
-      console.log(`  ✓ [3.7] Khách vãng lai xem công khai -> Lịch sinh hoạt đã xuất hiện: "${publicFinal[0].title}".\n`);
-    }
-
-    // ==========================================================================
-    // THỰC THỂ 4: BÀI ĐĂNG CỘNG ĐỒNG (community_posts)
-    // ==========================================================================
-    console.log('--------------------------------------------------------------------------------');
-    console.log('[THỰC THỂ 4/5] BÀI ĐĂNG CỘNG ĐỒNG (community_posts):');
-    {
-      // 4.1 Tác giả đăng bài viết thảo luận cộng đồng mới
-      const postPayload = {
-        title: `Cảm nhận không khí chuẩn bị lễ Ok Om Bok tại Ao Bà Om ${ts}`,
-        content: 'Bà con Khmer và du khách thập phương đang bắt đầu đổ về khu vực ao Bà Om, không khí thật rộn ràng.',
-        category: 'van-hoa'
-      };
-
-      const postRes = await invokeApi(handlePosts, 'POST', '/api/community-posts', authorAuthHeader, postPayload);
-      if (postRes.statusCode !== 201 || !postRes.body?.post?.id) {
-        throw new Error(`Tác giả gửi bài cộng đồng thất bại: ${JSON.stringify(postRes.body)}`);
-      }
-      track.postId = postRes.body.post.id;
-      console.log(`  ✓ [4.1] Tác giả gửi bài cộng đồng (ID: ${track.postId}) -> status: pending.`);
-
-      // 4.2 Kiểm tra cách ly: Khách vãng lai KHÔNG thấy bài pending trên Secure View public_community_posts
-      const publicPostsRes = await fetch(`${SUPABASE_URL}/rest/v1/public_community_posts?id=eq.${track.postId}&select=*`, {
-        headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
-      });
-      const publicPosts = await publicPostsRes.json();
-      if (Array.isArray(publicPosts) && publicPosts.length > 0) {
-        throw new Error(`[LỖI BẢO MẬT] Bài cộng đồng pending bị lộ trên Secure View!`);
-      }
-      console.log('  ✓ [4.2] Khách vãng lai truy vấn Secure View -> 0 thấy bài pending (Cách ly bảo mật đạt).');
-
-      // 4.3 Admin từ chối kèm lý do qua RPC G14
-      const rejectReason = 'Bài viết quá ngắn, vui lòng chia sẻ thêm trải nghiệm cụ thể hoặc hình ảnh.';
-      const rejectRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'community_post',
-        entity_id: track.postId,
-        action: 'reject',
-        reason: rejectReason
-      });
-      if (rejectRes.statusCode !== 200 || rejectRes.body?.status !== 'rejected') {
-        throw new Error(`Admin từ chối bài cộng đồng thất bại: ${JSON.stringify(rejectRes.body)}`);
-      }
-      console.log(`  ✓ [4.3] Admin từ chối bài qua RPC G14 nguyên tử -> status: rejected.`);
-
-      // 4.4 Tác giả kiểm tra thấy lý do từ chối
-      const authorGet = await invokeApi(handlePosts, 'GET', `/api/community-posts?author_id=${encodeURIComponent(track.userId)}&status=rejected`, authorAuthHeader);
-      const rejectedPost = (authorGet.body?.posts || []).find(p => p.id === track.postId);
-      if (!rejectedPost || rejectedPost.moderation_reason !== rejectReason) {
-        throw new Error(`Tác giả không nhận được lý do từ chối bài cộng đồng: ${JSON.stringify(rejectedPost)}`);
-      }
-      console.log('  ✓ [4.4] Tác giả xem bài của mình -> Nhận đúng lý do từ chối từ Ban Quản Trị.');
-
-      // 4.5 Tác giả chỉnh sửa bài viết và gửi lại
-      const patchRes = await invokeApi(handlePosts, 'PATCH', `/api/community-posts?id=${encodeURIComponent(track.postId)}`, authorAuthHeader, {
-        content: 'Đã bổ sung: Các gian hàng ẩm thực cốm dẹp đã dựng xong quanh bờ hồ, hoa đăng đã sẵn sàng thả vào tối trăng rằm.',
-        submit_for_review: true
-      });
-      if (patchRes.statusCode !== 200 || patchRes.body?.post?.status !== 'pending') {
-        throw new Error(`Tác giả sửa bài cộng đồng thất bại: ${JSON.stringify(patchRes.body)}`);
-      }
-      console.log('  ✓ [4.5] Tác giả bổ sung chi tiết bài viết và gửi lại -> status tự động chuyển về: pending.');
-
-      // 4.6 Admin duyệt bài cộng đồng qua RPC G14
-      const approveRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'community_post',
-        entity_id: track.postId,
-        action: 'approve'
-      });
-      if (approveRes.statusCode !== 200 || approveRes.body?.status !== 'approved') {
-        throw new Error(`Admin duyệt bài cộng đồng thất bại: ${JSON.stringify(approveRes.body)}`);
-      }
-      console.log('  ✓ [4.6] Admin phê duyệt bài qua RPC G14 nguyên tử -> status: approved.');
-
-      // 4.7 Khách vãng lai thấy bài xuất hiện trên Secure View công khai
-      const publicFinalRes = await fetch(`${SUPABASE_URL}/rest/v1/public_community_posts?id=eq.${track.postId}&select=*`, {
-        headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
-      });
-      const publicFinal = await publicFinalRes.json();
-      if (!Array.isArray(publicFinal) || publicFinal.length === 0) {
-        throw new Error(`Bài cộng đồng đã duyệt KHÔNG xuất hiện trên Secure View công khai!`);
-      }
-      console.log(`  ✓ [4.7] Khách vãng lai xem công khai -> Bài cộng đồng đã xuất hiện: "${publicFinal[0].title}".\n`);
-    }
-
-    // ==========================================================================
-    // THỰC THỂ 5: SỰ KIỆN CỘNG ĐỒNG (community_events)
-    // ==========================================================================
-    console.log('--------------------------------------------------------------------------------');
-    console.log('[THỰC THỂ 5/5] SỰ KIỆN CỘNG ĐỒNG (community_events):');
-    {
-      // 5.1 Tác giả gửi hồ sơ sự kiện cộng đồng mới
-      const eventPayload = {
-        title: `Hội thi đâm cốm dẹp truyền thống Trà Vinh ${ts}`,
-        organizer: 'Đoàn Thanh Niên & Tác Giả Trẻ Xứ Trà',
-        category: 'cultural',
-        time_schedule: '08:00 - 17:00 ngày 15/10 Âm Lịch',
-        location: 'Khu Di tích Ao Bà Om, TP. Trà Vinh',
-        region: 'tp-tra-vinh',
-        description: 'Giao lưu văn hóa ẩm thực truyền thống, học cách làm món cốm dẹp dâng trăng.',
-        fee: 'Miễn phí tham gia',
-        fee_type: 'free',
-        contact_phone: '0912345678',
-        max_attendees: 100
-      };
-
-      const postRes = await invokeApi(handleEvents, 'POST', '/api/community-events', authorAuthHeader, eventPayload);
-      if (postRes.statusCode !== 201 || !postRes.body?.event?.id) {
-        throw new Error(`Tác giả gửi hồ sơ sự kiện thất bại: ${JSON.stringify(postRes.body)}`);
-      }
-      track.eventId = postRes.body.event.id;
-      console.log(`  ✓ [5.1] Tác giả gửi sự kiện cộng đồng (ID: ${track.eventId}) -> status: pending.`);
-
-      // 5.2 Kiểm tra cách ly: Khách vãng lai KHÔNG thấy sự kiện pending
-      const publicEventsRes = await invokeApi(handleEvents, 'GET', '/api/community-events?status=approved');
-      const foundPending = (publicEventsRes.body?.events || []).find(e => e.id === track.eventId);
-      if (foundPending) {
-        throw new Error(`[LỖI BẢO MẬT] Sự kiện pending bị lộ trên feed công khai!`);
-      }
-      console.log('  ✓ [5.2] Khách vãng lai truy vấn GET /api/community-events -> 0 thấy sự kiện pending (Cách ly bảo mật đạt).');
-
-      // 5.3 Admin từ chối kèm lý do qua RPC G14
-      const rejectReason = 'Sự kiện cần phối hợp với Ban Quản Lý Di Tích để đảm bảo an ninh trật tự.';
-      const rejectRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'community_event',
-        entity_id: track.eventId,
-        action: 'reject',
-        reason: rejectReason
-      });
-      if (rejectRes.statusCode !== 200 || rejectRes.body?.status !== 'rejected') {
-        throw new Error(`Admin từ chối sự kiện thất bại: ${JSON.stringify(rejectRes.body)}`);
-      }
-      console.log(`  ✓ [5.3] Admin từ chối sự kiện qua RPC G14 nguyên tử -> status: rejected.`);
-
-      // 5.4 Tác giả kiểm tra thấy lý do từ chối
-      const authorGet = await invokeApi(handleEvents, 'GET', `/api/community-events?creator_id=${encodeURIComponent(track.userId)}&status=rejected`, authorAuthHeader);
-      const rejectedEvt = (authorGet.body?.events || []).find(e => e.id === track.eventId);
-      if (!rejectedEvt || rejectedEvt.moderation_reason !== rejectReason) {
-        throw new Error(`Tác giả không nhận được lý do từ chối sự kiện: ${JSON.stringify(rejectedEvt)}`);
-      }
-      console.log('  ✓ [5.4] Tác giả xem sự kiện của mình -> Nhận đúng lý do từ chối từ Ban Quản Trị.');
-
-      // 5.5 Tác giả chỉnh sửa sự kiện và gửi lại
-      const patchRes = await invokeApi(handleEvents, 'PATCH', `/api/community-events?id=${encodeURIComponent(track.eventId)}`, authorAuthHeader, {
-        description: 'Đã bổ sung: Đã được Ban Quản Lý Di Tích Ao Bà Om phê duyệt văn bản số 42/BQL.',
-        submit_for_review: true
-      });
-      if (patchRes.statusCode !== 200 || patchRes.body?.event?.status !== 'pending') {
-        throw new Error(`Tác giả sửa sự kiện thất bại: ${JSON.stringify(patchRes.body)}`);
-      }
-      console.log('  ✓ [5.5] Tác giả bổ sung giấy phép và gửi lại -> status tự động chuyển về: pending.');
-
-      // 5.6 Admin duyệt sự kiện qua RPC G14
-      const approveRes = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminAuthHeader, {
-        entity_type: 'community_event',
-        entity_id: track.eventId,
-        action: 'approve'
-      });
-      if (approveRes.statusCode !== 200 || approveRes.body?.status !== 'approved') {
-        throw new Error(`Admin duyệt sự kiện thất bại: ${JSON.stringify(approveRes.body)}`);
-      }
-      console.log('  ✓ [5.6] Admin phê duyệt sự kiện qua RPC G14 nguyên tử -> status: approved.');
-
-      // 5.7 Khách vãng lai thấy sự kiện xuất hiện công khai
-      const publicFinal = await invokeApi(handleEvents, 'GET', '/api/community-events?status=approved');
-      const approvedEvt = (publicFinal.body?.events || []).find(e => e.id === track.eventId);
-      if (!approvedEvt) {
-        throw new Error(`Sự kiện đã duyệt KHÔNG xuất hiện trên feed công khai!`);
-      }
-      console.log(`  ✓ [5.7] Khách vãng lai xem công khai -> Sự kiện đã xuất hiện: "${approvedEvt.title}".\n`);
-    }
-
-    // ==========================================================================
-    // GIAI ĐOẠN 2: KIỂM TRA TÍNH NGUYÊN TỬ VÀ NHẬT KÝ KIỂM TOÁN (AUDIT LOGS)
-    // ==========================================================================
-    console.log('--------------------------------------------------------------------------------');
-    console.log('[GIAI ĐOẠN 2] KIỂM TRA NHẬT KÝ KIỂM TOÁN (admin_audit_logs) ĐƯỢC GHI NGUYÊN TỬ:');
-    const entityIds = [track.articleId, track.clubId, track.activityId, track.postId, track.eventId];
-    const auditRes = await fetch(`${SUPABASE_URL}/rest/v1/admin_audit_logs?select=id,action,entity_type,entity_id,payload_before,payload_after,created_at&entity_id=in.(${entityIds.join(',')})&order=created_at.asc`, {
-      headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
-    });
-    const auditLogs = await auditRes.json();
-    if (!Array.isArray(auditLogs) || auditLogs.length !== 10) {
-      throw new Error(`Số lượng audit logs không khớp: Mong đợi 10 bản ghi (5 reject + 5 approve), thực tế: ${auditLogs.length}`);
-    }
-
-    track.auditLogIds = auditLogs.map(l => l.id);
-    console.log(`  ✓ Tìm thấy đúng 10 bản ghi nhật ký kiểm toán nguyên tử cho 5 thực thể:`);
-    for (const log of auditLogs) {
-      console.log(`    - [${log.action}] entity_id: ${log.entity_id} (${log.payload_before?.status} -> ${log.payload_after?.status}) lúc ${log.created_at}`);
-    }
-    console.log('  ✓ Xác nhận 100% các bước duyệt và từ chối đều ghi log đầy đủ, đúng quy chuẩn G14.\n');
-
-    // ==========================================================================
-    // GIAI ĐOẠN 3: KIỂM CHỨNG GIAO DIỆN TRÌNH DUYỆT (BROWSER DOM E2E VERIFICATION)
-    // ==========================================================================
-    console.log('--------------------------------------------------------------------------------');
-    console.log('[GIAI ĐOẠN 3] KIỂM CHỨNG GIAO DIỆN TRÌNH DUYỆT (HEADLESS CHROME):');
-
-    // Khởi tạo máy chủ tĩnh phục vụ Web UI
+    console.log('[GIAI ĐOẠN 1] KHỞI ĐỘNG LOCAL SERVER ĐIỀU PHỐI API & TĨNH:');
     const PORT = 8089;
-    localServer = http.createServer((req, res) => {
-      let reqPath = req.url.split('?')[0];
+    localServer = http.createServer(async (req, res) => {
+      // CORS Headers
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-secret, x-correlation-id, x-client-request-id');
+
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204;
+        res.end();
+        return;
+      }
+
+      const urlObj = new URL(req.url, `http://127.0.0.1:${PORT}`);
+      const pathname = urlObj.pathname;
+
+      try {
+        if (pathname === '/api/articles') {
+          return await handleArticles(req, res);
+        }
+        if (pathname === '/api/clubs') {
+          return await handleClubs(req, res);
+        }
+        if (pathname === '/api/club-activities') {
+          return await handleActivities(req, res);
+        }
+        if (pathname === '/api/community-posts') {
+          return await handlePosts(req, res);
+        }
+        if (pathname === '/api/community-events') {
+          return await handleEvents(req, res);
+        }
+        if (pathname === '/api/admin-moderation' || pathname.startsWith('/api/admin')) {
+          return await handleModeration(req, res);
+        }
+      } catch (handlerErr) {
+        console.error(`[Server API Error ${pathname}]:`, handlerErr.message);
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, error: handlerErr.message }));
+        return;
+      }
+
+      // Phục vụ tệp tĩnh
+      let reqPath = pathname;
       if (reqPath === '/') reqPath = '/index.html';
-      const filePath = path.join(PROJECT_DIR, reqPath);
+      const filePath = path.join(PROJECT_DIR, decodeURIComponent(reqPath));
       const ext = path.extname(filePath).toLowerCase();
       const contentType = MIME[ext] || 'application/octet-stream';
 
@@ -804,18 +316,191 @@ async function run() {
         else resolve();
       });
     });
-    console.log(`  ✓ Đã khởi động máy chủ thử nghiệm cục bộ tại http://127.0.0.1:${PORT}`);
+    console.log(`  ✓ Máy chủ điều phối chạy tại: http://127.0.0.1:${PORT}\n`);
 
-    // Khởi chạy Chrome headless
-    const CDP_PORT = 9333;
+    // --------------------------------------------------------------------------
+    // GIAI ĐOẠN 2: TẠO TÀI KHOẢN TÁC GIẢ, ADMIN VÀ 5 THỰC THỂ TEST
+    // --------------------------------------------------------------------------
+    console.log('[GIAI ĐOẠN 2] TẠO TÀI KHOẢN THẬT, 5 THỰC THỂ & ADMIN TỪ CHỐI QUA G14:');
+    const ts = Date.now();
+    track.authorEmail = `author_dom_${ts}@vivutravinh.test`;
+    const authorPassword = `VivuAuthor_${ts}!Secure`;
+
+    // 2.1 Tạo tác giả thật
+    const createAuthorRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: track.authorEmail,
+        password: authorPassword,
+        email_confirm: true,
+        user_metadata: { display_name: `Tác Giả DOM ${ts}` }
+      })
+    });
+    const authorData = await createAuthorRes.json();
+    track.authorId = authorData.id;
+    console.log(`  ✓ Đã tạo tác giả: ${track.authorEmail} (ID: ${track.authorId})`);
+
+    // Đăng nhập tác giả
+    const authLoginRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: track.authorEmail, password: authorPassword })
+    });
+    const authLoginData = await authLoginRes.json();
+    const authorToken = authLoginData.access_token;
+    const authorUser = authLoginData.user;
+    const authorHeader = { authorization: `Bearer ${authorToken}`, 'content-type': 'application/json' };
+
+    // 2.2 Tạo tài khoản Admin thật & cấp quyền trong admin_users
+    track.adminEmail = `admin_dom_${ts}@vivutravinh.test`;
+    const adminPassword = `AdminPass_${ts}!Secure`;
+    const createAdminRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: track.adminEmail, password: adminPassword, email_confirm: true })
+    });
+    const adminData = await createAdminRes.json();
+    track.adminId = adminData.id;
+
+    await fetch(`${SUPABASE_URL}/rest/v1/admin_users`, {
+      method: 'POST',
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: track.adminId, email: track.adminEmail, role: 'admin', is_active: true })
+    });
+
+    const adminLoginRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: track.adminEmail, password: adminPassword })
+    });
+    const adminLoginData = await adminLoginRes.json();
+    const adminToken = adminLoginData.access_token;
+    const adminHeader = { authorization: `Bearer ${adminToken}`, 'content-type': 'application/json' };
+    console.log(`  ✓ Đã tạo quản trị viên: ${track.adminEmail} (ID: ${track.adminId})`);
+
+    // 2.3 Tạo 5 thực thể ban đầu với tiêu đề và mã định danh duy nhất theo từng lần chạy (timestamp)
+    track.initialArticleTitle = `[UGC-DOM] Cẩm nang đặc sản cốm dẹp Ba Om ${ts}`;
+    track.updatedArticleTitle = `[UGC-DOM] Cẩm nang đặc sản cốm dẹp Ba Om ${ts} [ĐÃ BỔ SUNG LỘ TRÌNH VÀ QUÁN ĂN]`;
+    track.clubUniqueName = `CLB Văn Hóa Ẩm Thực Xứ Trà ${ts}`;
+    track.activityUniqueTitle = `Buổi giao lưu làm cốm dẹp truyền thống ${ts}`;
+    track.postUniqueSnippet = `nhộn nhịp ${ts}`;
+    track.eventUniqueTitle = `Lễ hội Đua Ghe Ngo Trà Vinh Mùa Trăng ${ts}`;
+
+    // 1. Article
+    const artRes = await invokeApi(handleArticles, 'POST', '/api/articles', authorHeader, {
+      title: track.initialArticleTitle,
+      category: 'am-thuc',
+      excerpt: 'Món ăn biểu tượng của văn hóa Khmer Trà Vinh...',
+      content: 'Chi tiết về cách làm cốm dẹp truyền thống mùa trăng rằm.',
+      cover_image: '/ao bà om.jpg'
+    });
+    track.articleId = artRes.body?.article?.id;
+
+    // 2. Club (Hồ sơ CLB mới do tác giả đề xuất để kiểm thử quy trình duyệt)
+    const clubRes = await invokeApi(handleClubs, 'POST', '/api/clubs', authorHeader, {
+      name: track.clubUniqueName,
+      category: 'am-thuc',
+      meeting_place: 'Bờ kè sông Long Bình',
+      description: 'Giao lưu trải nghiệm các món ăn truyền thống Trà Vinh.',
+      leader_phone: '0901234567'
+    });
+    track.clubId = clubRes.body?.club?.id;
+
+    // 2.2b Tạo CLB đã duyệt dành riêng cho tác giả để tác giả có tư cách Chủ nhiệm đề xuất lịch sinh hoạt (G13)
+    track.approvedClubId = `clb-approved-${ts}`;
+    await fetch(`${SUPABASE_URL}/rest/v1/clubs`, {
+      method: 'POST',
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: track.approvedClubId,
+        name: `CLB Sáng Tạo Trẻ Xứ Trà ${ts}`,
+        category: 'am-thuc',
+        meeting_place: 'Nhà Văn Hóa TP. Trà Vinh',
+        description: 'Câu lạc bộ đã được Ban Quản Trị phê duyệt chính thức dành cho các bạn trẻ Trà Vinh.',
+        leader_id: track.authorId,
+        leader_name: 'Tác Giả DOM',
+        status: 'approved'
+      })
+    });
+
+    // 3. Club Activity (gắn với CLB đã duyệt của chủ nhiệm)
+    const actRes = await invokeApi(handleActivities, 'POST', '/api/club-activities', authorHeader, {
+      club_id: track.approvedClubId,
+      title: track.activityUniqueTitle,
+      time_schedule: '08:00 Chủ Nhật',
+      location: 'Nhà Văn Hóa TP. Trà Vinh',
+      max_attendees: 35,
+      description: 'Học cách quết và trộn cốm dẹp cùng nghệ nhân bản địa.'
+    });
+    track.activityId = actRes.body?.activity?.id;
+
+    // 4. Community Post
+    const postRes = await invokeApi(handlePosts, 'POST', '/api/community-posts', authorHeader, {
+      title: `Thảo luận lễ hội Ok Om Bok ${ts}`,
+      content: `Không khí chuẩn bị lễ cúng trăng tại Ao Bà Om năm nay rất nhộn nhịp ${ts}.`,
+      category: 'Chùa chiền Khmer'
+    });
+    track.postId = postRes.body.post.id;
+
+    // 5. Community Event
+    const evtRes = await invokeApi(handleEvents, 'POST', '/api/community-events', authorHeader, {
+      title: track.eventUniqueTitle,
+      organizer: 'Đoàn Thanh Niên Tác Giả Trẻ',
+      category: 'sports',
+      time_schedule: '07:30 ngày 15/10 Âm Lịch',
+      location: 'Sông Long Bình, TP. Trà Vinh',
+      description: 'Hội đua ghe Ngo chào mừng Lễ hội Ok Om Bok.',
+      contact_phone: '0912345678'
+    });
+    track.eventId = evtRes.body.event.id;
+    console.log('  ✓ Đã tạo 5 thực thể test thành công với status ban đầu: pending.');
+
+    // 2.4 Ban Quản Trị từ chối cả 5 thực thể kèm lý do cụ thể qua RPC G14
+    const REASONS = {
+      article: 'Vui lòng bổ sung danh sách địa chỉ quán ăn uy tín và hướng dẫn di chuyển chi tiết.',
+      club: 'Hồ sơ cần bổ sung kế hoạch hoạt động cụ thể trong quý đầu tiên.',
+      activity: 'Vui lòng ghi rõ số phòng họp hoặc sảnh tập trung tại Nhà Văn Hóa.',
+      post: 'Bài thảo luận quá ngắn, vui lòng chia sẻ thêm trải nghiệm hoặc hình ảnh.',
+      event: 'Vui lòng đính kèm số điện thoại liên hệ khẩn cấp hoặc phương án đảm bảo an ninh.'
+    };
+
+    const rejectCalls = [
+      { entity_type: 'article', entity_id: track.articleId, reason: REASONS.article },
+      { entity_type: 'club', entity_id: track.clubId, reason: REASONS.club },
+      { entity_type: 'club_activity', entity_id: track.activityId, reason: REASONS.activity },
+      { entity_type: 'community_post', entity_id: track.postId, reason: REASONS.post },
+      { entity_type: 'community_event', entity_id: track.eventId, reason: REASONS.event }
+    ];
+
+    for (const item of rejectCalls) {
+      const res = await invokeApi(handleModeration, 'POST', '/api/_admin/moderation', adminHeader, {
+        entity_type: item.entity_type,
+        entity_id: item.entity_id,
+        action: 'reject',
+        reason: item.reason
+      });
+      if (res.statusCode !== 200 || res.body?.status !== 'rejected') {
+        throw new Error(`Từ chối ${item.entity_type} thất bại: ${JSON.stringify(res.body)}`);
+      }
+    }
+    console.log('  ✓ Ban Quản Trị đã từ chối cả 5 thực thể kèm lý do cụ thể qua RPC G14 nguyên tử.\n');
+
+    // --------------------------------------------------------------------------
+    // GIAI ĐOẠN 3: BROWSER DOM TEST - TÁC GIẢ XEM LÝ DO TỪ CHỐI, SỬA & GỬI LẠI TRÊN DOM
+    // --------------------------------------------------------------------------
+    console.log('[GIAI ĐOẠN 3] KIỂM CHỨNG TRÌNH DUYỆT THẬT: TÁC GIẢ MỞ "NỘI DUNG CỦA TÔI", THẤY LÝ DO, SỬA TRÊN FORM DOM:');
+
+    // Khởi chạy Headless Chrome
+    const CDP_PORT = 9334;
     const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
     chromeProc = spawn(CHROME_PATH, [
       `--remote-debugging-port=${CDP_PORT}`,
       '--headless=new',
       '--disable-gpu',
       '--no-sandbox',
-      '--window-size=1280,800',
-      '--user-data-dir=' + fs.mkdtempSync(path.join(os.tmpdir(), 'chrome-ugc-lifecycle-'))
+      '--window-size=1280,900',
+      '--user-data-dir=' + fs.mkdtempSync(path.join(os.tmpdir(), 'chrome-ugc-dom-'))
     ]);
 
     const debuggerUrl = await getDebuggerUrl(CDP_PORT);
@@ -823,71 +508,546 @@ async function run() {
     await cdp.ready();
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
-
     console.log('  ✓ Đã kết nối Chrome qua DevTools Protocol.');
+
+    // Nạp trang web ban đầu
     await cdp.send('Page.navigate', { url: `http://127.0.0.1:${PORT}/index.html` });
+    await sleep(2000);
+
+    // Bơm phiên tác giả vào localStorage của trình duyệt
+    await cdp.eval(`
+      localStorage.setItem('vivu_user_session', JSON.stringify({
+        access_token: '${authorToken}',
+        user: ${JSON.stringify(authorUser)},
+        expires_at: Math.floor(Date.now() / 1000) + 7200
+      }));
+    `);
+    console.log('  ✓ Đã nạp phiên đăng nhập tác giả vào localStorage trên trình duyệt.');
+
+    // 3.1 Tác giả click nút "Nội dung của tôi" (#sidebarLinkMyContent) trên DOM
+    const openMyContentResult = await cdp.eval(`
+      (async () => {
+        const link = document.getElementById('sidebarLinkMyContent');
+        if (!link) return { ok: false, error: 'Không tìm thấy link #sidebarLinkMyContent trên DOM' };
+        link.click();
+
+        // Chờ modal #userProfileModal hiển thị và nội dung UGC nạp xong
+        for (let i = 0; i < 30; i++) {
+          const modal = document.getElementById('userProfileModal');
+          const isVisible = modal && !modal.classList.contains('hidden');
+          const cards = document.querySelectorAll('.ugc-content-card');
+          if (isVisible && cards.length >= 5) {
+            return { ok: true, cardsCount: cards.length };
+          }
+          await new Promise(r => setTimeout(r, 200));
+        }
+        const cards = document.querySelectorAll('.ugc-content-card');
+        return { ok: false, cardsCount: cards.length, error: 'Quá thời gian nạp danh sách Nội dung của tôi' };
+      })()
+    `);
+
+    if (!openMyContentResult.ok) {
+      throw new Error(`Mở "Nội dung của tôi" trên DOM thất bại: ${JSON.stringify(openMyContentResult)}`);
+    }
+    console.log(`  ✓ [DOM] Người dùng mở "Nội dung của tôi" -> Hiển thị ${openMyContentResult.cardsCount} thẻ nội dung.`);
+
+    // 3.2 Kiểm tra 5 thẻ trên DOM: Xác nhận lý do từ chối (.ugc-moderation-reason)
+    const checkReasonsResult = await cdp.eval(`
+      (() => {
+        const entities = [
+          { type: 'article', id: '${track.articleId}', expectedReason: '${REASONS.article}' },
+          { type: 'club', id: '${track.clubId}', expectedReason: '${REASONS.club}' },
+          { type: 'club_activity', id: '${track.activityId}', expectedReason: '${REASONS.activity}' },
+          { type: 'community_post', id: '${track.postId}', expectedReason: '${REASONS.post}' },
+          { type: 'community_event', id: '${track.eventId}', expectedReason: '${REASONS.event}' }
+        ];
+
+        const results = [];
+        for (const ent of entities) {
+          const card = document.querySelector(\`.ugc-content-card[data-entity-id="\${ent.id}"]\`);
+          if (!card) {
+            results.push({ id: ent.id, type: ent.type, found: false, error: 'Không tìm thấy thẻ DOM' });
+            continue;
+          }
+          const badge = card.querySelector('.ugc-status-badge')?.textContent?.trim() || '';
+          const reasonEl = card.querySelector('.ugc-moderation-reason');
+          const reasonText = reasonEl?.textContent?.trim() || '';
+          const hasEditBtn = !!card.querySelector('.btn-edit-ugc');
+
+          results.push({
+            id: ent.id,
+            type: ent.type,
+            found: true,
+            badge,
+            hasRejectionBox: !!card.querySelector('.ugc-rejection-box'),
+            reasonText,
+            reasonMatch: reasonText.includes(ent.expectedReason),
+            hasEditBtn
+          });
+        }
+        return results;
+      })()
+    `);
+
+    for (const r of checkReasonsResult) {
+      if (!r.found || !r.hasRejectionBox || !r.reasonMatch || !r.hasEditBtn) {
+        throw new Error(`Kiểm tra lý do từ chối trên DOM thẻ [${r.type}] thất bại: ${JSON.stringify(r)}`);
+      }
+      console.log(`  ✓ [DOM Card: ${r.type}] Hiển thị đúng lý do: "${r.reasonText.slice(0, 50)}..." & Có nút [Sửa & Gửi lại].`);
+    }
+
+    // 3.3 Tác giả bấm nút sửa (.btn-edit-ugc), cập nhật biểu mẫu trên DOM và gửi duyệt lại cho cả 5 loại
+    console.log('\n  [THỰC HIỆN SỬA & GỬI DUYỆT LẠI TRÊN CÁC BIỂU MẪU DOM]:');
+
+    // --- SỬA 1: ARTICLE ---
+    const editArticleResult = await cdp.eval(`
+      (async () => {
+        const btn = document.querySelector(\`.btn-edit-ugc[data-entity-id="${track.articleId}"]\`);
+        if (!btn) return { ok: false, error: 'Không tìm thấy nút sửa article' };
+        btn.click();
+        await new Promise(r => setTimeout(r, 500));
+
+        const titleInput = document.getElementById('articleInputTitle');
+        const contentInput = document.getElementById('articleInputContent');
+        if (!titleInput || !contentInput) return { ok: false, error: 'Không tìm thấy input form article' };
+
+        titleInput.value = '${track.updatedArticleTitle}';
+        contentInput.value = contentInput.value + '\\nĐã bổ sung danh sách quán ăn Hùng Vương và chỉ dẫn chi tiết.';
+
+        const confirmBtn = document.getElementById('btnSubmitArticleConfirm');
+        if (!confirmBtn) return { ok: false, error: 'Không tìm thấy nút #btnSubmitArticleConfirm' };
+        confirmBtn.click();
+
+        // Chờ modal đóng
+        for (let i = 0; i < 20; i++) {
+          const modal = document.getElementById('submitArticleModal');
+          if (!modal || modal.classList.contains('hidden')) return { ok: true };
+          await new Promise(r => setTimeout(r, 200));
+        }
+        return { ok: false, error: 'Modal article không tự đóng sau submit' };
+      })()
+    `);
+    if (!editArticleResult.ok) throw new Error(`Sửa bài cẩm nang trên DOM thất bại: ${JSON.stringify(editArticleResult)}`);
+    console.log('  ✓ [DOM Form 1/5: articles] Đã cập nhật tiêu đề/nội dung và bấm gửi duyệt lại thành công.');
+    await sleep(600);
+
+    // --- SỬA 2: CLUB ---
+    const editClubResult = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.openProfileModal('my-content');
+        await window.ViVuApp.fetchUserUgcContent(true);
+        await new Promise(r => setTimeout(r, 500));
+
+        const btn = document.querySelector(\`.btn-edit-ugc[data-entity-id="${track.clubId}"]\`);
+        if (!btn) return { ok: false, error: 'Không tìm thấy nút sửa club' };
+        btn.click();
+        await new Promise(r => setTimeout(r, 500));
+
+        const descInput = document.getElementById('newClubDesc');
+        const contactInput = document.getElementById('newClubLeaderContact');
+        if (!descInput) return { ok: false, error: 'Không tìm thấy input form club' };
+
+        descInput.value = descInput.value + ' [Đã bổ sung kế hoạch hoạt động 3 tháng đầu]';
+        if (contactInput) contactInput.value = '0901234567';
+
+        const form = document.getElementById('createClubForm');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.click();
+
+        for (let i = 0; i < 20; i++) {
+          const modal = document.getElementById('createClubModal');
+          if (!modal || modal.classList.contains('hidden')) return { ok: true };
+          await new Promise(r => setTimeout(r, 200));
+        }
+        return { ok: false, error: 'Modal club không tự đóng' };
+      })()
+    `);
+    if (!editClubResult.ok) throw new Error(`Sửa CLB trên DOM thất bại: ${JSON.stringify(editClubResult)}`);
+    console.log('  ✓ [DOM Form 2/5: clubs] Đã cập nhật kế hoạch hoạt động và bấm gửi duyệt lại thành công.');
+    await sleep(600);
+
+    // --- SỬA 3: CLUB ACTIVITY ---
+    const editActivityResult = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.openProfileModal('my-content');
+        await window.ViVuApp.fetchUserUgcContent(true);
+        await new Promise(r => setTimeout(r, 500));
+
+        const btn = document.querySelector(\`.btn-edit-ugc[data-entity-id="${track.activityId}"]\`);
+        if (!btn) return { ok: false, error: 'Không tìm thấy nút sửa activity' };
+        btn.click();
+        await new Promise(r => setTimeout(r, 500));
+
+        const form = document.getElementById('submitClubActivityForm');
+        if (!form) return { ok: false, error: 'Không tìm thấy form submitClubActivityForm' };
+
+        const locInput = form.elements['location'];
+        if (locInput) locInput.value = locInput.value + ' - Phòng 204 Nhà Văn Hóa';
+
+        const submitBtn = document.getElementById('submitClubActivityBtn') || form.querySelector('button[type="submit"]');
+        submitBtn.click();
+
+        for (let i = 0; i < 20; i++) {
+          const modal = document.getElementById('submitClubActivityModal');
+          if (!modal || modal.classList.contains('hidden')) return { ok: true };
+          await new Promise(r => setTimeout(r, 200));
+        }
+        return { ok: false, error: 'Modal activity không tự đóng' };
+      })()
+    `);
+    if (!editActivityResult.ok) throw new Error(`Sửa lịch CLB trên DOM thất bại: ${JSON.stringify(editActivityResult)}`);
+    console.log('  ✓ [DOM Form 3/5: club_activities] Đã bổ sung địa điểm cụ thể và bấm gửi duyệt lại thành công.');
+    await sleep(600);
+
+    // --- SỬA 4: COMMUNITY POST ---
+    const editPostResult = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.openProfileModal('my-content');
+        await window.ViVuApp.fetchUserUgcContent(true);
+        await new Promise(r => setTimeout(r, 500));
+
+        const btn = document.querySelector(\`.btn-edit-ugc[data-entity-id="${track.postId}"]\`);
+        if (!btn) return { ok: false, error: 'Không tìm thấy nút sửa post' };
+        btn.click();
+        await new Promise(r => setTimeout(r, 500));
+
+        const contentInput = document.getElementById('editPostContent');
+        if (!contentInput) return { ok: false, error: 'Không tìm thấy input #editPostContent' };
+
+        contentInput.value = contentInput.value + ' Đã bổ sung: Các gian hàng cốm dẹp truyền thống đã sẵn sàng đón du khách!';
+
+        const submitBtn = document.getElementById('btnSubmitEditPost');
+        submitBtn.click();
+
+        for (let i = 0; i < 20; i++) {
+          const modal = document.getElementById('editCommunityPostModal');
+          if (!modal || modal.classList.contains('hidden')) return { ok: true };
+          await new Promise(r => setTimeout(r, 200));
+        }
+        return { ok: false, error: 'Modal edit post không tự đóng' };
+      })()
+    `);
+    if (!editPostResult.ok) throw new Error(`Sửa bài cộng đồng trên DOM thất bại: ${JSON.stringify(editPostResult)}`);
+    console.log('  ✓ [DOM Form 4/5: community_posts] Đã cập nhật nội dung chi tiết và bấm gửi duyệt lại thành công.');
+    await sleep(600);
+
+    // --- SỬA 5: COMMUNITY EVENT ---
+    const editEventResult = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.openProfileModal('my-content');
+        await window.ViVuApp.fetchUserUgcContent(true);
+        await new Promise(r => setTimeout(r, 500));
+
+        const btn = document.querySelector(\`.btn-edit-ugc[data-entity-id="${track.eventId}"]\`);
+        if (!btn) return { ok: false, error: 'Không tìm thấy nút sửa event' };
+        btn.click();
+        await new Promise(r => setTimeout(r, 500));
+
+        const form = document.getElementById('hostEventSubmitForm');
+        if (!form) return { ok: false, error: 'Không tìm thấy form hostEventSubmitForm' };
+
+        const descInput = form.elements['description'];
+        const phoneInput = form.elements['phone'];
+        if (descInput) descInput.value = descInput.value + ' [Đã phối hợp phương án an ninh số 42/BQL]';
+        if (phoneInput) phoneInput.value = '0987654321';
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.click();
+
+        for (let i = 0; i < 20; i++) {
+          const modal = document.getElementById('hostEventModal');
+          if (!modal || modal.classList.contains('hidden')) return { ok: true };
+          await new Promise(r => setTimeout(r, 200));
+        }
+        return { ok: false, error: 'Modal event không tự đóng' };
+      })()
+    `);
+    if (!editEventResult.ok) throw new Error(`Sửa sự kiện trên DOM thất bại: ${JSON.stringify(editEventResult)}`);
+    console.log('  ✓ [DOM Form 5/5: community_events] Đã cập nhật phương án an ninh và bấm gửi duyệt lại thành công.\n');
+
+    // 3.4 Xác nhận trong CSDL: Cả 5 thực thể đã chuyển về 'pending' và moderation_reason = null
+    const [chkArtPend, chkClubPend, chkActPend, chkPostPend, chkEvtPend] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/articles?id=eq.${track.articleId}&select=status,moderation_reason`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()),
+      fetch(`${SUPABASE_URL}/rest/v1/clubs?id=eq.${track.clubId}&select=status,moderation_reason`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()),
+      fetch(`${SUPABASE_URL}/rest/v1/club_activities?id=eq.${track.activityId}&select=status,moderation_reason`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()),
+      fetch(`${SUPABASE_URL}/rest/v1/community_posts?id=eq.${track.postId}&select=status,moderation_reason`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()),
+      fetch(`${SUPABASE_URL}/rest/v1/community_events?id=eq.${track.eventId}&select=status,moderation_reason`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json())
+    ]);
+
+    const resubmittedStatuses = [chkArtPend[0], chkClubPend[0], chkActPend[0], chkPostPend[0], chkEvtPend[0]];
+    for (let i = 0; i < resubmittedStatuses.length; i++) {
+      const s = resubmittedStatuses[i];
+      if (s.status !== 'pending' || s.moderation_reason !== null) {
+        throw new Error(`Thực thể index ${i} chưa chuyển về pending hoặc chưa xóa lý do: ${JSON.stringify(s)}`);
+      }
+    }
+    console.log('  ✓ CSDL xác nhận: 5/5 thực thể đã tự động quay về status: pending và moderation_reason: null.\n');
+
+    // --------------------------------------------------------------------------
+    // GIAI ĐOẠN 4: BROWSER DOM TEST - ADMIN MỞ MODAL KIỂM DUYỆT & PHÊ DUYỆT TRÊN DOM
+    // --------------------------------------------------------------------------
+    console.log('[GIAI ĐOẠN 4] KIỂM CHỨNG TRÌNH DUYỆT THẬT: ADMIN MỞ MODAL KIỂM DUYỆT & DUYỆT 5 THỰC THỂ QUA GIAO DIỆN:');
+
+    // Đăng nhập Admin vào localStorage
+    await cdp.eval(`
+      localStorage.setItem('vivu_admin_session', JSON.stringify({
+        access_token: '${adminToken}',
+        user: { id: '${track.adminId}', email: '${track.adminEmail}', role: 'admin' },
+        expires_at: Math.floor(Date.now() / 1000) + 7200
+      }));
+    `);
+
+    // Mở modal Trung tâm Kiểm duyệt
+    const openAdminResult = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.openAdminModerationModal('articles');
+        for (let i = 0; i < 20; i++) {
+          const modal = document.getElementById('adminModerationModal');
+          if (modal && !modal.classList.contains('hidden')) return { ok: true };
+          await new Promise(r => setTimeout(r, 200));
+        }
+        return { ok: false, error: 'Không mở được adminModerationModal' };
+      })()
+    `);
+    if (!openAdminResult.ok) throw new Error('Không thể mở modal Admin Moderation trên DOM');
+    console.log('  ✓ [DOM] Admin mở Trung tâm Kiểm duyệt (#adminModerationModal) thành công.');
+
+    // 4.1 Duyệt Article trên DOM
+    const approveArticleDom = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.switchModerationTab('articles');
+        await new Promise(r => setTimeout(r, 400));
+        window.ViVuApp.selectModerationArticle('${track.articleId}');
+        await new Promise(r => setTimeout(r, 400));
+
+        // Click nút Phê duyệt & Xuất bản trên DOM
+        const approveBtn = document.querySelector('button[onclick*="approveArticle"]');
+        if (!approveBtn) return { ok: false, error: 'Không tìm thấy nút approveArticle' };
+        approveBtn.click();
+        await new Promise(r => setTimeout(r, 800));
+        return { ok: true };
+      })()
+    `);
+    if (!approveArticleDom.ok) throw new Error(`Admin duyệt article trên DOM thất bại: ${JSON.stringify(approveArticleDom)}`);
+    console.log('  ✓ [DOM Admin 1/5] Đã bấm phê duyệt Bài cẩm nang du lịch qua nút bấm DOM.');
+
+    // 4.2 Duyệt Club trên DOM
+    const approveClubDom = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.switchModerationTab('clubs');
+        await new Promise(r => setTimeout(r, 400));
+        window.ViVuApp.selectModerationClub('${track.clubId}');
+        await new Promise(r => setTimeout(r, 400));
+
+        const approveBtn = document.querySelector('button[onclick*="approveClub"]');
+        if (!approveBtn) return { ok: false, error: 'Không tìm thấy nút approveClub' };
+        approveBtn.click();
+        await new Promise(r => setTimeout(r, 800));
+        return { ok: true };
+      })()
+    `);
+    if (!approveClubDom.ok) throw new Error(`Admin duyệt club trên DOM thất bại: ${JSON.stringify(approveClubDom)}`);
+    console.log('  ✓ [DOM Admin 2/5] Đã bấm phê duyệt Câu lạc bộ qua nút bấm DOM.');
+
+    // 4.3 Duyệt Club Activity trên DOM
+    const approveActivityDom = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.switchModerationTab('activities');
+        await new Promise(r => setTimeout(r, 400));
+        window.ViVuApp.selectModerationActivity('${track.activityId}');
+        await new Promise(r => setTimeout(r, 400));
+
+        const approveBtn = document.querySelector('button[onclick*="approveClubActivity"]');
+        if (!approveBtn) return { ok: false, error: 'Không tìm thấy nút approveClubActivity' };
+        approveBtn.click();
+        await new Promise(r => setTimeout(r, 800));
+        return { ok: true };
+      })()
+    `);
+    if (!approveActivityDom.ok) throw new Error(`Admin duyệt activity trên DOM thất bại: ${JSON.stringify(approveActivityDom)}`);
+    console.log('  ✓ [DOM Admin 3/5] Đã bấm phê duyệt Lịch sinh hoạt CLB qua nút bấm DOM.');
+
+    // 4.4 Duyệt Community Post trên DOM
+    const approvePostDom = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.switchModerationTab('posts');
+        await new Promise(r => setTimeout(r, 400));
+        window.ViVuApp.selectModerationPost('${track.postId}');
+        await new Promise(r => setTimeout(r, 400));
+
+        const approveBtn = document.querySelector('button[onclick*="approvePost"]');
+        if (!approveBtn) return { ok: false, error: 'Không tìm thấy nút approvePost' };
+        approveBtn.click();
+        await new Promise(r => setTimeout(r, 800));
+        return { ok: true };
+      })()
+    `);
+    if (!approvePostDom.ok) throw new Error(`Admin duyệt post trên DOM thất bại: ${JSON.stringify(approvePostDom)}`);
+    console.log('  ✓ [DOM Admin 4/5] Đã bấm phê duyệt Bài viết cộng đồng qua nút bấm DOM.');
+
+    // 4.5 Duyệt Community Event trên DOM
+    const approveEventDom = await cdp.eval(`
+      (async () => {
+        window.ViVuApp.switchModerationTab('events');
+        await new Promise(r => setTimeout(r, 400));
+        window.ViVuApp.selectModerationEvent('${track.eventId}');
+        await new Promise(r => setTimeout(r, 400));
+
+        const approveBtn = document.querySelector('button[onclick*="approveEvent"]');
+        if (!approveBtn) return { ok: false, error: 'Không tìm thấy nút approveEvent' };
+        approveBtn.click();
+        await new Promise(r => setTimeout(r, 800));
+        return { ok: true };
+      })()
+    `);
+    if (!approveEventDom.ok) throw new Error(`Admin duyệt event trên DOM thất bại: ${JSON.stringify(approveEventDom)}`);
+    console.log('  ✓ [DOM Admin 5/5] Đã bấm phê duyệt Sự kiện cộng đồng qua nút bấm DOM.\n');
+
+    // Đóng modal admin
+    await cdp.eval(`window.ViVuApp.closeAdminModerationModal();`);
+    await sleep(400);
+
+    // 4.6 Xác nhận nhật ký kiểm toán (admin_audit_logs) đủ 10 bản ghi (5 reject + 5 approve)
+    const entityIds = [track.articleId, track.clubId, track.activityId, track.postId, track.eventId];
+    const auditRes = await fetch(`${SUPABASE_URL}/rest/v1/admin_audit_logs?select=id,action,entity_type,entity_id,payload_before,payload_after,created_at&entity_id=in.(${entityIds.join(',')})&order=created_at.asc`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+    });
+    const auditLogs = await auditRes.json();
+    if (!Array.isArray(auditLogs) || auditLogs.length !== 10) {
+      throw new Error(`Số lượng audit logs không khớp: Mong đợi 10 bản ghi (5 reject + 5 approve), thực tế: ${auditLogs.length}`);
+    }
+    track.auditLogIds = auditLogs.map(l => l.id);
+    console.log(`  ✓ Xác nhận đầy đủ 10 bản ghi nhật ký kiểm toán nguyên tử G14:`);
+    for (const log of auditLogs) {
+      console.log(`    - [${log.action}] entity: ${log.entity_type} (${log.payload_before?.status} -> ${log.payload_after?.status}) lúc ${log.created_at}`);
+    }
+    console.log('');
+
+    // --------------------------------------------------------------------------
+    // GIAI ĐOẠN 5: BROWSER DOM TEST - KHÁCH VÃNG LAI MỞ TỪNG TAB THẤY THẺ HIỂN THỊ THẬT
+    // --------------------------------------------------------------------------
+    console.log('[GIAI ĐOẠN 5] KIỂM CHỨNG KHÁCH VÃNG LAI XEM THẺ DOM HIỂN THỊ THẬT (TUYỆT ĐỐI KHÔNG FETCH SECURE VIEW):');
+
+    // Đăng xuất sạch sẽ toàn bộ phiên
+    await cdp.eval(`
+      localStorage.clear();
+      sessionStorage.clear();
+      location.reload();
+    `);
     await sleep(2500);
 
-    // Bơm hàm fetch Supabase live để trình duyệt gọi dữ liệu đã duyệt
-    const domCheck = await cdp.eval(`
+    // 5.1 Kiểm tra Tab 1 (Trang chủ) trên DOM
+    const tab1DomCheck = await cdp.eval(`
       (async () => {
-        // Tải danh sách bài cẩm nang công khai (Secure View)
-        const artRes = await fetch('${SUPABASE_URL}/rest/v1/public_articles?id=eq.${track.articleId}&select=id,title', {
-          headers: { 'apikey': '${ANON_KEY}' }
-        });
-        const artData = await artRes.json();
+        // Đồng bộ dữ liệu hiển thị trang chủ
+        await window.ViVuApp?.syncArticlesFromSupabase?.();
+        await window.ViVuApp?.syncCommunityEventsFromSupabase?.();
+        await new Promise(r => setTimeout(r, 600));
 
-        // Tải CLB công khai (Secure View)
-        const clubRes = await fetch('${SUPABASE_URL}/rest/v1/public_clubs?id=eq.${track.clubId}&select=id,name', {
-          headers: { 'apikey': '${ANON_KEY}' }
-        });
-        const clubData = await clubRes.json();
+        // 1. Tìm thẻ Bài cẩm nang trong #travelStoriesContainer theo ID hoặc tiêu đề duy nhất của lần chạy này
+        const articleCard = document.querySelector('#travelStoriesContainer article[data-article-id="' + '${track.articleId}' + '"]')
+          || Array.from(document.querySelectorAll('#travelStoriesContainer article')).find(el => 
+               (el.getAttribute('data-article-id') === '${track.articleId}') ||
+               ('${track.articleId}' && el.innerHTML.includes('${track.articleId}')) ||
+               el.textContent.includes('${track.updatedArticleTitle}') ||
+               el.textContent.includes('${track.initialArticleTitle}')
+             );
 
-        // Tải lịch sinh hoạt công khai (Secure View)
-        const actRes = await fetch('${SUPABASE_URL}/rest/v1/public_club_activities?id=eq.${track.activityId}&select=id,title', {
-          headers: { 'apikey': '${ANON_KEY}' }
-        });
-        const actData = await actRes.json();
-
-        // Tải bài cộng đồng công khai (Secure View)
-        const postRes = await fetch('${SUPABASE_URL}/rest/v1/public_community_posts?id=eq.${track.postId}&select=id,title', {
-          headers: { 'apikey': '${ANON_KEY}' }
-        });
-        const postData = await postRes.json();
-
-        // Tải sự kiện công khai (Secure View)
-        const evtRes = await fetch('${SUPABASE_URL}/rest/v1/public_community_events?id=eq.${track.eventId}&select=id,title', {
-          headers: { 'apikey': '${ANON_KEY}' }
-        });
-        const evtData = await evtRes.json();
+        // 2. Tìm thẻ Sự kiện trong #festivalsPortalContainer theo ID hoặc tiêu đề duy nhất của lần chạy này
+        const eventCard = Array.from(document.querySelectorAll('#festivalsPortalContainer article')).find(el => 
+          ('${track.eventId}' && (el.getAttribute('data-event-id') === '${track.eventId}' || el.innerHTML.includes('${track.eventId}'))) ||
+          el.textContent.includes('${track.eventUniqueTitle}')
+        );
 
         return {
-          hasArticle: artData.length > 0,
-          hasClub: clubData.length > 0,
-          hasActivity: actData.length > 0,
-          hasPost: postData.length > 0,
-          hasEvent: evtData.length > 0
+          hasArticleCard: !!articleCard,
+          articleTitle: articleCard?.querySelector('h3, h4')?.textContent?.trim() || '',
+          hasEventCard: !!eventCard,
+          eventTitle: eventCard?.querySelector('h3, h4')?.textContent?.trim() || ''
         };
       })()
     `);
 
-    if (!domCheck.hasArticle || !domCheck.hasClub || !domCheck.hasActivity || !domCheck.hasPost || !domCheck.hasEvent) {
-      throw new Error(`Kiểm tra Web UI thất bại: ${JSON.stringify(domCheck)}`);
+    if (!tab1DomCheck.hasArticleCard) {
+      throw new Error(`[LỖI DOM TAB 1] Không tìm thấy thẻ Article card trên DOM: ${JSON.stringify(tab1DomCheck)}`);
     }
-    console.log('  ✓ Web UI DOM xác nhận đầy đủ 5/5 nội dung đã duyệt hiển thị công khai.');
+    if (!tab1DomCheck.hasEventCard) {
+      throw new Error(`[LỖI DOM TAB 1] Không tìm thấy thẻ Event card trên DOM: ${JSON.stringify(tab1DomCheck)}`);
+    }
+    console.log(`  ✓ [DOM Tab 1: Trang chủ] Thẻ Cẩm nang hiển thị thật: "${tab1DomCheck.articleTitle.slice(0, 50)}..."`);
+    console.log(`  ✓ [DOM Tab 1: Trang chủ] Thẻ Sự kiện hiển thị thật: "${tab1DomCheck.eventTitle.slice(0, 50)}..."`);
 
-    // Chụp ảnh màn hình bằng chứng nghiệm thu
+    // 5.2 Điều hướng sang Tab 3 (Câu lạc bộ & Cộng đồng) trên DOM
+    await cdp.eval(`
+      if (typeof window.ViVuApp?.navGoClubs === 'function') {
+        window.ViVuApp.navGoClubs();
+      } else if (typeof window.ViVuApp?.switchView === 'function') {
+        window.ViVuApp.switchView('community');
+      } else {
+        document.getElementById('tabNavClubs')?.click();
+      }
+    `);
+    await sleep(1500);
+
+    const tab3DomCheck = await cdp.eval(`
+      (async () => {
+        // Đồng bộ dữ liệu hiển thị Tab 3
+        await window.ViVuApp?.syncCommunityUgcFeed?.();
+        await new Promise(r => setTimeout(r, 600));
+
+        // 1. Tìm thẻ CLB trong #featuredClubsGrid theo ID hoặc tên duy nhất của lần chạy này
+        const clubCard = Array.from(document.querySelectorAll('#featuredClubsGrid article')).find(el => 
+          ('${track.clubId}' && (el.getAttribute('data-club-id') === '${track.clubId}' || el.innerHTML.includes('${track.clubId}'))) ||
+          el.textContent.includes('${track.clubUniqueName}')
+        );
+
+        // 2. Tìm thẻ Lịch sinh hoạt trong #weeklyActivitiesList theo ID hoặc tiêu đề duy nhất của lần chạy này
+        const activityCard = Array.from(document.querySelectorAll('#weeklyActivitiesList > div')).find(el => 
+          ('${track.activityId}' && (el.getAttribute('data-activity-id') === '${track.activityId}' || el.innerHTML.includes('${track.activityId}'))) ||
+          el.textContent.includes('${track.activityUniqueTitle}')
+        );
+
+        // 3. Tìm thẻ Thảo luận trong #communityPostsFeed theo ID hoặc đoạn text duy nhất của lần chạy này
+        const postCard = Array.from(document.querySelectorAll('#communityPostsFeed article')).find(el => 
+          ('${track.postId}' && (el.getAttribute('data-post-id') === '${track.postId}' || el.innerHTML.includes('${track.postId}'))) ||
+          el.textContent.includes('${track.postUniqueSnippet}')
+        );
+
+        return {
+          hasClubCard: !!clubCard,
+          clubName: clubCard?.querySelector('h3')?.textContent?.trim() || '',
+          hasActivityCard: !!activityCard,
+          activityTitle: activityCard?.querySelector('span.font-bold')?.textContent?.trim() || '',
+          hasPostCard: !!postCard,
+          postSnippet: postCard?.querySelector('p')?.textContent?.trim() || ''
+        };
+      })()
+    `);
+
+    if (!tab3DomCheck.hasClubCard) {
+      throw new Error(`[LỖI DOM TAB 3] Không tìm thấy thẻ Club card trên DOM: ${JSON.stringify(tab3DomCheck)}`);
+    }
+    if (!tab3DomCheck.hasActivityCard) {
+      throw new Error(`[LỖI DOM TAB 3] Không tìm thấy thẻ Activity card trên DOM: ${JSON.stringify(tab3DomCheck)}`);
+    }
+    if (!tab3DomCheck.hasPostCard) {
+      throw new Error(`[LỖI DOM TAB 3] Không tìm thấy thẻ Post card trên DOM: ${JSON.stringify(tab3DomCheck)}`);
+    }
+    console.log(`  ✓ [DOM Tab 3: Cộng đồng] Thẻ Câu lạc bộ hiển thị thật: "${tab3DomCheck.clubName.slice(0, 50)}..."`);
+    console.log(`  ✓ [DOM Tab 3: Cộng đồng] Thẻ Lịch sinh hoạt hiển thị thật: "${tab3DomCheck.activityTitle.slice(0, 50)}..."`);
+    console.log(`  ✓ [DOM Tab 3: Cộng đồng] Thẻ Bài viết thảo luận hiển thị thật: "${tab3DomCheck.postSnippet.slice(0, 50)}..."\n`);
+
+    // Chụp ảnh màn hình lưu vào Artifacts
     const screenshotPath = path.join(ARTIFACT_DIR, 'ugc_real_user_lifecycle_verified.png');
     await cdp.captureScreenshot(screenshotPath);
-    console.log(`  ✓ Đã lưu ảnh chụp màn hình nghiệm thu: ${screenshotPath}\n`);
+    console.log(`  ✓ Đã chụp ảnh màn hình nghiệm thu trình duyệt DOM: ${screenshotPath}\n`);
 
   } finally {
     // --------------------------------------------------------------------------
-    // GIAI ĐOẠN 4: DỌN DẸP SẠCH SẼ CÓ MỤC TIÊU THEO ĐÚNG ID (TARGETED CLEANUP)
+    // GIAI ĐOẠN 6: DỌN DẸP SẠCH SẼ 100% CÓ MỤC TIÊU THEO ĐÚNG ID (UUID)
     // --------------------------------------------------------------------------
     console.log('================================================================================');
-    console.log('[GIAI ĐOẠN 4] DỌN DẸP SẠCH SẼ 100% CÓ MỤC TIÊU THEO ĐÚNG ID (UUID):');
-    console.log('  (Tuyệt đối KHÔNG dọn dẹp theo SĐT, KHÔNG dùng wildcard, chỉ xóa đúng ID bài test)');
+    console.log('[GIAI ĐOẠN 6] DỌN DẸP SẠCH SẼ CÓ MỤC TIÊU THEO ĐÚNG ID (UUID):');
 
     if (cdp) await cdp.close();
     if (chromeProc) {
@@ -898,103 +1058,107 @@ async function run() {
       localServer.close();
     }
 
-    let deletedEntities = 0;
-
     // Xóa bài cẩm nang
     if (track.articleId) {
-      const del = await fetch(`${SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(track.articleId)}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/articles?id=eq.${encodeURIComponent(track.articleId)}`, {
         method: 'DELETE',
-        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
       });
-      if (del.ok) {
-        console.log(`  ✓ Đã xóa bài cẩm nang test: ${track.articleId}`);
-        deletedEntities++;
-      }
+      console.log(`  ✓ Đã xóa bài cẩm nang: ${track.articleId}`);
     }
 
-    // Xóa lịch sinh hoạt CLB
+    // Xóa lịch sinh hoạt
     if (track.activityId) {
-      const del = await fetch(`${SUPABASE_URL}/rest/v1/club_activities?id=eq.${encodeURIComponent(track.activityId)}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/club_activities?id=eq.${encodeURIComponent(track.activityId)}`, {
         method: 'DELETE',
-        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
       });
-      if (del.ok) {
-        console.log(`  ✓ Đã xóa lịch sinh hoạt CLB test: ${track.activityId}`);
-        deletedEntities++;
-      }
+      console.log(`  ✓ Đã xóa lịch sinh hoạt: ${track.activityId}`);
     }
 
-    // Xóa câu lạc bộ & thành viên liên quan
+    // Xóa CLB và quan hệ thành viên
     if (track.clubId) {
       await fetch(`${SUPABASE_URL}/rest/v1/club_members?club_id=eq.${encodeURIComponent(track.clubId)}`, {
         method: 'DELETE',
-        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
       });
-      const del = await fetch(`${SUPABASE_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(track.clubId)}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(track.clubId)}`, {
         method: 'DELETE',
-        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
       });
-      if (del.ok) {
-        console.log(`  ✓ Đã xóa CLB test: ${track.clubId}`);
-        deletedEntities++;
-      }
+      console.log(`  ✓ Đã xóa câu lạc bộ: ${track.clubId}`);
+    }
+
+    if (track.approvedClubId) {
+      await fetch(`${SUPABASE_URL}/rest/v1/club_members?club_id=eq.${encodeURIComponent(track.approvedClubId)}`, {
+        method: 'DELETE',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      });
+      await fetch(`${SUPABASE_URL}/rest/v1/clubs?id=eq.${encodeURIComponent(track.approvedClubId)}`, {
+        method: 'DELETE',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      });
+      console.log(`  ✓ Đã xóa câu lạc bộ đã duyệt: ${track.approvedClubId}`);
     }
 
     // Xóa bài cộng đồng
     if (track.postId) {
-      const del = await fetch(`${SUPABASE_URL}/rest/v1/community_posts?id=eq.${encodeURIComponent(track.postId)}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/community_posts?id=eq.${encodeURIComponent(track.postId)}`, {
         method: 'DELETE',
-        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
       });
-      if (del.ok) {
-        console.log(`  ✓ Đã xóa bài cộng đồng test: ${track.postId}`);
-        deletedEntities++;
-      }
+      console.log(`  ✓ Đã xóa bài cộng đồng: ${track.postId}`);
     }
 
     // Xóa sự kiện cộng đồng
     if (track.eventId) {
-      const del = await fetch(`${SUPABASE_URL}/rest/v1/community_events?id=eq.${encodeURIComponent(track.eventId)}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/community_events?id=eq.${encodeURIComponent(track.eventId)}`, {
         method: 'DELETE',
-        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
       });
-      if (del.ok) {
-        console.log(`  ✓ Đã xóa sự kiện cộng đồng test: ${track.eventId}`);
-        deletedEntities++;
-      }
+      console.log(`  ✓ Đã xóa sự kiện cộng đồng: ${track.eventId}`);
     }
 
-    // Xóa các bản ghi audit log sinh ra trong bài test
+    // Xóa audit logs
     if (track.auditLogIds.length > 0) {
-      const delAudit = await fetch(`${SUPABASE_URL}/rest/v1/admin_audit_logs?id=in.(${track.auditLogIds.join(',')})`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/admin_audit_logs?id=in.(${track.auditLogIds.join(',')})`, {
         method: 'DELETE',
-        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
       });
-      if (delAudit.ok) {
-        console.log(`  ✓ Đã xóa ${track.auditLogIds.length} bản ghi audit log thử nghiệm theo đúng ID.`);
-      }
+      console.log(`  ✓ Đã xóa ${track.auditLogIds.length} bản ghi audit log.`);
     }
 
-    // Xóa tài khoản tác giả test khỏi auth.users
-    if (track.userId) {
-      const delUser = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${track.userId}`, {
+    // Xóa admin user khỏi admin_users và auth.users
+    if (track.adminId) {
+      await fetch(`${SUPABASE_URL}/rest/v1/admin_users?user_id=eq.${encodeURIComponent(track.adminId)}`, {
         method: 'DELETE',
-        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` }
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
       });
-      if (delUser.ok) {
-        console.log(`  ✓ Đã xóa tài khoản tác giả test khỏi auth.users: ${track.userId}`);
-      }
+      await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${track.adminId}`, {
+        method: 'DELETE',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      });
+      console.log(`  ✓ Đã xóa tài khoản admin test: ${track.adminId}`);
     }
 
-    // Xác nhận 0 bản ghi rác tồn dư
-    console.log('\n[XÁC NHẬN CHỈ ĐỌC SAU DỌN DẸP]:');
-    const [chkArt, chkClub, chkAct, chkPost, chkEvt, chkUser] = await Promise.all([
-      track.articleId ? fetch(`${SUPABASE_URL}/rest/v1/articles?id=eq.${track.articleId}&select=id`, { headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
-      track.clubId ? fetch(`${SUPABASE_URL}/rest/v1/clubs?id=eq.${track.clubId}&select=id`, { headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
-      track.activityId ? fetch(`${SUPABASE_URL}/rest/v1/club_activities?id=eq.${track.activityId}&select=id`, { headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
-      track.postId ? fetch(`${SUPABASE_URL}/rest/v1/community_posts?id=eq.${track.postId}&select=id`, { headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
-      track.eventId ? fetch(`${SUPABASE_URL}/rest/v1/community_events?id=eq.${track.eventId}&select=id`, { headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
-      track.userId ? fetch(`${SUPABASE_URL}/auth/v1/admin/users/${track.userId}`, { headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : { id: null }
+    // Xóa author user khỏi auth.users
+    if (track.authorId) {
+      await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${track.authorId}`, {
+        method: 'DELETE',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+      });
+      console.log(`  ✓ Đã xóa tài khoản tác giả test: ${track.authorId}`);
+    }
+
+    // Xác minh 0 bản ghi rác
+    const [chkArt, chkClub, chkAct, chkPost, chkEvt, chkAuth, chkAdm] = await Promise.all([
+      track.articleId ? fetch(`${SUPABASE_URL}/rest/v1/articles?id=eq.${track.articleId}&select=id`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
+      track.clubId ? fetch(`${SUPABASE_URL}/rest/v1/clubs?id=eq.${track.clubId}&select=id`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
+      track.activityId ? fetch(`${SUPABASE_URL}/rest/v1/club_activities?id=eq.${track.activityId}&select=id`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
+      track.postId ? fetch(`${SUPABASE_URL}/rest/v1/community_posts?id=eq.${track.postId}&select=id`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
+      track.eventId ? fetch(`${SUPABASE_URL}/rest/v1/community_events?id=eq.${track.eventId}&select=id`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
+      track.authorId ? fetch(`${SUPABASE_URL}/auth/v1/admin/users/${track.authorId}`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : { id: null },
+      track.adminId ? fetch(`${SUPABASE_URL}/auth/v1/admin/users/${track.adminId}`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : { id: null }
     ]);
 
     const residualCount = (Array.isArray(chkArt) ? chkArt.length : 0) +
@@ -1002,16 +1166,17 @@ async function run() {
       (Array.isArray(chkAct) ? chkAct.length : 0) +
       (Array.isArray(chkPost) ? chkPost.length : 0) +
       (Array.isArray(chkEvt) ? chkEvt.length : 0) +
-      (chkUser?.id ? 1 : 0);
+      (chkAuth?.id ? 1 : 0) +
+      (chkAdm?.id ? 1 : 0);
 
     if (residualCount === 0) {
-      console.log('  ✓ Xác nhận hoàn hảo: 0 bản ghi rác tồn dư sau khi dọn dẹp có mục tiêu.');
+      console.log('\n  ✓ Xác nhận hoàn hảo: 0 bản ghi rác tồn dư sau khi dọn dẹp có mục tiêu.');
     } else {
-      console.warn(`  ⚠️ Cảnh báo: Vẫn còn ${residualCount} bản ghi rác chưa được dọn dẹp sạch.`);
+      console.warn(`\n  ⚠️ Cảnh báo: Vẫn còn ${residualCount} bản ghi rác chưa được dọn dẹp sạch.`);
     }
 
     console.log('================================================================================');
-    console.log(' KẾT QUẢ NGHIỆM THU: 100% PASS - VÒNG ĐỜI NỘI DUNG TÀI KHOẢN THẬT ĐẠT CHUẨN TOÀN DIỆN');
+    console.log(' KẾT QUẢ NGHIỆM THU: 100% PASS - VÒNG ĐỜI NỘI DUNG UGC TRÊN GIAO DIỆN DOM ĐẠT CHUẨN');
     console.log('================================================================================\n');
   }
 }

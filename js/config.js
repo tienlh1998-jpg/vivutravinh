@@ -89,8 +89,8 @@ export function initConfig(overrides = {}) {
     // Xác định nguồn dữ liệu theo thứ tự ưu tiên:
     // 1. URL parameter ?source=mock|supabase|fallback
     // 2. overrides.dataSource truyền vào initConfig
-    // 3. window.VIVUTRAVINH_CONFIG.dataSource
-    // 4. localStorage 'vivu_data_source'
+    // 3. window.VIVUTRAVINH_CONFIG.dataSource (Cấu hình production máy chủ - luôn ưu tiên hơn localStorage)
+    // 4. localStorage 'vivu_data_source' (Lựa chọn lưu trữ cục bộ khi không có cấu hình máy chủ)
     // 5. DEFAULT_DATA_SOURCE ('mock')
     const rawSource = (urlParams?.get('source') || overrides.dataSource || runtimeConfig.dataSource || safeGetStorage('vivu_data_source') || DEFAULT_DATA_SOURCE).toLowerCase().trim();
     const dataSource = ['mock', 'supabase', 'fallback'].includes(rawSource) ? rawSource : DEFAULT_DATA_SOURCE;

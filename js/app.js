@@ -622,6 +622,16 @@ export const state = {
     savedViewMode: 'grid',
     profileActiveTab: 'overview',
     profileBadgeCategory: 'all',
+    userUgcContent: {
+        articles: [],
+        clubs: [],
+        activities: [],
+        posts: [],
+        events: [],
+        loading: false,
+        loaded: false,
+        filter: 'all'
+    },
     // Settings, Security Center & 2FA (Phase 8)
     securitySettings: getStoredSecuritySettings(),
     securityActiveTab: 'security',
@@ -1075,10 +1085,10 @@ export function submitEventRsvp(rsvpData) {
 }
 
 /**
- * Mở Modal Đăng Ký Tổ Chức Sự Kiện
+ * Mở Modal Đăng Ký / Chỉnh Sửa Tổ Chức Sự Kiện
  */
-export function openHostEventModal() {
-    renderHostEventModal(submitHostEvent);
+export function openHostEventModal(editingEvent = null) {
+    renderHostEventModal(submitHostEvent, editingEvent);
     const modal = document.getElementById('hostEventModal');
     if (modal) modal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
@@ -1094,7 +1104,7 @@ export function closeHostEventModal() {
 }
 
 /**
- * Submit Đăng Ký Tổ Chức Sự Kiện Mới
+ * Submit Đăng Ký hoặc Cập Nhật Tổ Chức Sự Kiện
  */
 export async function submitHostEvent(hostData) {
     const session = getUserSession();
@@ -1112,8 +1122,12 @@ export async function submitHostEvent(hostData) {
             return;
         }
 
-        const res = await fetch('/api/community-events', {
-            method: 'POST',
+        const isEdit = Boolean(hostData.id);
+        const method = isEdit ? 'PATCH' : 'POST';
+        const url = isEdit ? `/api/community-events?id=${encodeURIComponent(hostData.id)}` : '/api/community-events';
+
+        const res = await fetch(url, {
+            method,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
@@ -1125,13 +1139,15 @@ export async function submitHostEvent(hostData) {
                 time_schedule: hostData.datetime,
                 location: hostData.location,
                 description: hostData.description,
-                contact_phone: hostData.phone || ''
+                contact_phone: hostData.phone || '',
+                submit_for_review: true
             })
         });
 
         if (res.ok) {
             closeHostEventModal();
-            showSavedToast('✓ Đã gửi hồ sơ sự kiện thành công! Ban Quản Trị sẽ phê duyệt trong 24h.');
+            showSavedToast(isEdit ? '✓ Đã cập nhật và gửi duyệt lại sự kiện!' : '✓ Đã gửi hồ sơ sự kiện thành công! Ban Quản Trị sẽ phê duyệt trong 24h.');
+            fetchUserUgcContent(true).catch(() => {});
         } else {
             const errData = await res.json().catch(() => ({}));
             showNotification(errData.message || 'Không thể gửi hồ sơ sự kiện lúc này.');
@@ -1731,6 +1747,10 @@ export async function submitArticle(formData) {
     const isEdit = Boolean(formData.id);
     const method = isEdit ? 'PATCH' : 'POST';
     const url = isEdit ? `/api/articles?id=${encodeURIComponent(formData.id)}` : '/api/articles';
+    const payload = {
+        ...formData,
+        submit_for_review: !isAdmin ? true : Boolean(formData.submit_for_review)
+    };
 
     try {
         const res = await fetch(url, {
@@ -1739,7 +1759,7 @@ export async function submitArticle(formData) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify(formData)
+            body: JSON.stringify(payload)
         });
 
         const data = await res.json().catch(() => ({}));
@@ -1754,8 +1774,9 @@ export async function submitArticle(formData) {
                 showSavedToast('✓ Đã gửi bài cẩm nang thành công! Ban Quản Trị sẽ thẩm định trước khi xuất bản.');
             }
 
-            // Đồng bộ lại danh sách bài cẩm nang công khai
+            // Đồng bộ lại danh sách bài cẩm nang công khai & nội dung tác giả
             await syncArticlesFromSupabase().catch(() => {});
+            fetchUserUgcContent(true).catch(() => {});
 
             // Nếu đang mở moderation modal, làm mới danh sách duyệt
             if (document.getElementById('adminModerationModal') && !document.getElementById('adminModerationModal').classList.contains('hidden')) {
@@ -5282,6 +5303,13 @@ export function initCommunitySection() {
  * Đồng bộ bài viết và CLB đã được phê duyệt từ API Supabase
  */
 export async function syncCommunityUgcFeed() {
+    const isMock = (typeof window !== 'undefined' && (
+        window.location?.search?.includes('source=mock') ||
+        (window.ViVuData?.getDataSource && window.ViVuData.getDataSource() === 'mock') ||
+        (window.ViVuComments?.isMockMode && window.ViVuComments.isMockMode())
+    ));
+    if (isMock) return;
+
     function applyApiPosts(postsList) {
         if (!Array.isArray(postsList) || postsList.length === 0) return;
         const apiPosts = postsList.map(p => ({
@@ -5850,11 +5878,40 @@ export async function submitNewCommunityPost() {
 }
 
 /**
- * Mở modal Tạo CLB mới
+ * Mở modal Tạo hoặc Chỉnh sửa CLB
  */
-export function openCreateClubModal() {
+export function openCreateClubModal(editingClub = null) {
     const modal = document.getElementById('createClubModal');
     if (!modal) return;
+    const form = document.getElementById('createClubForm');
+    const titleEl = document.getElementById('createClubModalTitle');
+    const submitBtn = form?.querySelector('button[type="submit"]');
+
+    if (editingClub && editingClub.id) {
+        if (form) form.dataset.clubId = editingClub.id;
+        if (titleEl) titleEl.textContent = 'Chỉnh sửa & Gửi duyệt lại CLB';
+        if (submitBtn) submitBtn.textContent = 'Cập nhật & Gửi duyệt lại';
+
+        const nameInput = document.getElementById('newClubName');
+        const catSelect = document.getElementById('newClubCategory');
+        const placeInput = document.getElementById('newClubMeetingPlace');
+        const descInput = document.getElementById('newClubDesc');
+        const contactInput = document.getElementById('newClubLeaderContact');
+
+        if (nameInput) nameInput.value = editingClub.name || '';
+        if (catSelect) catSelect.value = editingClub.category || 'di-san';
+        if (placeInput) placeInput.value = editingClub.meeting_place || editingClub.meetingPlace || 'TP. Trà Vinh';
+        if (descInput) descInput.value = editingClub.description || editingClub.desc || '';
+        if (contactInput) contactInput.value = editingClub.leader_phone || editingClub.leaderContact || '0987654321';
+    } else {
+        if (form) {
+            delete form.dataset.clubId;
+            if (typeof form.reset === 'function') form.reset();
+        }
+        if (titleEl) titleEl.textContent = 'Đăng ký thành lập CLB mới';
+        if (submitBtn) submitBtn.textContent = 'Gửi đăng ký CLB';
+    }
+
     modal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
     const nameInput = document.getElementById('newClubName');
@@ -5872,18 +5929,20 @@ export function closeCreateClubModal() {
 }
 
 /**
- * Xử lý gửi biểu mẫu Tạo CLB mới
+ * Xử lý gửi biểu mẫu Tạo hoặc Cập nhật CLB
  */
 export async function submitCreateClub(formEl) {
     const nameInput = document.getElementById('newClubName');
     const catSelect = document.getElementById('newClubCategory');
     const placeInput = document.getElementById('newClubMeetingPlace');
     const descInput = document.getElementById('newClubDesc');
+    const contactInput = document.getElementById('newClubLeaderContact');
 
     const name = nameInput?.value?.trim();
     const category = catSelect?.value || 'di-san';
     const place = placeInput?.value?.trim() || 'TP. Trà Vinh';
     const desc = descInput?.value?.trim();
+    const contact = contactInput?.value?.trim() || '';
 
     if (!name || !desc) {
         showNotification('Vui lòng điền đầy đủ thông tin tên và mô tả CLB!');
@@ -5893,15 +5952,20 @@ export async function submitCreateClub(formEl) {
     // 1. Kiểm tra xác thực Supabase Auth thật
     const session = getUserSession();
     if (!session || !session.access_token) {
-        showNotification('Vui lòng đăng nhập tài khoản để thành lập CLB!');
+        showNotification('Vui lòng đăng nhập tài khoản để thành lập hoặc sửa CLB!');
         openAuthModal('signin', () => submitCreateClub(formEl));
         return;
     }
 
+    const clubId = formEl?.dataset?.clubId;
+    const isEdit = Boolean(clubId);
+    const method = isEdit ? 'PATCH' : 'POST';
+    const url = isEdit ? `/api/clubs?id=${encodeURIComponent(clubId)}` : '/api/clubs';
+
     try {
-        const token = await getValidUserToken();
-        const response = await fetch('/api/clubs', {
-            method: 'POST',
+        const token = await getValidUserToken() || session.access_token;
+        const response = await fetch(url, {
+            method,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
@@ -5911,13 +5975,15 @@ export async function submitCreateClub(formEl) {
                 category,
                 meeting_place: place,
                 description: desc,
-                status: 'pending'
+                leader_phone: contact,
+                status: 'pending',
+                submit_for_review: true
             })
         });
 
         const data = await response.json();
         if (!response.ok) {
-            showNotification(data.error?.message || data.message || 'Không thể gửi hồ sơ thành lập CLB.');
+            showNotification(data.error?.message || data.message || 'Không thể lưu hồ sơ CLB.');
             return;
         }
 
@@ -5925,31 +5991,44 @@ export async function submitCreateClub(formEl) {
         const categoryName = catObj ? catObj.label : 'Cộng đồng';
 
         const createdClub = data.club || {};
-        const newClub = {
-            id: createdClub.id || ('clb-' + Date.now()),
-            name,
-            category,
-            categoryName,
-            badge: categoryName,
-            status: 'pending',
-            membersCount: 1,
-            activitiesCount: 0,
-            image: './ao bà om.jpg',
-            description: desc,
-            lastActivity: 'Hồ sơ đang chờ Ban Quản Trị phê duyệt',
-            scheduleInfo: 'Sinh hoạt định kỳ hàng tuần',
-            meetingPlace: place,
-            icon: catObj?.icon || 'groups',
-            color: 'emerald'
-        };
+        if (isEdit) {
+            const existing = state.clubs.find(c => c.id === clubId);
+            if (existing) {
+                existing.name = name;
+                existing.category = category;
+                existing.categoryName = categoryName;
+                existing.badge = categoryName;
+                existing.meetingPlace = place;
+                existing.description = desc;
+                existing.status = 'pending';
+            }
+        } else {
+            const newClub = {
+                id: createdClub.id || ('clb-' + Date.now()),
+                name,
+                category,
+                categoryName,
+                badge: categoryName,
+                status: 'pending',
+                membersCount: 1,
+                activitiesCount: 0,
+                image: './ao bà om.jpg',
+                description: desc,
+                lastActivity: 'Hồ sơ đang chờ Ban Quản Trị phê duyệt',
+                scheduleInfo: 'Sinh hoạt định kỳ hàng tuần',
+                meetingPlace: place,
+                icon: catObj?.icon || 'groups',
+                color: 'emerald'
+            };
 
-        state.clubs.unshift(newClub);
-        state.joinedClubs.push(newClub.id);
+            state.clubs.unshift(newClub);
+            state.joinedClubs.push(newClub.id);
 
-        try {
-            localStorage.setItem('vivu_joined_clubs', JSON.stringify(state.joinedClubs));
-        } catch (e) {
-            console.warn('Lỗi lưu joined clubs:', e);
+            try {
+                localStorage.setItem('vivu_joined_clubs', JSON.stringify(state.joinedClubs));
+            } catch (e) {
+                console.warn('Lỗi lưu joined clubs:', e);
+            }
         }
 
         closeCreateClubModal();
@@ -5960,7 +6039,8 @@ export async function submitCreateClub(formEl) {
         const clubsBadge = document.getElementById('communityClubsCountBadge');
         if (clubsBadge) clubsBadge.textContent = state.clubs.length;
 
-        showNotification(`Hồ sơ thành lập CLB "${name}" đã gửi thành công và đang chờ Ban Quản Trị phê duyệt!`);
+        showSavedToast(isEdit ? `✓ Đã cập nhật và gửi duyệt lại hồ sơ CLB "${name}"!` : `✓ Hồ sơ thành lập CLB "${name}" đã gửi thành công và đang chờ duyệt!`);
+        fetchUserUgcContent(true).catch(() => {});
     } catch (err) {
         console.error('[Clubs] Lỗi gửi tạo CLB:', err);
         showNotification('Lỗi kết nối máy chủ khi tạo CLB. Vui lòng thử lại sau!');
@@ -5978,23 +6058,30 @@ export function focusClubSearch() {
 }
 
 /**
- * Mở modal tạo lịch sinh hoạt CLB (Chỉ dành cho Chủ nhiệm CLB đã duyệt - G13)
+ * Mở modal tạo hoặc chỉnh sửa lịch sinh hoạt CLB (Chỉ dành cho Chủ nhiệm CLB đã duyệt - G13)
  */
-export async function openSubmitClubActivityModal() {
+export async function openSubmitClubActivityModal(editingActivity = null) {
     const userSession = getUserSession();
     if (!userSession || !userSession.user) {
-        showNoticeToast('Yêu cầu đăng nhập', 'Vui lòng đăng nhập để tạo lịch sinh hoạt cho Câu lạc bộ của bạn.');
-        openAuthModal('signin', () => openSubmitClubActivityModal());
+        showNoticeToast('Yêu cầu đăng nhập', 'Vui lòng đăng nhập để tạo hoặc sửa lịch sinh hoạt cho Câu lạc bộ của bạn.');
+        openAuthModal('signin', () => openSubmitClubActivityModal(editingActivity));
         return;
     }
 
     const currentUserId = userSession.user.id;
-    let userClubs = (state.clubs || []).filter(c => (c.leader_id === currentUserId || c.leaderId === currentUserId) && (c.status === 'approved' || !c.status));
+    const allKnownClubs = [...(state.clubs || []), ...(state.userUgcContent?.clubs || [])];
+    let userClubs = allKnownClubs.filter(c => (c.leader_id === currentUserId || c.leaderId === currentUserId) && (c.status === 'approved' || !c.status));
+    if (editingActivity && editingActivity.club_id) {
+        const actClub = allKnownClubs.find(c => c.id === editingActivity.club_id) || { id: editingActivity.club_id, name: editingActivity.club_name || 'Câu lạc bộ của bạn' };
+        if (!userClubs.some(c => c.id === actClub.id)) {
+            userClubs.push(actClub);
+        }
+    }
 
     if (userClubs.length === 0 && SUPABASE_URL && SUPABASE_ANON_KEY) {
         try {
             const token = userSession.access_token;
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/clubs?leader_id=eq.${encodeURIComponent(currentUserId)}&status=eq.approved&select=id,name,status,leader_id`, {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/clubs?leader_id=eq.${encodeURIComponent(currentUserId)}&select=id,name,status,leader_id`, {
                 headers: {
                     apikey: SUPABASE_ANON_KEY,
                     Authorization: `Bearer ${token}`
@@ -6009,7 +6096,7 @@ export async function openSubmitClubActivityModal() {
         } catch (_) {}
     }
 
-    renderSubmitClubActivityModal(submitClubActivity, userClubs);
+    renderSubmitClubActivityModal(submitClubActivity, userClubs, editingActivity);
     const modal = document.getElementById('submitClubActivityModal');
     if (modal) {
         modal.classList.remove('hidden');
@@ -6036,6 +6123,8 @@ export async function submitClubActivity(event) {
     const form = document.getElementById('submitClubActivityForm');
     if (!form) return;
 
+    const activityId = form.elements['activity_id']?.value;
+    const isEdit = Boolean(activityId);
     const clubId = form.elements['club_id']?.value;
     const title = form.elements['title']?.value?.trim();
     const timeSchedule = form.elements['time_schedule']?.value?.trim();
@@ -6069,9 +6158,12 @@ export async function submitClubActivity(event) {
     }
 
     try {
-        const token = userSession.access_token;
-        const res = await fetch('/api/club-activities', {
-            method: 'POST',
+        const token = await getValidUserToken() || userSession.access_token;
+        const method = isEdit ? 'PATCH' : 'POST';
+        const url = isEdit ? `/api/club-activities?id=${encodeURIComponent(activityId)}` : '/api/club-activities';
+
+        const res = await fetch(url, {
+            method,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
@@ -6084,26 +6176,28 @@ export async function submitClubActivity(event) {
                 max_attendees: maxAttendees,
                 is_free: isFree,
                 icon,
-                description
+                description,
+                submit_for_review: true
             })
         });
 
         const data = await res.json();
         if (!res.ok) {
-            throw new Error(data.message || 'Lỗi khi gửi lịch sinh hoạt CLB.');
+            throw new Error(data.message || 'Lỗi khi lưu lịch sinh hoạt CLB.');
         }
 
         closeSubmitClubActivityModal();
-        showSavedToast('✓ Đã gửi lịch sinh hoạt thành công! Ban Quản Trị sẽ duyệt trong 24h.');
+        showSavedToast(isEdit ? '✓ Đã cập nhật và gửi duyệt lại lịch sinh hoạt CLB!' : '✓ Đã gửi lịch sinh hoạt thành công! Ban Quản Trị sẽ duyệt trong 24h.');
 
         await syncClubActivitiesFromSupabase().catch(() => {});
+        fetchUserUgcContent(true).catch(() => {});
     } catch (err) {
         console.error('[SubmitClubActivity] Error:', err);
         showNoticeToast('Không thể gửi lịch', err.message || 'Đã có lỗi xảy ra.');
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">calendar_add_on</span> <span>Gửi Duyệt Lịch Sinh Hoạt</span>';
+            submitBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">calendar_add_on</span> <span>${isEdit ? 'Cập Nhật Lịch Sinh Hoạt' : 'Gửi Duyệt Lịch Sinh Hoạt'}</span>`;
         }
     }
 }
@@ -6197,6 +6291,10 @@ export function openProfileModal(tab = 'overview') {
     content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+
+    if (tab === 'my-content') {
+        fetchUserUgcContent();
+    }
 }
 
 export function closeProfileModal() {
@@ -6213,6 +6311,9 @@ export function switchProfileTab(tab) {
     if (content) {
         content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
     }
+    if (tab === 'my-content') {
+        fetchUserUgcContent();
+    }
 }
 
 export function filterProfileBadges(cat) {
@@ -6220,6 +6321,275 @@ export function filterProfileBadges(cat) {
     const content = document.getElementById('userProfileModalContent');
     if (content) {
         content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
+export function getUserUgcState() {
+    return state.userUgcContent;
+}
+
+export function filterUserUgcContent(filter = 'all') {
+    state.userUgcContent.filter = filter;
+    const content = document.getElementById('userProfileModalContent');
+    if (content && state.profileActiveTab === 'my-content') {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
+export function openMyContentModal(filter = 'all') {
+    state.userUgcContent.filter = filter;
+    openProfileModal('my-content');
+    fetchUserUgcContent(true);
+}
+
+export async function fetchUserUgcContent(force = false) {
+    const session = getUserSession();
+    if (!session || !session.user || !session.access_token) {
+        state.userUgcContent.loading = false;
+        state.userUgcContent.loaded = false;
+        return;
+    }
+
+    if (state.userUgcContent.loaded && !force && !state.userUgcContent.loading) {
+        return;
+    }
+
+    state.userUgcContent.loading = true;
+    const content = document.getElementById('userProfileModalContent');
+    if (content && state.profileActiveTab === 'my-content') {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+
+    const userId = session.user.id;
+    const token = await getValidUserToken() || session.access_token;
+    const headers = { 'Authorization': `Bearer ${token}` };
+
+    try {
+        const [artRes, clubRes, actRes, postRes, evtRes] = await Promise.allSettled([
+            fetch(`/api/articles?author_id=${encodeURIComponent(userId)}&status=all`, { headers }),
+            fetch(`/api/clubs?leader_id=${encodeURIComponent(userId)}&status=all`, { headers }),
+            fetch(`/api/club-activities?creator_id=${encodeURIComponent(userId)}&status=all`, { headers }),
+            fetch(`/api/community-posts?author_id=${encodeURIComponent(userId)}&status=all`, { headers }),
+            fetch(`/api/community-events?creator_id=${encodeURIComponent(userId)}&status=all`, { headers })
+        ]);
+
+        let articles = [];
+        let clubs = [];
+        let activities = [];
+        let posts = [];
+        let events = [];
+
+        if (artRes.status === 'fulfilled' && artRes.value.ok) {
+            const data = await artRes.value.json().catch(() => ({}));
+            if (Array.isArray(data.articles)) articles = data.articles;
+        }
+        if (clubRes.status === 'fulfilled' && clubRes.value.ok) {
+            const data = await clubRes.value.json().catch(() => ({}));
+            if (Array.isArray(data.clubs)) clubs = data.clubs;
+        }
+        if (actRes.status === 'fulfilled' && actRes.value.ok) {
+            const data = await actRes.value.json().catch(() => ({}));
+            if (Array.isArray(data.activities)) activities = data.activities;
+        }
+        if (postRes.status === 'fulfilled' && postRes.value.ok) {
+            const data = await postRes.value.json().catch(() => ({}));
+            if (Array.isArray(data.posts)) posts = data.posts;
+        }
+        if (evtRes.status === 'fulfilled' && evtRes.value.ok) {
+            const data = await evtRes.value.json().catch(() => ({}));
+            if (Array.isArray(data.events)) events = data.events;
+        }
+
+        state.userUgcContent = {
+            articles,
+            clubs,
+            activities,
+            posts,
+            events,
+            loading: false,
+            loaded: true,
+            filter: state.userUgcContent?.filter || 'all'
+        };
+    } catch (err) {
+        console.warn('[UserUGC] Fetch error:', err.message);
+        state.userUgcContent.loading = false;
+    }
+
+    if (content && state.profileActiveTab === 'my-content') {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
+export function openEditUgcItem(entityType, entityId) {
+    if (!entityType || !entityId) return;
+
+    if (entityType === 'article') {
+        const article = (state.userUgcContent.articles || []).find(a => a.id === entityId)
+            || (state.articles || []).find(a => a.id === entityId);
+        if (article) {
+            closeProfileModal();
+            openSubmitArticleModal(article, false);
+        } else {
+            showNoticeToast('Không tìm thấy', 'Không tìm thấy dữ liệu bài cẩm nang cần sửa.');
+        }
+    } else if (entityType === 'club') {
+        const club = (state.userUgcContent.clubs || []).find(c => c.id === entityId)
+            || (state.clubs || []).find(c => c.id === entityId);
+        if (club) {
+            closeProfileModal();
+            openCreateClubModal(club);
+        } else {
+            showNoticeToast('Không tìm thấy', 'Không tìm thấy dữ liệu CLB cần sửa.');
+        }
+    } else if (entityType === 'club_activity' || entityType === 'activity') {
+        const act = (state.userUgcContent.activities || []).find(a => a.id === entityId)
+            || (state.clubActivities || []).find(a => a.id === entityId);
+        if (act) {
+            closeProfileModal();
+            openSubmitClubActivityModal(act);
+        } else {
+            showNoticeToast('Không tìm thấy', 'Không tìm thấy lịch sinh hoạt cần sửa.');
+        }
+    } else if (entityType === 'community_post' || entityType === 'post') {
+        const post = (state.userUgcContent.posts || []).find(p => p.id === entityId)
+            || (state.communityPosts || []).find(p => p.id === entityId);
+        if (post) {
+            closeProfileModal();
+            openEditCommunityPostModal(post);
+        } else {
+            showNoticeToast('Không tìm thấy', 'Không tìm thấy bài viết cần sửa.');
+        }
+    } else if (entityType === 'community_event' || entityType === 'event') {
+        const event = (state.userUgcContent.events || []).find(e => e.id === entityId)
+            || (state.communityEvents || []).find(e => e.id === entityId);
+        if (event) {
+            closeProfileModal();
+            openHostEventModal(event);
+        } else {
+            showNoticeToast('Không tìm thấy', 'Không tìm thấy sự kiện cần sửa.');
+        }
+    }
+}
+
+export function viewPublishedUgcItem(entityType, entityId) {
+    closeProfileModal();
+    if (entityType === 'article') {
+        navGoSection('travelStoriesSection');
+    } else if (entityType === 'club') {
+        navGoClubs();
+        setTimeout(() => {
+            const el = document.getElementById('featuredClubsGrid');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+    } else if (entityType === 'club_activity' || entityType === 'activity') {
+        navGoClubs();
+        setTimeout(() => {
+            const el = document.getElementById('weeklyActivitiesList') || document.getElementById('weeklyActivitiesContainer');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+    } else if (entityType === 'community_post' || entityType === 'post') {
+        navGoClubs();
+        setTimeout(() => {
+            const el = document.getElementById('communityPostsFeed') || document.getElementById('communityFeedContainer');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+    } else if (entityType === 'community_event' || entityType === 'event') {
+        navGoSection('festivalsPortalSection');
+    }
+}
+
+export function openEditCommunityPostModal(post) {
+    if (!post) return;
+    const modal = document.getElementById('editCommunityPostModal');
+    if (!modal) return;
+
+    const idInput = document.getElementById('editPostId');
+    const topicSelect = document.getElementById('editPostTopic');
+    const contentTextarea = document.getElementById('editPostContent');
+
+    if (idInput) idInput.value = post.id;
+    if (topicSelect) topicSelect.value = post.category || 'Tự do';
+    if (contentTextarea) contentTextarea.value = post.content || '';
+
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    if (contentTextarea) setTimeout(() => contentTextarea.focus(), 100);
+}
+
+export function closeEditCommunityPostModal() {
+    const modal = document.getElementById('editCommunityPostModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+export async function submitEditCommunityPost(formEl) {
+    const session = getUserSession();
+    if (!session || !session.user) {
+        showNoticeToast('Yêu cầu đăng nhập', 'Vui lòng đăng nhập lại để cập nhật bài viết.');
+        return;
+    }
+
+    const postId = document.getElementById('editPostId')?.value;
+    const topic = document.getElementById('editPostTopic')?.value || 'Tự do';
+    const content = document.getElementById('editPostContent')?.value?.trim();
+
+    if (!postId) {
+        showNoticeToast('Lỗi', 'Thiếu mã bài viết cần chỉnh sửa.');
+        return;
+    }
+    if (!content || content.length < 5) {
+        showNoticeToast('Nội dung quá ngắn', 'Nội dung bài viết phải từ 5 ký tự trở lên.');
+        return;
+    }
+
+    const submitBtn = document.getElementById('btnSubmitEditPost');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[16px]">progress_activity</span> Đang gửi duyệt lại...';
+    }
+
+    try {
+        const token = await getValidUserToken() || session.access_token;
+        const res = await fetch(`/api/community-posts?id=${encodeURIComponent(postId)}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                content,
+                category: topic,
+                submit_for_review: true
+            })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.message || data.error?.message || 'Không thể cập nhật bài viết.');
+        }
+
+        closeEditCommunityPostModal();
+        showSavedToast('✓ Đã cập nhật và gửi duyệt lại bài viết cộng đồng!');
+
+        const targetPost = (state.userUgcContent.posts || []).find(p => p.id === postId);
+        if (targetPost) {
+            targetPost.content = content;
+            targetPost.category = topic;
+            targetPost.status = 'pending';
+            targetPost.moderation_reason = null;
+        }
+
+        await fetchUserUgcContent(true).catch(() => {});
+    } catch (err) {
+        console.error('[EditCommunityPost] Error:', err);
+        showNoticeToast('Không thể cập nhật bài viết', err.message || 'Đã có lỗi xảy ra.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">send</span> <span>Cập nhật &amp; Gửi duyệt lại</span>';
+        }
     }
 }
 
@@ -8534,6 +8904,16 @@ if (typeof window !== 'undefined') {
         getArticleCategoryName,
         sanitizeArticleContent,
         updateAdminRoleUI,
+        // UGC Content & Rejection Lifecycle Methods (My Content)
+        getUserUgcState,
+        filterUserUgcContent,
+        openMyContentModal,
+        fetchUserUgcContent,
+        openEditUgcItem,
+        viewPublishedUgcItem,
+        openEditCommunityPostModal,
+        closeEditCommunityPostModal,
+        submitEditCommunityPost,
         // Deep Cultural Heritage & Saved Itinerary Folder Methods (Phase 11)
         openDeepPlaceDetail,
         closeDeepPlaceDetail,

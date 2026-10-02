@@ -262,9 +262,13 @@
                 <div class="px-space-md">
                     <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Cá Nhân</span>
                     <div role="navigation" aria-label="Cá Nhân" class="mt-2 flex flex-col gap-1">
-                        <a href="#/saved" id="sidebarLinkSaved" onclick="window.ViVuApp?.navGoSaved?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <a href="#userProfileModal" id="sidebarLinkSaved" onclick="window.ViVuApp?.navGoSaved?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px] text-rose-500">bookmark</span>
                             <span>Bộ sưu tập đã lưu</span>
+                        </a>
+                        <a href="#userProfileModal" id="sidebarLinkMyContent" onclick="window.ViVuApp?.openProfileModal ? window.ViVuApp.openProfileModal('my-content') : (window.ViVuApp?.openMyContentModal ? window.ViVuApp.openMyContentModal() : null); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-blue-500">folder_shared</span>
+                            <span>Nội dung của tôi</span>
                         </a>
                         <a href="#userProfileModal" onclick="window.ViVuApp?.openProfileModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px] text-amber-500">military_tech</span>
@@ -2510,6 +2514,61 @@
                     <!-- Injected saved collections content -->
                     <div id="savedCollectionsModalContent"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 18A. MODAL CHỈNH SỬA BÀI VIẾT CỘNG ĐỒNG (UGC EDIT MODAL) -->
+    <div id="editCommunityPostModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="editCommunityPostModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeEditCommunityPostModal()"></div>
+        <div class="fixed inset-0 z-10 flex items-center justify-center p-4 overflow-y-auto">
+            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-outline-variant/40 dark:border-zinc-800 space-y-4 max-h-[90vh] overflow-y-auto relative my-auto">
+                <div class="flex items-center justify-between pb-3 border-b border-outline-variant/30 dark:border-zinc-800">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px]">edit_note</span>
+                        </div>
+                        <div>
+                            <h3 id="editCommunityPostModalTitle" class="font-bold text-base text-on-surface dark:text-zinc-100">Chỉnh sửa bài viết cộng đồng</h3>
+                            <p class="text-xs text-outline dark:text-zinc-400">Cập nhật nội dung và gửi lại Ban Quản Trị phê duyệt</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="window.ViVuApp.closeEditCommunityPostModal()"
+                        class="p-2 rounded-full hover:bg-surface-container dark:hover:bg-zinc-800 text-outline dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Đóng biểu mẫu sửa bài viết">
+                        <span class="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+
+                <form id="editCommunityPostForm" onsubmit="event.preventDefault(); window.ViVuApp.submitEditCommunityPost(this);" class="space-y-4">
+                    <input type="hidden" id="editPostId" name="post_id" />
+                    <div>
+                        <label class="block text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1" for="editPostTopic">Chủ đề bài viết *</label>
+                        <select id="editPostTopic" required class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm border border-outline-variant/40 dark:border-zinc-700 focus:outline-none min-h-[44px]">
+                            <option value="Tự do">🏷️ Tự do</option>
+                            <option value="Chùa chiền Khmer">🛕 Chùa chiền Khmer</option>
+                            <option value="Ẩm thực xứ Trà">🍜 Ẩm thực xứ Trà</option>
+                            <option value="Dã ngoại sinh thái">🚴 Dã ngoại sinh thái</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1" for="editPostContent">Nội dung bài viết *</label>
+                        <textarea id="editPostContent" required rows="5" placeholder="Nhập nội dung chia sẻ..."
+                            class="w-full p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm border border-outline-variant/40 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-secondary/40 resize-none"></textarea>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 pt-3 border-t border-outline-variant/30 dark:border-zinc-800">
+                        <button type="button" onclick="window.ViVuApp.closeEditCommunityPostModal()"
+                            class="px-4 py-2.5 rounded-xl hover:bg-surface-container dark:hover:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-semibold text-xs min-h-[44px]">
+                            Hủy
+                        </button>
+                        <button type="submit" id="btnSubmitEditPost"
+                            class="px-6 py-2.5 rounded-xl bg-primary-container hover:bg-primary text-white font-bold text-xs min-h-[44px] shadow-sm flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-[16px]">send</span>
+                            <span>Cập nhật &amp; Gửi duyệt lại</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

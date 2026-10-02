@@ -3962,11 +3962,20 @@ export function renderEventRsvpModal(event, onSubmitRsvp) {
 }
 
 /**
- * Render Modal Đăng Ký Tổ Chức Sự Kiện Mới (Host Event Modal)
+ * Render Modal Đăng Ký / Chỉnh Sửa Sự Kiện (Host Event Modal)
  */
-export function renderHostEventModal(onSubmitHost) {
+export function renderHostEventModal(onSubmitHost, editingEvent = null) {
     const container = document.getElementById('hostEventModalContainer');
     if (!container) return;
+
+    const isEdit = Boolean(editingEvent && editingEvent.id);
+    const defaultTitle = editingEvent?.title || '';
+    const defaultOrganizer = editingEvent?.organizer || '';
+    const defaultCategory = editingEvent?.category || 'workshop';
+    const defaultDatetime = editingEvent?.time_schedule || editingEvent?.datetime || '';
+    const defaultLocation = editingEvent?.location || '';
+    const defaultDesc = editingEvent?.description || '';
+    const defaultPhone = editingEvent?.contact_phone || editingEvent?.phone || '';
 
     container.innerHTML = `
         <div class="p-6 sm:p-8 flex flex-col gap-6">
@@ -3975,7 +3984,7 @@ export function renderHostEventModal(onSubmitHost) {
                     Hợp tác cộng đồng
                 </span>
                 <h3 class="font-headline-md text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100">
-                    Đăng Ký Tổ Chức Sự Kiện / Workshop Tại Trà Vinh
+                    ${isEdit ? 'Chỉnh Sửa &amp; Gửi Duyệt Lại Sự Kiện / Workshop' : 'Đăng Ký Tổ Chức Sự Kiện / Workshop Tại Trà Vinh'}
                 </h3>
                 <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
                     ViVuTraVinh hỗ trợ lan tỏa sự kiện văn hóa, thể thao, bảo tồn sinh thái và gặp gỡ cộng đồng miễn phí 100%.
@@ -3983,11 +3992,13 @@ export function renderHostEventModal(onSubmitHost) {
             </div>
 
             <form id="hostEventSubmitForm" class="flex flex-col gap-4">
+                ${isEdit ? `<input type="hidden" name="event_id" value="${escapeHtml(editingEvent.id)}" />` : ''}
                 <div>
                     <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
                         Tên sự kiện / Workshop <span class="text-rose-500">*</span>
                     </label>
                     <input name="eventTitle" type="text" required placeholder="Ví dụ: Đêm Nhạc Dân Ca Nam Bộ Ven Sông"
+                        value="${escapeHtml(defaultTitle)}"
                         class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
                 </div>
 
@@ -3997,6 +4008,7 @@ export function renderHostEventModal(onSubmitHost) {
                             Đơn vị / Nhóm tổ chức <span class="text-rose-500">*</span>
                         </label>
                         <input name="organizer" type="text" required placeholder="Ví dụ: CLB Sống Xanh Xứ Trà"
+                            value="${escapeHtml(defaultOrganizer)}"
                             class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
                     </div>
                     <div>
@@ -4005,10 +4017,10 @@ export function renderHostEventModal(onSubmitHost) {
                         </label>
                         <select name="category"
                             class="w-full h-11 px-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700">
-                            <option value="workshop">Workshop văn hóa</option>
-                            <option value="sports">Thể thao &amp; Trải nghiệm</option>
-                            <option value="community">Giao lưu cộng đồng</option>
-                            <option value="ecology">Bảo vệ môi trường</option>
+                            <option value="workshop" ${defaultCategory === 'workshop' ? 'selected' : ''}>Workshop văn hóa</option>
+                            <option value="sports" ${defaultCategory === 'sports' ? 'selected' : ''}>Thể thao &amp; Trải nghiệm</option>
+                            <option value="community" ${defaultCategory === 'community' ? 'selected' : ''}>Giao lưu cộng đồng</option>
+                            <option value="ecology" ${defaultCategory === 'ecology' ? 'selected' : ''}>Bảo vệ môi trường</option>
                         </select>
                     </div>
                 </div>
@@ -4019,6 +4031,7 @@ export function renderHostEventModal(onSubmitHost) {
                             Thời gian dự kiến <span class="text-rose-500">*</span>
                         </label>
                         <input name="datetime" type="text" required placeholder="Ví dụ: Sáng Chủ Nhật 25/10 (08:00 - 11:30)"
+                            value="${escapeHtml(defaultDatetime)}"
                             class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
                     </div>
                     <div>
@@ -4026,6 +4039,7 @@ export function renderHostEventModal(onSubmitHost) {
                             Địa điểm tổ chức <span class="text-rose-500">*</span>
                         </label>
                         <input name="location" type="text" required placeholder="Ví dụ: Khuôn viên Ao Bà Om"
+                            value="${escapeHtml(defaultLocation)}"
                             class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
                     </div>
                 </div>
@@ -4035,7 +4049,7 @@ export function renderHostEventModal(onSubmitHost) {
                         Mô tả ngắn gọn &amp; thông điệp sự kiện
                     </label>
                     <textarea name="description" rows="3" placeholder="Mục đích, đối tượng tham gia, chi phí nếu có (khuyến khích miễn phí hoặc phi lợi nhuận)..."
-                        class="w-full p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"></textarea>
+                        class="w-full p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700">${escapeHtml(defaultDesc)}</textarea>
                 </div>
 
                 <div>
@@ -4043,6 +4057,7 @@ export function renderHostEventModal(onSubmitHost) {
                         Số điện thoại / Zalo liên hệ <span class="text-xs text-outline dark:text-zinc-400 font-normal">(Bảo mật, chỉ Admin thấy)</span>
                     </label>
                     <input name="phone" type="tel" placeholder="Ví dụ: 0987 654 321"
+                        value="${escapeHtml(defaultPhone)}"
                         class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
                 </div>
 
@@ -4054,7 +4069,7 @@ export function renderHostEventModal(onSubmitHost) {
                     <button type="submit"
                         class="px-6 py-2.5 rounded-xl bg-secondary hover:bg-emerald-700 text-white font-button text-xs font-semibold shadow-xs min-h-[44px] flex items-center gap-1.5">
                         <span class="material-symbols-outlined text-[18px]">send</span>
-                        <span>Gửi Hồ Sơ Sự Kiện</span>
+                        <span>${isEdit ? 'Cập Nhật &amp; Gửi Duyệt Lại' : 'Gửi Hồ Sơ Sự Kiện'}</span>
                     </button>
                 </div>
             </form>
@@ -4067,6 +4082,7 @@ export function renderHostEventModal(onSubmitHost) {
             e.preventDefault();
             const formData = new FormData(form);
             const data = {
+                id: formData.get('event_id') || undefined,
                 title: formData.get('eventTitle'),
                 organizer: formData.get('organizer'),
                 category: formData.get('category'),
@@ -4145,6 +4161,7 @@ export function renderSubmitClubActivityModal(onSubmit, userClubs = [], editingA
             </div>
 
             <form id="submitClubActivityForm" class="flex flex-col gap-4">
+                ${editingActivity ? `<input type="hidden" name="activity_id" value="${escapeHtml(editingActivity.id)}" />` : ''}
                 <div>
                     <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
                         Câu lạc bộ tổ chức <span class="text-rose-500">*</span>
@@ -5661,6 +5678,16 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                     <span class="material-symbols-outlined text-[18px]">route</span>
                     <span>Chuyến đi &amp; Nhật ký GPS</span>
                 </button>
+                <button type="button" role="tab" id="profileTabMyContent" aria-selected="${activeTab === 'my-content' ? 'true' : 'false'}"
+                    onclick="window.ViVuApp.switchProfileTab('my-content')"
+                    class="px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px] shrink-0 ${
+                        activeTab === 'my-content'
+                            ? 'bg-primary-container text-white shadow-sm dark:bg-emerald-800'
+                            : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 hover:bg-surface-container-low dark:hover:bg-zinc-800'
+                    }">
+                    <span class="material-symbols-outlined text-[18px]">folder_shared</span>
+                    <span>Nội dung của tôi</span>
+                </button>
                 <button type="button" role="tab" aria-selected="${activeTab === 'reviews' ? 'true' : 'false'}"
                     onclick="window.ViVuApp.switchProfileTab('reviews')"
                     class="px-4 sm:px-5 py-2.5 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all min-h-[44px] shrink-0 ${
@@ -6029,6 +6056,8 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                     </div>
                 </div>
             </div>
+            ` : activeTab === 'my-content' ? `
+            ${renderMyContentTabContent(typeof window !== 'undefined' && window.ViVuApp?.getUserUgcState ? window.ViVuApp.getUserUgcState() : {}, isAuth)}
             ` : `
             <!-- Reviews & Contributions Tab -->
             <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-6">
@@ -6055,6 +6084,196 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                 </div>
             </div>
             `}
+        </div>
+    `;
+}
+
+/**
+ * Render Tab "Nội dung của tôi" (UGC Management Tab: articles, clubs, activities, posts, events)
+ */
+export function renderMyContentTabContent(ugcData = {}, isAuth = false) {
+    if (!isAuth) {
+        return `
+            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-8 sm:p-12 shadow-sm border border-outline-variant/30 dark:border-zinc-800 text-center flex flex-col items-center gap-4">
+                <div class="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-3xl">lock</span>
+                </div>
+                <div class="space-y-1 max-w-md">
+                    <h3 class="font-bold text-lg text-on-surface dark:text-zinc-100">Yêu cầu đăng nhập tài khoản</h3>
+                    <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                        Vui lòng đăng nhập để xem danh sách nội dung do bạn gửi, theo dõi tiến độ phê duyệt và cập nhật gửi lại khi có yêu cầu chỉnh sửa.
+                    </p>
+                </div>
+                <button type="button" onclick="window.ViVuApp.openAuthModal('signin')"
+                    class="px-6 py-2.5 rounded-xl bg-primary text-white text-xs sm:text-sm font-semibold hover:bg-secondary transition-all shadow-sm min-h-[44px]">
+                    Đăng nhập tài khoản
+                </button>
+            </div>
+        `;
+    }
+
+    if (ugcData.loading) {
+        return `
+            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-12 shadow-sm border border-outline-variant/30 dark:border-zinc-800 text-center flex flex-col items-center gap-3">
+                <span class="material-symbols-outlined text-4xl animate-spin text-secondary">progress_activity</span>
+                <p class="text-xs text-on-surface-variant dark:text-zinc-400">Đang đồng bộ danh sách nội dung của bạn...</p>
+            </div>
+        `;
+    }
+
+    const activeFilter = ugcData.filter || 'all';
+    const articles = (ugcData.articles || []).map(a => ({ ...a, entity_type: 'article', filterType: 'articles' }));
+    const clubs = (ugcData.clubs || []).map(c => ({ ...c, entity_type: 'club', filterType: 'clubs' }));
+    const activities = (ugcData.activities || []).map(act => ({ ...act, entity_type: 'club_activity', filterType: 'activities' }));
+    const posts = (ugcData.posts || []).map(p => ({ ...p, entity_type: 'community_post', filterType: 'posts' }));
+    const events = (ugcData.events || []).map(e => ({ ...e, entity_type: 'community_event', filterType: 'events' }));
+
+    const allItems = [...articles, ...clubs, ...activities, ...posts, ...events].sort((a, b) => {
+        const da = new Date(a.created_at || a.createdAt || 0).getTime();
+        const db = new Date(b.created_at || b.createdAt || 0).getTime();
+        return db - da;
+    });
+
+    const displayedItems = activeFilter === 'all'
+        ? allItems
+        : allItems.filter(i => i.filterType === activeFilter);
+
+    const counts = {
+        all: allItems.length,
+        articles: articles.length,
+        clubs: clubs.length,
+        activities: activities.length,
+        posts: posts.length,
+        events: events.length
+    };
+
+    return `
+        <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-outline-variant/20 dark:border-zinc-800">
+                <div>
+                    <h2 class="text-xl font-bold text-on-surface dark:text-zinc-100">Nội Dung Đã Đóng Góp (${counts.all})</h2>
+                    <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-0.5">
+                        Quản lý trạng thái phê duyệt cả 5 loại: Cẩm nang, CLB, Lịch sinh hoạt, Bài viết &amp; Sự kiện
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.ViVuApp.fetchUserUgcContent(true)"
+                        class="px-3.5 py-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container text-on-surface dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition-all min-h-[40px] border border-outline-variant/30 dark:border-zinc-700">
+                        <span class="material-symbols-outlined text-[16px]">sync</span>
+                        <span>Làm mới</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Categories Ribbon -->
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" role="tablist" aria-label="Lọc loại nội dung">
+                ${[
+                    { key: 'all', label: 'Tất cả', icon: 'apps' },
+                    { key: 'articles', label: 'Cẩm nang', icon: 'auto_stories' },
+                    { key: 'clubs', label: 'Câu lạc bộ', icon: 'groups' },
+                    { key: 'activities', label: 'Lịch sinh hoạt', icon: 'calendar_month' },
+                    { key: 'posts', label: 'Bài viết', icon: 'forum' },
+                    { key: 'events', label: 'Sự kiện', icon: 'event' }
+                ].map(f => `
+                    <button type="button" role="tab" aria-selected="${activeFilter === f.key ? 'true' : 'false'}"
+                        onclick="window.ViVuApp.filterUserUgcContent('${f.key}')"
+                        class="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all min-h-[40px] shrink-0 ${
+                            activeFilter === f.key
+                                ? 'bg-primary-container text-white shadow-sm dark:bg-emerald-800'
+                                : 'bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200'
+                        }">
+                        <span class="material-symbols-outlined text-[16px]">${f.icon}</span>
+                        <span>${f.label} (${counts[f.key] || 0})</span>
+                    </button>
+                `).join('')}
+            </div>
+
+            <!-- Content List -->
+            <div id="myContentItemsList" class="space-y-4">
+                ${displayedItems.length === 0 ? `
+                    <div class="p-10 rounded-2xl bg-surface-container-low dark:bg-zinc-800/50 text-center space-y-3 border border-outline-variant/20 dark:border-zinc-800">
+                        <span class="material-symbols-outlined text-4xl text-outline dark:text-zinc-500">inbox</span>
+                        <p class="text-sm font-semibold text-on-surface dark:text-zinc-200">Chưa có nội dung nào trong danh mục này</p>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 max-w-sm mx-auto">
+                            Hãy đóng góp cẩm nang du lịch, đăng ký thành lập CLB hoặc chia sẻ bài viết mới tới cộng đồng Xứ Trà!
+                        </p>
+                    </div>
+                ` : displayedItems.map(item => {
+                    const statusBadge = item.status === 'approved'
+                        ? `<span class="ugc-status-badge px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-bold text-xs inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">check_circle</span> Đã phê duyệt</span>`
+                        : item.status === 'rejected'
+                        ? `<span class="ugc-status-badge px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 font-bold text-xs inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">cancel</span> Bị từ chối</span>`
+                        : `<span class="ugc-status-badge px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-bold text-xs inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">pending</span> Chờ duyệt</span>`;
+
+                    const entityBadge = item.entity_type === 'article'
+                        ? `<span class="px-2.5 py-0.5 rounded-lg bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-bold text-[11px] inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">auto_stories</span> Cẩm nang</span>`
+                        : item.entity_type === 'club'
+                        ? `<span class="px-2.5 py-0.5 rounded-lg bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 font-bold text-[11px] inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">groups</span> Câu lạc bộ</span>`
+                        : item.entity_type === 'club_activity'
+                        ? `<span class="px-2.5 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold text-[11px] inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">calendar_month</span> Lịch CLB</span>`
+                        : item.entity_type === 'community_post'
+                        ? `<span class="px-2.5 py-0.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-bold text-[11px] inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">forum</span> Bài thảo luận</span>`
+                        : `<span class="px-2.5 py-0.5 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 font-bold text-[11px] inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">event</span> Sự kiện</span>`;
+
+                    const title = item.title || item.name || 'Bài viết cộng đồng';
+                    const desc = item.excerpt || item.content || item.description || '';
+                    const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('vi-VN') : 'Mới đây';
+
+                    return `
+                        <div class="ugc-content-card p-4 sm:p-5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700/60 flex flex-col gap-2.5 transition-all shadow-xs" data-entity-type="${item.entity_type}" data-entity-id="${item.id}">
+                            <div class="flex items-center justify-between gap-3 flex-wrap">
+                                <div class="flex items-center gap-2">
+                                    ${entityBadge}
+                                    ${statusBadge}
+                                </div>
+                                <span class="text-xs text-outline dark:text-zinc-500 font-mono">${dateStr}</span>
+                            </div>
+
+                            <div>
+                                <h3 class="ugc-item-title font-bold text-sm sm:text-base text-on-surface dark:text-zinc-100">${escapeHtml(title)}</h3>
+                                ${desc ? `<p class="ugc-item-desc text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 mt-1 line-clamp-2">${escapeHtml(desc)}</p>` : ''}
+                            </div>
+
+                            ${item.status === 'rejected' ? `
+                                <div class="ugc-rejection-box p-3 sm:p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2.5 mt-1">
+                                    <span class="material-symbols-outlined text-rose-600 dark:text-rose-400 text-[20px] shrink-0 mt-0.5">error_outline</span>
+                                    <div class="flex flex-col gap-0.5 text-xs">
+                                        <span class="font-bold text-rose-800 dark:text-rose-200">Lý do từ chối từ Ban Quản Trị:</span>
+                                        <p class="ugc-moderation-reason text-rose-700 dark:text-rose-300 leading-relaxed font-medium">
+                                            ${escapeHtml(item.moderation_reason || item.rejectionReason || 'Nội dung chưa đáp ứng tiêu chuẩn cộng đồng.')}
+                                        </p>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <div class="flex items-center justify-between pt-3 border-t border-outline-variant/20 dark:border-zinc-700/60 mt-1">
+                                <span class="text-[11px] text-outline dark:text-zinc-500">Mã: ${escapeHtml(item.id)}</span>
+                                <div class="flex items-center gap-2">
+                                    ${item.status === 'rejected' || item.status === 'pending' || item.status === 'draft' ? `
+                                        <button type="button"
+                                            class="btn-edit-ugc px-3.5 py-2 rounded-xl bg-primary hover:bg-secondary text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs min-h-[40px]"
+                                            onclick="window.ViVuApp.openEditUgcItem('${item.entity_type}', '${item.id}')"
+                                            data-entity-type="${item.entity_type}"
+                                            data-entity-id="${item.id}">
+                                            <span class="material-symbols-outlined text-[16px]">edit</span>
+                                            <span>${item.status === 'rejected' ? 'Sửa &amp; Gửi lại' : 'Chỉnh sửa'}</span>
+                                        </button>
+                                    ` : `
+                                        <button type="button"
+                                            class="btn-view-ugc px-3.5 py-2 rounded-xl bg-surface-container dark:bg-zinc-700/80 hover:bg-surface-container-high text-on-surface dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 transition-all min-h-[40px]"
+                                            onclick="window.ViVuApp.viewPublishedUgcItem('${item.entity_type}', '${item.id}')"
+                                            data-entity-type="${item.entity_type}"
+                                            data-entity-id="${item.id}">
+                                            <span class="material-symbols-outlined text-[16px] text-secondary">visibility</span>
+                                            <span>Xem trên trang</span>
+                                        </button>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
         </div>
     `;
 }

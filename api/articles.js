@@ -415,6 +415,7 @@ async function handlePatch(request, response) {
     } else {
       // Người dùng chỉnh sửa bài thì đưa về pending để duyệt lại
       patch.status = 'pending';
+      patch.moderation_reason = null;
     }
 
     await supabaseRequest(`${TABLE_NAME}?id=eq.${encodeURIComponent(articleId)}`, {

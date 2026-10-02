@@ -336,6 +336,7 @@ async function handlePatch(request, response) {
     // Resubmit / đưa về pending khi tác giả sửa bài bị từ chối
     if (!isAdmin || body.submit_for_review === true || body.status === 'pending') {
       patch.status = 'pending';
+      patch.moderation_reason = null;
     } else if (isAdmin && body.status) {
       patch.status = body.status;
     }

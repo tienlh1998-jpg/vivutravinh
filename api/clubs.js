@@ -276,8 +276,8 @@ async function handlePatch(request, response) {
       return;
     }
 
-    if (!isAdmin && !['draft', 'rejected'].includes(club.status)) {
-      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa hồ sơ CLB khi đang ở bản nháp hoặc bị từ chối.');
+    if (!isAdmin && !['draft', 'rejected', 'pending'].includes(club.status)) {
+      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa hồ sơ CLB khi đang ở bản nháp, chờ duyệt hoặc bị từ chối.');
       return;
     }
 
@@ -291,6 +291,7 @@ async function handlePatch(request, response) {
     if (body.meeting_place !== undefined) patch.meeting_place = String(body.meeting_place).trim();
     if (body.submit_for_review === true || body.status === 'pending' || club.status === 'rejected') {
       patch.status = 'pending';
+      patch.moderation_reason = null;
     }
 
     patch.updated_at = new Date().toISOString();

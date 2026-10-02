@@ -229,8 +229,8 @@ async function handlePatch(request, response) {
       return;
     }
 
-    if (!isAdmin && !['draft', 'rejected'].includes(post.status)) {
-      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa bài viết khi đang ở bản nháp hoặc bị từ chối.');
+    if (!isAdmin && !['draft', 'rejected', 'pending'].includes(post.status)) {
+      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa bài viết khi đang ở bản nháp, chờ duyệt hoặc bị từ chối.');
       return;
     }
 
@@ -240,6 +240,7 @@ async function handlePatch(request, response) {
     if (body.category !== undefined) patch.category = String(body.category).trim();
     if (body.submit_for_review === true || body.status === 'pending' || post.status === 'rejected') {
       patch.status = 'pending';
+      patch.moderation_reason = null;
     }
 
     patch.updated_at = new Date().toISOString();
