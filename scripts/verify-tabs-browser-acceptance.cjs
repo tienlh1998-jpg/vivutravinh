@@ -386,8 +386,9 @@ async function run() {
     await cdp.eval(`window.ViVuApp.openProfileModal()`);
     await sleep(600);
     let profileModalText = await cdp.eval(`document.getElementById('userProfileModalContent')?.innerText || ''`);
-    assert.ok(profileModalText.includes('Khách vãng lai (Hồ sơ mẫu tham khảo)'), 'Hồ sơ khách vãng lai phải ghi rõ nhãn mẫu tham khảo');
-    console.log('  ✓ [PASS] Hồ sơ người dùng khi chưa đăng nhập hiển thị rõ ràng: "Khách vãng lai (Hồ sơ mẫu tham khảo)".');
+    assert.ok(profileModalText.includes('Đăng nhập') && profileModalText.includes('Tạo tài khoản'), 'Khách phải thấy lựa chọn đăng nhập và tạo tài khoản');
+    assert.ok(!profileModalText.includes('Nguyễn Văn Tiến'), 'Khách không được thấy danh tính của hồ sơ mẫu');
+    console.log('  ✓ [PASS] Khách thấy lựa chọn đăng nhập/tạo tài khoản và không thấy danh tính mẫu.');
 
     // 3.3 Kiểm tra hoạt động tuần của CLB: nút đăng ký ghi rõ "Chưa hỗ trợ trực tuyến"
     await cdp.eval(`window.ViVuApp.closeProfileModal()`);

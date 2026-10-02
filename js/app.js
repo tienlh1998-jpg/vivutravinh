@@ -4637,12 +4637,20 @@ function initEventListeners() {
 
     // Lắng nghe sự kiện đăng nhập / đăng xuất Quản trị viên để đồng bộ UI
     window.addEventListener('storage', (e) => {
-        if (e.key === 'vivu_admin_session') {
+        if (e.key === 'vivu_admin_session' || e.key === 'vivu_user_session' || e.key === null) {
             updateAdminRoleUI();
         }
     });
     window.addEventListener('vivu:auth-login', () => updateAdminRoleUI());
     window.addEventListener('vivu:auth-logout', () => updateAdminRoleUI());
+    window.addEventListener('vivu:user-auth-changed', () => {
+        updateAdminRoleUI();
+        const profileModal = document.getElementById('userProfileModal');
+        if (profileModal && !profileModal.classList.contains('hidden')) {
+            const profileContent = document.getElementById('userProfileModalContent');
+            if (profileContent) profileContent.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+        }
+    });
 
     // Các Tabs danh mục
     document.querySelectorAll('.category-tab-btn').forEach(btn => {
@@ -7728,6 +7736,17 @@ export function confirmSimulatedDonation(amount) {
  */
 export function updateAdminRoleUI() {
     const session = getAdminSession();
+    const communitySession = getUserSession();
+    const communityUser = communitySession?.user;
+    const profileBtn = document.getElementById('headerProfileBtn');
+    if (profileBtn) {
+        profileBtn.onclick = () => communityUser ? openProfileModal() : openAuthModal('signin');
+        profileBtn.setAttribute('aria-label', communityUser ? 'Xem tài khoản cộng đồng' : 'Đăng nhập hoặc tạo tài khoản cộng đồng');
+        profileBtn.title = communityUser ? 'Tài khoản cộng đồng' : 'Đăng nhập cộng đồng';
+        profileBtn.innerHTML = communityUser
+            ? '<span class="material-symbols-outlined" aria-hidden="true">account_circle</span><span>Tài khoản</span>'
+            : '<span class="material-symbols-outlined" aria-hidden="true">login</span><span>Đăng nhập</span>';
+    }
     const role = session?.user?.role;
     const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
 
@@ -7763,11 +7782,13 @@ export function updateAdminRoleUI() {
             adminLoginLink.classList.add('flex');
         }
         if (userNameEl) {
-            userNameEl.textContent = state.userProfile?.displayName || 'Thành viên Xứ Trà';
+            userNameEl.textContent = communityUser
+                ? (communityUser.user_metadata?.display_name || communityUser.email?.split('@')[0] || 'Thành viên')
+                : 'Khách vãng lai';
             userNameEl.title = '';
         }
         if (userRoleEl) {
-            userRoleEl.textContent = 'Thành viên';
+            userRoleEl.textContent = communityUser ? 'Thành viên' : 'Đăng nhập / Đăng ký';
             userRoleEl.className = 'font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium';
         }
     }
@@ -8940,6 +8961,4 @@ if (typeof window !== 'undefined') {
         }
     };
 }
-
-
 

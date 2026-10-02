@@ -319,11 +319,11 @@
         <div class="p-space-md border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between gap-1">
             <button type="button" onclick="window.ViVuApp?.openProfileModal?.()" class="flex items-center gap-3 min-w-0 text-left hover:opacity-85 transition-opacity min-h-[44px] flex-1">
                 <div class="w-9 h-9 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
-                    <img id="sidebarUserAvatar" src="chùa âng.jpg" alt="User Avatar" class="w-full h-full object-cover" />
+                    <span class="material-symbols-outlined" aria-hidden="true">person_outline</span>
                 </div>
                 <div class="flex flex-col min-w-0">
-                    <span id="sidebarUserName" class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">Thành viên Xứ Trà</span>
-                    <span id="sidebarUserRole" class="font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium">Thành viên</span>
+                    <span id="sidebarUserName" class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">Khách vãng lai</span>
+                    <span id="sidebarUserRole" class="font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium">Đăng nhập / Đăng ký</span>
                 </div>
             </button>
             <button onclick="window.ViVuApp?.openSecurityModal?.()" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Cài đặt &amp; Bảo mật" type="button" id="sidebarSettingsBtn">
@@ -405,10 +405,10 @@
                         </button>
 
                         <!-- Nút Hồ sơ cá nhân & Thành tích (Header Profile) -->
-                        <button id="headerProfileBtn" onclick="window.ViVuApp.openProfileModal()"
-                            class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full p-0.5 border border-outline-variant/40 dark:border-zinc-700 hover:ring-2 hover:ring-secondary transition-all flex items-center justify-center shrink-0"
-                            title="Hồ sơ &amp; Thành tích Xứ Trà" aria-label="Xem hồ sơ và huy hiệu cá nhân">
-                            <img src="chùa âng.jpg" alt="Avatar" class="w-8 h-8 rounded-full object-cover" />
+                        <button id="headerProfileBtn" type="button" onclick="window.ViVuApp.openAuthModal('signin')"
+                            class="min-h-[44px] px-3 rounded-xl border border-outline-variant/40 dark:border-zinc-700 hover:ring-2 hover:ring-secondary transition-all flex items-center justify-center gap-2 shrink-0 text-xs font-bold"
+                            title="Đăng nhập cộng đồng" aria-label="Đăng nhập hoặc tạo tài khoản cộng đồng">
+                            <span class="material-symbols-outlined" aria-hidden="true">login</span><span>Đăng nhập</span>
                         </button>
 
                         <!-- Nút Cài đặt & Bảo mật (Header Settings) -->

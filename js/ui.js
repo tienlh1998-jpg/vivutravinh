@@ -5491,6 +5491,17 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
 
     const userSession = typeof window !== 'undefined' && window.ViVuApp?.getUserSession ? window.ViVuApp.getUserSession() : null;
     const isAuth = Boolean(userSession && userSession.user);
+    if (!isAuth) {
+        return `<div class="p-6 sm:p-10 text-center max-w-xl mx-auto">
+            <span class="material-symbols-outlined text-5xl text-secondary" aria-hidden="true">person_outline</span>
+            <h2 class="text-2xl font-bold mt-4">Chào mừng bạn đến ViVuTràVinh</h2>
+            <p class="mt-3 text-on-surface-variant dark:text-zinc-300">Bạn đang xem web với tư cách khách. Đăng nhập để gửi bài, tham gia cộng đồng và quản lý nội dung của bạn.</p>
+            <div class="flex flex-wrap justify-center gap-3 mt-6">
+                <button type="button" onclick="window.ViVuApp.closeProfileModal(); window.ViVuApp.openAuthModal('signin')" class="min-h-[44px] px-5 py-3 rounded-xl bg-primary text-white font-bold">Đăng nhập</button>
+                <button type="button" onclick="window.ViVuApp.closeProfileModal(); window.ViVuApp.openAuthModal('signup')" class="min-h-[44px] px-5 py-3 rounded-xl border border-outline-variant font-bold">Tạo tài khoản</button>
+            </div>
+        </div>`;
+    }
     const authEmail = userSession?.user?.email ? escapeHtml(userSession.user.email) : '';
 
     const safeName = escapeHtml((isAuth && userSession.user.user_metadata?.display_name) || profile.name || 'Người dùng');
