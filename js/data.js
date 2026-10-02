@@ -18,6 +18,39 @@ const FALLBACK_URL = '/data/data-fallback.json';
 // Placeholder SVG nội bộ trung tính, không phụ thuộc mạng CDN
 const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 400' width='600' height='400'%3E%3Crect width='600' height='400' fill='%23f1f5f9'/%3E%3Cpath d='M260 170a30 30 0 1 0 0-60 30 30 0 0 0 0 60zm-80 110h240l-75-100-60 80-45-60-60 80z' fill='%23cbd5e1'/%3E%3Ctext x='50%25' y='320' font-family='sans-serif' font-size='20' font-weight='bold' fill='%2394a3b8' text-anchor='middle'%3EViVuTraVinh%3C/text%3E%3C/svg%3E";
 
+export const CANONICAL_PLACE_IMAGES = {
+    'ao-ba-om': '/ao%20b%C3%A0%20om.jpg',
+    'bien-ba-dong': '/bi%E1%BB%83n%20ba%20%C4%91%E1%BB%99ng.jpg',
+    'chua-hang': '/ch%C3%B9a%20hang.jpg',
+    'chua-vamray': '/ch%C3%B9a%20vamray.jpg',
+    'chua-ang': '/ch%C3%B9a%20%C3%A2ng.jpg',
+    'cu-lao-tan-qui': '/c%C3%B9%20lao%20t%C3%A2n%20qui.jpg',
+    'con-chim': '/c%E1%BB%93n%20chim.jpg',
+    'nha-co-huynh-ky': '/nh%C3%A0%20c%E1%BB%95%20hu%E1%BB%B3nh%20k%E1%BB%B3.jpg',
+    'den-tho-bac': '/%C4%91%E1%BB%81n%20th%E1%BB%9D%20B%C3%A1c.jpg'
+};
+
+function resolvePlaceImages(images, slug) {
+    const canonical = CANONICAL_PLACE_IMAGES[slug];
+    const validImages = (images || []).filter(img => typeof img === 'string' && img.trim().length > 0 && !img.startsWith('data:image/svg+xml'));
+    if (validImages.length > 0) {
+        return {
+            primary: validImages[0],
+            gallery: validImages
+        };
+    }
+    if (canonical) {
+        return {
+            primary: canonical,
+            gallery: [canonical]
+        };
+    }
+    return {
+        primary: PLACEHOLDER_IMAGE,
+        gallery: [PLACEHOLDER_IMAGE]
+    };
+}
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -411,6 +444,7 @@ export function normalizePlace(row, index, source = 'fallback') {
     const rating = rawRating ? (Number.parseFloat(rawRating) || 0) : 0;
     const id = findValue(row, ['Slug', 'ID', 'Id']) || createSlug(name, `location-${index}`);
     const dbId = findValue(row, ['DB_ID', 'db_id', 'ID', 'Id']) || (row.id !== undefined && row.id !== null ? String(row.id) : null);
+    const resolvedImages = resolvePlaceImages(images, id);
 
     return {
         ...row,
@@ -430,9 +464,9 @@ export function normalizePlace(row, index, source = 'fallback') {
         priceUnit: priceParsed.unit,
         isFree: priceParsed.isFree,
         isUnknownPrice: priceParsed.isUnknown,
-        imageLink: images[0],
-        imageGallery: images,
-        images,
+        imageLink: resolvedImages.primary,
+        imageGallery: resolvedImages.gallery,
+        images: resolvedImages.gallery,
         description: findValue(row, ['Mô Tả', 'Mô tả', 'Mô tả Ngắn Hấp Dẫn về Địa Điểm (Ít nhất 50 từ)', 'Description']),
         note: findValue(row, ['Ghi Chú Thêm (Tiện ích, lưu ý quan trọng, kinh nghiệm...)', 'Ghi chú', 'Note']),
         contact: findValue(row, ['Liên hệ', 'Số Điện Thoại / Fanpage / Website', 'Contact', 'Điện thoại', 'Phone']),
@@ -566,6 +600,7 @@ function normalizeSupabasePlace(row, index) {
     const coordsParsed = parseCoordinates(row.coordinates);
     const contactParsed = parseContact(row.contact);
     const rating = Number.parseFloat(row.rating) || 0;
+    const resolvedImages = resolvePlaceImages(images, id);
 
     return {
         id,
@@ -584,9 +619,9 @@ function normalizeSupabasePlace(row, index) {
         priceUnit: priceParsed.unit,
         isFree: priceParsed.isFree,
         isUnknownPrice: priceParsed.isUnknown,
-        imageLink: images[0] || PLACEHOLDER_IMAGE,
-        imageGallery: images.length > 0 ? images : [PLACEHOLDER_IMAGE],
-        images: images.length > 0 ? images : [PLACEHOLDER_IMAGE],
+        imageLink: resolvedImages.primary,
+        imageGallery: resolvedImages.gallery,
+        images: resolvedImages.gallery,
         description: normalizeText(row.description),
         note: normalizeText(row.note),
         contact: normalizeText(row.contact),

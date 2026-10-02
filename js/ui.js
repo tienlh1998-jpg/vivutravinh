@@ -435,39 +435,44 @@ export function renderHeroSpotlight(containerId, place, onOpenModal, onSavePlace
 
     const statusInfo = getPlaceOpenStatus(place);
     const isOpen = statusInfo.status === 'open';
-    const imageSrc = place.imageLink || NEUTRAL_PLACEHOLDER_IMAGE;
+    const isSvg = typeof place.imageLink === 'string' && place.imageLink.startsWith('data:image/svg+xml');
+    let imageSrc = place.imageLink;
+    if (!imageSrc || isSvg) {
+        imageSrc = '/ao%20b%C3%A0%20om.jpg';
+    }
     const priceText = formatPlacePrice(place);
     const rating = Number.parseFloat(place.rating) || 0;
 
     container.innerHTML = `
-        <div class="relative w-full h-full min-h-[460px] lg:min-h-[520px] rounded-3xl overflow-hidden border border-outline-variant/40 dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 shadow-sm flex flex-col justify-end group">
+        <div class="relative w-full h-full min-h-[460px] lg:min-h-[520px] rounded-3xl overflow-hidden border border-outline-variant/40 dark:border-zinc-800 bg-slate-900 shadow-sm flex flex-col justify-end group">
             <!-- Background Image with Zoom Effect -->
-            <div class="absolute inset-0 bg-cover bg-center transition-transform duration-1000 ease-out group-hover:scale-105"
-                 style="background-image: url('${imageSrc}');">
-            </div>
+            <img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(place.name)}"
+                 class="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-1000 ease-out group-hover:scale-105"
+                 onerror="this.onerror=null; this.src='/ao%20b%C3%A0%20om.jpg';">
+            
             <!-- Dual Dark Gradient Overlay for optimal legibility -->
-            <div class="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/50 to-transparent dark:from-black/95 dark:via-black/50"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/60 to-transparent dark:from-black/95 dark:via-black/60 pointer-events-none"></div>
 
             <!-- Content Area -->
             <div class="relative z-10 p-6 sm:p-8 space-y-4 text-white">
                 <!-- Top Badges -->
                 <div class="flex flex-wrap items-center gap-2">
-                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white shadow-xs flex items-center gap-1">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white shadow-xs flex items-center gap-1 font-sans">
                         <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">hotel_class</span>
                         Tiêu Điểm Tuần Này
                     </span>
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/30">
-                        ${place.category || 'Danh Thắng Quốc Gia'}
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/30 font-sans">
+                        ${escapeHtml(place.category || 'Danh Thắng Quốc Gia')}
                     </span>
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/30 flex items-center gap-1">
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/30 flex items-center gap-1 font-sans">
                         <span class="w-2 h-2 rounded-full ${isOpen ? 'bg-emerald-400 animate-pulse' : (statusInfo.status === 'temporarily_closed' ? 'bg-rose-500' : 'bg-amber-400')}"></span>
-                        ${statusInfo.label}
+                        ${escapeHtml(statusInfo.label)}
                     </span>
                 </div>
 
                 <!-- Title & Meta -->
                 <div class="space-y-2">
-                    <div class="flex items-center gap-2 text-xs text-primary-fixed dark:text-emerald-300">
+                    <div class="flex items-center gap-2 text-xs text-primary-fixed dark:text-emerald-300 font-sans font-medium">
                         ${rating > 0 ? `
                             <span class="flex items-center text-amber-400 font-bold">
                                 <span class="material-symbols-outlined text-sm mr-0.5" style="font-variation-settings: 'FILL' 1;">star</span>
@@ -477,33 +482,33 @@ export function renderHeroSpotlight(containerId, place, onOpenModal, onSavePlace
                             <span class="italic text-white/80">Chưa có đánh giá</span>
                         `}
                         <span>•</span>
-                        <span>${place.area || 'TP. Trà Vinh'}</span>
+                        <span>${escapeHtml(place.area || 'TP. Trà Vinh')}</span>
                         <span>•</span>
-                        <span class="text-secondary-fixed dark:text-emerald-200 font-semibold">${priceText}</span>
+                        <span class="text-secondary-fixed dark:text-emerald-200 font-semibold">${escapeHtml(priceText)}</span>
                     </div>
 
-                    <h2 class="text-2xl sm:text-3xl lg:text-4xl font-black font-['Noto_Serif',serif] leading-tight text-white drop-shadow-sm">
-                        ${place.name}
+                    <h2 class="text-2xl sm:text-3xl lg:text-4xl font-bold font-sans leading-tight text-white drop-shadow-sm">
+                        ${escapeHtml(place.name)}
                     </h2>
 
-                    <p class="text-sm sm:text-base text-surface-container-high dark:text-zinc-300 max-w-2xl leading-relaxed line-clamp-2 sm:line-clamp-3">
-                        ${place.description || 'Quần thể danh thắng tâm linh cổ kính in bóng xuống mặt hồ phẳng lặng, bao bọc bởi hàng ngàn gốc cây sao dầu đại thụ hàng trăm năm tuổi.'}
+                    <p class="text-sm sm:text-base text-white/90 dark:text-zinc-200 max-w-2xl leading-relaxed line-clamp-2 sm:line-clamp-3 font-sans">
+                        ${escapeHtml(place.description || 'Quần thể danh thắng tâm linh cổ kính in bóng xuống mặt hồ phẳng lặng, bao bọc bởi hàng ngàn gốc cây sao dầu đại thụ hàng trăm năm tuổi.')}
                     </p>
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="flex items-center gap-3 pt-2">
-                    <button id="spotlightDetailBtn" class="px-6 py-3 rounded-2xl bg-secondary dark:bg-emerald-500 text-on-secondary dark:text-zinc-950 font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-2">
+                <div class="flex items-center gap-3 pt-2 font-sans">
+                    <button id="spotlightDetailBtn" type="button" class="px-6 py-3 rounded-2xl bg-secondary dark:bg-emerald-500 text-white dark:text-zinc-950 font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-2 min-h-[44px]">
                         <span>Khám phá ngay</span>
                         <span class="material-symbols-outlined text-sm">arrow_forward</span>
                     </button>
-                    <button id="spotlightSaveBtn" class="p-3 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white border border-white/30 transition-all active:scale-95" title="Lưu lại">
+                    <button id="spotlightSaveBtn" type="button" class="p-3 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white border border-white/30 transition-all active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Lưu lại">
                         <span class="material-symbols-outlined text-lg ${isSaved ? 'text-rose-400' : ''}" style="${isSaved ? "font-variation-settings: 'FILL' 1;" : ''}">
                             ${isSaved ? 'favorite' : 'bookmark'}
                         </span>
                     </button>
                     ${place.mapLink ? `
-                        <a href="${place.mapLink}" target="_blank" rel="noopener" class="px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-semibold text-sm flex items-center gap-2 border border-white/30 transition-all">
+                        <a href="${escapeHtml(place.mapLink)}" target="_blank" rel="noopener" class="px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-semibold text-sm flex items-center gap-2 border border-white/30 transition-all min-h-[44px]">
                             <span class="material-symbols-outlined text-base">near_me</span>
                             <span>Chỉ đường</span>
                         </a>
@@ -1854,7 +1859,7 @@ export function renderTourItineraries(containerId, activeTourId = 'khmer-culture
                             </span>
                         ` : ''}
                     </div>
-                    <h3 class="text-xl sm:text-2xl font-black font-serif text-primary dark:text-zinc-100 pt-1">
+                    <h3 class="text-xl sm:text-2xl font-bold font-sans text-primary dark:text-zinc-100 pt-1">
                         ${tour.title}
                     </h3>
                     <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400">
@@ -1952,7 +1957,7 @@ export function renderTourItineraries(containerId, activeTourId = 'khmer-culture
                                 </span>
                             </div>
 
-                            <h4 class="text-sm sm:text-base font-bold text-on-surface dark:text-zinc-100 font-serif">
+                            <h4 class="text-sm sm:text-base font-bold text-on-surface dark:text-zinc-100 font-sans">
                                 ${stop.title}
                             </h4>
 

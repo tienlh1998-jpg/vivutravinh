@@ -18,6 +18,7 @@ const APP_SHELL_URLS = [
   './vendor/leaflet/leaflet.js',
   './vendor/leaflet/images/marker-icon.png',
   './vendor/leaflet/images/marker-shadow.png',
+  './vendor/fonts/be-vietnam-pro.css',
   './vendor/fonts/material-symbols.css',
   './vendor/fonts/material-symbols-outlined.woff2',
   './icons/icon.svg',

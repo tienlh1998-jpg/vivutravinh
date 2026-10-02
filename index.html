@@ -65,7 +65,8 @@
     }
     </script>
 
-    <!-- Local Self-Hosted Material Symbols Icons & Compiled Tailwind CSS (Zero-CDN) -->
+    <!-- Local Self-Hosted Be Vietnam Pro Font & Material Symbols Icons (Zero-CDN) -->
+    <link rel="stylesheet" href="/vendor/fonts/be-vietnam-pro.css">
     <link rel="stylesheet" href="/vendor/fonts/material-symbols.css">
     <link rel="stylesheet" href="/css/tailwind.css">
 
@@ -538,17 +539,17 @@
                     <!-- Hero stats bar -->
                     <div class="flex flex-wrap items-center justify-between sm:justify-start gap-6 sm:gap-10 p-4 rounded-xl bg-primary/40 backdrop-blur-md max-w-xl border border-white/10">
                         <div class="flex items-baseline gap-2">
-                            <span class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">128+</span>
+                            <span id="heroStatPlacesCount" class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">128+</span>
                             <span class="font-caption text-xs text-white/80">Địa điểm</span>
                         </div>
                         <div class="h-6 w-px bg-white/20 hidden sm:block"></div>
                         <div class="flex items-baseline gap-2">
-                            <span class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">18</span>
+                            <span id="heroStatClubsCount" class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">18</span>
                             <span class="font-caption text-xs text-white/80">CLB</span>
                         </div>
                         <div class="h-6 w-px bg-white/20 hidden sm:block"></div>
                         <div class="flex items-baseline gap-2">
-                            <span class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">05</span>
+                            <span id="heroStatEventsCount" class="font-headline-lg text-xl sm:text-2xl font-bold text-secondary-fixed">05</span>
                             <span class="font-caption text-xs text-white/80">Sự kiện</span>
                         </div>
                         <div class="ml-auto text-[11px] font-caption text-white/60 tracking-wide uppercase self-center hidden md:inline-block">
@@ -580,7 +581,7 @@
                         <div class="flex items-center justify-between mb-3 z-10">
                             <div class="flex items-center gap-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-secondary dark:bg-emerald-400 animate-ping"></span>
-                                <h3 class="font-bold text-primary dark:text-emerald-400 font-serif text-sm">Bản Đồ Khám Phá Trực Tiếp</h3>
+                                <h3 class="font-bold text-primary dark:text-emerald-400 font-sans text-sm">Bản Đồ Khám Phá Trực Tiếp</h3>
                             </div>
                             <button onclick="window.ViVuApp.openFullMapModal()"
                                 class="px-2.5 py-1 rounded-lg bg-primary-fixed/40 dark:bg-emerald-950/60 text-primary dark:text-emerald-300 hover:bg-primary-fixed text-xs font-bold transition-colors flex items-center gap-1">
@@ -646,10 +647,43 @@
             </div>
         </section>
 
-                <!-- 5. GỢI Ý LỊCH TRÌNH TOUR 1 NGÀY (ITINERARIES) -->
+                <!-- 5. GỢI Ý LỊCH TRÌNH TOUR 1 NGÀY (ITINERARIES TEASER) -->
         <section id="tourItinerariesSection" class="w-full pt-2">
-            <div id="tourItinerariesContainer">
-                <!-- Tour itineraries injected via ui.js -->
+            <div class="rounded-3xl bg-surface-container-lowest dark:bg-dark-card border border-outline-variant/40 dark:border-dark-border p-5 sm:p-7 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div class="space-y-2 max-w-2xl">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/70 dark:bg-emerald-950/60 text-secondary dark:text-emerald-300 text-xs font-bold uppercase tracking-wider font-sans">
+                            <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-ping"></span>
+                            Lịch Trình 1 Ngày
+                        </div>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-[11px] font-semibold font-sans">
+                            3 lộ trình mẫu + Tour ngẫu hứng
+                        </span>
+                    </div>
+                    <h3 class="text-xl sm:text-2xl font-bold font-sans text-primary dark:text-zinc-100">
+                        Lịch trình khám phá Trà Vinh trọn vẹn trong ngày
+                    </h3>
+                    <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 leading-relaxed font-sans">
+                        Lộ trình tối ưu từ sáng đến chiều: khám phá di tích chùa Khmer cổ kính, thưởng thức ẩm thực sông nước trứ danh và du lịch sinh thái cồn miệt vườn.
+                    </p>
+                    <div class="flex flex-wrap gap-2 pt-1 text-xs text-on-surface-variant dark:text-zinc-400 font-sans">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-surface-container-low dark:bg-zinc-800/80">🛕 Chùa Hang &amp; Ao Bà Om</span>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-surface-container-low dark:bg-zinc-800/80">🍜 Bún nước lèo &amp; Bánh canh Bến Có</span>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-surface-container-low dark:bg-zinc-800/80">🌿 Cồn Chim xanh</span>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row md:flex-col gap-3 shrink-0">
+                    <button onclick="window.ViVuApp.openTourItinerariesModal()" type="button"
+                        class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-secondary dark:bg-emerald-600 hover:bg-secondary/90 text-white font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 min-h-[44px]">
+                        <span class="material-symbols-outlined text-lg">route</span>
+                        <span>Xem lịch trình</span>
+                    </button>
+                    <button onclick="window.ViVuApp.handleGenerateRandomTour()" type="button"
+                        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800 text-on-surface hover:bg-surface-container dark:hover:bg-zinc-700 font-semibold text-xs transition-colors min-h-[44px]">
+                        <span class="material-symbols-outlined text-base text-amber-500">casino</span>
+                        <span>Đổi tour ngẫu hứng</span>
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -660,7 +694,7 @@
                 <div class="w-12 h-12 rounded-2xl bg-secondary/10 dark:bg-emerald-900/40 text-secondary dark:text-emerald-400 flex items-center justify-center">
                     <span class="material-symbols-outlined text-2xl">park</span>
                 </div>
-                <h3 class="text-lg font-bold font-serif text-primary dark:text-zinc-100">Đô Thị Dưới Vòm Cây Cổ Thụ</h3>
+                <h3 class="text-lg font-bold font-sans text-primary dark:text-zinc-100">Đô Thị Dưới Vòm Cây Cổ Thụ</h3>
                 <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
                     Sở hữu hàng vạn cây sao, dầu cổ thụ hàng trăm năm tuổi rợp bóng mát, Trà Vinh được mệnh danh là một trong những đô thị xanh mát và yên bình nhất Tây Nam Bộ.
                 </p>
@@ -671,7 +705,7 @@
                 <div class="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 flex items-center justify-center">
                     <span class="material-symbols-outlined text-2xl">diversity_3</span>
                 </div>
-                <h3 class="text-lg font-bold font-serif text-primary dark:text-zinc-100">Giao Thoa Văn Hóa Kinh - Khmer - Hoa</h3>
+                <h3 class="text-lg font-bold font-sans text-primary dark:text-zinc-100">Giao Thoa Văn Hóa Kinh - Khmer - Hoa</h3>
                 <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
                     Nơi hội tụ lễ hội Ok Om Bok rực rỡ, điệu múa Romvong uyển chuyển, nghệ thuật chùa tháp Angkorian độc bản cùng nền ẩm thực mắm bồ hóc nồng hậu.
                 </p>
@@ -682,7 +716,7 @@
                 <div class="w-12 h-12 rounded-2xl bg-primary-container/10 dark:bg-emerald-900/40 text-primary dark:text-emerald-400 flex items-center justify-center">
                     <span class="material-symbols-outlined text-2xl">volunteer_activism</span>
                 </div>
-                <h3 class="text-lg font-bold font-serif text-primary dark:text-zinc-100">Lòng Hiếu Khách Miệt Vườn</h3>
+                <h3 class="text-lg font-bold font-sans text-primary dark:text-zinc-100">Lòng Hiếu Khách Miệt Vườn</h3>
                 <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
                     Đón nhận sự nồng hậu từ nụ cười hiền lành của bà con cồn bãi sông Tiền sông Hậu, ly trà đá mát rượi và hương vị dừa sáp Cầu Kè béo ngọt khó quên.
                 </p>
@@ -692,20 +726,20 @@
                 <!-- 8. HỘP ĐĂNG KÝ BẢN TIN TRÀ VINH -->
         <section class="rounded-3xl bg-primary dark:bg-emerald-950 text-white p-6 sm:p-10 relative overflow-hidden shadow-lg">
             <div class="relative z-10 max-w-2xl space-y-4">
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold font-sans">
                     <span class="material-symbols-outlined text-sm">mail</span>
-                    Bản Tin Du Lịch & Văn Hóa Trà Vinh
+                    Bản Tin Du Lịch &amp; Văn Hóa Trà Vinh
                 </div>
-                <h2 class="text-2xl sm:text-3xl font-black font-serif leading-tight">
-                    Nhận cẩm nang trải nghiệm địa phương & lịch lễ hội chùa Khmer mỗi tháng
+                <h2 class="text-2xl sm:text-3xl font-bold font-sans leading-tight">
+                    Nhận cẩm nang trải nghiệm địa phương &amp; lịch lễ hội chùa Khmer mỗi tháng
                 </h2>
-                <p class="text-xs sm:text-sm text-primary-fixed-dim leading-relaxed">
+                <p class="text-xs sm:text-sm text-primary-fixed-dim leading-relaxed font-sans">
                     Cập nhật những quán bún nước lèo ngon chuẩn vị, tọa độ vườn trái cây chín rộ và cẩm nang dự lễ hội Ok Om Bok, Chôl Chnăm Thmây hoàn toàn miễn phí.
                 </p>
                 <form class="flex flex-col sm:flex-row gap-3 pt-2" onsubmit="event.preventDefault(); alert('Cảm ơn bạn đã đăng ký nhận bản tin ViVuTraVinh!');">
-                    <input class="px-4 py-3 rounded-xl bg-white/10 text-white placeholder:text-primary-fixed-dim border border-white/20 focus:outline-none focus:ring-2 focus:ring-secondary-container text-xs sm:text-sm flex-1"
+                    <input class="px-4 py-3 rounded-xl bg-white/10 text-white placeholder:text-primary-fixed-dim border border-white/20 focus:outline-none focus:ring-2 focus:ring-secondary-container text-xs sm:text-sm flex-1 font-sans"
                         placeholder="Nhập địa chỉ email của bạn..." type="email" required>
-                    <button type="submit" class="px-6 py-3 rounded-xl bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed font-bold text-xs sm:text-sm transition-colors whitespace-nowrap shadow-sm">
+                    <button type="submit" class="px-6 py-3 rounded-xl bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed font-bold text-xs sm:text-sm transition-colors whitespace-nowrap shadow-sm min-h-[44px]">
                         Đăng ký nhận tin
                     </button>
                 </form>
@@ -716,16 +750,16 @@
                 <!-- 8B. BENTO BANNER CỘNG ĐỒNG FACEBOOK -->
         <section class="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#1877F2] via-[#0D65D9] to-primary text-white p-6 sm:p-10 shadow-xl border border-blue-400/30">
             <div class="relative z-10 max-w-3xl space-y-4">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider font-sans">
                     <svg class="w-4 h-4 fill-white" viewBox="0 0 24 24">
                         <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                     </svg>
                     Cộng Đồng ViVuTraVinh Trên Facebook
                 </div>
-                <h2 class="text-2xl sm:text-3xl font-black font-serif leading-tight">
-                    Tham gia Diễn đàn Du khách & Người Bản Địa Trà Vinh
+                <h2 class="text-2xl sm:text-3xl font-bold font-sans leading-tight">
+                    Tham gia Diễn đàn Du khách &amp; Người Bản Địa Trà Vinh
                 </h2>
-                <p class="text-xs sm:text-sm text-blue-100 leading-relaxed">
+                <p class="text-xs sm:text-sm text-blue-100 leading-relaxed font-sans">
                     Chia sẻ ảnh đẹp check-in, giao lưu kinh nghiệm phượt phọt, săn voucher dừa sáp Cầu Kè và kết nối bạn đồng hành du lịch xuyên Trà Vinh qua Fanpage và Nhóm Cộng Đồng ViVuTraVinh.
                 </p>
                 <div class="flex flex-wrap items-center gap-3 pt-2">
@@ -1587,7 +1621,7 @@
                             </span>
                             <span class="text-xs text-on-surface-variant dark:text-zinc-400 font-medium">• Đóng góp &amp; Chia sẻ di sản</span>
                         </div>
-                        <h2 id="contributeModalTitle" class="font-serif text-2xl sm:text-3xl font-black text-primary dark:text-zinc-100 tracking-tight">
+                        <h2 id="contributeModalTitle" class="font-sans text-2xl sm:text-3xl font-bold text-primary dark:text-zinc-100 tracking-tight">
                             Đóng Góp Địa Điểm Mới
                         </h2>
                         <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-1 max-w-2xl leading-relaxed">
@@ -1868,7 +1902,7 @@
                             <span class="w-2 h-2 rounded-full bg-rose-500"></span>
                             <span class="text-xs text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider">Phản Ánh Dữ Liệu</span>
                         </div>
-                        <h2 id="reportModalTitle" class="font-serif text-xl sm:text-2xl font-black text-primary dark:text-zinc-100">
+                        <h2 id="reportModalTitle" class="font-sans text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
                             Báo Sai Thông Tin
                         </h2>
                         <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
@@ -2349,7 +2383,7 @@
                         <div class="w-8 h-8 rounded-lg bg-primary text-secondary-container flex items-center justify-center">
                             <span class="material-symbols-outlined text-lg">eco</span>
                         </div>
-                        <span class="text-xl font-bold font-serif text-primary dark:text-emerald-400">ViVuTraVinh</span>
+                        <span class="text-xl font-bold font-sans text-primary dark:text-emerald-400">ViVuTraVinh</span>
                     </div>
                     <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed max-w-sm">
                         Dự án cẩm nang du lịch và ẩm thực cộng đồng bảo tồn di sản văn hóa Khmer, cổ vũ du lịch sinh thái miệt vườn bền vững tại tỉnh Trà Vinh, Việt Nam.
@@ -2817,6 +2851,29 @@
                 <div class="relative transform overflow-hidden rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 text-left shadow-2xl transition-all w-full max-w-md border border-outline-variant/40 dark:border-zinc-800">
                     <span id="offlineTicketModalTitle" class="sr-only">Vé khán đài điện tử Ok Om Bok</span>
                     <div id="offlineTicketModalContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 38. MODAL LỊCH TRÌNH TOUR 1 NGÀY (FULL TOUR ITINERARIES MODAL) -->
+    <div id="tourItinerariesModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="tourItinerariesModalTitle">
+        <!-- Backdrop blur -->
+        <div class="fixed inset-0 bg-black/75 backdrop-blur-md transition-opacity" onclick="window.ViVuApp.closeTourItinerariesModal()"></div>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-2 sm:p-4 md:p-6 text-center">
+                <div class="relative transform overflow-hidden rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 text-left shadow-2xl transition-all sm:my-6 sm:w-full sm:max-w-5xl lg:max-w-6xl w-full border border-outline-variant/40 dark:border-zinc-800">
+                    <!-- Nút Đóng chuẩn Touch Target >= 44px -->
+                    <button onclick="window.ViVuApp.closeTourItinerariesModal()" aria-label="Đóng lịch trình tour"
+                        class="absolute top-4 right-4 z-30 w-11 h-11 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md flex items-center justify-center transition-all shadow-md min-h-[44px]">
+                        <span class="material-symbols-outlined text-2xl">close</span>
+                    </button>
+
+                    <span id="tourItinerariesModalTitle" class="sr-only">Lịch trình tour Trà Vinh 1 ngày</span>
+
+                    <!-- Nội dung lịch trình tour đầy đủ được render qua ui.js -->
+                    <div id="tourItinerariesContainer"></div>
                 </div>
             </div>
         </div>

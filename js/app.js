@@ -809,6 +809,7 @@ async function initApp() {
         updateResultsCount(state.filteredPlaces.length);
         updateFavoritesCount();
         updateDataSourceBadge(places);
+        updateHeroStats();
 
         // Khởi tạo Mini Map Bento
         initMiniMap();
@@ -917,11 +918,7 @@ export function handleGenerateRandomTour() {
             handleSearchKeyword,
             handleGenerateRandomTour
         );
-
-        const section = document.getElementById('tourItinerariesSection');
-        if (section) {
-            section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+        openTourItinerariesModal();
     }
 }
 
@@ -2052,6 +2049,20 @@ function updateResultsCount(count) {
             shareTripBtn.classList.remove('inline-flex');
         }
     }
+}
+
+export function updateHeroStats() {
+    const placesEl = document.getElementById('heroStatPlacesCount');
+    const clubsEl = document.getElementById('heroStatClubsCount');
+    const eventsEl = document.getElementById('heroStatEventsCount');
+
+    const placesCount = state.allPlaces?.length || 0;
+    const clubsCount = state.clubs?.length || 0;
+    const eventsCount = (state.eventsAndMeetups?.length || 0) + (state.festivals?.length || 0);
+
+    if (placesEl) placesEl.textContent = placesCount > 0 ? `${placesCount}+` : '0';
+    if (clubsEl) clubsEl.textContent = clubsCount > 0 ? String(clubsCount).padStart(2, '0') : '0';
+    if (eventsEl) eventsEl.textContent = eventsCount > 0 ? String(eventsCount).padStart(2, '0') : '0';
 }
 
 function updateDataSourceBadge(places) {
@@ -3453,6 +3464,56 @@ export function closeFullMapModal(fromRouter = false) {
     }
 }
 
+export function openTourItinerariesModal(options = {}) {
+    const modal = document.getElementById('tourItinerariesModal');
+    if (!modal) return;
+
+    renderTourItineraries(
+        'tourItinerariesContainer',
+        state.activeTourId,
+        handleTourSelect,
+        openDetailModal,
+        handleSearchKeyword,
+        handleGenerateRandomTour
+    );
+
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+
+    if (options.updateHash !== false) {
+        try {
+            if (window.location.hash !== '#tours' && window.location.hash !== '#/tours') {
+                history.pushState({ overlay: 'tours' }, '', '#tours');
+            }
+        } catch (e) {
+            window.location.hash = '#tours';
+        }
+    }
+}
+
+export function closeTourItinerariesModal(skipHistory = false) {
+    const modal = document.getElementById('tourItinerariesModal');
+    if (!modal) return;
+
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+
+    if (!skipHistory) {
+        const hash = window.location.hash || '';
+        if (hash === '#tours' || hash === '#/tours' || hash === '#touritinerariessection') {
+            try {
+                if (history.state?.overlay === 'tours') {
+                    history.back();
+                } else {
+                    history.pushState(null, '', '#/home');
+                }
+            } catch (e) {
+                window.location.hash = '#/home';
+            }
+        }
+    }
+}
+
 export function selectMapPlace(place) {
     if (!place) return;
     state.selectedMapPlace = place;
@@ -4368,6 +4429,10 @@ function handleDeepLink() {
     if (savedModal && !savedModal.classList.contains('hidden')) {
         closeSavedCollectionsModal(true);
     }
+    const tourModal = document.getElementById('tourItinerariesModal');
+    if (tourModal && !tourModal.classList.contains('hidden') && hash !== '#tours' && hash !== '#/tours' && hash !== '#touritinerariessection') {
+        closeTourItinerariesModal(true);
+    }
     state.currentOverlay = null;
 
     // Cộng đồng & CLB View
@@ -4411,6 +4476,7 @@ function handleDeepLink() {
     // Lịch trình Tour (trong view home)
     if (hash === '#tours' || hash === '#/tours' || hash === '#touritinerariessection') {
         switchView('home', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'tourItinerariesSection' });
+        openTourItinerariesModal({ updateHash: false });
         return;
     }
 
@@ -4905,6 +4971,10 @@ export function switchView(viewName, options = {}) {
         if (savedModal && !savedModal.classList.contains('hidden')) {
             closeSavedCollectionsModal(true);
         }
+        const tourModal = document.getElementById('tourItinerariesModal');
+        if (tourModal && !tourModal.classList.contains('hidden')) {
+            closeTourItinerariesModal(true);
+        }
         state.currentOverlay = null;
     }
 
@@ -5025,6 +5095,19 @@ export function navGoSearch() {
 
 export function navGoSection(sectionId) {
     if (!sectionId) return;
+
+    if (sectionId === 'tourItinerariesSection') {
+        switchView('home', {
+            updateHash: true,
+            pushState: true,
+            customHash: '#tours',
+            closeOverlays: true,
+            scrollTo: 'tourItinerariesSection'
+        });
+        openTourItinerariesModal({ updateHash: false });
+        return;
+    }
+
     const viewMap = {
         // Home view sections
         heroBanner: { view: 'home', hash: '#/home' },
@@ -8682,6 +8765,9 @@ if (typeof window !== 'undefined') {
         toggleModalBookmark,
         openFullMapModal,
         closeFullMapModal,
+        openTourItinerariesModal,
+        closeTourItinerariesModal,
+        updateHeroStats,
         locateUserPosition,
         openContributeModal,
         closeContributeModal,

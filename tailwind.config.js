@@ -87,11 +87,11 @@ module.exports = {
         "gutter-mobile": "1rem"
       },
       fontFamily: {
-        sans: ['"Be Vietnam Pro"', '"Plus Jakarta Sans"', 'Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        serif: ['"Noto Serif"', 'Georgia', 'serif'],
-        button: ['Inter', '"Be Vietnam Pro"', 'sans-serif'],
-        caption: ['Inter', '"Be Vietnam Pro"', 'sans-serif'],
-        badge: ['Inter', '"Be Vietnam Pro"', 'sans-serif'],
+        sans: ['"Be Vietnam Pro"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        serif: ['"Be Vietnam Pro"', 'system-ui', '-apple-system', 'sans-serif'],
+        button: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
+        caption: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
+        badge: ['"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
         'headline-xl': ['"Be Vietnam Pro"', 'sans-serif'],
         'headline-xl-mobile': ['"Be Vietnam Pro"', 'sans-serif'],
         'headline-lg': ['"Be Vietnam Pro"', 'sans-serif'],
