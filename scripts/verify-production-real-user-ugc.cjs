@@ -1062,12 +1062,6 @@ async function run() {
       console.log(`  ✓ Đã xóa tài khoản tác giả test: ${track.authorId}`);
     }
 
-    // Dọn dẹp cả 2 CLB orphan cũ nếu còn tồn dư
-    await fetch(`${SUPABASE_URL}/rest/v1/clubs?id=in.(clb-prod-g14-1790860579030,clb-prod-g14-1790860534694)`, {
-      method: 'DELETE',
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
-    });
-
     // Xác minh 0 bản ghi rác
     const [chkArt, chkClub, chkAct, chkPost, chkEvt, chkAuth, chkAdm] = await Promise.all([
       track.articleId ? fetch(`${SUPABASE_URL}/rest/v1/articles?id=eq.${track.articleId}&select=id`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }).then(r => r.json()) : [],
