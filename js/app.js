@@ -851,7 +851,7 @@ function handleBubbleSelect(story) {
     if (story.id === 'festivals' || story.type === 'festivals') {
         state.activeBubble = 'festivals';
         renderStoryBubbles('storyBubblesContainer', state.activeBubble, handleBubbleSelect);
-        navGoSection('festivalsPortalSection');
+        navGoEvents();
         return;
     }
 
@@ -4440,14 +4440,14 @@ function handleDeepLink() {
         switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
         return;
     }
-    if (hash === '#clb' || hash === '#stitchcommunitysection') {
+    if (hash === '#clb' || hash === '#stitchcommunitysection' || hash === '#/clubs' || hash === '#clubs') {
         switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'stitchCommunitySection' });
         return;
     }
 
-    // Sự kiện & Lễ hội (trong view community)
+    // Sự kiện & Lễ hội View (Tách riêng biệt độc lập)
     if (hash === '#/events' || hash === '#events' || hash === '#festivals' || hash === '#/festivals' || hash === '#lehoi' || hash === '#festivalsportalsection') {
-        switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'festivalsPortalSection' });
+        switchView('events', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
         return;
     }
 
@@ -4948,7 +4948,7 @@ export function switchView(viewName, options = {}) {
         scrollTop = !scrollTo
     } = options;
 
-    const validViews = ['home', 'community', 'search'];
+    const validViews = ['home', 'community', 'events', 'search'];
     if (!validViews.includes(viewName)) {
         console.warn(`[Router] View "${viewName}" không hợp lệ, chuyển về "home"`);
         viewName = 'home';
@@ -4990,12 +4990,7 @@ export function switchView(viewName, options = {}) {
     });
 
     // Cập nhật trạng thái active thanh điều hướng
-    if (scrollTo === 'festivalsPortalSection') {
-        updateSidebarNavActive('events');
-        setBottomNavActive('tabNavClubs');
-    } else {
-        updateNavActiveStates(viewName);
-    }
+    updateNavActiveStates(viewName);
 
     // Cập nhật URL Hash
     if (updateHash) {
@@ -5021,6 +5016,29 @@ export function switchView(viewName, options = {}) {
     if (viewName === 'community' && !state.communityInitialized) {
         initCommunitySection();
         state.communityInitialized = true;
+    }
+
+    if (viewName === 'events') {
+        const festContainer = document.getElementById('festivalsPortalContainer');
+        if (festContainer && (!festContainer.children || festContainer.children.length === 0)) {
+            renderFestivalsSection(
+                'festivalsPortalContainer',
+                state.festivals,
+                state.activeFestivalSeason,
+                openFestivalModal,
+                (placeId) => openDetailModal(placeId),
+                handleSeasonFilter,
+                state.eventsAndMeetups,
+                state.activeEventCategory,
+                state.activeEventRegion,
+                handleEventCategoryFilter,
+                handleEventRegionFilter,
+                openEventRsvpModal,
+                toggleBookmarkEvent,
+                state.bookmarkedEvents,
+                openHostEventModal
+            );
+        }
     }
 
     // Cuộn trang
@@ -5062,7 +5080,11 @@ export function navGoMap() {
 }
 
 export function navGoClubs() {
-    switchView('community', { updateHash: true, pushState: true, closeOverlays: true, scrollTop: true });
+    switchView('community', { updateHash: true, pushState: true, customHash: '#/community', closeOverlays: true, scrollTop: true });
+}
+
+export function navGoEvents() {
+    switchView('events', { updateHash: true, pushState: true, customHash: '#/events', closeOverlays: true, scrollTop: true });
 }
 
 export function navGoSaved() {
@@ -5123,8 +5145,9 @@ export function navGoSection(sectionId) {
         vivuFacebookBanner: { view: 'home', hash: '#/home' },
         // Community view sections
         stitchCommunitySection: { view: 'community', hash: '#/community' },
-        festivalsPortalSection: { view: 'community', hash: '#festivals' },
         travelStoriesSection: { view: 'community', hash: '#stories' },
+        // Events view sections
+        festivalsPortalSection: { view: 'events', hash: '#/events' },
         // Search view sections
         discoverySection: { view: 'search', hash: '#/search' },
         placesDiscoveryGrid: { view: 'search', hash: '#/search' }
@@ -6585,7 +6608,11 @@ export function viewPublishedUgcItem(entityType, entityId) {
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 150);
     } else if (entityType === 'community_event' || entityType === 'event') {
-        navGoSection('festivalsPortalSection');
+        navGoEvents();
+        setTimeout(() => {
+            const el = document.getElementById('eventsGridContainer') || document.getElementById('festivalsPortalSection');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
     }
 }
 
@@ -8781,6 +8808,7 @@ if (typeof window !== 'undefined') {
         navGoHome,
         navGoMap,
         navGoClubs,
+        navGoEvents,
         navGoSaved,
         navGoSearch,
         navGoSection,

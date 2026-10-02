@@ -138,6 +138,7 @@ async function getAppState(cdp) {
     return await cdp.eval(`(() => {
         const vHome = document.getElementById('view-home');
         const vComm = document.getElementById('view-community');
+        const vEvents = document.getElementById('view-events');
         const vSearch = document.getElementById('view-search');
         const mapModal = document.getElementById('fullMapModal');
         const savedModal = document.getElementById('savedCollectionsModal');
@@ -157,6 +158,7 @@ async function getAppState(cdp) {
             views: {
                 home: Boolean(vHome && !vHome.classList.contains('hidden')),
                 community: Boolean(vComm && !vComm.classList.contains('hidden')),
+                events: Boolean(vEvents && !vEvents.classList.contains('hidden')),
                 search: Boolean(vSearch && !vSearch.classList.contains('hidden'))
             },
             modals: {
@@ -495,17 +497,37 @@ async function run() {
         await cdp.eval(`window.history.back()`);
         await sleep(300);
 
-        // [10] KIỂM THỬ ĐIỀU HƯỚNG HASH TƯƠNG THÍCH NGƯỢC (#festivals)
+        // [10] KIỂM THỬ ĐIỀU HƯỚNG HASH TƯƠNG THÍCH NGƯỢC (#festivals) VÀ TÁCH BIỆT CLB / EVENTS
         console.log('\n[10] KIỂM THỬ HASH NAVIGATION TƯƠNG THÍCH NGƯỢC (#festivals):');
         await cdp.eval(`window.location.hash = '#festivals'`);
         await sleep(400);
         const stateFestivals = await getAppState(cdp);
         assertState(stateFestivals, {
-            activeView: 'community',
-            views: { home: false, community: true, search: false },
+            activeView: 'events',
+            views: { home: false, community: false, events: true, search: false },
             modals: { map: false, saved: false },
             activeTab: 'clubs'
-        }, 'Hash #festivals kích hoạt Community view');
+        }, 'Hash #festivals kích hoạt Events view độc lập');
+
+        // [10b] KIỂM THỬ TÁCH BIỆT TUYỆT ĐỐI CÂU LẠC BỘ (COMMUNITY) VÀ SỰ KIỆN (EVENTS)
+        console.log('\n[10b] KIỂM THỬ TÁCH BIỆT TUYỆT ĐỐI CÂU LẠC BỘ VÀ SỰ KIỆN:');
+        await cdp.eval(`window.ViVuApp.navGoClubs()`);
+        await sleep(300);
+        const stateClubsOnly = await getAppState(cdp);
+        assertState(stateClubsOnly, {
+            activeView: 'community',
+            hash: '#/community',
+            views: { home: false, community: true, events: false, search: false }
+        }, 'navGoClubs kích hoạt Community, ẩn hoàn toàn Events');
+
+        await cdp.eval(`window.ViVuApp.navGoEvents()`);
+        await sleep(300);
+        const stateEventsOnly = await getAppState(cdp);
+        assertState(stateEventsOnly, {
+            activeView: 'events',
+            hash: '#/events',
+            views: { home: false, community: false, events: true, search: false }
+        }, 'navGoEvents kích hoạt Events, ẩn hoàn toàn Community');
 
         // [11] KIỂM THỬ PHƯƠNG THỨC navGoSection VÀ CẬP NHẬT URL TƯƠNG ỨNG
         console.log('\n[11] KIỂM THỬ PHƯƠNG THỨC navGoSection VÀ CẬP NHẬT URL:');
