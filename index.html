@@ -263,9 +263,17 @@
                             <span class="material-symbols-outlined text-[20px]">map</span>
                             <span>Bản đồ &amp; Địa điểm</span>
                         </a>
-                        <a href="#/community" id="sidebarLinkClubs" onclick="window.ViVuApp?.navGoClubs?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <a href="#/clubs" id="sidebarLinkClubs" onclick="window.ViVuApp?.navGoClubs?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
                             <span class="material-symbols-outlined text-[20px]">groups</span>
                             <span>Câu lạc bộ</span>
+                        </a>
+                        <a href="#/community" id="sidebarLinkCommunity" onclick="window.ViVuApp?.navGoCommunity?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px]">forum</span>
+                            <span>Cộng đồng</span>
+                        </a>
+                        <a href="#/blog" id="sidebarLinkBlog" onclick="window.ViVuApp?.navGoBlog?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px]">auto_stories</span>
+                            <span>Blog ViVu</span>
                         </a>
                         <a href="#/events" id="sidebarLinkEvents" onclick="window.ViVuApp?.navGoEvents ? window.ViVuApp.navGoEvents() : (window.ViVuApp?.navGoSection ? window.ViVuApp.navGoSection('festivalsPortalSection') : null); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
                             <span class="material-symbols-outlined text-[20px]">event</span>
@@ -782,208 +790,304 @@
             </div>
 
             <!-- ========================================== -->
-            <!-- VIEW 2: COMMUNITY (CÂU LẠC BỘ & LỄ HỘI)    -->
+            <!-- VIEW: CLUBS (CÂU LẠC BỘ)                   -->
             <!-- ========================================== -->
-            <div id="view-community" class="app-view space-y-8 hidden" data-view="community" role="region" aria-label="Cộng đồng & Câu lạc bộ" tabindex="-1">
+            <div id="view-clubs" class="app-view space-y-8 hidden" data-view="clubs" role="region" aria-label="Câu lạc bộ" tabindex="-1">
                 <!-- 4B. CÂU LẠC BỘ & HOẠT ĐỘNG CỘNG ĐỒNG XỨ TRÀ (STITCH DESIGN SYSTEM - PHASE 5) -->
-        <section id="stitchCommunitySection" class="w-full flex flex-col gap-8 pt-2">
-            <!-- Top Banner / Editorial Header -->
-            <div class="w-full rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-800 p-6 sm:p-8 shadow-xs relative overflow-hidden">
-                <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div class="flex flex-col max-w-2xl">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/80 dark:bg-emerald-950/80 text-on-secondary-container dark:text-emerald-300 font-caption text-xs uppercase tracking-wider font-semibold">
-                                <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-pulse"></span>
-                                KẾT NỐI &amp; CHIA SẺ • VIVUTRAVINH
-                            </span>
-                        </div>
-                        <h2 class="font-headline-lg text-2xl sm:text-3xl text-on-surface dark:text-zinc-100 font-bold tracking-tight">
-                            Cộng đồng &amp; Câu lạc bộ xứ Trà
-                        </h2>
-                        <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-2 leading-relaxed">
-                            Tìm những người cùng sở thích, khám phá di sản văn hóa Khmer và tham gia các hoạt động địa phương ý nghĩa cùng người bản xứ.
-                        </p>
-                        <div class="flex flex-wrap items-center gap-2.5 mt-4">
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 font-caption text-xs">
-                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">groups</span>
-                                <strong id="communityClubsCountBadge">5</strong> Câu lạc bộ đang hoạt động
-                            </span>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 font-caption text-xs">
-                                <span class="material-symbols-outlined text-[16px] text-orange-500">local_fire_department</span>
-                                <strong>1,725+</strong> thành viên tích cực
-                            </span>
-                        </div>
-                    </div>
-                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-                        <button type="button" id="openCreateClubBtn" onclick="window.ViVuApp.openCreateClubModal()"
-                            class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-button text-xs font-semibold shadow-sm active:scale-95 transition-all min-h-[44px]">
-                            <span class="material-symbols-outlined text-[20px]">add_circle</span>
-                            <span>Tạo CLB mới</span>
-                        </button>
-                        <button type="button" id="openSubmitClubActivityBtn" onclick="window.ViVuApp.openSubmitClubActivityModal()"
-                            class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-secondary hover:bg-primary text-white font-button text-xs font-semibold shadow-sm active:scale-95 transition-all min-h-[44px]">
-                            <span class="material-symbols-outlined text-[20px]">calendar_add_on</span>
-                            <span>Lên lịch sinh hoạt</span>
-                        </button>
-                        <button type="button" id="focusClubSearchBtn" onclick="window.ViVuApp.focusClubSearch()"
-                            class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 font-button text-xs font-semibold border border-outline-variant/30 dark:border-zinc-700 transition-all min-h-[44px]">
-                            <span class="material-symbols-outlined text-[20px] text-on-surface-variant dark:text-zinc-400">search</span>
-                            <span>Tìm kiếm CLB</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Section 1: Featured Clubs Bento Grid -->
-            <div class="flex flex-col gap-5">
-                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-                    <div>
-                        <span class="font-caption text-xs uppercase tracking-wider text-secondary dark:text-emerald-400 font-bold">Điểm nhấn cộng đồng</span>
-                        <h3 class="font-headline-md text-xl sm:text-2xl text-on-surface dark:text-zinc-100 font-bold tracking-tight">Câu lạc bộ tiêu biểu</h3>
-                        <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400">Tham gia cùng cộng đồng những người đam mê trải nghiệm Trà Vinh chân thật và nguyên bản.</p>
-                    </div>
-                    <!-- Category Pills for Clubs -->
-                    <div id="clubCategoryPills" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" role="toolbar" aria-label="Bộ lọc câu lạc bộ">
-                        <!-- Injected via ui.js / app.js -->
-                    </div>
-                </div>
-
-                <!-- Clubs Grid Container -->
-                <div id="featuredClubsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Injected via ui.js -->
-                </div>
-            </div>
-
-            <!-- Section 2: Split Community Feed & Widgets (68% / 32% ~ 8 cols / 4 cols) -->
-            <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                <!-- Left Column (8 cols): Create Post + Feed Filter + Posts Feed -->
-                <div class="lg:col-span-8 flex flex-col gap-6">
-                    <!-- Create Post Box -->
-                    <div id="communityCreatePostBox" class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800">
-                        <div class="flex items-start gap-3.5">
-                            <div class="w-11 h-11 rounded-full bg-primary-container text-white flex items-center justify-center font-bold text-sm uppercase shrink-0 ring-2 ring-emerald-500/20">
-                                TT
-                            </div>
-                            <div class="flex-1">
-                                <label for="newCommunityPostContent" class="sr-only">Nội dung chia sẻ cộng đồng</label>
-                                <textarea id="newCommunityPostContent"
-                                    class="w-full p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-500 text-xs sm:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-secondary/40 transition-all border border-transparent focus:border-secondary"
-                                    placeholder="Chia sẻ câu chuyện, ảnh đẹp hoặc rủ bạn bè khám phá cuối tuần này..." rows="3"></textarea>
-                            </div>
-                        </div>
-
-                        <!-- Optional photo preview / location tag if selected -->
-                        <div id="newPostMediaPreview" class="hidden mt-3 p-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex items-center justify-between">
-                            <span id="newPostMediaPreviewText" class="text-xs text-secondary dark:text-emerald-400 font-medium truncate"></span>
-                            <button type="button" onclick="window.ViVuApp.clearCommunityPostAttachment()" class="text-red-500 p-1 hover:bg-surface-container dark:hover:bg-zinc-700 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center" title="Xóa đính kèm" aria-label="Xóa đính kèm">
-                                <span class="material-symbols-outlined text-[18px]">close</span>
-                            </button>
-                        </div>
-
-                        <div class="mt-4 pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/20 dark:border-zinc-800">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <button type="button" onclick="window.ViVuApp.promptAddPostPhoto()"
-                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-colors text-xs font-semibold min-h-[44px]">
-                                    <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">add_photo_alternate</span>
-                                    <span>Ảnh / Video</span>
-                                </button>
-                                <button type="button" onclick="window.ViVuApp.promptAddPostLocation()"
-                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-colors text-xs font-semibold min-h-[44px]">
-                                    <span class="material-symbols-outlined text-[18px] text-orange-500">location_on</span>
-                                    <span>Check-in địa điểm</span>
-                                </button>
-                                <div class="relative inline-block">
-                                    <select id="newCommunityPostTopic" aria-label="Chọn chủ đề bài viết"
-                                        class="appearance-none inline-flex items-center gap-1.5 pl-3 pr-8 py-2 min-h-[44px] rounded-lg bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-700 text-xs font-semibold focus:outline-none cursor-pointer border border-transparent focus:border-secondary">
-                                        <option value="🏷️ Chủ đề: Tự do">🏷️ Chủ đề: Tự do</option>
-                                        <option value="🛕 Chùa chiền Khmer">🛕 Chùa chiền Khmer</option>
-                                        <option value="🍜 Ẩm thực xứ Trà">🍜 Ẩm thực xứ Trà</option>
-                                        <option value="🚴 Dã ngoại sinh thái">🚴 Dã ngoại sinh thái</option>
-                                    </select>
-                                    <span class="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-outline">expand_more</span>
+                <section id="stitchCommunitySection" class="w-full flex flex-col gap-8 pt-2">
+                    <!-- Top Banner / Editorial Header -->
+                    <div class="w-full rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-800 p-6 sm:p-8 shadow-xs relative overflow-hidden">
+                        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                            <div class="flex flex-col max-w-2xl">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/80 dark:bg-emerald-950/80 text-on-secondary-container dark:text-emerald-300 font-caption text-xs uppercase tracking-wider font-semibold">
+                                        <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-pulse"></span>
+                                        KẾT NỐI SỞ THÍCH • VIVUTRAVINH
+                                    </span>
+                                </div>
+                                <h2 class="font-headline-lg text-2xl sm:text-3xl text-on-surface dark:text-zinc-100 font-bold tracking-tight">
+                                    Câu lạc bộ xứ Trà
+                                </h2>
+                                <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-2 leading-relaxed">
+                                    Tìm những người cùng sở thích, khám phá di sản văn hóa Khmer và tham gia các hoạt động địa phương ý nghĩa cùng người bản xứ.
+                                </p>
+                                <div class="flex flex-wrap items-center gap-2.5 mt-4">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 font-caption text-xs">
+                                        <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">groups</span>
+                                        <strong id="communityClubsCountBadge">5</strong> Câu lạc bộ đang hoạt động
+                                    </span>
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface dark:text-zinc-200 font-caption text-xs">
+                                        <span class="material-symbols-outlined text-[16px] text-orange-500">local_fire_department</span>
+                                        <strong>1,725+</strong> thành viên tích cực
+                                    </span>
                                 </div>
                             </div>
-                            <button type="button" id="submitCommunityPostBtn" onclick="window.ViVuApp.submitNewCommunityPost()"
-                                class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary-container hover:bg-primary text-white text-xs font-bold shadow-xs active:scale-95 transition-all min-h-[44px]">
-                                <span class="material-symbols-outlined text-[18px]">send</span>
-                                <span>Đăng bài</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Feed Filter Tabs -->
-                    <div id="feedFilterTabs" class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" role="toolbar" aria-label="Bộ lọc bài viết cộng đồng">
-                        <!-- Injected via ui.js / app.js -->
-                    </div>
-
-                    <!-- Discussion Posts Feed -->
-                    <div id="communityPostsFeed" class="flex flex-col gap-5">
-                        <!-- Injected via ui.js -->
-                    </div>
-                </div>
-
-                <!-- Right Column (4 cols): Sidebar Widgets -->
-                <div class="lg:col-span-4 flex flex-col gap-6">
-                    <!-- Widget 1: Weekly Activities -->
-                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[22px]">event_available</span>
-                                <h4 class="font-bold text-base text-on-surface dark:text-zinc-100">Hoạt động tuần này</h4>
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                                <button type="button" id="openCreateClubBtn" onclick="window.ViVuApp.openCreateClubModal()"
+                                    class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-button text-xs font-semibold shadow-sm active:scale-95 transition-all min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[20px]">add_circle</span>
+                                    <span>Tạo CLB mới</span>
+                                </button>
+                                <button type="button" id="openSubmitClubActivityBtn" onclick="window.ViVuApp.openSubmitClubActivityModal()"
+                                    class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-secondary hover:bg-primary text-white font-button text-xs font-semibold shadow-sm active:scale-95 transition-all min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[20px]">calendar_add_on</span>
+                                    <span>Lên lịch sinh hoạt</span>
+                                </button>
+                                <button type="button" id="focusClubSearchBtn" onclick="window.ViVuApp.focusClubSearch()"
+                                    class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 font-button text-xs font-semibold border border-outline-variant/30 dark:border-zinc-700 transition-all min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[20px] text-on-surface-variant dark:text-zinc-400">search</span>
+                                    <span>Tìm kiếm CLB</span>
+                                </button>
                             </div>
-                            <span id="weeklyActivitiesCountBadge" class="px-2.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/80 text-on-secondary-container dark:text-emerald-300 font-caption text-xs font-bold">4 sự kiện</span>
                         </div>
-                        <div id="weeklyActivitiesList" class="flex flex-col gap-3">
-                            <!-- Injected via ui.js -->
-                        </div>
-                        <button type="button" id="openSubmitClubActivitySidebarBtn" onclick="window.ViVuApp?.openSubmitClubActivityModal?.()"
-                            class="w-full py-2.5 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50 text-secondary dark:text-emerald-300 font-button text-xs font-semibold flex items-center justify-center gap-1.5 transition-all min-h-[44px]">
-                            <span class="material-symbols-outlined text-[18px]">calendar_add_on</span>
-                            <span>Lên lịch sinh hoạt CLB (Chủ nhiệm)</span>
-                        </button>
-                        <a href="#/events" onclick="window.ViVuApp?.navGoEvents ? window.ViVuApp.navGoEvents() : (window.ViVuApp?.navGoSection ? window.ViVuApp.navGoSection('festivalsPortalSection') : null); return false;" class="pt-1 text-center font-button text-xs font-semibold text-secondary dark:text-emerald-400 hover:underline flex items-center justify-center gap-1 min-h-[44px]">
-                            <span>Xem lịch tất cả sự kiện</span>
-                            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-                        </a>
                     </div>
 
-                    <!-- Widget 2: Community Guidelines -->
-                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[22px]">policy</span>
-                            <h4 class="font-bold text-base text-on-surface dark:text-zinc-100">Quy tắc cộng đồng xứ Trà</h4>
+                    <!-- Section 1: Featured Clubs Bento Grid -->
+                    <div class="flex flex-col gap-5">
+                        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                            <div>
+                                <span class="font-caption text-xs uppercase tracking-wider text-secondary dark:text-emerald-400 font-bold">Điểm nhấn cộng đồng</span>
+                                <h3 class="font-headline-md text-xl sm:text-2xl text-on-surface dark:text-zinc-100 font-bold tracking-tight">Câu lạc bộ tiêu biểu</h3>
+                                <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400">Tham gia cùng cộng đồng những người đam mê trải nghiệm Trà Vinh chân thật và nguyên bản.</p>
+                            </div>
+                            <!-- Category Pills for Clubs -->
+                            <div id="clubCategoryPills" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" role="toolbar" aria-label="Bộ lọc câu lạc bộ">
+                                <!-- Injected via ui.js / app.js -->
+                            </div>
                         </div>
-                        <ul id="communityGuidelinesList" class="flex flex-col gap-3">
+
+                        <!-- Clubs Grid Container -->
+                        <div id="featuredClubsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <!-- Injected via ui.js -->
-                        </ul>
+                        </div>
                     </div>
 
-                    <!-- Widget 3: Invite Friends Card -->
-                    <div class="rounded-2xl p-5 sm:p-6 shadow-xs bg-primary-container text-white flex flex-col gap-3 relative overflow-hidden">
-                        <div class="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-secondary opacity-20 pointer-events-none"></div>
-                        <div class="flex items-center gap-2">
-                            <span class="material-symbols-outlined text-[24px] text-emerald-300">diversity_1</span>
-                            <h4 class="font-bold text-base text-emerald-200">Mời bạn bè cùng khám phá</h4>
+                    <!-- Section 2: Club Activities & Guidelines -->
+                    <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                        <!-- Left Column (8 cols): Weekly Activities -->
+                        <div class="lg:col-span-8 flex flex-col gap-6">
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
+                                <div class="flex items-center justify-between pb-2 border-b border-outline-variant/20 dark:border-zinc-800">
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[22px]">event_available</span>
+                                        <h4 class="font-bold text-base text-on-surface dark:text-zinc-100">Hoạt động &amp; Lịch sinh hoạt tuần này</h4>
+                                    </div>
+                                    <span id="weeklyActivitiesCountBadge" class="px-2.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/80 text-on-secondary-container dark:text-emerald-300 font-caption text-xs font-bold">4 sự kiện</span>
+                                </div>
+                                <div id="weeklyActivitiesList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <!-- Injected via ui.js -->
+                                </div>
+                                <div class="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                                    <button type="button" id="openSubmitClubActivitySidebarBtn" onclick="window.ViVuApp?.openSubmitClubActivityModal?.()"
+                                        class="flex-1 w-full py-2.5 px-3 rounded-xl bg-secondary/10 hover:bg-secondary/20 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50 text-secondary dark:text-emerald-300 font-button text-xs font-semibold flex items-center justify-center gap-1.5 transition-all min-h-[44px]">
+                                        <span class="material-symbols-outlined text-[18px]">calendar_add_on</span>
+                                        <span>Lên lịch sinh hoạt CLB (Chủ nhiệm)</span>
+                                    </button>
+                                    <a href="#/events" onclick="window.ViVuApp?.navGoEvents ? window.ViVuApp.navGoEvents() : (window.ViVuApp?.navGoSection ? window.ViVuApp.navGoSection('festivalsPortalSection') : null); return false;" class="text-center font-button text-xs font-semibold text-secondary dark:text-emerald-400 hover:underline flex items-center justify-center gap-1 min-h-[44px] px-3">
+                                        <span>Xem lịch tất cả sự kiện</span>
+                                        <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                                    </a>
+                                </div>
+                            </div>
                         </div>
-                        <p class="text-xs text-emerald-100/90 leading-relaxed">
-                            Hành trình vi vu miền đất Trà Vinh sẽ thêm rực rỡ khi có những người bạn đồng hành chung nhịp đập khám phá.
-                        </p>
-                        <button type="button" onclick="navigator.clipboard?.writeText(window.location.href); window.ViVuApp.showNotification?.('Đã sao chép liên kết mời bạn bè tham gia ViVuTraVinh!');"
-                            class="mt-1 w-full py-2.5 px-4 rounded-xl bg-secondary hover:bg-emerald-600 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] shadow-sm active:scale-95">
-                            <span class="material-symbols-outlined text-[18px]">share</span>
-                            <span>Sao chép link mời</span>
-                        </button>
+
+                        <!-- Right Column (4 cols): Guidelines & Invite -->
+                        <div class="lg:col-span-4 flex flex-col gap-6">
+                            <!-- Widget: Community Guidelines -->
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[22px]">policy</span>
+                                    <h4 class="font-bold text-base text-on-surface dark:text-zinc-100">Quy tắc sinh hoạt CLB xứ Trà</h4>
+                                </div>
+                                <ul id="communityGuidelinesList" class="flex flex-col gap-3">
+                                    <!-- Injected via ui.js -->
+                                </ul>
+                            </div>
+
+                            <!-- Widget: Invite Friends Card -->
+                            <div class="rounded-2xl p-5 sm:p-6 shadow-xs bg-primary-container text-white flex flex-col gap-3 relative overflow-hidden">
+                                <div class="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-secondary opacity-20 pointer-events-none"></div>
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[24px] text-emerald-300">diversity_1</span>
+                                    <h4 class="font-bold text-base text-emerald-200">Mời bạn bè cùng tham gia</h4>
+                                </div>
+                                <p class="text-xs text-emerald-100/90 leading-relaxed">
+                                    Hành trình vi vu miền đất Trà Vinh sẽ thêm rực rỡ khi có những người bạn đồng hành chung nhịp đập khám phá.
+                                </p>
+                                <button type="button" onclick="navigator.clipboard?.writeText(window.location.href); window.ViVuApp.showNotification?.('Đã sao chép liên kết mời bạn bè tham gia ViVuTraVinh!');"
+                                    class="mt-1 w-full py-2.5 px-4 rounded-xl bg-secondary hover:bg-emerald-600 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] shadow-sm active:scale-95">
+                                    <span class="material-symbols-outlined text-[18px]">share</span>
+                                    <span>Sao chép link mời</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </section>
             </div>
-        </section>
 
+            <!-- ========================================== -->
+            <!-- VIEW: COMMUNITY (CỘNG ĐỒNG BẢNG TIN)       -->
+            <!-- ========================================== -->
+            <div id="view-community" class="app-view space-y-8 hidden" data-view="community" role="region" aria-label="Cộng đồng" tabindex="-1">
+                <section class="w-full flex flex-col gap-8 pt-2">
+                    <!-- Top Banner / Editorial Header -->
+                    <div class="w-full rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/40 dark:border-zinc-800 p-6 sm:p-8 shadow-xs relative overflow-hidden">
+                        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                            <div class="flex flex-col max-w-2xl">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/80 dark:bg-emerald-950/80 text-on-secondary-container dark:text-emerald-300 font-caption text-xs uppercase tracking-wider font-semibold">
+                                        <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-pulse"></span>
+                                        BẢNG TIN GIAO LƯU • VIVUTRAVINH
+                                    </span>
+                                </div>
+                                <h2 class="font-headline-lg text-2xl sm:text-3xl text-on-surface dark:text-zinc-100 font-bold tracking-tight">
+                                    Cộng đồng ViVu Xứ Trà
+                                </h2>
+                                <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-2 leading-relaxed">
+                                    Bảng tin bài đăng ngắn, ảnh/video, check-in, chia sẻ trải nghiệm, bình luận và tương tác cùng cộng đồng du khách và người bản xứ.
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <button type="button" onclick="document.getElementById('newCommunityPostContent')?.focus()"
+                                    class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary hover:bg-primary-container text-white font-button text-xs font-semibold shadow-sm active:scale-95 transition-all min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[20px]">edit_square</span>
+                                    <span>Đăng bài mới</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Split Community Feed & Widgets (8 cols / 4 cols) -->
+                    <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                        <!-- Left Column (8 cols): Create Post + Feed Filter + Posts Feed -->
+                        <div class="lg:col-span-8 flex flex-col gap-6">
+                            <!-- Create Post Box -->
+                            <div id="communityCreatePostBox" class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800">
+                                <div class="flex items-start gap-3.5">
+                                    <div class="w-11 h-11 rounded-full bg-primary-container text-white flex items-center justify-center font-bold text-sm uppercase shrink-0 ring-2 ring-emerald-500/20">
+                                        TT
+                                    </div>
+                                    <div class="flex-1">
+                                        <label for="newCommunityPostContent" class="sr-only">Nội dung chia sẻ cộng đồng</label>
+                                        <textarea id="newCommunityPostContent"
+                                            class="w-full p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-500 text-xs sm:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-secondary/40 transition-all border border-transparent focus:border-secondary"
+                                            placeholder="Chia sẻ câu chuyện, ảnh đẹp hoặc rủ bạn bè khám phá cuối tuần này..." rows="3"></textarea>
+                                    </div>
+                                </div>
+
+                                <!-- Optional photo preview / location tag if selected -->
+                                <div id="newPostMediaPreview" class="hidden mt-3 p-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex items-center justify-between">
+                                    <span id="newPostMediaPreviewText" class="text-xs text-secondary dark:text-emerald-400 font-medium truncate"></span>
+                                    <button type="button" onclick="window.ViVuApp.clearCommunityPostAttachment()" class="text-red-500 p-1 hover:bg-surface-container dark:hover:bg-zinc-700 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center" title="Xóa đính kèm" aria-label="Xóa đính kèm">
+                                        <span class="material-symbols-outlined text-[18px]">close</span>
+                                    </button>
+                                </div>
+
+                                <div class="mt-4 pt-4 flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/20 dark:border-zinc-800">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <button type="button" onclick="window.ViVuApp.promptAddPostPhoto()"
+                                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-colors text-xs font-semibold min-h-[44px]">
+                                            <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">add_photo_alternate</span>
+                                            <span>Ảnh / Video</span>
+                                        </button>
+                                        <button type="button" onclick="window.ViVuApp.promptAddPostLocation()"
+                                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-colors text-xs font-semibold min-h-[44px]">
+                                            <span class="material-symbols-outlined text-[18px] text-orange-500">location_on</span>
+                                            <span>Check-in địa điểm</span>
+                                        </button>
+                                        <div class="relative inline-block">
+                                            <select id="newCommunityPostTopic" aria-label="Chọn chủ đề bài viết"
+                                                class="appearance-none inline-flex items-center gap-1.5 pl-3 pr-8 py-2 min-h-[44px] rounded-lg bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-surface-container dark:hover:bg-zinc-700 text-xs font-semibold focus:outline-none cursor-pointer border border-transparent focus:border-secondary">
+                                                <option value="🏷️ Chủ đề: Tự do">🏷️ Chủ đề: Tự do</option>
+                                                <option value="🛕 Chùa chiền Khmer">🛕 Chùa chiền Khmer</option>
+                                                <option value="🍜 Ẩm thực xứ Trà">🍜 Ẩm thực xứ Trà</option>
+                                                <option value="🚴 Dã ngoại sinh thái">🚴 Dã ngoại sinh thái</option>
+                                            </select>
+                                            <span class="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-outline">expand_more</span>
+                                        </div>
+                                    </div>
+                                    <button type="button" id="submitCommunityPostBtn" onclick="window.ViVuApp.submitNewCommunityPost()"
+                                        class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary-container hover:bg-primary text-white text-xs font-bold shadow-xs active:scale-95 transition-all min-h-[44px]">
+                                        <span class="material-symbols-outlined text-[18px]">send</span>
+                                        <span>Đăng bài</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Feed Filter Tabs -->
+                            <div id="feedFilterTabs" class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" role="toolbar" aria-label="Bộ lọc bài viết cộng đồng">
+                                <!-- Injected via ui.js / app.js -->
+                            </div>
+
+                            <!-- Discussion Posts Feed -->
+                            <div id="communityPostsFeed" class="flex flex-col gap-5">
+                                <!-- Injected via ui.js -->
+                            </div>
+                        </div>
+
+                        <!-- Right Column (4 cols): Guidelines & Shortcuts -->
+                        <div class="lg:col-span-4 flex flex-col gap-6">
+                            <!-- Card: Community Culture -->
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[22px]">diversity_3</span>
+                                    <h4 class="font-bold text-base text-on-surface dark:text-zinc-100">Góc chia sẻ văn minh</h4>
+                                </div>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    Chia sẻ những trải nghiệm chân thật, hình ảnh check-in đẹp và tôn trọng nét đẹp bản sắc văn hóa các dân tộc tại Trà Vinh.
+                                </p>
+                            </div>
+
+                            <!-- Card: Shortcuts to Clubs & Blog -->
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-3">
+                                <h4 class="font-bold text-xs uppercase tracking-wider text-outline dark:text-zinc-400">Khám phá kết nối khác</h4>
+                                <a href="#/clubs" onclick="window.ViVuApp?.navGoClubs?.(); return false;" class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 transition-colors">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">groups</span>
+                                        <span class="text-xs font-semibold text-on-surface dark:text-zinc-200">Câu lạc bộ xứ Trà</span>
+                                    </div>
+                                    <span class="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_forward</span>
+                                </a>
+                                <a href="#/blog" onclick="window.ViVuApp?.navGoBlog?.(); return false;" class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 transition-colors">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="material-symbols-outlined text-[20px] text-amber-500">auto_stories</span>
+                                        <span class="text-xs font-semibold text-on-surface dark:text-zinc-200">Blog ViVu (Góc chuyện Xứ Trà)</span>
+                                    </div>
+                                    <span class="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_forward</span>
+                                </a>
+                            </div>
+
+                            <!-- Card: Invite Friends Card -->
+                            <div class="rounded-2xl p-5 sm:p-6 shadow-xs bg-primary-container text-white flex flex-col gap-3 relative overflow-hidden">
+                                <div class="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-secondary opacity-20 pointer-events-none"></div>
+                                <div class="flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[24px] text-emerald-300">share</span>
+                                    <h4 class="font-bold text-base text-emerald-200">Rủ bạn bè cùng tham gia</h4>
+                                </div>
+                                <p class="text-xs text-emerald-100/90 leading-relaxed">
+                                    Gửi liên kết cộng đồng ViVuTràVinh đến bạn bè để cùng lên kế hoạch vi vu!
+                                </p>
+                                <button type="button" onclick="navigator.clipboard?.writeText(window.location.href); window.ViVuApp.showNotification?.('Đã sao chép liên kết chia sẻ!');"
+                                    class="mt-1 w-full py-2.5 px-4 rounded-xl bg-secondary hover:bg-emerald-600 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 min-h-[44px] shadow-sm active:scale-95">
+                                    <span class="material-symbols-outlined text-[18px]">content_copy</span>
+                                    <span>Sao chép liên kết</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VIEW: BLOG (BLOG VIVU - GÓC CHUYỆN XỨ TRÀ) -->
+            <!-- ========================================== -->
+            <div id="view-blog" class="app-view space-y-8 hidden" data-view="blog" role="region" aria-label="Blog ViVu" tabindex="-1">
                 <!-- 5C. GÓC CHUYỆN XỨ TRÀ (TRAVEL STORIES & COMMUNITY BLOG) -->
-        <section id="travelStoriesSection" class="w-full pt-4">
-            <div id="travelStoriesContainer">
-                <!-- Travel stories injected via ui.js -->
-            </div>
-        </section>
+                <section id="travelStoriesSection" class="w-full pt-2">
+                    <div id="travelStoriesContainer">
+                        <!-- Travel stories injected via ui.js -->
+                    </div>
+                </section>
             </div>
 
             <!-- ========================================== -->

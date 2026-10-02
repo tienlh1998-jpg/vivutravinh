@@ -137,7 +137,9 @@ async function getDebuggerUrl(port) {
 async function getAppState(cdp) {
     return await cdp.eval(`(() => {
         const vHome = document.getElementById('view-home');
+        const vClubs = document.getElementById('view-clubs');
         const vComm = document.getElementById('view-community');
+        const vBlog = document.getElementById('view-blog');
         const vEvents = document.getElementById('view-events');
         const vSearch = document.getElementById('view-search');
         const mapModal = document.getElementById('fullMapModal');
@@ -157,7 +159,9 @@ async function getAppState(cdp) {
             pathname: window.location.pathname || '',
             views: {
                 home: Boolean(vHome && !vHome.classList.contains('hidden')),
+                clubs: Boolean(vClubs && !vClubs.classList.contains('hidden')),
                 community: Boolean(vComm && !vComm.classList.contains('hidden')),
+                blog: Boolean(vBlog && !vBlog.classList.contains('hidden')),
                 events: Boolean(vEvents && !vEvents.classList.contains('hidden')),
                 search: Boolean(vSearch && !vSearch.classList.contains('hidden'))
             },
@@ -297,7 +301,7 @@ async function run() {
         // [4] KIỂM THỬ CHUỖI ĐIỀU HƯỚNG TIẾN: HOME → COMMUNITY → SEARCH
         console.log('\n[4] KIỂM THỬ CHUỖI ĐIỀU HƯỚNG TIẾN (Home → Community → Search):');
         // Bước 4a: Chuyển sang Community
-        await cdp.eval(`window.ViVuApp.navGoClubs()`);
+        await cdp.eval(`window.ViVuApp.navGoCommunity()`);
         await sleep(300);
         const stateComm = await getAppState(cdp);
         assertState(stateComm, {
@@ -509,16 +513,16 @@ async function run() {
             activeTab: 'clubs'
         }, 'Hash #festivals kích hoạt Events view độc lập');
 
-        // [10b] KIỂM THỬ TÁCH BIỆT TUYỆT ĐỐI CÂU LẠC BỘ (COMMUNITY) VÀ SỰ KIỆN (EVENTS)
+        // [10b] KIỂM THỬ TÁCH BIỆT TUYỆT ĐỐI CÂU LẠC BỘ (CLUBS) VÀ SỰ KIỆN (EVENTS)
         console.log('\n[10b] KIỂM THỬ TÁCH BIỆT TUYỆT ĐỐI CÂU LẠC BỘ VÀ SỰ KIỆN:');
         await cdp.eval(`window.ViVuApp.navGoClubs()`);
         await sleep(300);
         const stateClubsOnly = await getAppState(cdp);
         assertState(stateClubsOnly, {
-            activeView: 'community',
-            hash: '#/community',
-            views: { home: false, community: true, events: false, search: false }
-        }, 'navGoClubs kích hoạt Community, ẩn hoàn toàn Events');
+            activeView: 'clubs',
+            hash: '#/clubs',
+            views: { home: false, clubs: true, community: false, events: false, search: false }
+        }, 'navGoClubs kích hoạt Clubs, ẩn hoàn toàn Events');
 
         await cdp.eval(`window.ViVuApp.navGoEvents()`);
         await sleep(300);

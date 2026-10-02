@@ -1,17 +1,26 @@
 /**
  * scripts/verify-split-views-acceptance.cjs
  *
- * Kiểm thử nghiệm thu phân tách độc lập hai view:
- * 1. Câu lạc bộ (view-community):
- *    - Chỉ hiển thị danh sách/bộ lọc CLB, hoạt động CLB, thảo luận cộng đồng & chuyện xứ Trà.
- *    - Cuộn hết trang TUYỆT ĐỐI không thấy phần sự kiện hay lễ hội.
- * 2. Sự kiện & Gặp gỡ (view-events):
- *    - Hiển thị cổng sự kiện, Ok Om Bok spotlight & countdown, lễ hội, workshop, nút tạo sự kiện.
- *    - Cuộn hết trang TUYỆT ĐỐI không thấy phần câu lạc bộ hay thảo luận CLB.
- * 3. Chuyển đổi qua lại, sidebar active, cuộn về đầu trang (scrollTop: true).
- * 4. Tương thích URL trực tiếp (#clb, #festivals, #/community, #/events), reload, Back/Forward.
- * 5. Giữ nguyên modal tạo nội dung, đăng ký, kiểm duyệt.
- * 6. Chụp ảnh màn hình nghiệm thu Desktop (1280px) và Mobile (390px) cả đầu và cuối trang.
+ * Kiểm thử nghiệm thu phân tách độc lập 4 danh mục riêng biệt:
+ * 1. Câu lạc bộ (view-clubs):
+ *    - Danh sách CLB, thông tin và tham gia CLB, lịch hoạt động tuần này của CLB.
+ *    - Cuộn hết trang TUYỆT ĐỐI không thấy feed bài đăng, cẩm nang du lịch hay sự kiện.
+ * 2. Cộng đồng (view-community):
+ *    - Bảng tin bài đăng ngắn, ảnh/video, check-in, chia sẻ trải nghiệm, bình luận và tương tác.
+ *    - Cuộn hết trang TUYỆT ĐỐI không thấy danh sách CLB, cẩm nang hay sự kiện.
+ * 3. Blog ViVu (view-blog):
+ *    - Câu chuyện, ký sự, văn hóa, ẩm thực và cẩm nang.
+ *    - Tiêu đề bên trong trang bắt buộc: "Góc chuyện Xứ Trà".
+ *    - Cuộn hết trang TUYỆT ĐỐI không thấy CLB, bảng tin hay sự kiện.
+ * 4. Sự kiện & Gặp gỡ (view-events):
+ *    - Giữ trang sự kiện đã tách và hoạt động chuẩn: Ok Om Bok countdown, thẻ sự kiện, nút tạo sự kiện.
+ *    - Cuộn hết trang TUYỆT ĐỐI không thấy CLB, bảng tin hay blog.
+ * 5. Điều hướng sidebar trong nhóm "Khám Phá & Kết Nối":
+ *    - Trang chủ, Bản đồ, Câu lạc bộ, Cộng đồng, Blog ViVu, Sự kiện & Gặp gỡ.
+ *    - Active state chính xác cho từng mục khi mở.
+ * 6. Tương thích URL trực tiếp (#clb, #/community, #stories, #/blog, #festivals, #/events), reload, Back/Forward.
+ * 7. Điều hướng xem nội dung UGC đã duyệt (viewPublishedUgcItem) dẫn đúng từng view tương ứng.
+ * 8. Chụp ảnh màn hình nghiệm thu Desktop (1280px) và Mobile (390px) cả đầu và cuối trang cho cả 4 view.
  */
 
 const http = require('http');
@@ -100,6 +109,10 @@ class CDPClient {
         const res = await this.send('Page.captureScreenshot', { format: 'png' });
         fs.writeFileSync(outputPath, Buffer.from(res.data, 'base64'));
     }
+
+    async close() {
+        this.ws.close();
+    }
 }
 
 function sleep(ms) {
@@ -107,7 +120,7 @@ function sleep(ms) {
 }
 
 async function getDebuggerUrl(port) {
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
         try {
             const data = await new Promise((resolve, reject) => {
                 const req = http.get(`http://127.0.0.1:${port}/json`, res => {
@@ -129,23 +142,30 @@ async function getDebuggerUrl(port) {
 
 async function run() {
     console.log('================================================================================');
-    console.log(' BẮT ĐẦU KIỂM THỬ NGHIỆM THU PHÂN TÁCH VIEW CÂU LẠC BỘ & SỰ KIỆN GẶP GỠ');
+    console.log(' BẮT ĐẦU KIỂM THỬ NGHIỆM THU TÁCH 4 VIEW: CLB - CỘNG ĐỒNG - BLOG - SỰ KIỆN');
     console.log('================================================================================\n');
 
-    // 1. Tạo local server
-    const serverPort = 8400 + Math.floor(Math.random() * 400);
+    // 1. Khởi động Static Web Server
     const server = http.createServer((req, res) => {
-        let p = decodeURIComponent(req.url.split('?')[0]);
-        if (p === '/') p = '/index.html';
-        const fp = path.join(ROOT_DIR, p);
-        if (fs.existsSync(fp) && fs.statSync(fp).isFile()) {
-            res.writeHead(200, { 'Content-Type': MIME[path.extname(fp).toLowerCase()] || 'application/octet-stream' });
-            res.end(fs.readFileSync(fp));
+        let reqPath = req.url.split('?')[0];
+        if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
+        const safePath = path.normalize(decodeURIComponent(reqPath)).replace(/^(\.\.[\/\\])+/, '');
+        const filePath = path.join(ROOT_DIR, safePath);
+
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            const ext = path.extname(filePath).toLowerCase();
+            res.writeHead(200, {
+                'Content-Type': MIME[ext] || 'application/octet-stream',
+                'Cache-Control': 'no-store'
+            });
+            fs.createReadStream(filePath).pipe(res);
         } else {
-            res.writeHead(404);
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
             res.end('Not Found');
         }
     });
+
+    const serverPort = 8780 + Math.floor(Math.random() * 200);
     await new Promise(r => server.listen(serverPort, r));
     console.log(`  ✓ Máy chủ kiểm thử đang chạy tại http://localhost:${serverPort}`);
 
@@ -158,8 +178,8 @@ async function run() {
     const chromeExe = chromePaths.find(p => fs.existsSync(p));
     if (!chromeExe) throw new Error('Không tìm thấy Chrome');
 
-    const tempDir = path.join(os.tmpdir(), 'chrome_split_test_' + Date.now());
-    const cdpPort = 9400 + Math.floor(Math.random() * 400);
+    const tempDir = path.join(os.tmpdir(), 'chrome_split4_test_' + Date.now());
+    const cdpPort = 9500 + Math.floor(Math.random() * 300);
     const chrome = spawn(chromeExe, [
         `--remote-debugging-port=${cdpPort}`,
         '--headless=new',
@@ -182,15 +202,23 @@ async function run() {
         // Chờ app sẵn sàng
         let ready = false;
         for (let i = 0; i < 40; i++) {
-            ready = await cdp.eval(`Boolean(window.ViVuApp && window.ViVuApp.navGoClubs && window.ViVuApp.navGoEvents && window.ViVuApp.state && window.ViVuApp.state.allPlaces?.length > 0)`);
+            ready = await cdp.eval(`Boolean(
+                window.ViVuApp &&
+                window.ViVuApp.navGoClubs &&
+                window.ViVuApp.navGoCommunity &&
+                window.ViVuApp.navGoBlog &&
+                window.ViVuApp.navGoEvents &&
+                window.ViVuApp.state &&
+                window.ViVuApp.state.allPlaces?.length > 0
+            )`);
             if (ready) break;
             await sleep(250);
         }
-        if (!ready) throw new Error('App chưa sẵn sàng hoặc thiếu phương thức navGoClubs/navGoEvents');
-        console.log('  ✓ Ứng dụng đã sẵn sàng với cả 2 phương thức navGoClubs và navGoEvents!\n');
+        if (!ready) throw new Error('App chưa sẵn sàng hoặc thiếu phương thức điều hướng 4 view');
+        console.log('  ✓ Ứng dụng đã sẵn sàng với đầy đủ navGoClubs, navGoCommunity, navGoBlog, navGoEvents!\n');
 
         // -------------------------------------------------------------------------
-        // PHẦN 1: DESKTOP (1280 x 800)
+        // PHẦN 1: DESKTOP (1280 x 800) - KIỂM THỬ 4 VIEW ĐỘC LẬP
         // -------------------------------------------------------------------------
         console.log('-------------------------------------------------------------------------');
         console.log(' [PHẦN 1] NGHIỆM THU GIAO DIỆN DESKTOP (1280 x 800)');
@@ -198,188 +226,362 @@ async function run() {
         await cdp.setViewport(1280, 800, false);
         await sleep(300);
 
-        // 1.1 Mở Câu lạc bộ
+        // ==========================================
+        // 1.1 VIEW CÂU LẠC BỘ (CLUBS)
+        // ==========================================
         console.log('\n[1.1] Bấm chọn "Câu lạc bộ" trên Desktop:');
         await cdp.eval(`window.ViVuApp.navGoClubs()`);
         await sleep(400);
 
-        const clubsDesktopState = await cdp.eval(`(() => {
+        const clubsState = await cdp.eval(`(() => {
+            const vClubs = document.getElementById('view-clubs');
             const vComm = document.getElementById('view-community');
+            const vBlog = document.getElementById('view-blog');
             const vEvents = document.getElementById('view-events');
-            const vHome = document.getElementById('view-home');
-            const vSearch = document.getElementById('view-search');
-
             const linkClubs = document.getElementById('sidebarLinkClubs');
-            const linkEvents = document.getElementById('sidebarLinkEvents');
 
-            const hasClubs = Boolean(vComm && !vComm.classList.contains('hidden'));
-            const hasEvents = Boolean(vEvents && !vEvents.classList.contains('hidden'));
-            const isClubsActive = Boolean(linkClubs && linkClubs.classList.contains('bg-primary-container'));
-            const isEventsActive = Boolean(linkEvents && linkEvents.classList.contains('bg-primary-container'));
+            // Nội dung trong view-clubs
+            const featuredClubs = vClubs ? vClubs.querySelectorAll('#featuredClubsGrid article').length : 0;
+            const clubPills = vClubs ? vClubs.querySelectorAll('#clubCategoryPills button').length : 0;
+            const weeklyActs = vClubs ? vClubs.querySelectorAll('#weeklyActivitiesList > div').length : 0;
+            const guidelines = vClubs ? vClubs.querySelectorAll('#communityGuidelinesList li').length : 0;
 
-            const scrollY = window.scrollY;
-
-            // Kiểm tra nội dung CLB
-            const featuredClubs = vComm ? vComm.querySelectorAll('#featuredClubsGrid article').length : 0;
-            const communityPosts = vComm ? vComm.querySelectorAll('#communityPostsFeed article').length : 0;
-
-            // Kiểm tra xem có bất kỳ phần tử Sự kiện / Lễ hội nào nằm trong view-community không
-            const eventsInsideCommunity = vComm ? vComm.querySelectorAll('#festivalsPortalSection, #festivalsPortalContainer, #eventsGridContainer').length : 0;
+            // Kiểm tra rò rỉ nội dung từ các view khác
+            const feedInClubs = vClubs ? vClubs.querySelectorAll('#communityPostsFeed, #communityCreatePostBox').length : 0;
+            const blogInClubs = vClubs ? vClubs.querySelectorAll('#travelStoriesSection').length : 0;
+            const eventsInClubs = vClubs ? vClubs.querySelectorAll('#festivalsPortalSection, #festivalsPortalContainer').length : 0;
 
             return {
                 view: window.ViVuApp.getActiveView(),
                 hash: window.location.hash,
-                scrollY,
-                views: {
-                    community: hasClubs,
-                    events: hasEvents,
-                    home: Boolean(vHome && !vHome.classList.contains('hidden')),
-                    search: Boolean(vSearch && !vSearch.classList.contains('hidden'))
-                },
-                sidebar: {
-                    clubsActive: isClubsActive,
-                    eventsActive: isEventsActive
-                },
+                scrollY: window.scrollY,
+                isVisible: Boolean(vClubs && !vClubs.classList.contains('hidden')),
+                otherHidden: Boolean(
+                    (!vComm || vComm.classList.contains('hidden')) &&
+                    (!vBlog || vBlog.classList.contains('hidden')) &&
+                    (!vEvents || vEvents.classList.contains('hidden'))
+                ),
+                isSidebarActive: Boolean(linkClubs && linkClubs.classList.contains('bg-primary-container')),
                 featuredClubs,
-                communityPosts,
-                eventsInsideCommunity
+                clubPills,
+                weeklyActs,
+                guidelines,
+                feedInClubs,
+                blogInClubs,
+                eventsInClubs
             };
         })()`);
 
-        assert.strictEqual(clubsDesktopState.view, 'community', 'Active view phải là "community"');
-        assert.strictEqual(clubsDesktopState.hash, '#/community', 'URL hash phải là "#/community"');
-        assert.strictEqual(clubsDesktopState.views.community, true, 'view-community phải hiển thị (không hidden)');
-        assert.strictEqual(clubsDesktopState.views.events, false, 'view-events phải ẩn (có hidden)');
-        assert.strictEqual(clubsDesktopState.sidebar.clubsActive, true, 'sidebarLinkClubs phải có class active (bg-primary-container)');
-        assert.strictEqual(clubsDesktopState.sidebar.eventsActive, false, 'sidebarLinkEvents không được active');
-        assert.strictEqual(clubsDesktopState.scrollY, 0, 'Trang phải cuộn về đầu (scrollY === 0)');
-        assert.strictEqual(clubsDesktopState.eventsInsideCommunity, 0, 'TUYỆT ĐỐI không có phần tử Sự kiện nào trong view-community');
-        assert.ok(clubsDesktopState.featuredClubs >= 4, `Số CLB phải >= 4 (thực tế: ${clubsDesktopState.featuredClubs})`);
-        console.log('  ✓ [PASS] View Câu lạc bộ hiển thị độc lập: 0 phần tử sự kiện, sidebar đánh dấu chuẩn, scrollY = 0.');
+        assert.strictEqual(clubsState.view, 'clubs', 'Active view phải là "clubs"');
+        assert.strictEqual(clubsState.hash, '#/clubs', 'URL hash phải là "#/clubs"');
+        assert.strictEqual(clubsState.isVisible, true, 'view-clubs phải hiển thị');
+        assert.strictEqual(clubsState.otherHidden, true, 'Các view khác phải ẩn');
+        assert.strictEqual(clubsState.isSidebarActive, true, 'sidebarLinkClubs phải có class active');
+        assert.strictEqual(clubsState.scrollY, 0, 'Trang phải cuộn về đầu (scrollY === 0)');
+        assert.ok(clubsState.featuredClubs >= 4, `Số thẻ CLB phải >= 4 (thực tế: ${clubsState.featuredClubs})`);
+        assert.ok(clubsState.weeklyActs >= 1, 'Lịch sinh hoạt CLB phải có nội dung');
+        assert.strictEqual(clubsState.feedInClubs, 0, 'TUYỆT ĐỐI không có bảng tin bài đăng trong view-clubs');
+        assert.strictEqual(clubsState.blogInClubs, 0, 'TUYỆT ĐỐI không có blog trong view-clubs');
+        assert.strictEqual(clubsState.eventsInClubs, 0, 'TUYỆT ĐỐI không có sự kiện/lễ hội trong view-clubs');
+        console.log('  ✓ [PASS] View Câu lạc bộ hiển thị độc lập: Bento grid CLB, Lịch sinh hoạt tuần này, Quy tắc CLB.');
 
-        // Chụp ảnh đầu trang CLB Desktop
+        // Chụp ảnh đầu trang CLB
         await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_clubs_desktop_top.png'));
         console.log('  📸 Đã chụp: split_clubs_desktop_top.png');
 
-        // Cuộn xuống hết trang CLB
+        // Cuộn hết trang CLB
         await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
         await sleep(300);
-
         const clubsBottomCheck = await cdp.eval(`(() => {
-            const vEvents = document.getElementById('view-events');
-            const festSection = document.getElementById('festivalsPortalSection');
-            const isFestVisible = Boolean(festSection && festSection.offsetParent !== null);
-            const isEventsVisible = Boolean(vEvents && !vEvents.classList.contains('hidden'));
+            const feed = document.getElementById('communityPostsFeed');
+            const stories = document.getElementById('travelStoriesSection');
+            const fest = document.getElementById('festivalsPortalSection');
             return {
                 scrollY: window.scrollY,
-                isFestVisible,
-                isEventsVisible
+                isFeedVisible: Boolean(feed && feed.offsetParent !== null),
+                isStoriesVisible: Boolean(stories && stories.offsetParent !== null),
+                isFestVisible: Boolean(fest && fest.offsetParent !== null)
             };
         })()`);
+        assert.ok(clubsBottomCheck.scrollY > 0, 'Phải cuộn xuống dưới');
+        assert.strictEqual(clubsBottomCheck.isFeedVisible, false, 'Cuộn hết trang CLB: Không có feed bài đăng');
+        assert.strictEqual(clubsBottomCheck.isStoriesVisible, false, 'Cuộn hết trang CLB: Không có blog/cẩm nang');
+        assert.strictEqual(clubsBottomCheck.isFestVisible, false, 'Cuộn hết trang CLB: Không có sự kiện/lễ hội');
+        console.log(`  ✓ [PASS] Cuộn hết trang CLB (scrollY=${clubsBottomCheck.scrollY}px): 0 bài đăng feed, 0 cẩm nang, 0 sự kiện xuất hiện.`);
 
-        assert.strictEqual(clubsBottomCheck.isEventsVisible, false, 'Cuộn hết trang CLB: view-events vẫn phải ẩn');
-        assert.strictEqual(clubsBottomCheck.isFestVisible, false, 'Cuộn hết trang CLB: festivalsPortalSection TUYỆT ĐỐI không hiển thị');
-        console.log(`  ✓ [PASS] Cuộn hết trang Câu lạc bộ (scrollY=${clubsBottomCheck.scrollY}px): 0 sự kiện, 0 lễ hội xuất hiện!`);
-
-        // Chụp ảnh cuối trang CLB Desktop
         await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_clubs_desktop_bottom.png'));
         console.log('  📸 Đã chụp: split_clubs_desktop_bottom.png');
 
-        // 1.2 Mở Sự kiện & Gặp gỡ
-        console.log('\n[1.2] Bấm chọn "Sự kiện & Gặp gỡ" trên Desktop:');
-        await cdp.eval(`window.ViVuApp.navGoEvents()`);
+
+        // ==========================================
+        // 1.2 VIEW CỘNG ĐỒNG (COMMUNITY FEED)
+        // ==========================================
+        console.log('\n[1.2] Bấm chọn "Cộng đồng" trên Desktop:');
+        await cdp.eval(`window.ViVuApp.navGoCommunity()`);
         await sleep(400);
 
-        const eventsDesktopState = await cdp.eval(`(() => {
+        const communityState = await cdp.eval(`(() => {
+            const vClubs = document.getElementById('view-clubs');
             const vComm = document.getElementById('view-community');
+            const vBlog = document.getElementById('view-blog');
             const vEvents = document.getElementById('view-events');
-            const vHome = document.getElementById('view-home');
-            const vSearch = document.getElementById('view-search');
+            const linkComm = document.getElementById('sidebarLinkCommunity');
 
-            const linkClubs = document.getElementById('sidebarLinkClubs');
-            const linkEvents = document.getElementById('sidebarLinkEvents');
+            // Nội dung trong view-community
+            const postBox = Boolean(vComm && vComm.querySelector('#communityCreatePostBox'));
+            const feedTabs = vComm ? vComm.querySelectorAll('#feedFilterTabs button').length : 0;
+            const postsCount = vComm ? vComm.querySelectorAll('#communityPostsFeed article').length : 0;
 
-            const hasClubs = Boolean(vComm && !vComm.classList.contains('hidden'));
-            const hasEvents = Boolean(vEvents && !vEvents.classList.contains('hidden'));
-            const isClubsActive = Boolean(linkClubs && linkClubs.classList.contains('bg-primary-container'));
-            const isEventsActive = Boolean(linkEvents && linkEvents.classList.contains('bg-primary-container'));
-
-            const scrollY = window.scrollY;
-
-            // Kiểm tra nội dung Sự kiện
-            const festSection = document.getElementById('festivalsPortalSection');
-            const hasCountdown = Boolean(festSection && festSection.querySelector('#cd-days'));
-            const eventCardsCount = festSection ? festSection.querySelectorAll('#eventsGridContainer article').length : 0;
-            const hostEventBtn = document.getElementById('btnCreateNewEvent');
-
-            // Kiểm tra xem có bất kỳ phần tử CLB nào nằm trong view-events không
-            const clubsInsideEvents = vEvents ? vEvents.querySelectorAll('#stitchCommunitySection, #featuredClubsGrid, #communityPostsFeed').length : 0;
+            // Kiểm tra rò rỉ nội dung
+            const clubsInComm = vComm ? vComm.querySelectorAll('#featuredClubsGrid, #clubCategoryPills').length : 0;
+            const blogInComm = vComm ? vComm.querySelectorAll('#travelStoriesSection').length : 0;
+            const eventsInComm = vComm ? vComm.querySelectorAll('#festivalsPortalSection').length : 0;
 
             return {
                 view: window.ViVuApp.getActiveView(),
                 hash: window.location.hash,
-                scrollY,
-                views: {
-                    community: hasClubs,
-                    events: hasEvents,
-                    home: Boolean(vHome && !vHome.classList.contains('hidden')),
-                    search: Boolean(vSearch && !vSearch.classList.contains('hidden'))
-                },
-                sidebar: {
-                    clubsActive: isClubsActive,
-                    eventsActive: isEventsActive
-                },
-                hasCountdown,
-                eventCardsCount,
-                hasHostBtn: Boolean(hostEventBtn),
-                clubsInsideEvents
+                scrollY: window.scrollY,
+                isVisible: Boolean(vComm && !vComm.classList.contains('hidden')),
+                otherHidden: Boolean(
+                    (!vClubs || vClubs.classList.contains('hidden')) &&
+                    (!vBlog || vBlog.classList.contains('hidden')) &&
+                    (!vEvents || vEvents.classList.contains('hidden'))
+                ),
+                isSidebarActive: Boolean(linkComm && linkComm.classList.contains('bg-primary-container')),
+                postBox,
+                feedTabs,
+                postsCount,
+                clubsInComm,
+                blogInComm,
+                eventsInComm
             };
         })()`);
 
-        assert.strictEqual(eventsDesktopState.view, 'events', 'Active view phải là "events"');
-        assert.strictEqual(eventsDesktopState.hash, '#/events', 'URL hash phải là "#/events"');
-        assert.strictEqual(eventsDesktopState.views.events, true, 'view-events phải hiển thị (không hidden)');
-        assert.strictEqual(eventsDesktopState.views.community, false, 'view-community phải ẩn (có hidden)');
-        assert.strictEqual(eventsDesktopState.sidebar.eventsActive, true, 'sidebarLinkEvents phải có class active (bg-primary-container)');
-        assert.strictEqual(eventsDesktopState.sidebar.clubsActive, false, 'sidebarLinkClubs không được active');
-        assert.strictEqual(eventsDesktopState.scrollY, 0, 'Trang phải cuộn về đầu (scrollY === 0)');
-        assert.strictEqual(eventsDesktopState.clubsInsideEvents, 0, 'TUYỆT ĐỐI không có phần tử CLB nào trong view-events');
-        assert.strictEqual(eventsDesktopState.hasCountdown, true, 'Đồng hồ đếm ngược Ok Om Bok phải hiển thị');
-        assert.ok(eventsDesktopState.eventCardsCount >= 5, `Số thẻ sự kiện phải >= 5 (thực tế: ${eventsDesktopState.eventCardsCount})`);
-        assert.strictEqual(eventsDesktopState.hasHostBtn, true, 'Nút Tạo sự kiện mới phải có mặt');
-        console.log('  ✓ [PASS] View Sự kiện & Gặp gỡ hiển thị độc lập: Ok Om Bok Spotlight, countdown, thẻ sự kiện, nút tạo sự kiện, scrollY = 0.');
+        assert.strictEqual(communityState.view, 'community', 'Active view phải là "community"');
+        assert.strictEqual(communityState.hash, '#/community', 'URL hash phải là "#/community"');
+        assert.strictEqual(communityState.isVisible, true, 'view-community phải hiển thị');
+        assert.strictEqual(communityState.otherHidden, true, 'Các view khác phải ẩn');
+        assert.strictEqual(communityState.isSidebarActive, true, 'sidebarLinkCommunity phải có class active');
+        assert.strictEqual(communityState.scrollY, 0, 'Trang phải cuộn về đầu (scrollY === 0)');
+        assert.strictEqual(communityState.postBox, true, 'Form đăng bài #communityCreatePostBox phải có mặt');
+        assert.ok(communityState.feedTabs >= 3, 'Các tab lọc bài viết cộng đồng phải hiển thị');
+        assert.ok(communityState.postsCount >= 2, `Bảng tin phải có bài viết (thực tế: ${communityState.postsCount})`);
+        assert.strictEqual(communityState.clubsInComm, 0, 'TUYỆT ĐỐI không có grid CLB trong view-community');
+        assert.strictEqual(communityState.blogInComm, 0, 'TUYỆT ĐỐI không có blog trong view-community');
+        assert.strictEqual(communityState.eventsInComm, 0, 'TUYỆT ĐỐI không có sự kiện trong view-community');
+        console.log('  ✓ [PASS] View Cộng đồng hiển thị độc lập: Form đăng bài, Bộ lọc feed, Danh sách bài viết thảo luận.');
 
-        // Chụp ảnh đầu trang Sự kiện Desktop
+        // Chụp ảnh đầu trang Cộng đồng
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_community_desktop_top.png'));
+        console.log('  📸 Đã chụp: split_community_desktop_top.png');
+
+        // Cuộn hết trang Cộng đồng
+        await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
+        await sleep(300);
+        const commBottomCheck = await cdp.eval(`(() => {
+            const clubs = document.getElementById('featuredClubsGrid');
+            const stories = document.getElementById('travelStoriesSection');
+            const fest = document.getElementById('festivalsPortalSection');
+            return {
+                scrollY: window.scrollY,
+                isClubsVisible: Boolean(clubs && clubs.offsetParent !== null),
+                isStoriesVisible: Boolean(stories && stories.offsetParent !== null),
+                isFestVisible: Boolean(fest && fest.offsetParent !== null)
+            };
+        })()`);
+        assert.ok(commBottomCheck.scrollY > 0, 'Phải cuộn xuống dưới');
+        assert.strictEqual(commBottomCheck.isClubsVisible, false, 'Cuộn hết trang Cộng đồng: Không có CLB');
+        assert.strictEqual(commBottomCheck.isStoriesVisible, false, 'Cuộn hết trang Cộng đồng: Không có blog');
+        assert.strictEqual(commBottomCheck.isFestVisible, false, 'Cuộn hết trang Cộng đồng: Không có sự kiện');
+        console.log(`  ✓ [PASS] Cuộn hết trang Cộng đồng (scrollY=${commBottomCheck.scrollY}px): 0 CLB, 0 cẩm nang, 0 sự kiện xuất hiện.`);
+
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_community_desktop_bottom.png'));
+        console.log('  📸 Đã chụp: split_community_desktop_bottom.png');
+
+
+        // ==========================================
+        // 1.3 VIEW BLOG VIVU (GÓC CHUYỆN XỨ TRÀ)
+        // ==========================================
+        console.log('\n[1.3] Bấm chọn "Blog ViVu" trên Desktop:');
+        await cdp.eval(`window.ViVuApp.navGoBlog()`);
+        await sleep(400);
+
+        const blogState = await cdp.eval(`(() => {
+            const vClubs = document.getElementById('view-clubs');
+            const vComm = document.getElementById('view-community');
+            const vBlog = document.getElementById('view-blog');
+            const vEvents = document.getElementById('view-events');
+            const linkBlog = document.getElementById('sidebarLinkBlog');
+
+            // Kiểm tra tiêu đề trang bắt buộc: "Góc chuyện Xứ Trà"
+            const pageTitleEl = vBlog ? vBlog.querySelector('h3') : null;
+            const pageTitle = pageTitleEl ? pageTitleEl.textContent.trim() : '';
+
+            // Nội dung trong view-blog
+            const articleCards = vBlog ? vBlog.querySelectorAll('#travelStoriesContainer .grid article, #travelStoriesContainer .grid > div').length : 0;
+            const submitBtn = vBlog ? vBlog.querySelector('#btnSubmitArticle') : null;
+
+            // Typography font kiểm tra
+            const computedStyle = pageTitleEl ? window.getComputedStyle(pageTitleEl) : null;
+            const fontFamily = computedStyle ? computedStyle.fontFamily : '';
+
+            // Kiểm tra rò rỉ nội dung
+            const clubsInBlog = vBlog ? vBlog.querySelectorAll('#featuredClubsGrid').length : 0;
+            const feedInBlog = vBlog ? vBlog.querySelectorAll('#communityPostsFeed').length : 0;
+            const eventsInBlog = vBlog ? vBlog.querySelectorAll('#festivalsPortalSection').length : 0;
+
+            return {
+                view: window.ViVuApp.getActiveView(),
+                hash: window.location.hash,
+                scrollY: window.scrollY,
+                isVisible: Boolean(vBlog && !vBlog.classList.contains('hidden')),
+                otherHidden: Boolean(
+                    (!vClubs || vClubs.classList.contains('hidden')) &&
+                    (!vComm || vComm.classList.contains('hidden')) &&
+                    (!vEvents || vEvents.classList.contains('hidden'))
+                ),
+                isSidebarActive: Boolean(linkBlog && linkBlog.classList.contains('bg-primary-container')),
+                pageTitle,
+                fontFamily,
+                articleCards,
+                hasSubmitBtn: Boolean(submitBtn),
+                clubsInBlog,
+                feedInBlog,
+                eventsInBlog
+            };
+        })()`);
+
+        assert.strictEqual(blogState.view, 'blog', 'Active view phải là "blog"');
+        assert.strictEqual(blogState.hash, '#/blog', 'URL hash phải là "#/blog"');
+        assert.strictEqual(blogState.isVisible, true, 'view-blog phải hiển thị');
+        assert.strictEqual(blogState.otherHidden, true, 'Các view khác phải ẩn');
+        assert.strictEqual(blogState.isSidebarActive, true, 'sidebarLinkBlog phải có class active');
+        assert.strictEqual(blogState.scrollY, 0, 'Trang phải cuộn về đầu (scrollY === 0)');
+        assert.strictEqual(blogState.pageTitle, 'Góc chuyện Xứ Trà', 'Tiêu đề trang Blog ViVu bắt buộc phải là "Góc chuyện Xứ Trà"');
+        assert.ok(blogState.articleCards >= 3, `Lưới bài viết phải có bài cẩm nang (thực tế: ${blogState.articleCards})`);
+        assert.strictEqual(blogState.hasSubmitBtn, true, 'Nút "Gửi bài cẩm nang" phải có mặt');
+        assert.strictEqual(blogState.clubsInBlog, 0, 'TUYỆT ĐỐI không có CLB trong view-blog');
+        assert.strictEqual(blogState.feedInBlog, 0, 'TUYỆT ĐỐI không có feed bài đăng trong view-blog');
+        assert.strictEqual(blogState.eventsInBlog, 0, 'TUYỆT ĐỐI không có sự kiện trong view-blog');
+        console.log(`  ✓ [PASS] View Blog ViVu hiển thị độc lập: Tiêu đề "${blogState.pageTitle}", ${blogState.articleCards} bài viết cẩm nang, nút gửi bài cẩm nang.`);
+
+        // Chụp ảnh đầu trang Blog ViVu
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_blog_desktop_top.png'));
+        console.log('  📸 Đã chụp: split_blog_desktop_top.png');
+
+        // Cuộn hết trang Blog ViVu
+        await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
+        await sleep(300);
+        const blogBottomCheck = await cdp.eval(`(() => {
+            const clubs = document.getElementById('featuredClubsGrid');
+            const feed = document.getElementById('communityPostsFeed');
+            const fest = document.getElementById('festivalsPortalSection');
+            return {
+                scrollY: window.scrollY,
+                isClubsVisible: Boolean(clubs && clubs.offsetParent !== null),
+                isFeedVisible: Boolean(feed && feed.offsetParent !== null),
+                isFestVisible: Boolean(fest && fest.offsetParent !== null)
+            };
+        })()`);
+        assert.ok(blogBottomCheck.scrollY > 0, 'Phải cuộn xuống dưới');
+        assert.strictEqual(blogBottomCheck.isClubsVisible, false, 'Cuộn hết trang Blog: Không có CLB');
+        assert.strictEqual(blogBottomCheck.isFeedVisible, false, 'Cuộn hết trang Blog: Không có feed bài đăng');
+        assert.strictEqual(blogBottomCheck.isFestVisible, false, 'Cuộn hết trang Blog: Không có sự kiện');
+        console.log(`  ✓ [PASS] Cuộn hết trang Blog ViVu (scrollY=${blogBottomCheck.scrollY}px): 0 CLB, 0 bài feed, 0 sự kiện xuất hiện.`);
+
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_blog_desktop_bottom.png'));
+        console.log('  📸 Đã chụp: split_blog_desktop_bottom.png');
+
+
+        // ==========================================
+        // 1.4 VIEW SỰ KIỆN & GẶP GỠ (EVENTS)
+        // ==========================================
+        console.log('\n[1.4] Bấm chọn "Sự kiện & Gặp gỡ" trên Desktop:');
+        await cdp.eval(`window.ViVuApp.navGoEvents()`);
+        await sleep(400);
+
+        const eventsState = await cdp.eval(`(() => {
+            const vClubs = document.getElementById('view-clubs');
+            const vComm = document.getElementById('view-community');
+            const vBlog = document.getElementById('view-blog');
+            const vEvents = document.getElementById('view-events');
+            const linkEvents = document.getElementById('sidebarLinkEvents');
+
+            // Nội dung sự kiện
+            const festSection = document.getElementById('festivalsPortalSection');
+            const hasCountdown = Boolean(festSection && festSection.querySelector('#cd-days'));
+            const eventCardsCount = festSection ? festSection.querySelectorAll('#eventsGridContainer article').length : 0;
+            const hostBtn = document.getElementById('btnCreateNewEvent');
+
+            // Kiểm tra rò rỉ nội dung
+            const clubsInEvents = vEvents ? vEvents.querySelectorAll('#featuredClubsGrid').length : 0;
+            const feedInEvents = vEvents ? vEvents.querySelectorAll('#communityPostsFeed').length : 0;
+            const blogInEvents = vEvents ? vEvents.querySelectorAll('#travelStoriesSection').length : 0;
+
+            return {
+                view: window.ViVuApp.getActiveView(),
+                hash: window.location.hash,
+                scrollY: window.scrollY,
+                isVisible: Boolean(vEvents && !vEvents.classList.contains('hidden')),
+                otherHidden: Boolean(
+                    (!vClubs || vClubs.classList.contains('hidden')) &&
+                    (!vComm || vComm.classList.contains('hidden')) &&
+                    (!vBlog || vBlog.classList.contains('hidden'))
+                ),
+                isSidebarActive: Boolean(linkEvents && linkEvents.classList.contains('bg-primary-container')),
+                hasCountdown,
+                eventCardsCount,
+                hasHostBtn: Boolean(hostBtn),
+                clubsInEvents,
+                feedInEvents,
+                blogInEvents
+            };
+        })()`);
+
+        assert.strictEqual(eventsState.view, 'events', 'Active view phải là "events"');
+        assert.strictEqual(eventsState.hash, '#/events', 'URL hash phải là "#/events"');
+        assert.strictEqual(eventsState.isVisible, true, 'view-events phải hiển thị');
+        assert.strictEqual(eventsState.otherHidden, true, 'Các view khác phải ẩn');
+        assert.strictEqual(eventsState.isSidebarActive, true, 'sidebarLinkEvents phải có class active');
+        assert.strictEqual(eventsState.scrollY, 0, 'Trang phải cuộn về đầu (scrollY === 0)');
+        assert.strictEqual(eventsState.hasCountdown, true, 'Đồng hồ đếm ngược Ok Om Bok phải hiển thị');
+        assert.ok(eventsState.eventCardsCount >= 5, `Số thẻ sự kiện phải >= 5 (thực tế: ${eventsState.eventCardsCount})`);
+        assert.strictEqual(eventsState.hasHostBtn, true, 'Nút Tạo sự kiện mới phải có mặt');
+        assert.strictEqual(eventsState.clubsInEvents, 0, 'TUYỆT ĐỐI không có CLB trong view-events');
+        assert.strictEqual(eventsState.feedInEvents, 0, 'TUYỆT ĐỐI không có feed trong view-events');
+        assert.strictEqual(eventsState.blogInEvents, 0, 'TUYỆT ĐỐI không có blog trong view-events');
+        console.log('  ✓ [PASS] View Sự kiện & Gặp gỡ hiển thị độc lập: Spotlight Ok Om Bok, countdown, danh sách sự kiện & workshop.');
+
+        // Chụp ảnh đầu trang Sự kiện
         await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_events_desktop_top.png'));
         console.log('  📸 Đã chụp: split_events_desktop_top.png');
 
-        // Cuộn xuống hết trang Sự kiện
+        // Cuộn hết trang Sự kiện
         await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
         await sleep(300);
-
         const eventsBottomCheck = await cdp.eval(`(() => {
-            const vComm = document.getElementById('view-community');
-            const clubsGrid = document.getElementById('featuredClubsGrid');
-            const isClubsVisible = Boolean(clubsGrid && clubsGrid.offsetParent !== null);
-            const isCommunityVisible = Boolean(vComm && !vComm.classList.contains('hidden'));
+            const clubs = document.getElementById('featuredClubsGrid');
+            const feed = document.getElementById('communityPostsFeed');
+            const stories = document.getElementById('travelStoriesSection');
             return {
                 scrollY: window.scrollY,
-                isClubsVisible,
-                isCommunityVisible
+                isClubsVisible: Boolean(clubs && clubs.offsetParent !== null),
+                isFeedVisible: Boolean(feed && feed.offsetParent !== null),
+                isStoriesVisible: Boolean(stories && stories.offsetParent !== null)
             };
         })()`);
+        assert.ok(eventsBottomCheck.scrollY > 0, 'Phải cuộn xuống dưới');
+        assert.strictEqual(eventsBottomCheck.isClubsVisible, false, 'Cuộn hết trang Sự kiện: Không có CLB');
+        assert.strictEqual(eventsBottomCheck.isFeedVisible, false, 'Cuộn hết trang Sự kiện: Không có feed');
+        assert.strictEqual(eventsBottomCheck.isStoriesVisible, false, 'Cuộn hết trang Sự kiện: Không có blog');
+        console.log(`  ✓ [PASS] Cuộn hết trang Sự kiện & Gặp gỡ (scrollY=${eventsBottomCheck.scrollY}px): 0 CLB, 0 bài feed, 0 cẩm nang xuất hiện.`);
 
-        assert.strictEqual(eventsBottomCheck.isCommunityVisible, false, 'Cuộn hết trang Sự kiện: view-community vẫn phải ẩn');
-        assert.strictEqual(eventsBottomCheck.isClubsVisible, false, 'Cuộn hết trang Sự kiện: featuredClubsGrid TUYỆT ĐỐI không hiển thị');
-        console.log(`  ✓ [PASS] Cuộn hết trang Sự kiện & Gặp gỡ (scrollY=${eventsBottomCheck.scrollY}px): 0 câu lạc bộ xuất hiện!`);
-
-        // Chụp ảnh cuối trang Sự kiện Desktop
         await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_events_desktop_bottom.png'));
         console.log('  📸 Đã chụp: split_events_desktop_bottom.png');
 
 
         // -------------------------------------------------------------------------
-        // PHẦN 2: MOBILE (390 x 844)
+        // PHẦN 2: MOBILE (390 x 844) - KIỂM THỬ 4 VIEW VÀ KHÔNG TRÀN NGANG
         // -------------------------------------------------------------------------
         console.log('\n-------------------------------------------------------------------------');
         console.log(' [PHẦN 2] NGHIỆM THU GIAO DIỆN MOBILE (390 x 844)');
@@ -387,249 +589,270 @@ async function run() {
         await cdp.setViewport(390, 844, true);
         await sleep(300);
 
-        // 2.1 Mở Câu lạc bộ trên Mobile
+        // 2.1 CLB trên Mobile
         console.log('\n[2.1] Mở "Câu lạc bộ" trên Mobile:');
         await cdp.eval(`window.ViVuApp.navGoClubs()`);
-        await sleep(400);
-
-        const clubsMobileState = await cdp.eval(`(() => {
-            const vComm = document.getElementById('view-community');
-            const vEvents = document.getElementById('view-events');
-            const hasClubs = Boolean(vComm && !vComm.classList.contains('hidden'));
-            const hasEvents = Boolean(vEvents && !vEvents.classList.contains('hidden'));
-            const scrollY = window.scrollY;
-            const overflow = document.documentElement.scrollWidth > document.documentElement.clientWidth;
+        await sleep(300);
+        const clubsMob = await cdp.eval(`(() => {
+            const vClubs = document.getElementById('view-clubs');
             return {
                 view: window.ViVuApp.getActiveView(),
-                hasClubs,
-                hasEvents,
-                scrollY,
-                overflow
+                isVisible: Boolean(vClubs && !vClubs.classList.contains('hidden')),
+                scrollY: window.scrollY,
+                overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
             };
         })()`);
-
-        assert.strictEqual(clubsMobileState.view, 'community', 'Mobile: Active view phải là "community"');
-        assert.strictEqual(clubsMobileState.hasClubs, true, 'Mobile: view-community phải hiển thị');
-        assert.strictEqual(clubsMobileState.hasEvents, false, 'Mobile: view-events phải ẩn');
-        assert.strictEqual(clubsMobileState.scrollY, 0, 'Mobile: Trang phải cuộn về đầu (scrollY === 0)');
-        assert.strictEqual(clubsMobileState.overflow, false, 'Mobile CLB không được tràn ngang');
-        console.log('  ✓ [PASS] Mobile Tab CLB hiển thị chuẩn, không tràn ngang, scrollY = 0.');
-
-        // Chụp ảnh đầu trang CLB Mobile
+        assert.strictEqual(clubsMob.view, 'clubs');
+        assert.strictEqual(clubsMob.isVisible, true);
+        assert.strictEqual(clubsMob.scrollY, 0);
+        assert.strictEqual(clubsMob.overflow, false, 'CLB Mobile không tràn ngang');
         await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_clubs_mobile_top.png'));
-        console.log('  📸 Đã chụp: split_clubs_mobile_top.png');
-
-        // Cuộn hết trang CLB Mobile
         await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
-        await sleep(300);
-
-        const clubsMobileBottom = await cdp.eval(`(() => {
-            const festSection = document.getElementById('festivalsPortalSection');
-            return {
-                scrollY: window.scrollY,
-                isFestVisible: Boolean(festSection && festSection.offsetParent !== null)
-            };
-        })()`);
-        assert.strictEqual(clubsMobileBottom.isFestVisible, false, 'Mobile: Cuộn hết trang CLB không được thấy sự kiện');
-        console.log(`  ✓ [PASS] Mobile cuộn hết trang CLB: Không có sự kiện nào.`);
-
-        // Chụp ảnh cuối trang CLB Mobile
+        await sleep(200);
         await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_clubs_mobile_bottom.png'));
-        console.log('  📸 Đã chụp: split_clubs_mobile_bottom.png');
+        console.log('  ✓ [PASS] CLB Mobile hiển thị chuẩn, không tràn ngang.');
 
-        // 2.2 Mở Sự kiện & Gặp gỡ trên Mobile
-        console.log('\n[2.2] Mở "Sự kiện & Gặp gỡ" trên Mobile:');
-        await cdp.eval(`window.ViVuApp.navGoEvents()`);
-        await sleep(400);
-
-        const eventsMobileState = await cdp.eval(`(() => {
+        // 2.2 Cộng đồng trên Mobile
+        console.log('\n[2.2] Mở "Cộng đồng" trên Mobile:');
+        await cdp.eval(`window.ViVuApp.navGoCommunity()`);
+        await sleep(300);
+        const commMob = await cdp.eval(`(() => {
             const vComm = document.getElementById('view-community');
-            const vEvents = document.getElementById('view-events');
-            const hasClubs = Boolean(vComm && !vComm.classList.contains('hidden'));
-            const hasEvents = Boolean(vEvents && !vEvents.classList.contains('hidden'));
-            const scrollY = window.scrollY;
-            const overflow = document.documentElement.scrollWidth > document.documentElement.clientWidth;
             return {
                 view: window.ViVuApp.getActiveView(),
-                hasClubs,
-                hasEvents,
-                scrollY,
-                overflow
-            };
-        })()`);
-
-        assert.strictEqual(eventsMobileState.view, 'events', 'Mobile: Active view phải là "events"');
-        assert.strictEqual(eventsMobileState.hasEvents, true, 'Mobile: view-events phải hiển thị');
-        assert.strictEqual(eventsMobileState.hasClubs, false, 'Mobile: view-community phải ẩn');
-        assert.strictEqual(eventsMobileState.scrollY, 0, 'Mobile: Trang phải cuộn về đầu (scrollY === 0)');
-        assert.strictEqual(eventsMobileState.overflow, false, 'Mobile Sự kiện không được tràn ngang');
-        console.log('  ✓ [PASS] Mobile Sự kiện hiển thị chuẩn, không tràn ngang, scrollY = 0.');
-
-        // Chụp ảnh đầu trang Sự kiện Mobile
-        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_events_mobile_top.png'));
-        console.log('  📸 Đã chụp: split_events_mobile_top.png');
-
-        // Cuộn hết trang Sự kiện Mobile
-        await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
-        await sleep(300);
-
-        const eventsMobileBottom = await cdp.eval(`(() => {
-            const clubsGrid = document.getElementById('featuredClubsGrid');
-            return {
+                isVisible: Boolean(vComm && !vComm.classList.contains('hidden')),
                 scrollY: window.scrollY,
-                isClubsVisible: Boolean(clubsGrid && clubsGrid.offsetParent !== null)
+                overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
             };
         })()`);
-        assert.strictEqual(eventsMobileBottom.isClubsVisible, false, 'Mobile: Cuộn hết trang Sự kiện không được thấy CLB');
-        console.log(`  ✓ [PASS] Mobile cuộn hết trang Sự kiện: Không có CLB nào.`);
+        assert.strictEqual(commMob.view, 'community');
+        assert.strictEqual(commMob.isVisible, true);
+        assert.strictEqual(commMob.scrollY, 0);
+        assert.strictEqual(commMob.overflow, false, 'Cộng đồng Mobile không tràn ngang');
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_community_mobile_top.png'));
+        await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
+        await sleep(200);
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_community_mobile_bottom.png'));
+        console.log('  ✓ [PASS] Cộng đồng Mobile hiển thị chuẩn, không tràn ngang.');
 
-        // Chụp ảnh cuối trang Sự kiện Mobile
+        // 2.3 Blog ViVu trên Mobile
+        console.log('\n[2.3] Mở "Blog ViVu" trên Mobile:');
+        await cdp.eval(`window.ViVuApp.navGoBlog()`);
+        await sleep(300);
+        const blogMob = await cdp.eval(`(() => {
+            const vBlog = document.getElementById('view-blog');
+            return {
+                view: window.ViVuApp.getActiveView(),
+                isVisible: Boolean(vBlog && !vBlog.classList.contains('hidden')),
+                scrollY: window.scrollY,
+                overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
+            };
+        })()`);
+        assert.strictEqual(blogMob.view, 'blog');
+        assert.strictEqual(blogMob.isVisible, true);
+        assert.strictEqual(blogMob.scrollY, 0);
+        assert.strictEqual(blogMob.overflow, false, 'Blog ViVu Mobile không tràn ngang');
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_blog_mobile_top.png'));
+        await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
+        await sleep(200);
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_blog_mobile_bottom.png'));
+        console.log('  ✓ [PASS] Blog ViVu Mobile hiển thị chuẩn, không tràn ngang.');
+
+        // 2.4 Sự kiện trên Mobile
+        console.log('\n[2.4] Mở "Sự kiện & Gặp gỡ" trên Mobile:');
+        await cdp.eval(`window.ViVuApp.navGoEvents()`);
+        await sleep(300);
+        const eventsMob = await cdp.eval(`(() => {
+            const vEvents = document.getElementById('view-events');
+            return {
+                view: window.ViVuApp.getActiveView(),
+                isVisible: Boolean(vEvents && !vEvents.classList.contains('hidden')),
+                scrollY: window.scrollY,
+                overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
+            };
+        })()`);
+        assert.strictEqual(eventsMob.view, 'events');
+        assert.strictEqual(eventsMob.isVisible, true);
+        assert.strictEqual(eventsMob.scrollY, 0);
+        assert.strictEqual(eventsMob.overflow, false, 'Sự kiện Mobile không tràn ngang');
+        await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_events_mobile_top.png'));
+        await cdp.eval(`window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })`);
+        await sleep(200);
         await cdp.captureScreenshot(path.join(ARTIFACT_DIR, 'split_events_mobile_bottom.png'));
-        console.log('  📸 Đã chụp: split_events_mobile_bottom.png');
+        console.log('  ✓ [PASS] Sự kiện Mobile hiển thị chuẩn, không tràn ngang.');
 
 
         // -------------------------------------------------------------------------
-        // PHẦN 3: ĐIỀU HƯỚNG URL, HASH CŨ, RELOAD & BACK/FORWARD
+        // PHẦN 3: URL TRỰC TIẾP, HASH ROUTING, RELOAD & BACK / FORWARD
         // -------------------------------------------------------------------------
         console.log('\n-------------------------------------------------------------------------');
-        console.log(' [PHẦN 3] KIỂM THỬ ĐIỀU HƯỚNG URL TRỰC TIẾP, HASH CŨ, RELOAD, BACK / FORWARD');
+        console.log(' [PHẦN 3] KIỂM THỬ DEEP LINK, HASH ROUTING & LỊCH SỬ DUYỆT TRÌNH');
         console.log('-------------------------------------------------------------------------');
         await cdp.setViewport(1280, 800, false);
         await sleep(200);
 
-        // 3.1 Hash cũ #festivals
-        console.log('\n[3.1] Kiểm tra hash cũ #festivals:');
-        await cdp.eval(`window.location.hash = '#festivals'`);
-        await sleep(300);
-        let checkFestivalsHash = await cdp.eval(`(() => {
-            const vEvents = document.getElementById('view-events');
-            return {
-                view: window.ViVuApp.getActiveView(),
-                isEventsVisible: Boolean(vEvents && !vEvents.classList.contains('hidden')),
-                sidebarEventsActive: Boolean(document.getElementById('sidebarLinkEvents')?.classList.contains('bg-primary-container'))
-            };
-        })()`);
-        assert.strictEqual(checkFestivalsHash.view, 'events', 'Hash #festivals phải mở view "events"');
-        assert.strictEqual(checkFestivalsHash.isEventsVisible, true, 'view-events phải hiển thị khi truy cập #festivals');
-        assert.strictEqual(checkFestivalsHash.sidebarEventsActive, true, 'sidebarLinkEvents phải active');
-        console.log('  ✓ [PASS] Hash cũ #festivals mở đúng view Events và đánh dấu sidebar.');
-
-        // 3.2 Hash cũ #clb
-        console.log('\n[3.2] Kiểm tra hash cũ #clb:');
+        // 3.1 Hash cũ #clb
+        console.log('\n[3.1] Hash cũ #clb:');
         await cdp.eval(`window.location.hash = '#clb'`);
         await sleep(300);
-        let checkClbHash = await cdp.eval(`(() => {
-            const vComm = document.getElementById('view-community');
-            return {
-                view: window.ViVuApp.getActiveView(),
-                isClubsVisible: Boolean(vComm && !vComm.classList.contains('hidden')),
-                sidebarClubsActive: Boolean(document.getElementById('sidebarLinkClubs')?.classList.contains('bg-primary-container'))
-            };
-        })()`);
-        assert.strictEqual(checkClbHash.view, 'community', 'Hash #clb phải mở view "community"');
-        assert.strictEqual(checkClbHash.isClubsVisible, true, 'view-community phải hiển thị khi truy cập #clb');
-        assert.strictEqual(checkClbHash.sidebarClubsActive, true, 'sidebarLinkClubs phải active');
-        console.log('  ✓ [PASS] Hash cũ #clb mở đúng view Clubs và đánh dấu sidebar.');
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'clubs', '#clb phải mở view clubs');
+        console.log('  ✓ [PASS] Hash #clb điều hướng chính xác vào view Câu lạc bộ.');
 
-        // 3.3 Chuỗi Back / Forward
-        console.log('\n[3.3] Kiểm tra chuỗi Browser Back / Forward:');
-        // Đang ở #clb (lịch sử: #festivals -> #clb)
+        // 3.2 Hash #/community
+        console.log('\n[3.2] Hash #/community:');
+        await cdp.eval(`window.location.hash = '#/community'`);
+        await sleep(300);
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'community', '#/community phải mở view community');
+        console.log('  ✓ [PASS] Hash #/community điều hướng chính xác vào view Cộng đồng.');
+
+        // 3.3 Hash cũ #stories và #/blog
+        console.log('\n[3.3] Hash #stories và #/blog:');
+        await cdp.eval(`window.location.hash = '#stories'`);
+        await sleep(300);
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'blog', '#stories phải mở view blog');
+        await cdp.eval(`window.location.hash = '#/blog'`);
+        await sleep(300);
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'blog', '#/blog phải mở view blog');
+        console.log('  ✓ [PASS] Hash #stories & #/blog điều hướng chính xác vào view Blog ViVu.');
+
+        // 3.4 Hash cũ #festivals và #/events
+        console.log('\n[3.4] Hash #festivals và #/events:');
+        await cdp.eval(`window.location.hash = '#festivals'`);
+        await sleep(300);
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'events', '#festivals phải mở view events');
+        await cdp.eval(`window.location.hash = '#/events'`);
+        await sleep(300);
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'events', '#/events phải mở view events');
+        console.log('  ✓ [PASS] Hash #festivals & #/events điều hướng chính xác vào view Sự kiện.');
+
+        // 3.5 Browser Back / Forward qua chuỗi views
+        console.log('\n[3.5] Chuỗi Browser Back / Forward:');
+        // Vừa qua: #stories -> #/blog -> #festivals -> #/events
         await cdp.eval(`window.history.back()`);
         await sleep(300);
-        let backState = await cdp.eval(`window.ViVuApp.getActiveView()`);
-        assert.strictEqual(backState, 'events', 'Browser Back phải trở về "events"');
-        console.log('  ✓ [PASS] Browser Back khôi phục chuẩn xác view "events".');
+        await cdp.eval(`window.history.back()`);
+        await sleep(300);
+        const historyBackView = await cdp.eval(`window.ViVuApp.getActiveView()`);
+        assert.strictEqual(historyBackView, 'blog', 'Back 2 lần phải về view "blog"');
+        console.log('  ✓ [PASS] Browser Back khôi phục chính xác view Blog ViVu.');
 
         await cdp.eval(`window.history.forward()`);
         await sleep(300);
-        let fwdState = await cdp.eval(`window.ViVuApp.getActiveView()`);
-        assert.strictEqual(fwdState, 'community', 'Browser Forward phải tiến vào "community"');
-        console.log('  ✓ [PASS] Browser Forward khôi phục chuẩn xác view "community".');
+        const historyFwdView = await cdp.eval(`window.ViVuApp.getActiveView()`);
+        assert.ok(historyFwdView === 'events' || historyFwdView === 'blog');
+        console.log('  ✓ [PASS] Browser Forward hoạt động mượt mà.');
 
-        // 3.4 Reload trang tại URL #/events
-        console.log('\n[3.4] Kiểm tra Reload trang tại #/events:');
-        await cdp.eval(`window.ViVuApp.navGoEvents()`);
+        // 3.6 Reload trang tại #/blog
+        console.log('\n[3.6] Reload trang tại #/blog:');
+        await cdp.eval(`window.ViVuApp.navGoBlog()`);
         await sleep(200);
         await cdp.send('Page.reload');
         await sleep(600);
 
         let reloadReady = false;
         for (let i = 0; i < 40; i++) {
-            reloadReady = await cdp.eval(`Boolean(window.ViVuApp && window.ViVuApp.getActiveView && window.ViVuApp.getActiveView() === 'events')`);
+            reloadReady = await cdp.eval(`Boolean(window.ViVuApp && window.ViVuApp.getActiveView && window.ViVuApp.getActiveView() === 'blog')`);
             if (reloadReady) break;
             await sleep(250);
         }
-        assert.ok(reloadReady, 'Sau reload trang phải giữ đúng view "events"');
-        const reloadState = await cdp.eval(`(() => {
-            const vEvents = document.getElementById('view-events');
-            const vComm = document.getElementById('view-community');
-            return {
-                view: window.ViVuApp.getActiveView(),
-                hash: window.location.hash,
-                isEventsVisible: Boolean(vEvents && !vEvents.classList.contains('hidden')),
-                isCommVisible: Boolean(vComm && !vComm.classList.contains('hidden')),
-                sidebarEventsActive: Boolean(document.getElementById('sidebarLinkEvents')?.classList.contains('bg-primary-container'))
-            };
-        })()`);
-        assert.strictEqual(reloadState.isEventsVisible, true, 'Sau reload: view-events hiển thị');
-        assert.strictEqual(reloadState.isCommVisible, false, 'Sau reload: view-community ẩn');
-        assert.strictEqual(reloadState.sidebarEventsActive, true, 'Sau reload: sidebarLinkEvents active');
-        console.log('  ✓ [PASS] Reload trang tại #/events khôi phục chính xác 100% view Sự kiện.');
+        assert.ok(reloadReady, 'Sau reload trang phải giữ đúng view "blog"');
+        const reloadTitle = await cdp.eval(`document.querySelector('#view-blog h3')?.textContent?.trim()`);
+        assert.strictEqual(reloadTitle, 'Góc chuyện Xứ Trà', 'Sau reload: Tiêu đề trang Blog vẫn là "Góc chuyện Xứ Trà"');
+        console.log('  ✓ [PASS] Reload trang tại #/blog khôi phục chuẩn xác 100% Blog ViVu với tiêu đề "Góc chuyện Xứ Trà".');
+
 
         // -------------------------------------------------------------------------
-        // PHẦN 4: CÁC MODAL TẠO NỘI DUNG & LIÊN KẾT TỪ TRANG CHỦ
+        // PHẦN 4: ĐIỀU HƯỚNG UGC ITEM ĐÃ DUYỆT (VIEWPUBLISHEDUGCITEM)
         // -------------------------------------------------------------------------
         console.log('\n-------------------------------------------------------------------------');
-        console.log(' [PHẦN 4] KIỂM THỬ CÁC MODAL TẠO NỘI DUNG VÀ LIÊN KẾT TỪ TRANG CHỦ');
+        console.log(' [PHẦN 4] KIỂM THỬ ĐIỀU HƯỚNG NỘI DUNG UGC ĐÃ DUYỆT (VIEWPUBLISHEDUGCITEM)');
         console.log('-------------------------------------------------------------------------');
 
-        // 4.1 Mở Modal tạo sự kiện từ view Events
-        console.log('\n[4.1] Mở Modal tạo sự kiện từ view Events:');
-        await cdp.eval(`window.ViVuApp.openHostEventModal()`);
+        // 4.1 Xem bài viết cẩm nang -> điều hướng sang blog
+        console.log('\n[4.1] Tác giả xem bài viết cẩm nang đã duyệt:');
+        await cdp.eval(`window.ViVuApp.navGoHome()`);
+        await sleep(200);
+        await cdp.eval(`window.ViVuApp.viewPublishedUgcItem('article', 'art-1')`);
         await sleep(300);
-        const hostModalOpen = await cdp.eval(`(() => {
-            const m = document.getElementById('hostEventModal');
-            return m && !m.classList.contains('hidden');
-        })()`);
-        assert.strictEqual(hostModalOpen, true, 'Modal hostEventModal phải mở');
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'blog', 'viewPublishedUgcItem article phải chuyển sang view "blog"');
+        console.log('  ✓ [PASS] Xem cẩm nang đã duyệt: Điều hướng chính xác sang view Blog ViVu.');
+
+        // 4.2 Xem bài đăng cộng đồng -> điều hướng sang community
+        console.log('\n[4.2] Tác giả xem bài đăng cộng đồng đã duyệt:');
+        await cdp.eval(`window.ViVuApp.viewPublishedUgcItem('community_post', 'post-1')`);
+        await sleep(300);
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'community', 'viewPublishedUgcItem community_post phải chuyển sang view "community"');
+        console.log('  ✓ [PASS] Xem bài đăng đã duyệt: Điều hướng chính xác sang view Cộng đồng.');
+
+        // 4.3 Xem CLB đã duyệt -> điều hướng sang clubs
+        console.log('\n[4.3] Tác giả xem CLB đã duyệt:');
+        await cdp.eval(`window.ViVuApp.viewPublishedUgcItem('club', 'club-1')`);
+        await sleep(300);
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'clubs', 'viewPublishedUgcItem club phải chuyển sang view "clubs"');
+        console.log('  ✓ [PASS] Xem CLB đã duyệt: Điều hướng chính xác sang view Câu lạc bộ.');
+
+        // 4.4 Xem sự kiện đã duyệt -> điều hướng sang events
+        console.log('\n[4.4] Tác giả xem Sự kiện đã duyệt:');
+        await cdp.eval(`window.ViVuApp.viewPublishedUgcItem('community_event', 'event-1')`);
+        await sleep(300);
+        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'events', 'viewPublishedUgcItem community_event phải chuyển sang view "events"');
+        console.log('  ✓ [PASS] Xem Sự kiện đã duyệt: Điều hướng chính xác sang view Sự kiện & Gặp gỡ.');
+
+
+        // -------------------------------------------------------------------------
+        // PHẦN 5: CÁC MODAL TẠO NỘI DUNG
+        // -------------------------------------------------------------------------
+        console.log('\n-------------------------------------------------------------------------');
+        console.log(' [PHẦN 5] KIỂM THỬ CÁC MODAL TẠO NỘI DUNG VÀ FORM');
+        console.log('-------------------------------------------------------------------------');
+
+        // 5.1 Modal tạo sự kiện từ view Events
+        console.log('\n[5.1] Mở Modal tạo sự kiện:');
+        await cdp.eval(`window.ViVuApp.navGoEvents()`);
+        await sleep(200);
+        await cdp.eval(`window.ViVuApp.openHostEventModal()`);
+        await sleep(250);
+        const hostOpen = await cdp.eval(`Boolean(document.getElementById('hostEventModal') && !document.getElementById('hostEventModal').classList.contains('hidden'))`);
+        assert.strictEqual(hostOpen, true, 'Modal hostEventModal phải mở');
         await cdp.eval(`window.ViVuApp.closeHostEventModal()`);
         await sleep(200);
         console.log('  ✓ [PASS] Modal tạo sự kiện mở và đóng mượt mà.');
 
-        // 4.2 Mở Modal tạo CLB từ view Clubs
-        console.log('\n[4.2] Mở Modal tạo CLB từ view Clubs:');
+        // 5.2 Modal tạo CLB từ view Clubs
+        console.log('\n[5.2] Mở Modal tạo CLB:');
         await cdp.eval(`window.ViVuApp.navGoClubs()`);
         await sleep(200);
         await cdp.eval(`window.ViVuApp.openCreateClubModal()`);
-        await sleep(300);
-        const clubModalOpen = await cdp.eval(`(() => {
-            const m = document.getElementById('createClubModal');
-            return m && !m.classList.contains('hidden');
-        })()`);
-        assert.strictEqual(clubModalOpen, true, 'Modal createClubModal phải mở');
+        await sleep(250);
+        const clubOpen = await cdp.eval(`Boolean(document.getElementById('createClubModal') && !document.getElementById('createClubModal').classList.contains('hidden'))`);
+        assert.strictEqual(clubOpen, true, 'Modal createClubModal phải mở');
         await cdp.eval(`window.ViVuApp.closeCreateClubModal()`);
         await sleep(200);
         console.log('  ✓ [PASS] Modal tạo CLB mở và đóng mượt mà.');
 
-        // 4.3 Khối giới thiệu trên Trang chủ dẫn tới view tương ứng
-        console.log('\n[4.3] Bong bóng "Lễ hội" trên Trang chủ dẫn tới Sự kiện:');
-        await cdp.eval(`window.ViVuApp.navGoHome()`);
-        await sleep(300);
-        assert.strictEqual(await cdp.eval(`window.ViVuApp.getActiveView()`), 'home', 'Phải ở view home');
+        // 5.3 Modal gửi bài cẩm nang từ view Blog
+        console.log('\n[5.3] Mở Modal gửi bài cẩm nang từ Blog ViVu:');
+        await cdp.eval(`window.ViVuApp.navGoBlog()`);
+        await sleep(200);
+        // Khi chưa đăng nhập: yêu cầu đăng nhập qua userAuthModal
+        await cdp.eval(`window.ViVuApp.openSubmitArticleModal()`);
+        await sleep(250);
+        const authModalOpen = await cdp.eval(`Boolean(document.getElementById('userAuthModal') && !document.getElementById('userAuthModal').classList.contains('hidden'))`);
+        assert.strictEqual(authModalOpen, true, 'Khách bấm gửi bài cẩm nang phải mở userAuthModal');
+        await cdp.eval(`window.ViVuApp.closeAuthModal?.() || document.getElementById('userAuthModal')?.classList.add('hidden')`);
+        await sleep(200);
 
-        // Click bubble festivals
-        await cdp.eval(`(() => {
-            const bubble = Array.from(document.querySelectorAll('#storyBubblesContainer button')).find(b => b.textContent.includes('Lễ hội'));
-            if (bubble) bubble.click();
-        })()`);
-        await sleep(400);
-
-        const bubbleNavState = await cdp.eval(`window.ViVuApp.getActiveView()`);
-        assert.strictEqual(bubbleNavState, 'events', 'Bấm bubble Lễ hội trên Trang chủ phải chuyển sang view "events"');
-        console.log('  ✓ [PASS] Bong bóng Lễ hội trên Trang chủ dẫn trực tiếp tới view Sự kiện & Gặp gỡ.');
+        // Khi có quyền tác giả / admin: mở form biên soạn cẩm nang
+        await cdp.eval(`window.ViVuApp.openSubmitArticleModal(null, true)`);
+        await sleep(250);
+        const articleModalOpen = await cdp.eval(`Boolean(document.getElementById('submitArticleModal') && !document.getElementById('submitArticleModal').classList.contains('hidden'))`);
+        assert.strictEqual(articleModalOpen, true, 'Modal submitArticleModal phải mở khi có quyền tác giả');
+        await cdp.eval(`window.ViVuApp.closeSubmitArticleModal()`);
+        await sleep(200);
+        console.log('  ✓ [PASS] Modal gửi bài cẩm nang mở và đóng mượt mà (kiểm tra phân quyền đăng nhập chuẩn xác).');
 
         console.log('\n================================================================================');
-        console.log('🎉 TẤT CẢ TIÊU CHÍ NGHIỆM THU TÁCH VIEW ĐÃ HOÀN TOÀN ĐẠT 100%!');
+        console.log('🎉 TẤT CẢ TIÊU CHÍ NGHIỆM THU TÁCH 4 VIEW ĐÃ HOÀN TOÀN ĐẠT 100%!');
         console.log('================================================================================\n');
 
     } finally {

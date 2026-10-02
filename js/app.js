@@ -4435,25 +4435,27 @@ function handleDeepLink() {
     }
     state.currentOverlay = null;
 
-    // Cộng đồng & CLB View
-    if (hash === '#/community' || hash === '#community') {
+    // Câu lạc bộ View
+    if (hash === '#/clubs' || hash === '#clubs' || hash === '#clb' || hash === '#stitchcommunitysection') {
+        switchView('clubs', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
+        return;
+    }
+
+    // Cộng đồng View (Bảng tin)
+    if (hash === '#/community' || hash === '#community' || hash === '#/feed' || hash === '#feed') {
         switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
         return;
     }
-    if (hash === '#clb' || hash === '#stitchcommunitysection' || hash === '#/clubs' || hash === '#clubs') {
-        switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'stitchCommunitySection' });
+
+    // Blog ViVu View (Góc chuyện Xứ Trà)
+    if (hash === '#/blog' || hash === '#blog' || hash === '#stories' || hash === '#/stories' || hash === '#travelstoriessection' || hash === '#gocchuyenxutra') {
+        switchView('blog', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
         return;
     }
 
-    // Sự kiện & Lễ hội View (Tách riêng biệt độc lập)
+    // Sự kiện & Gặp gỡ View (Tách riêng biệt độc lập)
     if (hash === '#/events' || hash === '#events' || hash === '#festivals' || hash === '#/festivals' || hash === '#lehoi' || hash === '#festivalsportalsection') {
         switchView('events', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
-        return;
-    }
-
-    // Câu chuyện du khách (trong view community)
-    if (hash === '#stories' || hash === '#/stories' || hash === '#travelstoriessection') {
-        switchView('community', { updateHash: false, pushState: false, closeOverlays: false, scrollTo: 'travelStoriesSection' });
         return;
     }
 
@@ -4889,7 +4891,9 @@ export function updateSidebarNavActive(target) {
     const map = {
         home: 'sidebarLinkHome',
         map: 'sidebarLinkMap',
-        community: 'sidebarLinkClubs',
+        clubs: 'sidebarLinkClubs',
+        community: 'sidebarLinkCommunity',
+        blog: 'sidebarLinkBlog',
         events: 'sidebarLinkEvents',
         saved: 'sidebarLinkSaved'
     };
@@ -4898,6 +4902,8 @@ export function updateSidebarNavActive(target) {
         { id: 'sidebarLinkHome', iconColor: '' },
         { id: 'sidebarLinkMap', iconColor: '' },
         { id: 'sidebarLinkClubs', iconColor: '' },
+        { id: 'sidebarLinkCommunity', iconColor: '' },
+        { id: 'sidebarLinkBlog', iconColor: '' },
         { id: 'sidebarLinkEvents', iconColor: '' },
         { id: 'sidebarLinkSaved', iconColor: 'text-rose-500' }
     ];
@@ -4926,7 +4932,9 @@ export function updateNavActiveStates(target) {
     const bottomTabMap = {
         home: 'tabNavHome',
         map: 'tabNavMap',
+        clubs: 'tabNavClubs',
         community: 'tabNavClubs',
+        blog: 'tabNavClubs',
         events: 'tabNavClubs',
         saved: 'tabNavSaved',
         search: 'tabNavSearch'
@@ -4948,7 +4956,7 @@ export function switchView(viewName, options = {}) {
         scrollTop = !scrollTo
     } = options;
 
-    const validViews = ['home', 'community', 'events', 'search'];
+    const validViews = ['home', 'clubs', 'community', 'blog', 'events', 'search'];
     if (!validViews.includes(viewName)) {
         console.warn(`[Router] View "${viewName}" không hợp lệ, chuyển về "home"`);
         viewName = 'home';
@@ -5012,10 +5020,24 @@ export function switchView(viewName, options = {}) {
         }
     }
 
-    // Lazy check & render community feed if needed
-    if (viewName === 'community' && !state.communityInitialized) {
+    // Lazy check & render community feed or clubs if needed
+    if ((viewName === 'clubs' || viewName === 'community') && !state.communityInitialized) {
         initCommunitySection();
         state.communityInitialized = true;
+    }
+
+    if (viewName === 'blog') {
+        const blogContainer = document.getElementById('travelStoriesContainer');
+        if (blogContainer && (!blogContainer.children || blogContainer.children.length === 0)) {
+            renderArticlesSection(
+                'travelStoriesContainer',
+                state.articles,
+                openArticleModal,
+                openSubmitArticleModal,
+                (article) => openSubmitArticleModal(article, true),
+                Boolean(getAdminSession()?.user && ['admin', 'editor', 'moderator'].includes(getAdminSession()?.user?.role))
+            );
+        }
     }
 
     if (viewName === 'events') {
@@ -5080,7 +5102,15 @@ export function navGoMap() {
 }
 
 export function navGoClubs() {
+    switchView('clubs', { updateHash: true, pushState: true, customHash: '#/clubs', closeOverlays: true, scrollTop: true });
+}
+
+export function navGoCommunity() {
     switchView('community', { updateHash: true, pushState: true, customHash: '#/community', closeOverlays: true, scrollTop: true });
+}
+
+export function navGoBlog() {
+    switchView('blog', { updateHash: true, pushState: true, customHash: '#/blog', closeOverlays: true, scrollTop: true });
 }
 
 export function navGoEvents() {
@@ -5143,9 +5173,16 @@ export function navGoSection(sectionId) {
         traVinhCuisineIntro: { view: 'home', hash: '#/home' },
         heritageNewsletterSection: { view: 'home', hash: '#/home' },
         vivuFacebookBanner: { view: 'home', hash: '#/home' },
+        // Clubs view sections
+        stitchCommunitySection: { view: 'clubs', hash: '#/clubs' },
+        featuredClubsGrid: { view: 'clubs', hash: '#/clubs' },
+        weeklyActivitiesList: { view: 'clubs', hash: '#/clubs' },
         // Community view sections
-        stitchCommunitySection: { view: 'community', hash: '#/community' },
-        travelStoriesSection: { view: 'community', hash: '#stories' },
+        communityPostsFeed: { view: 'community', hash: '#/community' },
+        communityCreatePostBox: { view: 'community', hash: '#/community' },
+        // Blog view sections
+        travelStoriesSection: { view: 'blog', hash: '#/blog' },
+        travelStoriesContainer: { view: 'blog', hash: '#/blog' },
         // Events view sections
         festivalsPortalSection: { view: 'events', hash: '#/events' },
         // Search view sections
@@ -6588,7 +6625,11 @@ export function openEditUgcItem(entityType, entityId) {
 export function viewPublishedUgcItem(entityType, entityId) {
     closeProfileModal();
     if (entityType === 'article') {
-        navGoSection('travelStoriesSection');
+        navGoBlog();
+        setTimeout(() => {
+            const el = document.getElementById('travelStoriesSection') || document.getElementById('travelStoriesContainer');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
     } else if (entityType === 'club') {
         navGoClubs();
         setTimeout(() => {
@@ -6602,7 +6643,7 @@ export function viewPublishedUgcItem(entityType, entityId) {
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 150);
     } else if (entityType === 'community_post' || entityType === 'post') {
-        navGoClubs();
+        navGoCommunity();
         setTimeout(() => {
             const el = document.getElementById('communityPostsFeed') || document.getElementById('communityFeedContainer');
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -8808,6 +8849,8 @@ if (typeof window !== 'undefined') {
         navGoHome,
         navGoMap,
         navGoClubs,
+        navGoCommunity,
+        navGoBlog,
         navGoEvents,
         navGoSaved,
         navGoSearch,

@@ -4301,13 +4301,13 @@ export function renderArticlesSection(containerId, articles, onOpenArticle, onOp
                 <div>
                     <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 text-xs font-bold uppercase tracking-wider mb-2 border border-amber-200 dark:border-amber-800/40">
                         <span class="material-symbols-outlined text-sm">auto_stories</span>
-                        Góc Chuyện Xứ Trà • Travel Stories
+                        Blog ViVu • Góc Chuyện Xứ Trà
                     </div>
-                    <h3 class="text-2xl sm:text-3xl font-black font-serif text-primary dark:text-zinc-100">
-                        Ký Sự Du Lịch & Văn Hóa Bản Địa
+                    <h3 class="font-headline-lg text-2xl sm:text-3xl font-black font-sans text-primary dark:text-zinc-100 tracking-tight">
+                        Góc chuyện Xứ Trà
                     </h3>
-                    <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-1 max-w-2xl">
-                        Những huyền tích trăm năm, bí mật ẩm thực miệt vườn và cẩm nang phượt thực chiến từ thổ địa Trà Vinh.
+                    <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                        Những câu chuyện, ký sự văn hóa bản địa, bí mật ẩm thực miệt vườn và cẩm nang du lịch tự túc từ thổ địa Trà Vinh.
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
