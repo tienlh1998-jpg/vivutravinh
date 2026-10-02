@@ -22,6 +22,7 @@
     "test:security": "node --experimental-websocket scripts/verify-phase8-security.cjs",
     "test:planner": "node --experimental-websocket scripts/verify-phase9-planner.cjs",
     "test:planner:acceptance": "node --experimental-websocket scripts/verify-planner-acceptance.cjs",
+    "test:planner:live": "node --experimental-websocket scripts/verify-live-planner-production.cjs",
     "test:admin": "node --experimental-websocket scripts/verify-phase10-admin.cjs",
     "test:heritage": "node --experimental-websocket scripts/verify-phase11-heritage.cjs",
     "test:router": "node --experimental-websocket scripts/verify-view-router.cjs",
