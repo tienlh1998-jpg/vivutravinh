@@ -227,6 +227,43 @@ async function run() {
         await sleep(300);
 
         // ==========================================
+        // 1.0 NÚT "THAM GIA CỘNG ĐỒNG" TRÊN TRANG CHỦ
+        // ==========================================
+        console.log('\n[1.0] Kiểm tra nút "Tham gia cộng đồng" trên Trang chủ:');
+        const homeHeroBtn = await cdp.eval(`(() => {
+            const btn = Array.from(document.querySelectorAll('#view-home a')).find(a => a.textContent.includes('Tham gia cộng đồng'));
+            if (!btn) return null;
+            return {
+                href: btn.getAttribute('href'),
+                onclick: btn.getAttribute('onclick')
+            };
+        })()`);
+        assert.ok(homeHeroBtn, 'Phải tìm thấy nút Tham gia cộng đồng trên trang chủ');
+        assert.strictEqual(homeHeroBtn.href, '#/community', 'Nút phải giữ href="#/community"');
+        assert.ok(homeHeroBtn.onclick.includes('navGoCommunity'), 'Nút phải gọi navGoCommunity()');
+        console.log(`  ✓ [PASS] Nút Trang chủ href="${homeHeroBtn.href}", onclick="${homeHeroBtn.onclick}"`);
+
+        await cdp.eval(`(() => {
+            const btn = Array.from(document.querySelectorAll('#view-home a')).find(a => a.textContent.includes('Tham gia cộng đồng'));
+            btn.click();
+        })()`);
+        await sleep(400);
+
+        const commAfterHomeBtn = await cdp.eval(`(() => {
+            const vComm = document.getElementById('view-community');
+            const vHome = document.getElementById('view-home');
+            return {
+                hash: window.location.hash,
+                commVisible: Boolean(vComm && !vComm.classList.contains('hidden')),
+                homeHidden: Boolean(vHome && vHome.classList.contains('hidden'))
+            };
+        })()`);
+        assert.strictEqual(commAfterHomeBtn.hash, '#/community', 'Hash phải chuyển sang #/community');
+        assert.ok(commAfterHomeBtn.commVisible, 'view-community phải hiển thị sau khi click nút');
+        assert.ok(commAfterHomeBtn.homeHidden, 'view-home phải ẩn sau khi click nút');
+        console.log(`  ✓ [PASS] Bấm nút Trang chủ đã chuyển thành công sang view-community (hash=${commAfterHomeBtn.hash})`);
+
+        // ==========================================
         // 1.1 VIEW CÂU LẠC BỘ (CLUBS)
         // ==========================================
         console.log('\n[1.1] Bấm chọn "Câu lạc bộ" trên Desktop:');
