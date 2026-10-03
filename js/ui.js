@@ -6445,13 +6445,30 @@ export function renderMyContentTabContent(ugcData = {}, isAuth = false) {
 /**
  * Render Saved Collections Modal / Screen Content (Stitch Desktop & Mobile Design)
  */
-export function renderSavedCollectionsModalContent(savedItems = [], folders = [], activeCategory = 'all', sortMode = 'recent', viewMode = 'grid') {
+export function renderSavedCollectionsModalContent(savedItems = [], folders = [], activeCategory = 'all', sortMode = 'recent', viewMode = 'grid', searchTerm = '') {
     const totalCount = savedItems.length;
+    const normalizedSearch = (searchTerm || '').trim().toLowerCase();
 
-    // Filter items
+    // Filter items by category
     let filtered = activeCategory === 'all'
         ? savedItems
         : savedItems.filter(item => item.category === activeCategory);
+
+    // Filter items by search term (search across title, address, note, categoryLabel, tags)
+    if (normalizedSearch) {
+        filtered = filtered.filter(item => {
+            const title = (item.title || '').toLowerCase();
+            const address = (item.address || '').toLowerCase();
+            const note = (item.note || '').toLowerCase();
+            const categoryLabel = (item.categoryLabel || '').toLowerCase();
+            const tags = Array.isArray(item.tags) ? item.tags.join(' ').toLowerCase() : (item.tags || '').toLowerCase();
+            return title.includes(normalizedSearch) ||
+                   address.includes(normalizedSearch) ||
+                   note.includes(normalizedSearch) ||
+                   categoryLabel.includes(normalizedSearch) ||
+                   tags.includes(normalizedSearch);
+        });
+    }
 
     // Sort items
     if (sortMode === 'distance') {
@@ -6467,6 +6484,19 @@ export function renderSavedCollectionsModalContent(savedItems = [], folders = []
         event: savedItems.filter(i => i.category === 'event').length,
         culture: savedItems.filter(i => i.category === 'culture').length
     };
+
+    const categoryLabels = {
+        all: 'Tất cả',
+        heritage: 'Địa điểm di tích',
+        culinary: 'Ẩm thực & Quán',
+        event: 'Sự kiện & Lễ hội',
+        culture: 'Chùa & Làng nghề'
+    };
+
+    const isFiltered = Boolean(normalizedSearch || activeCategory !== 'all');
+    const badgeText = isFiltered && filtered.length !== totalCount
+        ? `${filtered.length}/${totalCount} mục đã lưu`
+        : `${totalCount} mục đã lưu`;
 
     return `
         <div class="max-w-[1240px] w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
@@ -6491,7 +6521,7 @@ export function renderSavedCollectionsModalContent(savedItems = [], folders = []
                 <div class="flex flex-col items-start md:items-end gap-3 shrink-0">
                     <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-surface-container dark:bg-zinc-800 text-xs text-on-surface-variant dark:text-zinc-300 border border-outline-variant/20 dark:border-zinc-700">
                         <span class="material-symbols-outlined text-[18px] text-secondary">explore</span>
-                        <span class="font-bold text-primary dark:text-emerald-400" id="savedTotalBadge">${totalCount} mục đã lưu</span>
+                        <span class="font-bold text-primary dark:text-emerald-400" id="savedTotalBadge">${badgeText}</span>
                         <span>cho chuyến đi Trà Vinh sắp tới</span>
                     </div>
                     <div class="flex items-center gap-2.5 flex-wrap">
@@ -6588,94 +6618,127 @@ export function renderSavedCollectionsModalContent(savedItems = [], folders = []
                 </div>
             </section>
 
-            <!-- FILTER BAR & VIEW TOGGLE -->
-            <section class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 py-2 border-y border-outline-variant/20 dark:border-zinc-800">
-                <!-- Category Tabs with dynamic counters -->
-                <div class="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 no-scrollbar" role="toolbar" aria-label="Bộ lọc danh mục đã lưu">
-                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('all')"
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
-                            activeCategory === 'all'
-                                ? 'bg-primary-container text-white dark:bg-emerald-800'
-                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
-                        }">
-                        <span>Tất cả</span>
-                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'all' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.all}</span>
-                    </button>
-                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('heritage')"
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
-                            activeCategory === 'heritage'
-                                ? 'bg-primary-container text-white dark:bg-emerald-800'
-                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
-                        }">
-                        <span>Địa điểm di tích</span>
-                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'heritage' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.heritage}</span>
-                    </button>
-                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('culinary')"
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
-                            activeCategory === 'culinary'
-                                ? 'bg-primary-container text-white dark:bg-emerald-800'
-                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
-                        }">
-                        <span>Ẩm thực &amp; Quán</span>
-                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'culinary' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.culinary}</span>
-                    </button>
-                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('event')"
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
-                            activeCategory === 'event'
-                                ? 'bg-primary-container text-white dark:bg-emerald-800'
-                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
-                        }">
-                        <span>Sự kiện &amp; Lễ hội</span>
-                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'event' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.event}</span>
-                    </button>
-                    <button type="button" onclick="window.ViVuApp.filterSavedCategory('culture')"
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
-                            activeCategory === 'culture'
-                                ? 'bg-primary-container text-white dark:bg-emerald-800'
-                                : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
-                        }">
-                        <span>Chùa &amp; Làng nghề</span>
-                        <span class="px-2 py-0.5 rounded-full ${activeCategory === 'culture' ? 'bg-white/20' : 'bg-surface-container dark:bg-zinc-700'} text-[11px]">${categoryCounts.culture}</span>
-                    </button>
+            <!-- FILTER BAR, SEARCH & VIEW CONTROLS -->
+            <section class="flex flex-col gap-3.5 py-3.5 border-y border-outline-variant/20 dark:border-zinc-800" aria-label="Bộ lọc và tìm kiếm mục đã lưu">
+                <!-- HÀNG 1: Ô tìm kiếm và Cụm thao tác/sắp xếp (Tự động dàn hàng trên màn hình lớn, xuống hàng khi hẹp) -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <!-- Ô tìm kiếm -->
+                    <div class="relative flex-1 min-w-0 max-w-full sm:max-w-md">
+                        <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant dark:text-zinc-400 pointer-events-none">search</span>
+                        <input id="savedSearchInput" type="text"
+                            value="${escapeHtml(searchTerm)}"
+                            placeholder="Tìm kiếm địa điểm, quán ăn, ghi chú đã lưu..."
+                            aria-label="Tìm kiếm trong bộ sưu tập đã lưu"
+                            oninput="window.ViVuApp.handleSavedSearch(this.value)"
+                            class="w-full h-11 min-h-[44px] pl-10 pr-9 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 text-on-surface dark:text-zinc-100 text-xs sm:text-sm placeholder:text-on-surface-variant/60 dark:placeholder:text-zinc-400 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:focus:ring-emerald-500/40 transition-all shadow-xs">
+                        ${searchTerm ? `
+                            <button type="button" onclick="window.ViVuApp.clearSavedSearch()"
+                                id="savedSearchClearBtn"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 flex items-center justify-center min-w-[32px] min-h-[32px]"
+                                title="Xóa từ khóa tìm kiếm" aria-label="Xóa từ khóa tìm kiếm">
+                                <span class="material-symbols-outlined text-[18px]">close</span>
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <!-- Cụm sắp xếp, chế độ xem & thao tác -->
+                    <div class="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-wrap justify-between sm:justify-end">
+                        <!-- Sort Dropdown -->
+                        <div class="relative">
+                            <select id="savedSortSelect" onchange="window.ViVuApp.sortSavedItems(this.value)"
+                                aria-label="Sắp xếp danh sách đã lưu"
+                                class="h-11 pl-3.5 pr-8 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 text-on-surface dark:text-zinc-200 text-xs sm:text-sm appearance-none cursor-pointer focus:outline-none border border-outline-variant/30 dark:border-zinc-700 shadow-sm min-h-[44px]">
+                                <option value="recent" ${sortMode === 'recent' ? 'selected' : ''}>Mới lưu gần đây</option>
+                                <option value="distance" ${sortMode === 'distance' ? 'selected' : ''}>Gần tôi nhất (km)</option>
+                                <option value="rating" ${sortMode === 'rating' ? 'selected' : ''}>Đánh giá cao nhất</option>
+                            </select>
+                            <span class="material-symbols-outlined text-[18px] text-on-surface-variant dark:text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+                        </div>
+
+                        <!-- View Switcher -->
+                        <div class="flex items-center p-1 rounded-xl bg-surface-container dark:bg-zinc-800 border border-outline-variant/20 dark:border-zinc-700">
+                            <button type="button" onclick="window.ViVuApp.setSavedViewMode('grid')"
+                                id="btnSavedViewGrid"
+                                class="p-2 rounded-lg ${viewMode === 'grid' ? 'bg-surface-container-lowest dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs' : 'text-on-surface-variant dark:text-zinc-400'} min-w-[36px] min-h-[36px] flex items-center justify-center transition-colors"
+                                title="Dạng lưới ảnh" aria-label="Xem dạng lưới ảnh">
+                                <span class="material-symbols-outlined text-[18px]">grid_view</span>
+                            </button>
+                            <button type="button" onclick="window.ViVuApp.setSavedViewMode('list')"
+                                id="btnSavedViewList"
+                                class="p-2 rounded-lg ${viewMode === 'list' ? 'bg-surface-container-lowest dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs' : 'text-on-surface-variant dark:text-zinc-400'} min-w-[36px] min-h-[36px] flex items-center justify-center transition-colors"
+                                title="Dạng danh sách thu gọn" aria-label="Xem dạng danh sách thu gọn">
+                                <span class="material-symbols-outlined text-[18px]">view_list</span>
+                            </button>
+                        </div>
+
+                        <!-- Nút Xóa tất cả -->
+                        <button type="button" onclick="window.ViVuApp.clearAllSavedItems()"
+                            id="btnSavedClearAll"
+                            class="text-on-surface-variant dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold px-2 py-2 transition-colors flex items-center gap-1 min-h-[44px]">
+                            <span class="material-symbols-outlined text-[16px]">delete_sweep</span>
+                            <span>Xóa tất cả</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Secondary Controls: Sorting & Grid/List switches -->
-                <div class="flex items-center gap-3 shrink-0 flex-wrap">
-                    <!-- Sort Dropdown -->
-                    <div class="relative">
-                        <select onchange="window.ViVuApp.sortSavedItems(this.value)"
-                            aria-label="Sắp xếp danh sách đã lưu"
-                            class="h-11 pl-3.5 pr-8 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 text-on-surface dark:text-zinc-200 text-xs sm:text-sm appearance-none cursor-pointer focus:outline-none border border-outline-variant/30 dark:border-zinc-700 shadow-sm min-h-[44px]">
-                            <option value="recent" ${sortMode === 'recent' ? 'selected' : ''}>Mới lưu gần đây</option>
-                            <option value="distance" ${sortMode === 'distance' ? 'selected' : ''}>Gần tôi nhất (km)</option>
-                            <option value="rating" ${sortMode === 'rating' ? 'selected' : ''}>Đánh giá cao nhất</option>
-                        </select>
-                        <span class="material-symbols-outlined text-[18px] text-on-surface-variant dark:text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
-                    </div>
-
-                    <!-- View Switcher -->
-                    <div class="flex items-center p-1 rounded-xl bg-surface-container dark:bg-zinc-800 border border-outline-variant/20 dark:border-zinc-700">
-                        <button type="button" onclick="window.ViVuApp.setSavedViewMode('grid')"
-                            class="p-2.5 rounded-lg ${viewMode === 'grid' ? 'bg-surface-container-lowest dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs' : 'text-on-surface-variant dark:text-zinc-400'} min-w-[44px] min-h-[44px] flex items-center justify-center"
-                            title="Dạng lưới ảnh" aria-label="Xem dạng lưới ảnh">
-                            <span class="material-symbols-outlined text-[18px]">grid_view</span>
+                <!-- HÀNG 2: Bộ lọc danh mục (Cuộn ngang riêng trên Mobile, không tràn trang; dàn hàng rộng rãi không chồng lấp) -->
+                <div class="w-full overflow-hidden">
+                    <div class="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0" role="toolbar" aria-label="Bộ lọc danh mục đã lưu">
+                        <button type="button" onclick="window.ViVuApp.filterSavedCategory('all')"
+                            data-category="all"
+                            class="px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                                activeCategory === 'all'
+                                    ? 'bg-primary text-white dark:bg-emerald-800 shadow-xs'
+                                    : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700'
+                            }">
+                            <span>Tất cả</span>
+                            <span class="px-2 py-0.5 rounded-full ${activeCategory === 'all' ? 'bg-white/20 text-white' : 'bg-surface-container dark:bg-zinc-700 text-on-surface-variant dark:text-zinc-300'} text-[11px] font-bold">${categoryCounts.all}</span>
                         </button>
-                        <button type="button" onclick="window.ViVuApp.setSavedViewMode('list')"
-                            class="p-2.5 rounded-lg ${viewMode === 'list' ? 'bg-surface-container-lowest dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs' : 'text-on-surface-variant dark:text-zinc-400'} min-w-[44px] min-h-[44px] flex items-center justify-center"
-                            title="Dạng danh sách thu gọn" aria-label="Xem dạng danh sách thu gọn">
-                            <span class="material-symbols-outlined text-[18px]">view_list</span>
+                        <button type="button" onclick="window.ViVuApp.filterSavedCategory('heritage')"
+                            data-category="heritage"
+                            class="px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                                activeCategory === 'heritage'
+                                    ? 'bg-primary text-white dark:bg-emerald-800 shadow-xs'
+                                    : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700'
+                            }">
+                            <span>Địa điểm di tích</span>
+                            <span class="px-2 py-0.5 rounded-full ${activeCategory === 'heritage' ? 'bg-white/20 text-white' : 'bg-surface-container dark:bg-zinc-700 text-on-surface-variant dark:text-zinc-300'} text-[11px] font-bold">${categoryCounts.heritage}</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.filterSavedCategory('culinary')"
+                            data-category="culinary"
+                            class="px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                                activeCategory === 'culinary'
+                                    ? 'bg-primary text-white dark:bg-emerald-800 shadow-xs'
+                                    : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700'
+                            }">
+                            <span>Ẩm thực &amp; Quán</span>
+                            <span class="px-2 py-0.5 rounded-full ${activeCategory === 'culinary' ? 'bg-white/20 text-white' : 'bg-surface-container dark:bg-zinc-700 text-on-surface-variant dark:text-zinc-300'} text-[11px] font-bold">${categoryCounts.culinary}</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.filterSavedCategory('event')"
+                            data-category="event"
+                            class="px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                                activeCategory === 'event'
+                                    ? 'bg-primary text-white dark:bg-emerald-800 shadow-xs'
+                                    : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700'
+                            }">
+                            <span>Sự kiện &amp; Lễ hội</span>
+                            <span class="px-2 py-0.5 rounded-full ${activeCategory === 'event' ? 'bg-white/20 text-white' : 'bg-surface-container dark:bg-zinc-700 text-on-surface-variant dark:text-zinc-300'} text-[11px] font-bold">${categoryCounts.event}</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp.filterSavedCategory('culture')"
+                            data-category="culture"
+                            class="px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 min-h-[44px] ${
+                                activeCategory === 'culture'
+                                    ? 'bg-primary text-white dark:bg-emerald-800 shadow-xs'
+                                    : 'bg-surface-container-lowest dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700'
+                            }">
+                            <span>Chùa &amp; Làng nghề</span>
+                            <span class="px-2 py-0.5 rounded-full ${activeCategory === 'culture' ? 'bg-white/20 text-white' : 'bg-surface-container dark:bg-zinc-700 text-on-surface-variant dark:text-zinc-300'} text-[11px] font-bold">${categoryCounts.culture}</span>
                         </button>
                     </div>
-
-                    <button type="button" onclick="window.ViVuApp.clearAllSavedItems()"
-                        class="text-on-surface-variant dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-semibold px-2 py-2 transition-colors flex items-center gap-1 min-h-[44px]">
-                        <span class="material-symbols-outlined text-[16px]">delete_sweep</span>
-                        <span>Xóa tất cả</span>
-                    </button>
                 </div>
             </section>
 
-            <!-- SAVED ITEMS LIST / GRID -->
+            <!-- SAVED ITEMS LIST / GRID HOẶC EMPTY STATE -->
             ${filtered.length > 0 ? `
                 <div class="${
                     viewMode === 'grid'
@@ -6795,8 +6858,35 @@ export function renderSavedCollectionsModalContent(savedItems = [], folders = []
                         `;
                     }).join('')}
                 </div>
+            ` : savedItems.length > 0 ? `
+                <!-- EMPTY STATE: KHÔNG TÌM THẤY KẾT QUẢ PHÙ HỢP VỚI TỪ KHÓA / BỘ LỌC -->
+                <div class="flex flex-col items-center justify-center py-16 px-4 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl shadow-sm border border-outline-variant/30 dark:border-zinc-800" id="savedEmptyState">
+                    <div class="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-[32px]">search_off</span>
+                    </div>
+                    <h3 class="text-lg font-bold text-on-surface dark:text-zinc-100 mb-1">Không tìm thấy mục đã lưu nào phù hợp</h3>
+                    <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-md mb-6 leading-relaxed">
+                        ${searchTerm ? `Không có địa điểm nào khớp với từ khóa "<strong>${escapeHtml(searchTerm)}</strong>"` : 'Không có địa điểm nào'}
+                        ${activeCategory !== 'all' ? ` trong danh mục <em>${escapeHtml(categoryLabels[activeCategory] || activeCategory)}</em>.` : '.'}
+                        Bạn hãy thử tìm với từ khóa khác hoặc xóa bộ lọc nhé!
+                    </p>
+                    <div class="flex items-center gap-3 flex-wrap justify-center">
+                        <button type="button" onclick="window.ViVuApp.resetSavedFilters()"
+                            class="px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm transition-colors inline-flex items-center gap-2 min-h-[44px] shadow-xs">
+                            <span class="material-symbols-outlined text-[18px]">restart_alt</span>
+                            <span>Đặt lại bộ lọc &amp; tìm kiếm</span>
+                        </button>
+                        ${searchTerm ? `
+                            <button type="button" onclick="window.ViVuApp.clearSavedSearch()"
+                                class="px-4 py-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 font-semibold text-xs sm:text-sm transition-colors inline-flex items-center gap-1.5 min-h-[44px] border border-outline-variant/30 dark:border-zinc-700">
+                                <span class="material-symbols-outlined text-[18px]">close</span>
+                                <span>Xóa từ khóa</span>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
             ` : `
-                <!-- EMPTY STATE -->
+                <!-- EMPTY STATE: BỘ SƯU TẬP HOÀN TOÀN TRỐNG -->
                 <div class="flex flex-col items-center justify-center py-16 px-4 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl shadow-sm border border-outline-variant/30 dark:border-zinc-800" id="savedEmptyState">
                     <div class="w-16 h-16 rounded-full bg-surface-container dark:bg-zinc-800 flex items-center justify-center text-on-surface-variant dark:text-zinc-400 mb-4">
                         <span class="material-symbols-outlined text-[32px]">bookmark_border</span>

@@ -660,6 +660,7 @@ export const state = {
     savedActiveCategory: 'all',
     savedSortMode: 'recent',
     savedViewMode: 'grid',
+    savedSearchTerm: '',
     profileActiveTab: 'overview',
     profileBadgeCategory: 'all',
     userUgcContent: {
@@ -6906,7 +6907,8 @@ export function openSavedCollectionsModal() {
         state.savedFolders,
         state.savedActiveCategory,
         state.savedSortMode,
-        state.savedViewMode
+        state.savedViewMode,
+        state.savedSearchTerm
     );
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -6935,7 +6937,8 @@ export function filterSavedCategory(cat) {
             state.savedFolders,
             state.savedActiveCategory,
             state.savedSortMode,
-            state.savedViewMode
+            state.savedViewMode,
+            state.savedSearchTerm
         );
     }
 }
@@ -6949,7 +6952,8 @@ export function sortSavedItems(mode) {
             state.savedFolders,
             state.savedActiveCategory,
             state.savedSortMode,
-            state.savedViewMode
+            state.savedViewMode,
+            state.savedSearchTerm
         );
     }
 }
@@ -6963,7 +6967,63 @@ export function setSavedViewMode(mode) {
             state.savedFolders,
             state.savedActiveCategory,
             state.savedSortMode,
-            state.savedViewMode
+            state.savedViewMode,
+            state.savedSearchTerm
+        );
+    }
+}
+
+export function handleSavedSearch(term) {
+    state.savedSearchTerm = term;
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode,
+            state.savedSearchTerm
+        );
+        const input = document.getElementById('savedSearchInput');
+        if (input) {
+            input.focus();
+            const len = input.value.length;
+            input.setSelectionRange(len, len);
+        }
+    }
+}
+
+export function clearSavedSearch() {
+    state.savedSearchTerm = '';
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode,
+            ''
+        );
+        const input = document.getElementById('savedSearchInput');
+        if (input) input.focus();
+    }
+}
+
+export function resetSavedFilters() {
+    state.savedSearchTerm = '';
+    state.savedActiveCategory = 'all';
+    state.savedSortMode = 'recent';
+    const content = document.getElementById('savedCollectionsModalContent');
+    if (content) {
+        content.innerHTML = renderSavedCollectionsModalContent(
+            state.savedCollections,
+            state.savedFolders,
+            state.savedActiveCategory,
+            state.savedSortMode,
+            state.savedViewMode,
+            ''
         );
     }
 }
@@ -6980,7 +7040,8 @@ export function removeSavedItem(id, title) {
             state.savedFolders,
             state.savedActiveCategory,
             state.savedSortMode,
-            state.savedViewMode
+            state.savedViewMode,
+            state.savedSearchTerm
         );
     }
 
@@ -7000,7 +7061,8 @@ export function clearAllSavedItems() {
             state.savedFolders,
             state.savedActiveCategory,
             state.savedSortMode,
-            state.savedViewMode
+            state.savedViewMode,
+            state.savedSearchTerm
         );
     }
     updateFavoritesCount();
@@ -9404,6 +9466,9 @@ if (typeof window !== 'undefined') {
         setSavedViewMode,
         removeSavedItem,
         clearAllSavedItems,
+        handleSavedSearch,
+        clearSavedSearch,
+        resetSavedFilters,
         openCreateCollectionModal,
         closeCreateCollectionModal,
         submitCreateCollection,
