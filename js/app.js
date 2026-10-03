@@ -7499,6 +7499,12 @@ export function applyTourTemplateToPlanner(tourId) {
             kw.includes(p.title.toLowerCase())
         );
 
+        const gpsStatus = s.gpsStatus || matchedPlace?.gpsStatus || 'unverified';
+        const gpsStatusLabel = s.gpsStatusLabel || matchedPlace?.gpsStatusLabel || ((s.gpsStatus === 'verified' || matchedPlace?.gpsStatus === 'verified') ? 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)' : 'Chưa xác minh (Tọa độ ước tính, không dùng dẫn đường chính xác)');
+        const gpsSource = s.gpsSource || matchedPlace?.gpsSource || '';
+        const gpsNote = s.gpsNote || matchedPlace?.gpsNote || '';
+        const isAccurateNav = s.isAccurateNav !== undefined ? Boolean(s.isAccurateNav) : (matchedPlace?.isAccurateNav !== undefined ? Boolean(matchedPlace.isAccurateNav) : false);
+
         return {
             id: `stop-tmpl-${Date.now()}-${idx}`,
             placeId: matchedPlace?.placeId || `tmpl-${idx}`,
@@ -7512,6 +7518,11 @@ export function applyTourTemplateToPlanner(tourId) {
             hasAudioGuide: s.title.toLowerCase().includes('chùa') || s.title.toLowerCase().includes('bảo tàng'),
             lat: s.lat || matchedPlace?.lat || null,
             lng: s.lng || matchedPlace?.lng || null,
+            gpsStatus,
+            gpsStatusLabel,
+            gpsSource,
+            gpsNote,
+            isAccurateNav,
             transfer: idx > 0 ? {
                 mode: 'motorcycle',
                 modeLabel: 'Xe máy / Ô tô',
@@ -7756,6 +7767,11 @@ export function addPlaceToPlan(placeId) {
         hasAudioGuide: place.category === 'Chùa cổ',
         lat: stopLat,
         lng: stopLng,
+        gpsStatus: place.gpsStatus || 'unverified',
+        gpsStatusLabel: place.gpsStatusLabel || (place.gpsStatus === 'verified' ? 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)' : 'Chưa xác minh (Tọa độ ước tính, không dùng dẫn đường chính xác)'),
+        gpsSource: place.gpsSource || '',
+        gpsNote: place.gpsNote || '',
+        isAccurateNav: place.isAccurateNav === true,
         transfer: stopCount > 1 ? {
             mode: 'pedal_bike',
             modeLabel: 'Xe đạp',
@@ -7826,6 +7842,13 @@ export function addCustomStopToPlan() {
         note: 'Nghỉ ngơi, thưởng trà dừa sáp và trò chuyện cùng người dân địa phương.',
         badge: 'Điểm hẹn tùy chọn',
         hasAudioGuide: false,
+        lat: null,
+        lng: null,
+        gpsStatus: 'unverified',
+        gpsStatusLabel: 'Chưa có tọa độ GPS',
+        gpsSource: '',
+        gpsNote: 'Điểm tùy chọn do người dùng tạo, chưa có tọa độ GPS',
+        isAccurateNav: false,
         transfer: {
             mode: 'directions_walk',
             modeLabel: 'Đi bộ',
@@ -7905,57 +7928,126 @@ export function filterValidGpxStops(stops = []) {
     });
 }
 
-export function exportGpxFile() {
-    if (!state.tripPlan) return;
-    const allStops = state.tripPlan.days?.flatMap(d => d.stops || []) || [];
+export function isGpxVerifiedStop(s) {
+    if (!s) return false;
+    // Điểm thiếu trạng thái GPS hoặc gpsStatus khác 'verified' hoặc isAccurateNav khác true coi là chưa xác minh
+    return s.gpsStatus === 'verified' && s.isAccurateNav === true;
+}
 
-    // Chỉ xuất điểm có tọa độ hợp lệ, tuyệt đối không dùng tọa độ giả
-    const validStops = filterValidGpxStops(allStops);
+export function generateGpxXml(allStops = [], plan = {}, options = {}) {
+    const includeUnverified = typeof options === 'boolean' 
+        ? options 
+        : Boolean(options?.includeUnverified);
 
-    if (validStops.length === 0) {
-        showNoticeToast(
-            'Không có tọa độ GPS hợp lệ',
-            'Không có điểm dừng nào có tọa độ GPS hợp lệ để xuất tệp GPX. Hệ thống chỉ xuất điểm có tọa độ chuẩn từ cơ sở dữ liệu.'
-        );
-        return;
+    // 1. Loại bỏ tọa độ thiếu, null, undefined, chuỗi rỗng, không phải số hợp lệ
+    const validCoordStops = filterValidGpxStops(allStops);
+
+    // 2. Mặc định: loại bỏ tất cả các điểm chưa xác minh hoặc thiếu trạng thái GPS
+    const exportStops = includeUnverified
+        ? validCoordStops
+        : validCoordStops.filter(isGpxVerifiedStop);
+
+    const verifiedCount = validCoordStops.filter(isGpxVerifiedStop).length;
+    const unverifiedCount = validCoordStops.filter(s => !isGpxVerifiedStop(s)).length;
+
+    if (exportStops.length === 0) {
+        return {
+            xml: '',
+            exportStops: [],
+            totalValid: validCoordStops.length,
+            verifiedCount,
+            unverifiedCount,
+            includeUnverified
+        };
     }
 
-    const waypointsXml = validStops.map(s => `
-    <wpt lat="${Number(s.lat)}" lon="${Number(s.lng)}">
-        <name>${escapeHtml(s.title)}</name>
-        <desc>${escapeHtml(s.note || '')}</desc>
-        <sym>Waypoint</sym>
-    </wpt>`).join('\n');
+    const waypointsXml = exportStops.map(s => {
+        const isVerified = isGpxVerifiedStop(s);
+        const nameSuffix = isVerified ? '' : ' [Chưa xác minh]';
+        const wptName = escapeHtml(`${s.title}${nameSuffix}`);
+        const disclaimer = isVerified
+            ? '[Mốc tham chiếu bản đồ số - Chưa đo kiểm thực địa]'
+            : '[Chưa xác minh: Tọa độ ước tính theo vùng hoặc trục đường, không dùng làm điểm dẫn đường chính xác]';
+        const sourceInfo = s.gpsSource ? ` | Nguồn: ${s.gpsSource}` : '';
+        const fullDesc = escapeHtml(`${disclaimer} ${s.note || ''}${sourceInfo}`.trim());
+        const sym = isVerified ? 'Waypoint' : 'Flag, Red';
+        const type = isVerified ? 'DigitalMapPOI' : 'UnverifiedEstimate';
 
+        return `    <wpt lat="${Number(s.lat)}" lon="${Number(s.lng)}">
+        <name>${wptName}</name>
+        <desc>${fullDesc}</desc>
+        <sym>${sym}</sym>
+        <type>${type}</type>
+    </wpt>`;
+    }).join('\n');
+
+    const descMeta = includeUnverified
+        ? 'Danh sách tọa độ điểm dừng GPS (bao gồm mốc tham chiếu và điểm ước tính tham khảo có cảnh báo; chỉ gồm waypoint, không có track tuyến đường)'
+        : 'Danh sách mốc tọa độ điểm dừng GPS đã xác minh từ bản đồ số (chỉ gồm waypoint, không có track tuyến đường)';
+
+    // Tuyệt đối KHÔNG xuất khối <trk> hay <trkseg>, chỉ xuất waypoint
     const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="ViVuTraVinh - https://vivutravinh.vn" xmlns="http://www.topografix.com/GPX/1/1">
     <metadata>
-        <name>${escapeHtml(state.tripPlan.title || 'Lộ trình ViVu Trà Vinh')}</name>
-        <desc>${escapeHtml(state.tripPlan.description || 'Danh sách tọa độ điểm dừng GPS hợp lệ')}</desc>
+        <name>${escapeHtml(plan.title || 'Lộ trình ViVu Trà Vinh')}</name>
+        <desc>${escapeHtml(descMeta)}</desc>
         <time>${new Date().toISOString()}</time>
     </metadata>
-    ${waypointsXml}
-    <trk>
-        <name>${escapeHtml(state.tripPlan.title || 'Lộ trình')} (Danh sách waypoint GPS)</name>
-        <trkseg>
-            ${validStops.map(s => `<trkpt lat="${Number(s.lat)}" lon="${Number(s.lng)}"><time>${new Date().toISOString()}</time></trkpt>`).join('\n            ')}
-        </trkseg>
-    </trk>
+${waypointsXml}
 </gpx>`;
 
+    return {
+        xml: gpxContent,
+        exportStops,
+        totalValid: validCoordStops.length,
+        verifiedCount,
+        unverifiedCount,
+        includeUnverified
+    };
+}
+
+export function exportGpxFile(optionsOrInclude = false) {
+    if (!state.tripPlan) return null;
+    const allStops = state.tripPlan.days?.flatMap(d => d.stops || []) || [];
+    const includeUnverified = typeof optionsOrInclude === 'boolean' 
+        ? optionsOrInclude 
+        : Boolean(optionsOrInclude?.includeUnverified);
+
+    const result = generateGpxXml(allStops, state.tripPlan, { includeUnverified });
+
+    if (result.exportStops.length === 0) {
+        if (!includeUnverified && result.unverifiedCount > 0) {
+            showNoticeToast(
+                'Chưa có mốc GPS xác minh',
+                `Lịch trình có ${result.unverifiedCount} điểm nhưng tất cả đều chưa xác minh mốc bản đồ số. Mặc định hệ thống không xuất điểm ước tính để tránh dẫn đường sai lệch. Bạn có thể chọn "GPX (Tham khảo)" nếu muốn tải kèm cảnh báo.`
+            );
+        } else {
+            showNoticeToast(
+                'Không có tọa độ GPS hợp lệ',
+                'Không có điểm dừng nào có tọa độ GPS hợp lệ để xuất tệp GPX. Hệ thống chỉ xuất điểm có tọa độ chuẩn từ cơ sở dữ liệu.'
+            );
+        }
+        return null;
+    }
+
+    const gpxContent = result.xml;
     const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `vivutravinh_waypoints_${new Date().toISOString().slice(0, 10)}.gpx`;
+    const fileSuffix = includeUnverified ? 'thamkhao' : 'xacminh';
+    a.download = `vivutravinh_waypoints_${fileSuffix}_${new Date().toISOString().slice(0, 10)}.gpx`;
     a.click();
     URL.revokeObjectURL(url);
 
-    if (validStops.length < allStops.length) {
-        showSavedToast(`Đã xuất ${validStops.length} điểm GPS hợp lệ (đã lọc bỏ ${allStops.length - validStops.length} điểm thiếu tọa độ). Không phải định tuyến thực tế.`);
+    if (includeUnverified) {
+        showSavedToast(`Đã xuất ${result.exportStops.length} điểm GPX tham khảo (chỉ gồm waypoint, có gắn nhãn cảnh báo điểm chưa xác minh; không có track định tuyến).`);
     } else {
-        showSavedToast(`Đã xuất tệp GPX gồm ${validStops.length} điểm có tọa độ GPS hợp lệ (không phải định tuyến thực tế)!`);
+        const noteOmitted = result.unverifiedCount > 0 ? ` (đã loại ${result.unverifiedCount} điểm chưa xác minh)` : '';
+        showSavedToast(`Đã xuất ${result.exportStops.length} mốc GPX đã xác minh${noteOmitted} (chỉ gồm waypoint, không có track định tuyến)!`);
     }
+
+    return result;
 }
 
 export function openGpsNavModal() {
@@ -9370,6 +9462,8 @@ if (typeof window !== 'undefined') {
         addCustomStopToPlan,
         optimizePlanAiRoute,
         exportGpxFile,
+        isGpxVerifiedStop,
+        generateGpxXml,
         isValidGpxCoordinate,
         filterValidGpxStops,
         openGpsNavModal,

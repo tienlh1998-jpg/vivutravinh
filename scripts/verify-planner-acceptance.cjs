@@ -290,7 +290,7 @@ async function run() {
         assert(tab1State.saveBtnText.includes('Lưu trên thiết bị này'), 'Nút lưu phải mang nhãn "Lưu trên thiết bị này"');
         assert(!tab1State.saveBtnText.includes('tài khoản'), 'Nút lưu không được nhắc tới "tài khoản"');
         assert(tab1State.optimizeBtnText.includes('Mô phỏng AI Route'), 'Nút AI Route phải ghi rõ "Mô phỏng AI Route"');
-        assert(tab1State.exportGpxBtnText.includes('Xuất GPX') && tab1State.exportGpxBtnText.includes('Điểm hợp lệ'), 'Nút GPX phải ghi rõ "Điểm hợp lệ"');
+        assert(tab1State.exportGpxBtnText.includes('GPX') && tab1State.exportGpxBtnText.includes('Mốc xác minh'), 'Nút GPX mặc định phải ghi rõ "Mốc xác minh"');
         assert(tab1State.poolCount >= 4, 'Ngân hàng địa điểm phải hiển thị danh sách thẻ');
         assert(tab1State.stopsCount >= 1, 'Lộ trình ngày 1 phải có các điểm dừng');
 
@@ -448,6 +448,130 @@ async function run() {
 
         console.log(`  ✓ [PASS] Đã kiểm thử 11 kịch bản lọc tọa độ GPX: Loại bỏ chuẩn xác null, undefined, chuỗi rỗng, khoảng trắng, thiếu riêng lat hoặc thiếu riêng lng`);
         console.log(`  ✓ [PASS] Xuất GPX minh bạch: Chỉ lấy ${gpxValidationResult.planValidCount}/${gpxValidationResult.planAllCount} điểm có tọa độ GPS hợp lệ; tuyệt đối không dùng tọa độ giả mạo`);
+
+        // -------------------------------------------------------------------------
+        // KIỂM THỬ XUẤT GPX CHỈ WAYPOINTS (KHÔNG TRK/TRKSEG) & LỌC ĐIỂM CHƯA XÁC MINH
+        // 1. Tuyệt đối không chứa thẻ <trk>, </trk>, <trkseg>, </trkseg>, <trkpt>
+        // 2. Mặc định chỉ xuất các mốc bản đồ số đã xác minh (gpsStatus === 'verified' && isAccurateNav === true)
+        // 3. Điểm chưa xác minh, điểm thiếu gpsStatus hoặc isAccurateNav !== true mặc định bị LOẠI BỎ
+        // 4. Tùy chọn GPX Tham khảo ({ includeUnverified: true }) xuất cả điểm ước tính kèm nhãn & cảnh báo
+        // 5. Kiểm tra sự tồn tại của 2 nút xuất GPX trên giao diện
+        // -------------------------------------------------------------------------
+        console.log('\n  Kiểm thử GPX Waypoints-only & Lọc mốc chưa xác minh:');
+        const gpxVerificationResult = await cdp.eval(`(() => {
+            const isVerified = window.ViVuApp.isGpxVerifiedStop;
+            const generateXml = window.ViVuApp.generateGpxXml;
+
+            // 1. Kiểm thử isGpxVerifiedStop với các trường hợp:
+            const unitVerified = {
+                fullyVerified: isVerified({ title: 'Chùa Âng', lat: 9.95, lng: 106.31, gpsStatus: 'verified', isAccurateNav: true }),
+                missingStatus: isVerified({ title: 'Điểm thiếu status', lat: 9.95, lng: 106.31 }),
+                statusNull: isVerified({ title: 'Điểm status null', lat: 9.95, lng: 106.31, gpsStatus: null, isAccurateNav: true }),
+                statusUnverified: isVerified({ title: 'Điểm ước tính', lat: 9.95, lng: 106.31, gpsStatus: 'unverified', isAccurateNav: false }),
+                statusOther: isVerified({ title: 'Điểm status lạ', lat: 9.95, lng: 106.31, gpsStatus: 'draft', isAccurateNav: true }),
+                navFalse: isVerified({ title: 'Điểm nav false', lat: 9.95, lng: 106.31, gpsStatus: 'verified', isAccurateNav: false }),
+                nullStop: isVerified(null),
+                undefStop: isVerified(undefined)
+            };
+
+            // 2. Danh sách điểm dừng mẫu hỗn hợp
+            const mixedStops = [
+                { id: 'ang', title: 'Chùa Âng', lat: 9.9534, lng: 106.3123, gpsStatus: 'verified', isAccurateNav: true, gpsSource: 'OSM node/123', note: 'Điểm mốc' },
+                { id: 'om', title: 'Ao Bà Om', lat: 9.9512, lng: 106.3156, gpsStatus: 'verified', isAccurateNav: true, gpsSource: 'OSM node/456', note: 'Thắng cảnh' },
+                { id: 'coba', title: 'Bún Nước Lèo Cô Ba', lat: 9.9380, lng: 106.3450, gpsStatus: 'unverified', isAccurateNav: false, gpsSource: 'Ước tính', note: 'Quán ăn' },
+                { id: 'nostatus', title: 'Điểm thiếu trường gpsStatus', lat: 9.9400, lng: 106.3300 },
+                { id: 'nocoords', title: 'Điểm không có tọa độ', lat: null, lng: null }
+            ];
+
+            const planMeta = { title: 'Tour Khảo sát GPX Trà Vinh' };
+
+            // 3. Xuất mặc định: KHÔNG bao gồm điểm chưa xác minh
+            const defaultExport = generateXml(mixedStops, planMeta, { includeUnverified: false });
+            const defaultXml = defaultExport.xml;
+
+            // 4. Xuất tham khảo: Bao gồm điểm chưa xác minh
+            const refExport = generateXml(mixedStops, planMeta, { includeUnverified: true });
+            const refXml = refExport.xml;
+
+            // 5. Kiểm tra các nút bấm trên giao diện
+            const btnDefault = document.getElementById('btnExportGpx');
+            const btnRef = document.getElementById('btnExportGpxRef');
+
+            return {
+                unitVerified,
+                defaultExport: {
+                    exportCount: defaultExport.exportStops.length,
+                    exportTitles: defaultExport.exportStops.map(s => s.title),
+                    hasTrk: defaultXml.includes('<trk>') || defaultXml.includes('</trk>'),
+                    hasTrkseg: defaultXml.includes('<trkseg>') || defaultXml.includes('</trkseg>'),
+                    hasTrkpt: defaultXml.includes('<trkpt'),
+                    hasWpt: defaultXml.includes('<wpt'),
+                    hasUnverifiedInDefault: defaultXml.includes('Bún Nước Lèo Cô Ba') || defaultXml.includes('Điểm thiếu trường gpsStatus'),
+                    hasVerifiedInDefault: defaultXml.includes('Chùa Âng') && defaultXml.includes('Ao Bà Om'),
+                    wptCount: (defaultXml.match(/<wpt/g) || []).length
+                },
+                refExport: {
+                    exportCount: refExport.exportStops.length,
+                    exportTitles: refExport.exportStops.map(s => s.title),
+                    hasTrk: refXml.includes('<trk>') || refXml.includes('</trk>'),
+                    hasTrkseg: refXml.includes('<trkseg>') || refXml.includes('</trkseg>'),
+                    hasTrkpt: refXml.includes('<trkpt'),
+                    hasWpt: refXml.includes('<wpt'),
+                    hasUnverifiedTag: refXml.includes('Bún Nước Lèo Cô Ba [Chưa xác minh]'),
+                    hasWarningDesc: refXml.includes('[Chưa xác minh: Tọa độ ước tính theo vùng hoặc trục đường, không dùng làm điểm dẫn đường chính xác]'),
+                    hasRedFlagSym: refXml.includes('<sym>Flag, Red</sym>'),
+                    hasUnverifiedType: refXml.includes('<type>UnverifiedEstimate</type>'),
+                    hasMissingStatusInRef: refXml.includes('Điểm thiếu trường gpsStatus [Chưa xác minh]'),
+                    wptCount: (refXml.match(/<wpt/g) || []).length
+                },
+                ui: {
+                    hasDefaultBtn: Boolean(btnDefault),
+                    hasRefBtn: Boolean(btnRef),
+                    defaultBtnText: btnDefault ? btnDefault.innerText.trim() : '',
+                    refBtnText: btnRef ? btnRef.innerText.trim() : ''
+                }
+            };
+        })()`);
+
+        // Unit assertions for isGpxVerifiedStop
+        assert.strictEqual(gpxVerificationResult.unitVerified.fullyVerified, true, 'Điểm có gpsStatus="verified" và isAccurateNav=true phải được xác thực');
+        assert.strictEqual(gpxVerificationResult.unitVerified.missingStatus, false, 'Điểm thiếu gpsStatus phải coi là chưa xác minh');
+        assert.strictEqual(gpxVerificationResult.unitVerified.statusNull, false, 'Điểm có gpsStatus=null phải coi là chưa xác minh');
+        assert.strictEqual(gpxVerificationResult.unitVerified.statusUnverified, false, 'Điểm có gpsStatus="unverified" phải coi là chưa xác minh');
+        assert.strictEqual(gpxVerificationResult.unitVerified.statusOther, false, 'Điểm có gpsStatus lạ phải coi là chưa xác minh');
+        assert.strictEqual(gpxVerificationResult.unitVerified.navFalse, false, 'Điểm có isAccurateNav=false phải coi là chưa xác minh');
+        assert.strictEqual(gpxVerificationResult.unitVerified.nullStop, false, 'Stop null phải trả về false');
+        assert.strictEqual(gpxVerificationResult.unitVerified.undefStop, false, 'Stop undefined phải trả về false');
+
+        // Assertions for default GPX export (Waypoints only, verified POIs only)
+        assert.strictEqual(gpxVerificationResult.defaultExport.hasTrk, false, 'GPX mặc định TUYỆT ĐỐI KHÔNG chứa thẻ <trk>');
+        assert.strictEqual(gpxVerificationResult.defaultExport.hasTrkseg, false, 'GPX mặc định TUYỆT ĐỐI KHÔNG chứa thẻ <trkseg>');
+        assert.strictEqual(gpxVerificationResult.defaultExport.hasTrkpt, false, 'GPX mặc định TUYỆT ĐỐI KHÔNG chứa thẻ <trkpt>');
+        assert.strictEqual(gpxVerificationResult.defaultExport.hasWpt, true, 'GPX mặc định PHẢI chứa thẻ <wpt>');
+        assert.strictEqual(gpxVerificationResult.defaultExport.wptCount, 2, 'GPX mặc định chỉ xuất đúng 2 waypoint đã xác minh');
+        assert.strictEqual(gpxVerificationResult.defaultExport.hasVerifiedInDefault, true, 'GPX mặc định phải chứa Chùa Âng và Ao Bà Om');
+        assert.strictEqual(gpxVerificationResult.defaultExport.hasUnverifiedInDefault, false, 'GPX mặc định TUYỆT ĐỐI KHÔNG chứa điểm chưa xác minh hoặc thiếu status');
+
+        // Assertions for reference GPX export (Waypoints only, includes unverified with warnings)
+        assert.strictEqual(gpxVerificationResult.refExport.hasTrk, false, 'GPX tham khảo TUYỆT ĐỐI KHÔNG chứa thẻ <trk>');
+        assert.strictEqual(gpxVerificationResult.refExport.hasTrkseg, false, 'GPX tham khảo TUYỆT ĐỐI KHÔNG chứa thẻ <trkseg>');
+        assert.strictEqual(gpxVerificationResult.refExport.hasTrkpt, false, 'GPX tham khảo TUYỆT ĐỐI KHÔNG chứa thẻ <trkpt>');
+        assert.strictEqual(gpxVerificationResult.refExport.hasWpt, true, 'GPX tham khảo PHẢI chứa thẻ <wpt>');
+        assert.strictEqual(gpxVerificationResult.refExport.wptCount, 4, 'GPX tham khảo xuất đủ 4 điểm có tọa độ (loại bỏ 1 điểm nocoords)');
+        assert.strictEqual(gpxVerificationResult.refExport.hasUnverifiedTag, true, 'GPX tham khảo phải gắn nhãn [Chưa xác minh] vào tên điểm');
+        assert.strictEqual(gpxVerificationResult.refExport.hasWarningDesc, true, 'GPX tham khảo phải gắn cảnh báo trong thẻ <desc>');
+        assert.strictEqual(gpxVerificationResult.refExport.hasRedFlagSym, true, 'GPX tham khảo phải dùng biểu tượng cờ đỏ <sym>Flag, Red</sym>');
+        assert.strictEqual(gpxVerificationResult.refExport.hasUnverifiedType, true, 'GPX tham khảo phải phân loại <type>UnverifiedEstimate</type>');
+        assert.strictEqual(gpxVerificationResult.refExport.hasMissingStatusInRef, true, 'Điểm thiếu status trong GPX tham khảo cũng phải được gắn cảnh báo [Chưa xác minh]');
+
+        // UI buttons assertion
+        assert.strictEqual(gpxVerificationResult.ui.hasDefaultBtn, true, 'Giao diện phải có nút Xuất GPX mặc định (#btnExportGpx)');
+        assert.strictEqual(gpxVerificationResult.ui.hasRefBtn, true, 'Giao diện phải có nút Xuất GPX tham khảo (#btnExportGpxRef)');
+
+        console.log(`  ✓ [PASS] GPX chỉ xuất Waypoints: Hoàn toàn không có khối <trk>/<trkseg>/<trkpt> gây hiểu lầm định tuyến thực tế`);
+        console.log(`  ✓ [PASS] Tệp mặc định: Loại bỏ 100% điểm chưa xác minh & điểm thiếu trạng thái GPS (chỉ xuất ${gpxVerificationResult.defaultExport.wptCount} mốc bản đồ số chuẩn)`);
+        console.log(`  ✓ [PASS] Tùy chọn GPX Tham khảo: Giữ nguyên cảnh báo minh bạch, gắn nhãn [Chưa xác minh], cờ đỏ Flag Red & Type UnverifiedEstimate`);
+        console.log(`  ✓ [PASS] Giao diện người dùng: Tích hợp đầy đủ 2 nút bấm riêng biệt không thay đổi bố cục`);
 
         // -------------------------------------------------------------------------
         // KIỂM THỬ TÁCH DỮ LIỆU GIỮA HAI TÀI KHOẢN DÙNG CÙNG TRÌNH DUYỆT

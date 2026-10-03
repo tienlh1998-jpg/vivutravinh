@@ -553,7 +553,7 @@ async function run() {
         }, 'navGoSection kích hoạt Home view chứa tours và cập nhật URL #tours');
         console.log(`  ✓ URL Hash đã chuyển đổi chuẩn xác từ #festivals sang "${stateTourSection.hash}"!`);
 
-        // [12] KIỂM THỬ RELOAD TRANG GIỮ ĐÚNG HOME VIEW VÀ TOUR SECTION
+        // [12] KIỂM THỬ RELOAD TRANG TẠI URL #tours (ĐỒNG BỘ GỘP VIEW PLANNER)
         console.log('\n[12] KIỂM THỬ RELOAD TRANG TẠI URL #tours:');
         await cdp.send('Page.reload');
         await sleep(500);
@@ -572,16 +572,14 @@ async function run() {
         }
 
         assertState(stateAfterReload, {
-            activeView: 'home',
+            activeView: 'planner',
             hash: ['#tours', '#/tours'],
-            views: { home: true, community: false, search: false },
-            modals: { map: false, saved: false },
-            activeTab: 'home'
-        }, 'Reload trang mở đúng Home view và giữ URL #tours');
+            modals: { map: false, saved: false }
+        }, 'Reload trang mở đúng Planner view (Tab Lịch trình gợi ý) và giữ URL #tours');
 
-        const hasTourSection = await cdp.eval(`Boolean(document.getElementById('tourItinerariesSection'))`);
-        if (!hasTourSection) throw new Error('Không tìm thấy phần tử tourItinerariesSection sau reload');
-        console.log('  ✓ Sau reload trang, view Home và khối Tour được khôi phục 100% chuẩn xác!');
+        const plannerTab = await cdp.eval(`window.ViVuApp.state.plannerCurrentTab`);
+        if (plannerTab !== 'suggested') throw new Error(`Tab lịch trình không đúng: mong đợi "suggested", thực tế "${plannerTab}"`);
+        console.log('  ✓ Sau reload trang #tours, view Planner và tab Lịch trình gợi ý được khôi phục 100% chuẩn xác!');
 
         // Chụp ảnh giao diện kết thúc
         const finalShot = path.join(ARTIFACT_DIR, 'view-router-verified.png');

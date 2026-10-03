@@ -37,6 +37,11 @@ export const INITIAL_TRIP_PLAN = {
                     hasAudioGuide: true,
                     lat: 9.9431,
                     lng: 106.3112,
+                    gpsStatus: 'verified',
+                    gpsStatusLabel: 'Mốc tham chiếu bản đồ số',
+                    gpsSource: 'https://www.openstreetmap.org/node/3922119077',
+                    gpsNote: 'Ranh phía đông Chùa Âng, giáp ranh Phường 8 và Phường Nguyệt Hóa',
+                    isAccurateNav: true,
                     transfer: {
                         mode: 'directions_walk',
                         modeLabel: 'Đi bộ',
@@ -57,6 +62,11 @@ export const INITIAL_TRIP_PLAN = {
                     hasAudioGuide: false,
                     lat: 9.9442,
                     lng: 106.3135,
+                    gpsStatus: 'verified',
+                    gpsStatusLabel: 'Mốc tham chiếu bản đồ số',
+                    gpsSource: 'https://www.openstreetmap.org/way/458694852',
+                    gpsNote: 'Vùng mặt nước trung tâm Ao Bà Om (Khóm Cổ Tháp)',
+                    isAccurateNav: true,
                     transfer: {
                         mode: 'electric_scooter',
                         modeLabel: 'Xe điện / Xe đạp',
@@ -77,6 +87,11 @@ export const INITIAL_TRIP_PLAN = {
                     hasAudioGuide: false,
                     lat: 9.9385,
                     lng: 106.3421,
+                    gpsStatus: 'unverified',
+                    gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo đường, không dùng dẫn đường chính xác)',
+                    gpsSource: 'https://www.openstreetmap.org/?mlat=9.9385&mlon=106.3421#map=18/9.9385/106.3421',
+                    gpsNote: 'Tọa độ ước tính theo trục đường Đồng Khởi / Lê Lợi nội ô; chưa đo mốc định danh số nhà quán ăn',
+                    isAccurateNav: false,
                     transfer: null
                 }
             ]
@@ -99,6 +114,11 @@ export const INITIAL_TRIP_PLAN = {
                     hasAudioGuide: false,
                     lat: 9.8722,
                     lng: 106.1284,
+                    gpsStatus: 'unverified',
+                    gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng cù lao, không dùng dẫn đường chính xác)',
+                    gpsSource: 'https://www.openstreetmap.org/?mlat=9.8722&mlon=106.1284#map=16/9.8722/106.1284',
+                    gpsNote: 'Tọa độ ước tính phân vùng cù lao Tân Quy; chưa đo mốc điểm vườn',
+                    isAccurateNav: false,
                     transfer: {
                         mode: 'pedal_bike',
                         modeLabel: 'Xe đạp',
@@ -119,6 +139,11 @@ export const INITIAL_TRIP_PLAN = {
                     hasAudioGuide: true,
                     lat: 9.7153,
                     lng: 106.3572,
+                    gpsStatus: 'verified',
+                    gpsStatusLabel: 'Mốc tham chiếu bản đồ số',
+                    gpsSource: 'https://www.openstreetmap.org/?mlat=9.7153&mlon=106.3572#map=18/9.7153/106.3572',
+                    gpsNote: 'Khuôn viên Chùa Vàm Ray, Xã Hàm Tân, Trà Cú',
+                    isAccurateNav: true,
                     transfer: {
                         mode: 'electric_scooter',
                         modeLabel: 'Xe điện',
@@ -139,6 +164,11 @@ export const INITIAL_TRIP_PLAN = {
                     hasAudioGuide: false,
                     lat: 9.6587,
                     lng: 106.5642,
+                    gpsStatus: 'unverified',
+                    gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng bãi biển, không dùng dẫn đường chính xác)',
+                    gpsSource: 'https://www.openstreetmap.org/?mlat=9.6587&mlon=106.5642#map=16/9.6587/106.5642',
+                    gpsNote: 'Tọa độ ước tính phân vùng bãi biển Ba Động xã Trường Long Hòa; chưa định vị mốc từng trụ turbine',
+                    isAccurateNav: false,
                     transfer: null
                 }
             ]
@@ -159,7 +189,12 @@ export const PLACE_POOL = [
         rating: 4.8,
         description: 'Ngôi chùa cổ với cổng hang độc đáo, nơi chim muông làm tổ và các sư thầy gìn giữ nghệ thuật điêu khắc gỗ tinh xảo.',
         lat: 9.9142,
-        lng: 106.3056
+        lng: 106.3056,
+        gpsStatus: 'verified',
+        gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+        gpsSource: 'https://www.openstreetmap.org/node/3922119102',
+        gpsNote: 'Khuôn viên Chùa Hang, đoạn đường Nguyễn Du, Khóm 8, TT. Châu Thành',
+        isAccurateNav: true
     },
     {
         id: 'pool-vuon-co',
@@ -173,7 +208,12 @@ export const PLACE_POOL = [
         rating: 4.6,
         description: 'Không gian miệt vườn thanh bình, thưởng thức đồ uống bản địa mát lành giữa bóng dừa và hàng cau xanh ngát.',
         lat: 9.9214,
-        lng: 106.1823
+        lng: 106.1823,
+        gpsStatus: 'unverified',
+        gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng cù lao, không dùng dẫn đường chính xác)',
+        gpsSource: 'https://www.openstreetmap.org/?mlat=9.9214&mlon=106.1823#map=16/9.9214/106.1823',
+        gpsNote: 'Tọa độ ước tính theo phân vùng cù lao Tân Quy, xã An Phú Tân; chưa đo mốc quán ăn/điểm vườn',
+        isAccurateNav: false
     },
     {
         id: 'pool-chua-ang',
@@ -187,7 +227,12 @@ export const PLACE_POOL = [
         rating: 4.9,
         description: 'Ngôi chùa Khmer cổ nhất Trà Vinh với bề dày lịch sử hơn 1000 năm và kiến trúc nóc nhọn điêu khắc tượng thần Naga.',
         lat: 9.9431,
-        lng: 106.3112
+        lng: 106.3112,
+        gpsStatus: 'verified',
+        gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+        gpsSource: 'https://www.openstreetmap.org/node/3922119077',
+        gpsNote: 'Ranh phía đông Chùa Âng, giáp ranh Phường 8 và Phường Nguyệt Hóa',
+        isAccurateNav: true
     },
     {
         id: 'pool-ao-ba-om',
@@ -201,7 +246,12 @@ export const PLACE_POOL = [
         rating: 4.8,
         description: 'Danh lam thắng cảnh gắn liền huyền tích đào ao của người Khmer, bao quanh bởi hơn 500 cây dầu sao cổ thụ rễ trồi kỳ thú.',
         lat: 9.9442,
-        lng: 106.3135
+        lng: 106.3135,
+        gpsStatus: 'verified',
+        gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+        gpsSource: 'https://www.openstreetmap.org/way/458694852',
+        gpsNote: 'Vùng mặt nước trung tâm Ao Bà Om (Khóm Cổ Tháp)',
+        isAccurateNav: true
     },
     {
         id: 'pool-bun-nuoc-leo',
@@ -215,7 +265,12 @@ export const PLACE_POOL = [
         rating: 4.7,
         description: 'Hương vị bún nước lèo đậm đà mắm bò hóc truyền thống kết hợp cá lóc đồng, thịt quay và rau thơm tươi ngon.',
         lat: 9.9385,
-        lng: 106.3421
+        lng: 106.3421,
+        gpsStatus: 'unverified',
+        gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo đường, không dùng dẫn đường chính xác)',
+        gpsSource: 'https://www.openstreetmap.org/?mlat=9.9385&mlon=106.3421#map=18/9.9385/106.3421',
+        gpsNote: 'Tọa độ ước tính theo trục đường Đồng Khởi / Lê Lợi nội ô; chưa đo mốc định danh số nhà quán ăn',
+        isAccurateNav: false
     },
     {
         id: 'pool-con-chim',
@@ -229,7 +284,12 @@ export const PLACE_POOL = [
         rating: 4.9,
         description: 'Ốc đảo du lịch sinh thái nói không với rác thải nhựa, trải nghiệm câu cua, làm bánh dân gian và uống dừa tươi.',
         lat: 9.9167,
-        lng: 106.4274
+        lng: 106.4274,
+        gpsStatus: 'unverified',
+        gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng cù lao, không dùng dẫn đường chính xác)',
+        gpsSource: 'https://www.openstreetmap.org/?mlat=9.9167&mlon=106.4274#map=16/9.9167/106.4274',
+        gpsNote: 'Tọa độ ước tính theo phân vùng cù lao xã Hòa Minh; chưa có tọa độ mốc từng bến đón/điểm dừng cụ thể',
+        isAccurateNav: false
     },
     {
         id: 'pool-den-tho-bac',
@@ -243,7 +303,12 @@ export const PLACE_POOL = [
         rating: 4.7,
         description: 'Công trình biểu tượng tấm lòng son sắt của đồng bào Trà Vinh với Bác Hồ trong kháng chiến bom đạn.',
         lat: 9.9725,
-        lng: 106.3412
+        lng: 106.3412,
+        gpsStatus: 'verified',
+        gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+        gpsSource: 'https://www.openstreetmap.org/?mlat=9.9725&mlon=106.3412#map=18/9.9725/106.3412',
+        gpsNote: 'Khu di tích Đền thờ Bác Hồ, xã Long Đức, TP. Trà Vinh',
+        isAccurateNav: true
     },
     {
         id: 'pool-nha-co-huynh-ky',
@@ -257,7 +322,12 @@ export const PLACE_POOL = [
         rating: 4.8,
         description: 'Biệt thự cổ kết hợp tinh hoa kiến trúc Pháp cổ điển và hoa văn chạm khắc gỗ Nam Bộ thế kỷ 20.',
         lat: 9.8973,
-        lng: 106.0125
+        lng: 106.0125,
+        gpsStatus: 'verified',
+        gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+        gpsSource: 'https://www.openstreetmap.org/?mlat=9.8973&mlon=106.0125#map=18/9.8973/106.0125',
+        gpsNote: 'Khuôn viên Nhà cổ Huỳnh Kỳ, Khóm 2, TT. Cầu Kè',
+        isAccurateNav: true
     }
 ];
 

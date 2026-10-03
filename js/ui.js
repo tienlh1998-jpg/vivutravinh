@@ -1491,7 +1491,12 @@ export const SAMPLE_TOURS = [
                 icon: 'ramen_dining',
                 placeKeyword: 'Bún Nước Lèo',
                 lat: 9.9385,
-                lng: 106.3421
+                lng: 106.3421,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo đường, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9385&mlon=106.3421#map=18/9.9385/106.3421',
+                gpsNote: 'Tọa độ ước tính theo trục đường Đồng Khởi / Lê Lợi nội ô; chưa đo mốc định danh số nhà quán ăn',
+                isAccurateNav: false
             },
             {
                 time: '08:15 – 10:30',
@@ -1501,7 +1506,12 @@ export const SAMPLE_TOURS = [
                 icon: 'temple_buddhist',
                 placeKeyword: 'Ao Bà Om',
                 lat: 9.9442,
-                lng: 106.3135
+                lng: 106.3135,
+                gpsStatus: 'verified',
+                gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+                gpsSource: 'https://www.openstreetmap.org/way/458694852',
+                gpsNote: 'Vùng mặt nước trung tâm Ao Bà Om (Khóm Cổ Tháp)',
+                isAccurateNav: true
             },
             {
                 time: '10:45 – 11:45',
@@ -1511,7 +1521,12 @@ export const SAMPLE_TOURS = [
                 icon: 'museum',
                 placeKeyword: 'Chùa Âng',
                 lat: 9.9426,
-                lng: 106.3105
+                lng: 106.3105,
+                gpsStatus: 'verified',
+                gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9426&mlon=106.3105#map=18/9.9426/106.3105',
+                gpsNote: 'Khuôn viên Bảo tàng Văn hóa Dân tộc Khmer Trà Vinh, Phường 8',
+                isAccurateNav: true
             },
             {
                 time: '12:00 – 13:30',
@@ -1521,7 +1536,12 @@ export const SAMPLE_TOURS = [
                 icon: 'restaurant',
                 placeKeyword: 'Quán ăn',
                 lat: 9.9350,
-                lng: 106.3300
+                lng: 106.3300,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9350&mlon=106.3300#map=16/9.9350/106.3300',
+                gpsNote: 'Tọa độ ước tính phân vùng trung tâm TP. Trà Vinh; chưa chỉ định nhà hàng cụ thể',
+                isAccurateNav: false
             },
             {
                 time: '14:00 – 16:30',
@@ -1531,7 +1551,12 @@ export const SAMPLE_TOURS = [
                 icon: 'nature_people',
                 placeKeyword: 'Chùa Hang',
                 lat: 9.9142,
-                lng: 106.3056
+                lng: 106.3056,
+                gpsStatus: 'verified',
+                gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+                gpsSource: 'https://www.openstreetmap.org/node/3922119102',
+                gpsNote: 'Khuôn viên Chùa Hang, đoạn đường Nguyễn Du, Khóm 8, TT. Châu Thành',
+                isAccurateNav: true
             }
         ]
     },
@@ -1557,7 +1582,12 @@ export const SAMPLE_TOURS = [
                 icon: 'ramen_dining',
                 placeKeyword: 'Bún Nước Lèo',
                 lat: 9.9385,
-                lng: 106.3421
+                lng: 106.3421,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo đường, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9385&mlon=106.3421#map=18/9.9385/106.3421',
+                gpsNote: 'Tọa độ ước tính theo trục đường Đồng Khởi / Lê Lợi nội ô; chưa đo mốc định danh số nhà quán ăn',
+                isAccurateNav: false
             },
             {
                 time: '09:00 – 11:00',
@@ -1567,7 +1597,12 @@ export const SAMPLE_TOURS = [
                 icon: 'local_cafe',
                 placeKeyword: 'Cafe',
                 lat: 9.9392,
-                lng: 106.3405
+                lng: 106.3405,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo đường, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9392&mlon=106.3405#map=18/9.9392/106.3405',
+                gpsNote: 'Tọa độ ước tính theo trục bờ kè sông Long Bình nội ô; chưa đo mốc quán cụ thể',
+                isAccurateNav: false
             },
             {
                 time: '11:30 – 13:30',
@@ -1577,7 +1612,12 @@ export const SAMPLE_TOURS = [
                 icon: 'soup_kitchen',
                 placeKeyword: 'Bánh Canh',
                 lat: 9.9120,
-                lng: 106.2800
+                lng: 106.2800,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng Cầu Ngang / QL53, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9120&mlon=106.2800#map=16/9.9120/106.2800',
+                gpsNote: 'Tọa độ ước tính khu vực cầu Bến Có, Quốc lộ 53; chưa đo mốc định danh quán ăn thực tế',
+                isAccurateNav: false
             },
             {
                 time: '14:30 – 16:00',
@@ -1587,7 +1627,12 @@ export const SAMPLE_TOURS = [
                 icon: 'bakery_dining',
                 placeKeyword: 'Ăn vặt',
                 lat: 9.9398,
-                lng: 106.3450
+                lng: 106.3450,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng chợ, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9398&mlon=106.3450#map=18/9.9398/106.3450',
+                gpsNote: 'Tọa độ ước tính khu vực Chợ Lớn Trà Vinh; các gánh hàng rong di động không có mốc cố định',
+                isAccurateNav: false
             },
             {
                 time: '16:30 – 18:00',
@@ -1597,7 +1642,12 @@ export const SAMPLE_TOURS = [
                 icon: 'inventory_2',
                 placeKeyword: 'Bánh Tét',
                 lat: 9.8520,
-                lng: 106.3680
+                lng: 106.3680,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo trục Quốc lộ 53, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.8520&mlon=106.3680#map=16/9.8520/106.3680',
+                gpsNote: 'Tọa độ ước tính phân vùng làng nghề Bánh Tét Trà Cuôn dọc QL53 Xã Kim Hòa; chưa đo mốc từng cơ sở lò bánh',
+                isAccurateNav: false
             }
         ]
     },
@@ -1623,7 +1673,12 @@ export const SAMPLE_TOURS = [
                 icon: 'directions_boat',
                 placeKeyword: 'Cồn Chim',
                 lat: 9.9180,
-                lng: 106.4250
+                lng: 106.4250,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng bến phà, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9180&mlon=106.4250#map=16/9.9180/106.4250',
+                gpsNote: 'Tọa độ ước tính phân vùng bến đò phà Bà Trầm - Cồn Chim; chưa đo mốc cầu bến thực địa',
+                isAccurateNav: false
             },
             {
                 time: '08:30 – 11:30',
@@ -1633,7 +1688,12 @@ export const SAMPLE_TOURS = [
                 icon: 'nature_people',
                 placeKeyword: 'Cồn Chim',
                 lat: 9.9167,
-                lng: 106.4274
+                lng: 106.4274,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng cù lao, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9167&mlon=106.4274#map=16/9.9167/106.4274',
+                gpsNote: 'Tọa độ ước tính theo phân vùng cù lao xã Hòa Minh; chưa có tọa độ mốc từng bến đón/điểm dừng cụ thể',
+                isAccurateNav: false
             },
             {
                 time: '11:45 – 13:30',
@@ -1643,7 +1703,12 @@ export const SAMPLE_TOURS = [
                 icon: 'flatware',
                 placeKeyword: 'Cồn Chim',
                 lat: 9.9150,
-                lng: 106.4285
+                lng: 106.4285,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng nhà vườn, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.9150&mlon=106.4285#map=16/9.9150/106.4285',
+                gpsNote: 'Tọa độ ước tính khu vực nhà dân homestay Cồn Chim; chưa định vị mốc tọa độ nhà cụ thể',
+                isAccurateNav: false
             },
             {
                 time: '14:00 – 15:30',
@@ -1653,7 +1718,12 @@ export const SAMPLE_TOURS = [
                 icon: 'two_wheeler',
                 placeKeyword: 'Biển Ba Động',
                 lat: 9.7153,
-                lng: 106.3572
+                lng: 106.3572,
+                gpsStatus: 'verified',
+                gpsStatusLabel: 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.7153&mlon=106.3572#map=18/9.7153/106.3572',
+                gpsNote: 'Khuôn viên Chùa Vàm Ray, Xã Hàm Tân, Trà Cú trên trục đường về Duyên Hải',
+                isAccurateNav: true
             },
             {
                 time: '15:30 – 18:00',
@@ -1663,7 +1733,12 @@ export const SAMPLE_TOURS = [
                 icon: 'surfing',
                 placeKeyword: 'Biển Ba Động',
                 lat: 9.6587,
-                lng: 106.5642
+                lng: 106.5642,
+                gpsStatus: 'unverified',
+                gpsStatusLabel: 'Chưa xác minh (Tọa độ ước tính theo vùng bãi biển, không dùng dẫn đường chính xác)',
+                gpsSource: 'https://www.openstreetmap.org/?mlat=9.6587&mlon=106.5642#map=16/9.6587/106.5642',
+                gpsNote: 'Tọa độ ước tính phân vùng bãi biển Ba Động xã Trường Long Hòa; chưa định vị mốc từng trụ turbine',
+                isAccurateNav: false
             }
         ]
     }
@@ -1801,7 +1876,12 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             placeKeyword: p1?.name || 'Bún Nước Lèo',
             placeId: p1?.id,
             lat: p1?.lat || p1?.latitude || null,
-            lng: p1?.lng || p1?.longitude || null
+            lng: p1?.lng || p1?.longitude || null,
+            gpsStatus: p1?.gpsStatus || 'unverified',
+            gpsStatusLabel: p1?.gpsStatusLabel || (p1?.gpsStatus === 'verified' ? 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)' : 'Chưa xác minh (Tọa độ ước tính, không dùng dẫn đường chính xác)'),
+            gpsSource: p1?.gpsSource || (p1?.lat && p1?.lng ? `https://www.openstreetmap.org/?mlat=${p1.lat}&mlon=${p1.lng}#map=17/${p1.lat}/${p1.lng}` : ''),
+            gpsNote: p1?.gpsNote || 'Tọa độ ước tính theo địa điểm danh mục',
+            isAccurateNav: p1?.isAccurateNav === true
         },
         {
             time: '09:00 – 11:30',
@@ -1812,7 +1892,12 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             placeKeyword: p2?.name || 'Chùa Âng',
             placeId: p2?.id,
             lat: p2?.lat || p2?.latitude || null,
-            lng: p2?.lng || p2?.longitude || null
+            lng: p2?.lng || p2?.longitude || null,
+            gpsStatus: p2?.gpsStatus || 'unverified',
+            gpsStatusLabel: p2?.gpsStatusLabel || (p2?.gpsStatus === 'verified' ? 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)' : 'Chưa xác minh (Tọa độ ước tính, không dùng dẫn đường chính xác)'),
+            gpsSource: p2?.gpsSource || (p2?.lat && p2?.lng ? `https://www.openstreetmap.org/?mlat=${p2.lat}&mlon=${p2.lng}#map=17/${p2.lat}/${p2.lng}` : ''),
+            gpsNote: p2?.gpsNote || 'Tọa độ địa điểm từ danh mục',
+            isAccurateNav: p2?.isAccurateNav === true
         },
         {
             time: '12:00 – 13:30',
@@ -1823,7 +1908,12 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             placeKeyword: p3?.name || 'Ẩm thực',
             placeId: p3?.id,
             lat: p3?.lat || p3?.latitude || null,
-            lng: p3?.lng || p3?.longitude || null
+            lng: p3?.lng || p3?.longitude || null,
+            gpsStatus: p3?.gpsStatus || 'unverified',
+            gpsStatusLabel: p3?.gpsStatusLabel || (p3?.gpsStatus === 'verified' ? 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)' : 'Chưa xác minh (Tọa độ ước tính, không dùng dẫn đường chính xác)'),
+            gpsSource: p3?.gpsSource || (p3?.lat && p3?.lng ? `https://www.openstreetmap.org/?mlat=${p3.lat}&mlon=${p3.lng}#map=17/${p3.lat}/${p3.lng}` : ''),
+            gpsNote: p3?.gpsNote || 'Tọa độ địa điểm từ danh mục',
+            isAccurateNav: p3?.isAccurateNav === true
         },
         {
             time: '14:30 – 17:00',
@@ -1834,7 +1924,12 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             placeKeyword: p4?.name || 'Ao Bà Om',
             placeId: p4?.id,
             lat: p4?.lat || p4?.latitude || null,
-            lng: p4?.lng || p4?.longitude || null
+            lng: p4?.lng || p4?.longitude || null,
+            gpsStatus: p4?.gpsStatus || 'unverified',
+            gpsStatusLabel: p4?.gpsStatusLabel || (p4?.gpsStatus === 'verified' ? 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)' : 'Chưa xác minh (Tọa độ ước tính, không dùng dẫn đường chính xác)'),
+            gpsSource: p4?.gpsSource || (p4?.lat && p4?.lng ? `https://www.openstreetmap.org/?mlat=${p4.lat}&mlon=${p4.lng}#map=17/${p4.lat}/${p4.lng}` : ''),
+            gpsNote: p4?.gpsNote || 'Tọa độ địa điểm từ danh mục',
+            isAccurateNav: p4?.isAccurateNav === true
         },
         {
             time: '18:30 – 21:00',
@@ -1845,7 +1940,12 @@ export function generateSmartTour(allPlaces, targetCluster = null) {
             placeKeyword: p5?.name || 'Cà phê',
             placeId: p5?.id,
             lat: p5?.lat || p5?.latitude || null,
-            lng: p5?.lng || p5?.longitude || null
+            lng: p5?.lng || p5?.longitude || null,
+            gpsStatus: p5?.gpsStatus || 'unverified',
+            gpsStatusLabel: p5?.gpsStatusLabel || (p5?.gpsStatus === 'verified' ? 'Mốc tham chiếu bản đồ số (Chưa đo kiểm thực địa)' : 'Chưa xác minh (Tọa độ ước tính, không dùng dẫn đường chính xác)'),
+            gpsSource: p5?.gpsSource || (p5?.lat && p5?.lng ? `https://www.openstreetmap.org/?mlat=${p5.lat}&mlon=${p5.lng}#map=17/${p5.lat}/${p5.lng}` : ''),
+            gpsNote: p5?.gpsNote || 'Tọa độ địa điểm từ danh mục',
+            isAccurateNav: p5?.isAccurateNav === true
         }
     ];
 
@@ -7843,10 +7943,17 @@ export function renderTripPlannerModalContent(plan, placePool = [], activeDay = 
                         </button>
 
                         <button id="btnExportGpx" type="button" onclick="window.ViVuApp.exportGpxFile()"
-                            title="Xuất tệp GPX chỉ bao gồm các điểm có tọa độ GPS hợp lệ"
+                            title="Xuất tệp GPX danh sách waypoint (Mặc định chỉ xuất mốc bản đồ số đã xác minh, không kèm track đường đi)"
                             class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-xs font-semibold hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-all min-h-[44px]">
                             <span class="material-symbols-outlined text-[18px]">file_download</span>
-                            <span>GPX (Điểm hợp lệ)</span>
+                            <span>GPX (Mốc xác minh)</span>
+                        </button>
+
+                        <button id="btnExportGpxRef" type="button" onclick="window.ViVuApp.exportGpxFile({ includeUnverified: true })"
+                            title="Tùy chọn riêng: Xuất tệp GPX tham khảo bao gồm cả điểm ước tính (có gắn nhãn cảnh báo rõ)"
+                            class="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl bg-surface-container-low/60 dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700 text-outline dark:text-zinc-400 text-xs font-medium hover:text-on-surface dark:hover:text-zinc-200 transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[16px]">help_outline</span>
+                            <span>GPX (Tham khảo)</span>
                         </button>
 
                         <button id="btnSaveStartNav" type="button" onclick="window.ViVuApp.openGpsNavModal()"
@@ -7870,7 +7977,7 @@ export function renderTripPlannerModalContent(plan, placePool = [], activeDay = 
                         <span class="font-bold">Minh bạch chức năng thử nghiệm:</span>
                         <p class="text-[10.5px] text-amber-800 dark:text-amber-300">
                             • <b>Mô phỏng AI Route:</b> Đang thử nghiệm đảo thứ tự điểm dừng & trừ 3.2 km (chưa phải định tuyến thực tế từ bản đồ số).<br>
-                            • <b>Xuất GPX:</b> Chỉ xuất các điểm có tọa độ GPS hợp lệ (tự động lọc bỏ điểm thiếu tọa độ).
+                            • <b>Xuất GPX:</b> Chỉ xuất danh sách waypoint (tọa độ điểm dừng), không chứa track nối tuyến đường thực tế. Mặc định chỉ xuất các mốc bản đồ số đã xác minh; điểm ước tính chỉ xuất khi chọn tùy chọn tham khảo và luôn kèm cảnh báo.
                         </p>
                     </div>
                 </div>
@@ -8628,10 +8735,16 @@ export function renderPlannerView(containerId, plan, placePool = [], activeDay =
                                     <span>Mô phỏng AI Route</span>
                                 </button>
                                 <button id="btnExportGpx" type="button" onclick="window.ViVuApp?.exportGpxFile ? window.ViVuApp.exportGpxFile() : null"
-                                    title="Xuất tệp GPX chỉ bao gồm các điểm có tọa độ GPS hợp lệ"
+                                    title="Xuất tệp GPX danh sách waypoint (Mặc định chỉ xuất mốc bản đồ số đã xác minh, không kèm track đường đi)"
                                     class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-xs font-semibold hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-all min-h-[44px]">
                                     <span class="material-symbols-outlined text-[18px]">file_download</span>
-                                    <span>Xuất GPX (Điểm hợp lệ)</span>
+                                    <span>Xuất GPX (Mốc xác minh)</span>
+                                </button>
+                                <button id="btnExportGpxRef" type="button" onclick="window.ViVuApp?.exportGpxFile ? window.ViVuApp.exportGpxFile({ includeUnverified: true }) : null"
+                                    title="Tùy chọn riêng: Xuất tệp GPX tham khảo bao gồm cả điểm ước tính (có gắn nhãn cảnh báo rõ)"
+                                    class="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl border border-outline-variant/30 dark:border-zinc-700 text-outline dark:text-zinc-400 text-xs font-medium hover:text-on-surface dark:hover:text-zinc-200 transition-all min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[16px]">help_outline</span>
+                                    <span>Xuất tham khảo</span>
                                 </button>
                                 <button id="btnSaveStartNav" type="button" onclick="window.ViVuApp?.openGpsNavModal ? window.ViVuApp.openGpsNavModal() : null"
                                     class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-container text-white text-xs font-semibold shadow-xs transition-all active:scale-95 min-h-[44px]">
@@ -8647,7 +8760,7 @@ export function renderPlannerView(containerId, plan, placePool = [], activeDay =
                                     <span class="font-bold">Minh bạch chức năng thử nghiệm / mô phỏng:</span>
                                     <p class="text-[10.5px] text-amber-800 dark:text-amber-300">
                                         • <b>“Mô phỏng AI Route”</b>: Đang chạy thuật toán thử nghiệm (đảo thứ tự điểm dừng và trừ ước tính 3.2 km). <i>Chưa phải kết quả định tuyến thực tế từ bản đồ số.</i><br>
-                                        • <b>“Xuất GPX”</b>: Chỉ xuất các điểm có tọa độ GPS hợp lệ (tự động lọc bỏ điểm thiếu tọa độ). <i>Không phải kết quả định tuyến đường đi thực tế.</i>
+                                        • <b>“Xuất GPX”</b>: Chỉ xuất danh sách waypoint (tọa độ điểm dừng), không chứa track nối tuyến đường thực tế. Mặc định chỉ xuất các mốc bản đồ số đã xác minh; điểm ước tính chỉ xuất khi chọn tùy chọn tham khảo và luôn kèm cảnh báo.
                                     </p>
                                 </div>
                             </div>

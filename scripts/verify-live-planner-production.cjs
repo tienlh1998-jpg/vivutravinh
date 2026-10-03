@@ -445,6 +445,14 @@ async function runLiveVerification() {
             const aiBtn = document.getElementById('btnSmartOptimize');
             const aiNotice = Array.from(document.querySelectorAll('div, p')).find(el => el.innerText && el.innerText.includes('Mô phỏng AI Route'));
 
+            // Kiểm tra nút Xuất GPX mặc định và nút Xuất GPX tham khảo
+            const btnGpxDefault = document.getElementById('btnExportGpx');
+            const btnGpxRef = document.getElementById('btnExportGpxRef');
+
+            // Kiểm tra hàm sinh XML GPX: Waypoints only, không trk/trkseg
+            const gpxDefaultResult = window.ViVuApp.generateGpxXml(allStops, plan, { includeUnverified: false });
+            const gpxRefResult = window.ViVuApp.generateGpxXml(allStops, plan, { includeUnverified: true });
+
             return {
                 aiBtnText: aiBtn?.innerText.trim() || '',
                 hasAiNotice: Boolean(aiNotice && aiNotice.innerText.includes('Mô phỏng AI Route')),
@@ -453,8 +461,19 @@ async function runLiveVerification() {
                 stopsCoords: validStops.map(s => ({
                     title: s.title,
                     lat: s.lat,
-                    lng: s.lng
-                }))
+                    lng: s.lng,
+                    gpsStatus: s.gpsStatus
+                })),
+                hasBtnGpxDefault: Boolean(btnGpxDefault),
+                btnGpxDefaultText: btnGpxDefault ? btnGpxDefault.innerText.trim() : '',
+                hasBtnGpxRef: Boolean(btnGpxRef),
+                btnGpxRefText: btnGpxRef ? btnGpxRef.innerText.trim() : '',
+                defaultXmlHasTrk: gpxDefaultResult.xml.includes('<trk>') || gpxDefaultResult.xml.includes('<trkseg>'),
+                defaultXmlHasWpt: gpxDefaultResult.xml.includes('<wpt'),
+                defaultExportCount: gpxDefaultResult.exportStops.length,
+                refXmlHasTrk: gpxRefResult.xml.includes('<trk>') || gpxRefResult.xml.includes('<trkseg>'),
+                refXmlHasWpt: gpxRefResult.xml.includes('<wpt'),
+                refExportCount: gpxRefResult.exportStops.length
             };
         })()`);
 
@@ -462,6 +481,16 @@ async function runLiveVerification() {
         console.log(`  ✓ [PASS] Nút AI Route: "${simulationAndCoordsCheck.aiBtnText}" - Minh bạch 100% tính chất mô phỏng`);
         console.log(`  ✓ [PASS] Khung cảnh báo: Có đầy đủ thông báo minh bạch chức năng thử nghiệm/mô phỏng`);
         console.log(`  ✓ [PASS] Kiểm tra tọa độ GPS trên ${simulationAndCoordsCheck.validStopsCount}/${simulationAndCoordsCheck.totalStops} điểm dừng: Tất cả đều hợp lệ, có định dạng chuẩn số học.`);
+
+        // Khẳng định GPX Waypoint-only & Lọc điểm chưa xác minh trên live
+        assert(simulationAndCoordsCheck.hasBtnGpxDefault, 'Live site phải có nút Xuất GPX mặc định');
+        assert(simulationAndCoordsCheck.btnGpxDefaultText.includes('Mốc xác minh'), 'Nút GPX mặc định phải mang nhãn "Mốc xác minh"');
+        assert(simulationAndCoordsCheck.hasBtnGpxRef, 'Live site phải có nút Xuất GPX tham khảo');
+        assert(!simulationAndCoordsCheck.defaultXmlHasTrk, 'GPX mặc định trên live TUYỆT ĐỐI KHÔNG chứa thẻ <trk> hoặc <trkseg>');
+        assert(simulationAndCoordsCheck.defaultXmlHasWpt, 'GPX mặc định trên live PHẢI chứa thẻ <wpt>');
+        assert(!simulationAndCoordsCheck.refXmlHasTrk, 'GPX tham khảo trên live TUYỆT ĐỐI KHÔNG chứa thẻ <trk> hoặc <trkseg>');
+        console.log(`  ✓ [PASS] Nút GPX mặc định ("${simulationAndCoordsCheck.btnGpxDefaultText}") & Nút GPX tham khảo ("${simulationAndCoordsCheck.btnGpxRefText}") hiện diện chuẩn xác trên live`);
+        console.log(`  ✓ [PASS] Tệp GPX sinh ra trên live: Hoàn toàn KHÔNG có track nối (<trk>/<trkseg>), chỉ xuất waypoint; mặc định lọc bỏ điểm chưa xác minh`);
 
         console.log('\n================================================================================');
         console.log('🎉 TẤT CẢ CÁC BƯỚC THỬ NGHIỆM TRÊN TÊN MIỀN VIVUTRAVINH.ID.VN ĐÃ ĐẠT 100% PASS!');
