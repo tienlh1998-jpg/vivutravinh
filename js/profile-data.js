@@ -1,191 +1,151 @@
 // js/profile-data.js - User Profile, Achievements, Badges & Saved Collections Data for ViVuTraVinh
 // Strictly zero-CDN, local-first with responsive dark mode support
 
+export const OFFICIAL_BADGES = [
+    {
+        id: 'buoc-chan-dau-tien',
+        name: 'Bước chân đầu tiên',
+        title: 'Bước chân đầu tiên',
+        icon: 'hiking',
+        tier: 'Khởi đầu',
+        category: 'milestone',
+        color: 'emerald',
+        desc: 'Có đóng góp đầu tiên được phê duyệt trên hệ thống ViVu Trà Vinh.',
+        condition: 'Có 1 đóng góp được duyệt (Cộng đồng, Blog hoặc Địa điểm)',
+        target: 1,
+        type: 'any'
+    },
+    {
+        id: 'nguoi-ke-chuyen-xu-tra',
+        name: 'Người kể chuyện Xứ Trà',
+        title: 'Người kể chuyện Xứ Trà',
+        icon: 'auto_stories',
+        tier: 'Vàng',
+        category: 'article',
+        color: 'amber',
+        desc: 'Tác giả của 5 bài cẩm nang du lịch và ký sự Trà Vinh xuất sắc được duyệt.',
+        condition: 'Có 5 bài Blog ViVu được phê duyệt',
+        target: 5,
+        type: 'article'
+    },
+    {
+        id: 'ban-dong-hanh-vivu',
+        name: 'Bạn đồng hành ViVu',
+        title: 'Bạn đồng hành ViVu',
+        icon: 'groups',
+        tier: 'Bạc',
+        category: 'community',
+        color: 'slate',
+        desc: 'Tích cực chia sẻ 10 bài viết hữu ích và kết nối cộng đồng khám phá.',
+        condition: 'Có 10 bài viết Cộng đồng được phê duyệt',
+        target: 10,
+        type: 'community_post'
+    },
+    {
+        id: 'nguoi-kham-pha-xu-tra',
+        name: 'Người khám phá Xứ Trà',
+        title: 'Người khám phá Xứ Trà',
+        icon: 'explore',
+        tier: 'Bạch kim',
+        category: 'place',
+        color: 'cyan',
+        desc: 'Đóng góp 5 địa điểm du lịch, ẩm thực hoặc di sản mới được đưa lên bản đồ.',
+        condition: 'Có 5 đóng góp địa điểm được phê duyệt',
+        target: 5,
+        type: 'place'
+    }
+];
+
+export function computeUserBadges(ugcCounts = {}, unlockedBadges = []) {
+    const approvedPosts = Number(ugcCounts.approvedPosts || 0);
+    const approvedArticles = Number(ugcCounts.approvedArticles || 0);
+    const approvedPlaces = Number(ugcCounts.approvedPlaces || 0);
+    const totalApproved = approvedPosts + approvedArticles + approvedPlaces;
+
+    const unlockedMap = new Map();
+    if (Array.isArray(unlockedBadges)) {
+        unlockedBadges.forEach(b => {
+            if (typeof b === 'string') unlockedMap.set(b, { unlockedAt: null });
+            else if (b && b.badge_id) unlockedMap.set(b.badge_id, b);
+            else if (b && b.id) unlockedMap.set(b.id, b);
+        });
+    }
+
+    return OFFICIAL_BADGES.map(badge => {
+        let current = 0;
+        let isConditionMet = false;
+
+        switch (badge.id) {
+            case 'buoc-chan-dau-tien':
+                current = totalApproved;
+                isConditionMet = current >= 1;
+                break;
+            case 'nguoi-ke-chuyen-xu-tra':
+                current = approvedArticles;
+                isConditionMet = current >= 5;
+                break;
+            case 'ban-dong-hanh-vivu':
+                current = approvedPosts;
+                isConditionMet = current >= 10;
+                break;
+            case 'nguoi-kham-pha-xu-tra':
+                current = approvedPlaces;
+                isConditionMet = current >= 5;
+                break;
+            default:
+                current = 0;
+                isConditionMet = false;
+        }
+
+        const isExplicitlyUnlocked = unlockedMap.has(badge.id);
+        const unlocked = isConditionMet || isExplicitlyUnlocked;
+        const progress = Math.min(100, Math.round((current / badge.target) * 100));
+        const remaining = Math.max(0, badge.target - current);
+
+        const record = unlockedMap.get(badge.id);
+        const unlockedDate = record?.unlocked_at 
+            ? new Date(record.unlocked_at).toLocaleDateString('vi-VN') 
+            : (unlocked ? 'Đã đạt' : null);
+
+        return {
+            ...badge,
+            unlocked,
+            current,
+            progress,
+            remainingText: remaining > 0 ? `Cần thêm ${remaining} đóng góp nữa` : 'Đã hoàn thành điều kiện',
+            unlockedDate
+        };
+    });
+}
+
 export const USER_PROFILE = {
-    id: 'user_tien_travinh',
-    name: 'Nguyễn Văn Tiến',
-    nickname: 'Tiến Vivu',
-    handle: '@tien.travinh',
+    id: '',
+    name: 'Người dùng ViVu',
+    nickname: '',
+    handle: '',
     avatar: 'chùa âng.jpg',
     coverImage: 'ao bà om.jpg',
-    role: 'Đại sứ Khám phá Xanh Trà Vinh 2024',
-    titleBadge: 'Sứ giả Văn hóa Khmer & Phượt thủ Xanh',
-    bio: 'Đam mê xe đạp xuyên rặng dừa sáp, ghi chép ký ức 143 ngôi chùa Khmer Nam Bộ và kiến tạo lối sống du lịch giảm rác thải nhựa tại quê hương Trà Vinh.',
-    location: 'TP. Trà Vinh, Trà Vinh',
-    joinDate: 'Tháng 03, 2023',
-    verified: true,
-    greenMember: true,
-    tierBadge: 'Titan',
-    level: {
-        current: 4,
-        max: 5,
-        title: 'Bảo tồn Di sản',
-        currentXp: 3750,
-        nextLevelXp: 4000,
-        nextLevelTitle: 'Tinh hoa Xứ Trà (Cấp 5)',
-        progressPercent: 93.7
-    },
-    coins: 1250, // Xu Xứ Trà tích lũy
+    role: 'Thành viên khám phá',
+    titleBadge: null, // Danh hiệu được chọn hiển thị cạnh tên
+    selectedTitle: null,
+    bio: '',
+    location: 'Trà Vinh, Việt Nam',
+    joinDate: 'Mới tham gia',
+    verified: false,
+    greenMember: false,
+    tierBadge: 'Thành viên',
+    totalPoints: 0, // Điểm đóng góp tích lũy
+    currentMonthPoints: 0, // Điểm tháng này (múi giờ VN)
+    currentYearPoints: 0,
     stats: {
-        tripsCompleted: 48,
-        pagodasVisited: 18,
-        cyclingKm: 642,
-        co2ReducedKg: 128,
-        treesSponsored: 14,
-        plasticBottlesRefused: 240
+        tripsCompleted: null, // Chưa có dữ liệu xác nhận thực tế
+        pagodasVisited: null, // Chưa có dữ liệu xác nhận thực tế
+        cyclingKm: null       // Chưa có dữ liệu xác nhận thực tế
     },
-    districtCoverage: {
-        explored: '7/9 Huyện & Thị xã',
-        details: [
-            { name: 'TP. Trà Vinh & Châu Thành', trips: 16, percent: 92 },
-            { name: 'Cầu Kè (Vườn Dừa & Cù Lao)', trips: 11, percent: 70 },
-            { name: 'Tiểu Cần & Trà Cú', trips: 9, percent: 58 },
-            { name: 'Duyên Hải & Càng Long', trips: 5, percent: 32 }
-        ],
-        upcoming: 'Huyện Cầu Ngang (Dự kiến tham gia Ok Om Bok)'
-    },
-    badges: [
-        {
-            id: 'phuot-thu-cu-lao',
-            name: 'Phượt thủ Cù Lao',
-            tier: 'Vàng',
-            icon: 'kayaking',
-            category: 'eco',
-            desc: 'Đã hoàn thành khám phá cung sinh thái miệt vườn Cù Lao Tân Quy và Long Trị 100% xanh.',
-            unlocked: true,
-            unlockedDate: '14/09/2024',
-            xp: 450,
-            color: 'amber'
-        },
-        {
-            id: 'van-hoa-khmer',
-            name: 'Hiểu sâu Văn hóa Khmer',
-            tier: 'Bạch kim',
-            icon: 'synagogue',
-            category: 'temple',
-            desc: 'Check-in và tương tác văn hóa tại 18/15 ngôi chùa cổ (Âng, Hang, Vàm Rây, Cò...).',
-            unlocked: true,
-            unlockedDate: '02/10/2024',
-            xp: 500,
-            color: 'cyan'
-        },
-        {
-            id: 'ban-dap-xanh',
-            name: 'Chiến binh Bàn đạp Xanh',
-            tier: 'Bạc',
-            icon: 'pedal_bike',
-            category: 'eco',
-            desc: 'Ghi nhận tổng quãng đường 642 km (Mục tiêu 500 km) đạp xe giảm khí thải các-bon.',
-            unlocked: true,
-            unlockedDate: '22/08/2024',
-            xp: 400,
-            color: 'slate'
-        },
-        {
-            id: 'am-thuc-sanh-soi',
-            name: 'Ẩm thực Sành sỏi',
-            tier: 'Đồng',
-            icon: 'restaurant_menu',
-            category: 'food',
-            desc: 'Đã thưởng thức & review 12 món đặc sản (Bún nước lèo, Bánh tét Trà Cuôn, Dừa sáp...).',
-            unlocked: true,
-            unlockedDate: '15/06/2024',
-            xp: 250,
-            color: 'orange'
-        },
-        {
-            id: 'ok-om-bok',
-            name: 'Trái tim Ok Om Bok',
-            tier: 'Vàng',
-            icon: 'sailing',
-            category: 'temple',
-            desc: 'Cổ vũ giải đua thuyền Ngo & Thả đèn hoa đăng lung linh trên hồ Ao Bà Om.',
-            unlocked: true,
-            unlockedDate: '15/11/2024',
-            xp: 500,
-            color: 'amber'
-        },
-        {
-            id: 'hiep-si-long-tri',
-            name: 'Hiệp sĩ Cù lao Long Trị',
-            tier: 'Bạc',
-            icon: 'kayaking',
-            category: 'eco',
-            desc: 'Đi xuồng ba lá & thu hoạch thanh long ruột đỏ miệt vườn Trà Vinh.',
-            unlocked: false,
-            progress: 70,
-            remaining: 'Còn 1 chuyến',
-            xp: 300,
-            color: 'emerald'
-        },
-        {
-            id: 'nghe-nhan-chua-hang',
-            name: 'Nghệ nhân Chùa Hang',
-            tier: 'Đồng',
-            icon: 'carpenter',
-            category: 'community',
-            desc: 'Học trải nghiệm đục rễ cây cổ thụ cùng nghệ nhân Khmer.',
-            unlocked: false,
-            progress: 20,
-            remaining: 'Cần 1 workshop',
-            xp: 200,
-            color: 'stone'
-        },
-        {
-            id: 'nha-thao-moc-xanh',
-            name: 'Người Bạn Của Rừng Sao Đên',
-            tier: 'Bạc',
-            icon: 'park',
-            category: 'eco',
-            desc: 'Bảo trợ 14 cây sao dầu cổ thụ trên 100 năm tuổi tại khuôn viên Ao Bà Om.',
-            unlocked: true,
-            unlockedDate: '10/05/2024',
-            xp: 350,
-            color: 'emerald'
-        }
-    ],
-    certificates: [
-        {
-            title: 'Hướng dẫn viên Bản địa Thân thiện',
-            issuer: 'Sở VHTTDL Trà Vinh & CLB ViVu',
-            date: '15/07/2024',
-            icon: 'verified',
-            color: 'amber'
-        },
-        {
-            title: 'Người Gìn Giữ Lễ Hội Ok Om Bok',
-            issuer: 'Ban Quản trị Ao Bà Om',
-            date: '28/11/2023',
-            icon: 'workspace_premium',
-            color: 'emerald'
-        }
-    ],
-    recentContributions: [
-        {
-            id: 'contrib-1',
-            title: 'Đã cập nhật tọa độ & lịch mở cửa Chùa Âng',
-            desc: 'Kèm 6 ảnh chất lượng cao và hướng dẫn gửi xe miễn phí',
-            time: '2 ngày trước',
-            reward: '+80 Xu Trà Vinh',
-            icon: 'add_location_alt'
-        },
-        {
-            id: 'contrib-2',
-            title: 'Tham gia dọn sạch bến tàu Cù Lao Tân Quy',
-            desc: 'Thu gom 28kg rác nhựa cùng CLB ViVu Xanh Cầu Kè',
-            time: '5 ngày trước',
-            reward: '+150 Xu Trà Vinh',
-            icon: 'compost'
-        },
-        {
-            id: 'contrib-3',
-            title: 'Đăng tải cẩm nang thưởng thức Bún Nước Lèo Cô Ba',
-            desc: 'Chia sẻ công thức mắm bò hóc và rau ghém bắp chuối',
-            time: '1 tuần trước',
-            reward: '+50 Xu Trà Vinh',
-            icon: 'rate_review'
-        }
-    ]
+    districtCoverage: null, // Chưa có dữ liệu xác nhận
+    badges: [],
+    certificates: [],
+    recentContributions: []
 };
 
 export const INITIAL_SAVED_ITEMS = [

@@ -106,6 +106,8 @@ import {
 } from './clubs-data.js';
 import {
     USER_PROFILE,
+    OFFICIAL_BADGES,
+    computeUserBadges,
     INITIAL_SAVED_ITEMS,
     SAVED_FOLDERS,
     REDEEMABLE_GIFTS
@@ -455,7 +457,33 @@ function getStoredUserProfile() {
     try {
         if (typeof window !== 'undefined' && window.localStorage) {
             const raw = localStorage.getItem('vivu_user_profile');
-            if (raw) return JSON.parse(raw);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                    if (parsed.coins !== undefined || parsed.totalPoints === undefined) {
+                        parsed.totalPoints = Number(parsed.totalPoints || 0);
+                        parsed.currentMonthPoints = Number(parsed.currentMonthPoints || 0);
+                        parsed.currentYearPoints = Number(parsed.currentYearPoints || 0);
+                        delete parsed.coins;
+                    }
+                    if (parsed.stats && (parsed.stats.tripsCompleted === 48 || parsed.stats.cyclingKm === 642)) {
+                        parsed.stats = { tripsCompleted: null, pagodasVisited: null, cyclingKm: null };
+                    }
+                    // Kiểm tra chu kỳ tháng/năm theo múi giờ Việt Nam:
+                    // Nếu bước sang tháng mới nhưng người dùng chưa có giao dịch thì điểm tháng hiển thị là 0
+                    try {
+                        const curVnMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit' }).format(new Date());
+                        const curVnYear = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric' }).format(new Date()));
+                        if (parsed.lastActiveMonth && parsed.lastActiveMonth !== curVnMonth) {
+                            parsed.currentMonthPoints = 0;
+                        }
+                        if (parsed.lastActiveYear && Number(parsed.lastActiveYear) !== curVnYear) {
+                            parsed.currentYearPoints = 0;
+                        }
+                    } catch (_) {}
+                    return { ...USER_PROFILE, ...parsed };
+                }
+            }
         }
     } catch (e) {}
     return { ...USER_PROFILE };
@@ -6513,6 +6541,9 @@ export function openProfileModal(tab = 'overview') {
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 
+    // Đồng bộ điểm đóng góp, huy hiệu và bảng vinh danh từ server
+    fetchUserContributionPoints();
+
     if (tab === 'my-content') {
         fetchUserUgcContent();
     }
@@ -6532,8 +6563,193 @@ export function switchProfileTab(tab) {
     if (content) {
         content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
     }
-    if (tab === 'my-content') {
+    if (tab === 'overview') {
+        fetchUserContributionPoints();
+    } else if (tab === 'my-content') {
         fetchUserUgcContent();
+    }
+}
+
+export async function fetchUserContributionPoints() {
+    const session = getUserSession();
+    const isAuth = Boolean(session && session.user);
+    if (!isAuth) {
+        state.userProfile.totalPoints = 0;
+        state.userProfile.currentMonthPoints = 0;
+        state.userProfile.currentYearPoints = 0;
+        state.userProfile.selectedTitle = null;
+        state.userProfile.titleBadge = null;
+        state.userProfile.badges = computeUserBadges({}, []);
+        state.userProfile.pointTransactions = [];
+        state.userProfile.leaderboard = [];
+        return;
+    }
+
+    const userId = session.user.id;
+    const token = await getValidUserToken() || session.access_token;
+    const headers = {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`
+    };
+
+    try {
+        let totalPoints = 0;
+        let currentMonthPoints = 0;
+        let currentYearPoints = 0;
+        let selectedTitle = null;
+        let unlockedBadges = [];
+        let pointTransactions = [];
+        let leaderboardData = [];
+
+        if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+            const [ptsRes, badgesRes, transRes, ldrRes] = await Promise.allSettled([
+                fetch(`${SUPABASE_URL}/rest/v1/user_contribution_points?user_id=eq.${encodeURIComponent(userId)}&select=*`, { headers }),
+                fetch(`${SUPABASE_URL}/rest/v1/user_badges?user_id=eq.${encodeURIComponent(userId)}&select=*`, { headers }),
+                fetch(`${SUPABASE_URL}/rest/v1/point_transactions?user_id=eq.${encodeURIComponent(userId)}&select=*&order=created_at.desc&limit=20`, { headers }),
+                fetch(`${SUPABASE_URL}/rest/v1/rpc/get_contribution_leaderboard`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                })
+            ]);
+
+            if (ptsRes.status === 'fulfilled' && ptsRes.value.ok) {
+                const rows = await ptsRes.value.json().catch(() => []);
+                const curVnMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit' }).format(new Date());
+                const curVnYear = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric' }).format(new Date()));
+
+                if (Array.isArray(rows) && rows.length > 0) {
+                    totalPoints = Number(rows[0].total_points || 0);
+                    // Quy tắc: Nếu sang tháng mới mà người dùng chưa có giao dịch thì điểm tháng mới hiển thị bằng 0
+                    if (rows[0].last_active_month && rows[0].last_active_month !== curVnMonth) {
+                        currentMonthPoints = 0;
+                    } else {
+                        currentMonthPoints = Number(rows[0].current_month_points || 0);
+                    }
+                    if (rows[0].last_active_year && Number(rows[0].last_active_year) !== curVnYear) {
+                        currentYearPoints = 0;
+                    } else {
+                        currentYearPoints = Number(rows[0].current_year_points || 0);
+                    }
+                    selectedTitle = rows[0].selected_title || null;
+                }
+            } else {
+                totalPoints = state.userProfile?.totalPoints || 0;
+                currentMonthPoints = state.userProfile?.currentMonthPoints || 0;
+                currentYearPoints = state.userProfile?.currentYearPoints || 0;
+                selectedTitle = state.userProfile?.selectedTitle || null;
+            }
+
+            if (badgesRes.status === 'fulfilled' && badgesRes.value.ok) {
+                unlockedBadges = await badgesRes.value.json().catch(() => []);
+            } else if (Array.isArray(state.userProfile?.badges)) {
+                unlockedBadges = state.userProfile.badges.filter(b => b.unlocked);
+            }
+
+            if (transRes.status === 'fulfilled' && transRes.value.ok) {
+                pointTransactions = await transRes.value.json().catch(() => []);
+            } else if (Array.isArray(state.userProfile?.pointTransactions)) {
+                pointTransactions = state.userProfile.pointTransactions;
+            }
+
+            if (ldrRes.status === 'fulfilled' && ldrRes.value.ok) {
+                const ldrData = await ldrRes.value.json().catch(() => ({}));
+                if (Array.isArray(ldrData.leaderboard)) {
+                    leaderboardData = ldrData.leaderboard;
+                }
+            } else if (Array.isArray(state.userProfile?.leaderboard)) {
+                leaderboardData = state.userProfile.leaderboard;
+            }
+        } else {
+            totalPoints = state.userProfile?.totalPoints || 0;
+            currentMonthPoints = state.userProfile?.currentMonthPoints || 0;
+            currentYearPoints = state.userProfile?.currentYearPoints || 0;
+            selectedTitle = state.userProfile?.selectedTitle || null;
+            if (Array.isArray(state.userProfile?.badges)) {
+                unlockedBadges = state.userProfile.badges.filter(b => b.unlocked);
+            }
+            if (Array.isArray(state.userProfile?.pointTransactions)) {
+                pointTransactions = state.userProfile.pointTransactions;
+            }
+            if (Array.isArray(state.userProfile?.leaderboard)) {
+                leaderboardData = state.userProfile.leaderboard;
+            }
+        }
+
+        // Đếm nội dung đã duyệt thật để tính huy hiệu
+        const approvedPosts = (state.userUgcContent?.posts || []).filter(p => p.status === 'approved').length;
+        const approvedArticles = (state.userUgcContent?.articles || []).filter(a => a.status === 'approved').length;
+        const approvedPlaces = 0; // Legacy places không có user_id; đóng góp mới sẽ gắn user_id
+
+        const computedBadges = computeUserBadges({ approvedPosts, approvedArticles, approvedPlaces }, unlockedBadges);
+
+        state.userProfile.totalPoints = totalPoints;
+        state.userProfile.currentMonthPoints = currentMonthPoints;
+        state.userProfile.currentYearPoints = currentYearPoints;
+        state.userProfile.selectedTitle = selectedTitle;
+        state.userProfile.titleBadge = selectedTitle;
+        state.userProfile.badges = computedBadges;
+        state.userProfile.pointTransactions = pointTransactions;
+        state.userProfile.leaderboard = leaderboardData;
+
+        saveStoredUserProfile(state.userProfile);
+
+        // Cập nhật lại UI nếu modal đang mở
+        const content = document.getElementById('userProfileModalContent');
+        if (content && !document.getElementById('userProfileModal')?.classList.contains('hidden')) {
+            content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+        }
+    } catch (e) {
+        console.warn('[ContributionPoints] Sync warning:', e);
+    }
+}
+
+export async function handleSelectUserTitle(titleName) {
+    const session = getUserSession();
+    if (!session || !session.user) {
+        showSavedToast('Vui lòng đăng nhập để chọn danh hiệu!');
+        return;
+    }
+
+    const cleanTitle = titleName?.trim() || null;
+    const badge = (state.userProfile.badges || []).find(b => b.name === cleanTitle || b.title === cleanTitle);
+    if (cleanTitle && (!badge || !badge.unlocked)) {
+        showSavedToast(`Bạn chưa mở khóa danh hiệu "${cleanTitle}". Vui lòng hoàn thành điều kiện để đạt danh hiệu.`);
+        return;
+    }
+
+    const token = await getValidUserToken() || session.access_token;
+
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && token) {
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/select_user_title`, {
+                method: 'POST',
+                headers: {
+                    apikey: SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ p_title_name: cleanTitle })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.warn('[SelectTitle] Server returned error:', errData);
+            }
+        } catch (e) {
+            console.warn('[SelectTitle] Network error:', e);
+        }
+    }
+
+    state.userProfile.selectedTitle = cleanTitle;
+    state.userProfile.titleBadge = cleanTitle;
+    saveStoredUserProfile(state.userProfile);
+
+    showSavedToast(cleanTitle ? `Đã chọn danh hiệu "${cleanTitle}" hiển thị cạnh tên!` : 'Đã bỏ chọn danh hiệu.');
+
+    const content = document.getElementById('userProfileModalContent');
+    if (content) {
+        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
     }
 }
 
@@ -6827,7 +7043,7 @@ export function openRedeemGiftModal() {
     const content = document.getElementById('redeemGiftModalContent');
     if (!modal || !content) return;
 
-    content.innerHTML = renderRedeemGiftModalContent(state.redeemableGifts, state.userProfile.coins);
+    content.innerHTML = renderRedeemGiftModalContent(state.redeemableGifts, state.userProfile.totalPoints);
     modal.classList.remove('hidden');
 }
 
@@ -6837,24 +7053,7 @@ export function closeRedeemGiftModal() {
 }
 
 export function redeemGift(giftId) {
-    const gift = (state.redeemableGifts || []).find(g => g.id === giftId);
-    if (!gift) return;
-
-    if ((state.userProfile.coins || 0) < gift.cost) {
-        showSavedToast('Bạn chưa đủ Xu Xứ Trà để đổi phần quà này!');
-        return;
-    }
-
-    state.userProfile.coins -= gift.cost;
-    saveStoredUserProfile(state.userProfile);
-    closeRedeemGiftModal();
-    showSavedToast(`Đổi thành công: ${gift.name}! Mã voucher đã được lưu.`);
-
-    // Re-render profile modal if open
-    const content = document.getElementById('userProfileModalContent');
-    if (content && !document.getElementById('userProfileModal')?.classList.contains('hidden')) {
-        content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
-    }
+    showSavedToast('Chức năng đổi quà vật chất đang tạm ẩn để tập trung vào Huy hiệu, Danh hiệu & Vinh danh.');
 }
 
 export function openEditProfileModal() {
@@ -9453,6 +9652,8 @@ if (typeof window !== 'undefined') {
         closeProfileModal,
         switchProfileTab,
         filterProfileBadges,
+        fetchUserContributionPoints,
+        handleSelectUserTitle,
         openRedeemGiftModal,
         closeRedeemGiftModal,
         redeemGift,

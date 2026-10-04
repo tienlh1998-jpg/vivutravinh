@@ -315,6 +315,10 @@ async function updatePlace(request, response, adminContext) {
       p_correlation_id: correlationId
     });
 
+    // G15: Việc cộng/trừ điểm đóng góp (+15), tính lại huy hiệu và ghi nhật ký kiểm toán
+    // đã được thực thi NGUYÊN TỬ (Atomic) bên trong PostgreSQL function admin_update_place_atomic,
+    // đảm bảo tính toàn vẹn tuyệt đối, tự động rollback nếu xảy ra bất kỳ lỗi nào.
+
     sendJson(response, 200, { success: true, place: updatedPlace });
   } catch (error) {
     const msg = error.message || '';

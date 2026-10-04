@@ -69,6 +69,16 @@ const MODERATION_ENTITIES = {
       archive: 'archived'
     },
     selectColumns: 'id,club_id,club_name,title,time_schedule,location,status,creator_id,creator_name,creator_role,created_at'
+  },
+  place: {
+    table: 'places',
+    label: 'Địa điểm đóng góp',
+    actionStatusMap: {
+      approve: 'approved',
+      reject: 'rejected',
+      archive: 'archived'
+    },
+    selectColumns: 'id,name,slug,category,area,status,contributor,user_id,created_at'
   }
 };
 
@@ -86,7 +96,7 @@ async function handleGetModerationList(request, response, adminContext) {
 
     if (entityType) {
       if (!MODERATION_ENTITIES[entityType]) {
-        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article | club_activity).');
+        sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article | club_activity | place).');
         return;
       }
       const entity = MODERATION_ENTITIES[entityType];
@@ -218,7 +228,8 @@ async function moderateEntity(request, response, adminContext) {
       p_reason: reason || null,
       p_admin_notes: adminNotes,
       p_ip: adminContext?.ip || null,
-      p_correlation_id: correlationId
+      p_correlation_id: correlationId,
+      p_is_special: Boolean(body.is_special)
     });
 
     sendJson(response, 200, {

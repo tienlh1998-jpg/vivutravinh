@@ -14,13 +14,15 @@ import placesHandler from './_admin/places.js';
 import commentsHandler from './_admin/comments.js';
 import reportsHandler from './_admin/reports.js';
 import moderationHandler from './_admin/moderation.js';
+import honorsHandler from './_admin/honors.js';
 
 export {
   profileHandler,
   placesHandler,
   commentsHandler,
   reportsHandler,
-  moderationHandler
+  moderationHandler,
+  honorsHandler
 };
 
 export default async function handler(request, response) {
@@ -58,6 +60,8 @@ export default async function handler(request, response) {
       return reportsHandler(request, response);
     case 'moderation':
       return moderationHandler(request, response);
+    case 'honors':
+      return honorsHandler(request, response);
     default:
       response.statusCode = 404;
       response.setHeader('Content-Type', 'application/json; charset=utf-8');

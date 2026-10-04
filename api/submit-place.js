@@ -6,6 +6,8 @@
 // - Rate-limiting phân tán qua RPC check_and_record_rate_limit
 // - Đảm bảo tính Idempotency dựa trên client_submission_id
 
+import { authenticateUser } from './_admin-auth.js';
+
 const TABLE_NAME = 'places';
 const MAX_PAYLOAD_SIZE = 128 * 1024; // 128KB
 const RATE_LIMIT_WINDOW_SECONDS = 60;
@@ -345,6 +347,18 @@ export default async function handler(request, response) {
     );
   }
 
+  // 4.5. Kiểm tra tài khoản nếu người dùng đã đăng nhập để gán user_id nhận điểm đóng góp
+  let userId = null;
+  const authHeader = request.headers['authorization'] || request.headers['Authorization'];
+  if (authHeader) {
+    try {
+      const userContext = await authenticateUser(request, response).catch(() => null);
+      if (userContext?.user?.id) {
+        userId = userContext.user.id;
+      }
+    } catch (_) {}
+  }
+
   // Khóa slug duy nhất kết hợp client_submission_id để không xung đột DB slug unique
   const baseSlug = createSlug(validated.name);
   const cleanSubId = validated.client_submission_id.replace(/[^a-zA-Z0-9_-]/g, '').slice(-16);
@@ -353,6 +367,7 @@ export default async function handler(request, response) {
   // Luôn ép status: "draft" và ghi nhận client_submission_id trực tiếp
   const recordToInsert = {
     client_submission_id: validated.client_submission_id,
+    user_id: userId,
     name: validated.name,
     slug: deterministicSlug,
     category: validated.category,

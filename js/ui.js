@@ -2,6 +2,7 @@
 
 import { parsePrice } from './data.js';
 import { EVENT_CATEGORIES, EVENT_REGIONS, TRA_VINH_EVENTS_AND_MEETUPS } from './festivals-data.js';
+import { OFFICIAL_BADGES, computeUserBadges } from './profile-data.js';
 
 /**
  * Ảnh placeholder trung tính local chuẩn SVG (Data URI độc lập, không phụ thuộc mạng)
@@ -5665,17 +5666,18 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
     const safeJoinDate = escapeHtml(profile.joinDate || 'Tháng 03, 2023');
     const avatarImg = escapeHtml(profile.avatar || 'chùa âng.jpg');
     const coverImg = escapeHtml(profile.coverImage || 'ao bà om.jpg');
-    const coins = (profile.coins || 0).toLocaleString();
-    const stats = profile.stats || { tripsCompleted: 48, pagodasVisited: 18, cyclingKm: 642, co2ReducedKg: 128 };
-    const level = profile.level || { current: 4, max: 5, title: 'Bảo tồn Di sản', currentXp: 3750, progressPercent: 93.7 };
+    const totalPoints = Number(profile.totalPoints || 0);
+    const currentMonthPoints = Number(profile.currentMonthPoints || 0);
+    const selectedTitle = profile.selectedTitle || profile.titleBadge || null;
+    const stats = profile.stats || {};
 
-    // Filter badges
-    const allBadges = profile.badges || [];
-    const filteredBadges = badgeCategory === 'all' 
-        ? allBadges 
-        : allBadges.filter(b => b.category === badgeCategory);
-
+    // Badges computation
+    const allBadges = (Array.isArray(profile.badges) && profile.badges.length > 0) 
+        ? profile.badges 
+        : computeUserBadges({}, []);
     const unlockedCount = allBadges.filter(b => b.unlocked).length;
+    const leaderboard = Array.isArray(profile.leaderboard) ? profile.leaderboard : [];
+    const currentPeriodLabel = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', month: '2-digit', year: 'numeric' }).format(new Date());
 
     return `
         <!-- Immersive Profile Header & Banner -->
@@ -5687,7 +5689,7 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                 <div class="absolute top-4 sm:top-6 right-4 sm:right-8 flex items-center gap-2">
                     <span class="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-surface-container-lowest/80 dark:bg-zinc-900/80 backdrop-blur-md text-on-surface dark:text-zinc-100 font-bold text-[11px] sm:text-xs flex items-center gap-1.5 shadow-sm">
                         <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400" style="font-variation-settings: 'FILL' 1;">eco</span>
-                        <span>Thành viên Xanh</span>
+                        <span>Thành viên ViVu</span>
                     </span>
                     <span class="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-primary-container/80 backdrop-blur-md text-emerald-200 font-bold text-[11px] sm:text-xs flex items-center gap-1.5 shadow-sm">
                         <span class="material-symbols-outlined text-[16px]">verified</span>
@@ -5705,13 +5707,26 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shadow-lg p-1 bg-surface-container-lowest dark:bg-zinc-800 border-2 border-amber-400/40">
                                 <img src="${avatarImg}" alt="${safeName}" class="w-full h-full object-cover rounded-xl" />
                             </div>
-                            <div class="absolute -bottom-2 -right-2 bg-secondary text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md ring-2 ring-surface-container-lowest dark:ring-zinc-900" title="Bảo tồn Di sản">
+                            <div class="absolute -bottom-2 -right-2 bg-secondary text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md ring-2 ring-surface-container-lowest dark:ring-zinc-900" title="Thành viên ViVu Trà Vinh">
                                 <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
                             </div>
                         </div>
                         <div class="flex flex-col gap-1 min-w-0">
                             <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
                                 <h1 class="font-headline-lg text-xl sm:text-2xl lg:text-3xl text-on-surface dark:text-zinc-100 font-bold tracking-tight">${safeName}</h1>
+                                ${selectedTitle ? `
+                                    <span class="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 font-bold text-xs inline-flex items-center gap-1 border border-amber-300/40 shadow-xs" title="Danh hiệu đang hiển thị cạnh tên">
+                                        <span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+                                        <span>${escapeHtml(selectedTitle)}</span>
+                                    </span>
+                                ` : ''}
+                                ${isAuth ? `
+                                    <button type="button" onclick="window.ViVuApp.switchProfileTab('overview')"
+                                        class="text-xs font-semibold text-secondary dark:text-emerald-400 hover:underline inline-flex items-center gap-0.5">
+                                        <span class="material-symbols-outlined text-[14px]">military_tech</span>
+                                        <span>${selectedTitle ? 'Đổi danh hiệu' : '+ Chọn danh hiệu'}</span>
+                                    </button>
+                                ` : ''}
                                 <span class="text-xs text-outline dark:text-zinc-400 font-mono">${safeHandle}</span>
                                 ${isAuth ? `
                                     <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold text-[11px] inline-flex items-center gap-1">
@@ -5722,12 +5737,9 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                                         <span class="material-symbols-outlined text-[13px]">person_outline</span> Khách vãng lai (Hồ sơ mẫu tham khảo)
                                     </span>
                                 `}
-                                <span class="px-2.5 py-0.5 rounded-full bg-secondary-container/80 dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-semibold text-[11px]">
-                                    ${safeRole}
-                                </span>
                             </div>
                             <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 max-w-xl mt-1 leading-relaxed">
-                                ${safeBio}
+                                ${safeBio || 'Khám phá văn hóa, di sản và ẩm thực Trà Vinh cùng ViVu.'}
                             </p>
                             <div class="flex items-center gap-3 sm:gap-4 mt-2 text-xs text-outline dark:text-zinc-400 flex-wrap">
                                 <span class="flex items-center gap-1">
@@ -5768,10 +5780,10 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             <span class="material-symbols-outlined text-[18px]">edit_note</span>
                             <span>Chỉnh sửa</span>
                         </button>
-                        <button type="button" onclick="window.ViVuApp.openRedeemGiftModal()"
-                            class="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#EA580C] to-amber-600 hover:from-[#C2410C] hover:to-amber-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all min-h-[44px]">
-                            <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">redeem</span>
-                            <span>Đổi Xu Nhận Quà</span>
+                        <button type="button" onclick="window.ViVuApp.switchProfileTab('overview')"
+                            class="px-4 sm:px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all min-h-[44px]">
+                            <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+                            <span>Huy hiệu &amp; Danh hiệu</span>
                         </button>
                     </div>
                 </div>
@@ -5783,7 +5795,7 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             <span class="material-symbols-outlined text-[24px] sm:text-[26px]">hiking</span>
                         </div>
                         <div class="flex flex-col min-w-0">
-                            <span class="font-bold text-lg sm:text-xl text-on-surface dark:text-zinc-100">${stats.tripsCompleted || 48}</span>
+                            <span class="font-bold text-base sm:text-lg text-on-surface dark:text-zinc-100">${stats.tripsCompleted !== null && stats.tripsCompleted !== undefined ? stats.tripsCompleted : '<span class="text-xs font-normal text-outline dark:text-zinc-400">Chưa có dữ liệu</span>'}</span>
                             <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Chuyến đi hoàn thành</span>
                         </div>
                     </div>
@@ -5792,7 +5804,7 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             <span class="material-symbols-outlined text-[24px] sm:text-[26px]">temple_buddhist</span>
                         </div>
                         <div class="flex flex-col min-w-0">
-                            <span class="font-bold text-lg sm:text-xl text-on-surface dark:text-zinc-100">${stats.pagodasVisited || 18}</span>
+                            <span class="font-bold text-base sm:text-lg text-on-surface dark:text-zinc-100">${stats.pagodasVisited !== null && stats.pagodasVisited !== undefined ? stats.pagodasVisited : '<span class="text-xs font-normal text-outline dark:text-zinc-400">Chưa có dữ liệu</span>'}</span>
                             <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Chùa Khmer đã viếng</span>
                         </div>
                     </div>
@@ -5801,17 +5813,20 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             <span class="material-symbols-outlined text-[24px] sm:text-[26px]">directions_bike</span>
                         </div>
                         <div class="flex flex-col min-w-0">
-                            <span class="font-bold text-lg sm:text-xl text-on-surface dark:text-zinc-100">${stats.cyclingKm || 642} <span class="text-xs font-normal text-outline">km</span></span>
+                            <span class="font-bold text-base sm:text-lg text-on-surface dark:text-zinc-100">${stats.cyclingKm !== null && stats.cyclingKm !== undefined ? `${stats.cyclingKm} <span class="text-xs font-normal text-outline">km</span>` : '<span class="text-xs font-normal text-outline dark:text-zinc-400">Chưa có dữ liệu</span>'}</span>
                             <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Đạp xe khám phá</span>
                         </div>
                     </div>
                     <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-xl p-3.5 sm:p-4 shadow-sm border border-outline-variant/20 dark:border-zinc-800 flex items-center gap-3 sm:gap-4">
                         <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-amber-500/20 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
-                            <span class="material-symbols-outlined text-[24px] sm:text-[26px]" style="font-variation-settings: 'FILL' 1;">monetization_on</span>
+                            <span class="material-symbols-outlined text-[24px] sm:text-[26px]" style="font-variation-settings: 'FILL' 1;">stars</span>
                         </div>
                         <div class="flex flex-col min-w-0">
-                            <span class="font-bold text-lg sm:text-xl text-amber-600 dark:text-amber-400">${coins}</span>
-                            <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Xu Xứ Trà tích lũy</span>
+                            <div class="flex items-baseline gap-1.5 flex-wrap">
+                                <span class="font-bold text-lg sm:text-xl text-amber-600 dark:text-amber-400">${totalPoints.toLocaleString()}</span>
+                                <span class="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">(Tháng này: +${currentMonthPoints.toLocaleString()})</span>
+                            </div>
+                            <span class="text-[11px] sm:text-xs text-on-surface-variant dark:text-zinc-400 truncate">Điểm đóng góp</span>
                         </div>
                     </div>
                 </div>
@@ -5829,7 +5844,7 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             ? 'bg-primary-container text-white shadow-sm dark:bg-emerald-800'
                             : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 hover:bg-surface-container-low dark:hover:bg-zinc-800'
                     }">
-                    <span class="material-symbols-outlined text-[18px]">dashboard</span>
+                    <span class="material-symbols-outlined text-[18px]">military_tech</span>
                     <span>Tổng quan &amp; Huy hiệu</span>
                 </button>
                 <button type="button" role="tab" aria-selected="${activeTab === 'trips' ? 'true' : 'false'}"
@@ -5860,7 +5875,7 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                             : 'text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 hover:bg-surface-container-low dark:hover:bg-zinc-800'
                     }">
                     <span class="material-symbols-outlined text-[18px]">rate_review</span>
-                    <span>Bài viết &amp; Đánh giá (18)</span>
+                    <span>Bài viết &amp; Đánh giá</span>
                 </button>
                 <button type="button" role="tab" aria-selected="${activeTab === 'saved' ? 'true' : 'false'}"
                     onclick="window.ViVuApp.openSavedCollectionsModal()"
@@ -5873,85 +5888,88 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
             ${activeTab === 'overview' ? `
             <!-- Dashboard Bento Grid Layout -->
             <div class="grid grid-cols-12 gap-6 sm:gap-8">
-                <!-- Left Column (8 Columns): Badges, Footprint Heatmap & Impact -->
+                <!-- Left Column (8 Columns): Badges, Rules & Ledger History -->
                 <div class="col-span-12 lg:col-span-8 flex flex-col gap-6 sm:gap-8">
-                    <!-- Section: Badges & Ecology Milestones -->
+                    <!-- Section: Badges & Titles Grid -->
                     <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-5">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex flex-col">
-                                <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Hệ Thống Huy Hiệu Sinh Thái</span>
-                                <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 mt-0.5">Bảng Vinh Danh Xứ Trà (${unlockedCount}/${allBadges.length})</h2>
+                                <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Hệ Thống Huy Hiệu &amp; Danh Hiệu</span>
+                                <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 mt-0.5">Huy Hiệu Xứ Trà (${unlockedCount}/${allBadges.length})</h2>
                             </div>
-                            <!-- Category Filter Chips -->
-                            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1" role="toolbar" aria-label="Bộ lọc huy hiệu">
-                                ${['all', 'temple', 'eco', 'food', 'community'].map(cat => {
-                                    const labels = {
-                                        all: 'Tất cả',
-                                        temple: 'Chùa Cổ',
-                                        eco: 'Eco Xanh',
-                                        food: 'Ẩm thực',
-                                        community: 'Cộng đồng'
-                                    };
-                                    const isSel = badgeCategory === cat;
-                                    return `
-                                        <button type="button" onclick="window.ViVuApp.filterProfileBadges('${cat}')"
-                                            class="px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap min-h-[44px] flex items-center justify-center transition-all ${
-                                                isSel
-                                                    ? 'bg-primary-container text-white dark:bg-emerald-800'
-                                                    : 'bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container dark:hover:bg-zinc-700'
-                                            }">
-                                            ${labels[cat]}
-                                        </button>
-                                    `;
-                                }).join('')}
+                            <span class="px-3 py-1 rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-xs font-semibold">
+                                Đã mở khóa: ${unlockedCount} / ${allBadges.length}
+                            </span>
+                        </div>
+
+                        <!-- Rule Disclaimer Banner -->
+                        <div class="p-3 sm:p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/40 text-xs text-on-surface-variant dark:text-zinc-300 flex items-start gap-2.5">
+                            <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400 shrink-0 mt-0.5">verified</span>
+                            <div class="leading-relaxed">
+                                <strong>Nguyên tắc thành tích:</strong> Huy hiệu mở khóa tự động theo kết quả đóng góp thực tế được duyệt. <em>Không dùng điểm để mua</em>. Bạn có thể chọn một danh hiệu đã đạt để hiển thị cạnh tên (danh hiệu không cấp quyền quản trị).
                             </div>
                         </div>
 
                         <!-- Badges Grid Layout -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="profileBadgesGrid">
-                            ${filteredBadges.map(badge => {
-                                const isUnlocked = badge.unlocked;
-                                const tierColors = {
-                                    'Bạch kim': 'bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-300',
-                                    'Vàng': 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300',
-                                    'Bạc': 'bg-slate-200 text-slate-800 dark:bg-zinc-800 dark:text-zinc-200',
-                                    'Đồng': 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400'
+                            ${allBadges.map(badge => {
+                                const isUnlocked = Boolean(badge.unlocked);
+                                const isSelected = selectedTitle === badge.name;
+                                const colorStyles = {
+                                    emerald: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+                                    amber: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+                                    slate: 'bg-slate-400/20 text-slate-700 dark:text-slate-300 border-slate-400/30',
+                                    cyan: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30'
                                 };
-                                const tierClass = tierColors[badge.tier] || 'bg-slate-100 text-slate-800';
+                                const iconClass = colorStyles[badge.color] || colorStyles.emerald;
 
                                 return `
-                                    <div class="p-4 rounded-xl ${isUnlocked ? 'bg-surface-container-low dark:bg-zinc-800/70' : 'bg-surface-container/50 dark:bg-zinc-800/40 opacity-80'} flex items-start gap-4 hover:shadow-md transition-all border border-outline-variant/20 dark:border-zinc-700/50">
-                                        <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl ${
-                                            isUnlocked
-                                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                                                : 'bg-stone-300/30 text-stone-400 dark:text-zinc-500'
-                                        } flex items-center justify-center shrink-0">
-                                            <span class="material-symbols-outlined text-[28px] sm:text-[32px]" style="${isUnlocked ? "font-variation-settings: 'FILL' 1;" : ''}">${badge.icon}</span>
-                                        </div>
-                                        <div class="flex flex-col flex-1 min-w-0">
-                                            <div class="flex items-center justify-between gap-1">
-                                                <h3 class="font-bold text-sm sm:text-base text-on-surface dark:text-zinc-100 leading-tight truncate">${escapeHtml(badge.name)}</h3>
-                                                <span class="px-2 py-0.5 rounded-full font-bold text-[10px] shrink-0 ${tierClass}">${badge.tier}</span>
+                                    <div class="p-4 rounded-xl ${isUnlocked ? 'bg-surface-container-low dark:bg-zinc-800/80 border-secondary/30 dark:border-emerald-800/50' : 'bg-surface-container/40 dark:bg-zinc-800/30 opacity-75 border-outline-variant/20 dark:border-zinc-700/40'} flex flex-col justify-between gap-3 transition-all border shadow-sm">
+                                        <div class="flex items-start gap-3.5">
+                                            <div class="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl ${isUnlocked ? iconClass : 'bg-stone-300/30 text-stone-400 dark:text-zinc-500 border-transparent'} flex items-center justify-center shrink-0 border">
+                                                <span class="material-symbols-outlined text-[26px] sm:text-[28px]" style="${isUnlocked ? "font-variation-settings: 'FILL' 1;" : ''}">${badge.icon}</span>
                                             </div>
-                                            <p class="text-xs text-on-surface-variant dark:text-zinc-300 mt-1 line-clamp-2 leading-relaxed">
-                                                ${escapeHtml(badge.desc)}
-                                            </p>
-                                            ${isUnlocked ? `
-                                                <div class="mt-2.5 flex items-center justify-between text-[11px] text-secondary dark:text-emerald-400 font-medium">
-                                                    <span class="flex items-center gap-1">
-                                                        <span class="material-symbols-outlined text-[14px]">check_circle</span>
-                                                        <span>Mở khóa: ${badge.unlockedDate || 'Gần đây'}</span>
+                                            <div class="flex flex-col flex-1 min-w-0">
+                                                <div class="flex items-center justify-between gap-1 flex-wrap">
+                                                    <h3 class="font-bold text-sm sm:text-base text-on-surface dark:text-zinc-100 leading-tight">${escapeHtml(badge.name)}</h3>
+                                                    <span class="px-2 py-0.5 rounded-full font-bold text-[10px] ${isUnlocked ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-stone-200 text-stone-700 dark:bg-zinc-700 dark:text-zinc-300'}">
+                                                        ${isUnlocked ? 'Đã đạt' : 'Đang khóa'}
                                                     </span>
-                                                    <span class="font-bold text-amber-600 dark:text-amber-400">+${badge.xp || 300} XP</span>
                                                 </div>
+                                                <p class="text-xs text-on-surface-variant dark:text-zinc-300 mt-1 leading-relaxed">
+                                                    ${escapeHtml(badge.desc)}
+                                                </p>
+                                                <div class="mt-2 text-[11px] text-outline dark:text-zinc-400">
+                                                    <span class="font-semibold text-secondary dark:text-emerald-400">Điều kiện mở khóa:</span> ${escapeHtml(badge.condition)}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Footer of Badge Card -->
+                                        <div class="pt-2 border-t border-outline-variant/15 dark:border-zinc-700/40 flex items-center justify-between gap-2">
+                                            ${isUnlocked ? `
+                                                <div class="text-[11px] text-secondary dark:text-emerald-400 font-medium flex items-center gap-1">
+                                                    <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                                    <span>${badge.unlockedDate || 'Đã mở khóa'}</span>
+                                                </div>
+                                                ${isSelected ? `
+                                                    <span class="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold inline-flex items-center gap-1">
+                                                        <span class="material-symbols-outlined text-[13px]">military_tech</span> Đang hiển thị
+                                                    </span>
+                                                ` : `
+                                                    <button type="button" onclick="window.ViVuApp.handleSelectUserTitle('${escapeHtml(badge.name)}')"
+                                                        class="px-2.5 py-1 rounded-lg bg-primary hover:bg-secondary text-white text-[11px] font-semibold transition-all shadow-xs min-h-[36px] flex items-center gap-1">
+                                                        <span class="material-symbols-outlined text-[13px]">military_tech</span> Chọn danh hiệu
+                                                    </button>
+                                                `}
                                             ` : `
-                                                <div class="mt-2.5 flex flex-col gap-1">
-                                                    <div class="w-full h-1.5 bg-surface-container-highest dark:bg-zinc-700 rounded-full overflow-hidden">
-                                                        <div class="h-full bg-secondary dark:bg-emerald-500 rounded-full" style="width: ${badge.progress || 30}%;"></div>
-                                                    </div>
+                                                <div class="w-full flex flex-col gap-1">
                                                     <div class="flex justify-between text-[10px] text-outline dark:text-zinc-400">
-                                                        <span>Đang khóa (${badge.progress || 30}%)</span>
-                                                        <span class="text-amber-600 dark:text-amber-400 font-semibold">${badge.remaining || 'Chưa hoàn thành'}</span>
+                                                        <span>Tiến trình (${badge.current || 0}/${badge.target})</span>
+                                                        <span class="text-amber-600 dark:text-amber-400 font-semibold">${badge.remainingText || 'Chưa đạt'}</span>
+                                                    </div>
+                                                    <div class="w-full h-1.5 bg-surface-container-highest dark:bg-zinc-700 rounded-full overflow-hidden">
+                                                        <div class="h-full bg-secondary dark:bg-emerald-500 rounded-full transition-all" style="width: ${badge.progress || 0}%;"></div>
                                                     </div>
                                                 </div>
                                             `}
@@ -5962,290 +5980,212 @@ export function renderUserProfileModalContent(profile, activeTab = 'overview', b
                         </div>
                     </div>
 
-                    <!-- Section: Footprint Heatmap across Tra Vinh Districts -->
-                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-6">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div>
-                                <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Dấu Chân Du Ký</span>
-                                <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 mt-0.5">Bản Đồ Vùng Khám Phá Trà Vinh</h2>
+                    <!-- Section: Contribution Point Rules -->
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex flex-col">
+                                <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Tiêu Chuẩn Điểm ViVu</span>
+                                <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 mt-0.5">Quy Tắc Điểm Đóng Góp</h2>
                             </div>
-                            <div class="flex items-center gap-3 text-xs text-on-surface-variant dark:text-zinc-400">
-                                <span class="inline-flex items-center gap-1">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-secondary"></span> Đã đến nhiều (&gt;5 lần)
-                                </span>
-                                <span class="inline-flex items-center gap-1">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-secondary-container"></span> Đã ghé (1-4 lần)
-                                </span>
-                            </div>
+                            <span class="px-2.5 py-1 rounded-full bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-300 text-xs font-semibold">
+                                Xác thực máy chủ
+                            </span>
                         </div>
-
-                        <!-- Heatmap Visual Grid -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <!-- District Coverage Image / Preview -->
-                            <div class="md:col-span-2 relative h-64 sm:h-72 rounded-xl overflow-hidden shadow-inner border border-outline-variant/30 dark:border-zinc-800 bg-cover bg-center" style="background-image: url('ao bà om.jpg')">
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none"></div>
-                                <div class="absolute bottom-3 left-3 bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-lg shadow-sm text-xs font-semibold text-on-surface dark:text-zinc-100 flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-[16px] text-secondary">explore</span>
-                                    <span>Tỷ lệ phủ rộng: <strong>7/9 Huyện &amp; Thị xã</strong></span>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                            Điểm chỉ được ghi nhận khi nội dung được Admin kiểm duyệt phê duyệt thực tế trên hệ thống. Không cộng điểm cho việc gửi bài chưa duyệt, đăng nhập, bấm thích hoặc đăng ký tham dự.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/50 flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="material-symbols-outlined text-[20px] text-amber-500">auto_stories</span>
+                                    <span class="text-xs font-semibold text-on-surface dark:text-zinc-200">Bài Blog ViVu được duyệt</span>
                                 </div>
+                                <span class="font-bold text-sm text-emerald-600 dark:text-emerald-400">+20 điểm</span>
                             </div>
-
-                            <!-- District Density Breakdown -->
-                            <div class="flex flex-col justify-between gap-3 bg-surface-container-low dark:bg-zinc-800/70 p-4 rounded-xl border border-outline-variant/20 dark:border-zinc-700/50">
-                                <h4 class="font-bold text-sm text-on-surface dark:text-zinc-100">Tần suất theo địa bàn:</h4>
-                                <div class="flex flex-col gap-3">
-                                    <div>
-                                        <div class="flex justify-between text-xs text-on-surface-variant dark:text-zinc-400 mb-1">
-                                            <span>TP. Trà Vinh &amp; Châu Thành</span>
-                                            <span class="font-bold text-secondary dark:text-emerald-400">16 Chuyến (92%)</span>
-                                        </div>
-                                        <div class="w-full h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                            <div class="h-full rounded-full bg-secondary dark:bg-emerald-500 w-[92%]"></div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between text-xs text-on-surface-variant dark:text-zinc-400 mb-1">
-                                            <span>Cầu Kè (Vườn Dừa &amp; Cù Lao)</span>
-                                            <span class="font-bold text-secondary dark:text-emerald-400">11 Chuyến (70%)</span>
-                                        </div>
-                                        <div class="w-full h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                            <div class="h-full rounded-full bg-secondary dark:bg-emerald-500 w-[70%]"></div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between text-xs text-on-surface-variant dark:text-zinc-400 mb-1">
-                                            <span>Tiểu Cần &amp; Trà Cú</span>
-                                            <span class="font-bold text-secondary dark:text-emerald-400">9 Chuyến (58%)</span>
-                                        </div>
-                                        <div class="w-full h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                            <div class="h-full rounded-full bg-secondary dark:bg-emerald-500 w-[58%]"></div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between text-xs text-on-surface-variant dark:text-zinc-400 mb-1">
-                                            <span>Duyên Hải &amp; Càng Long</span>
-                                            <span class="font-bold text-on-secondary-container">5 Chuyến (32%)</span>
-                                        </div>
-                                        <div class="w-full h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                            <div class="h-full rounded-full bg-teal-400 w-[32%]"></div>
-                                        </div>
-                                    </div>
+                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/50 flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="material-symbols-outlined text-[20px] text-cyan-500">place</span>
+                                    <span class="text-xs font-semibold text-on-surface dark:text-zinc-200">Đóng góp địa điểm được duyệt</span>
                                 </div>
-                                <div class="pt-2 text-xs text-outline dark:text-zinc-400 border-t border-outline-variant/20 dark:border-zinc-700">
-                                    <span class="text-secondary dark:text-emerald-400 font-semibold">Chưa khám phá:</span> Huyện Cầu Ngang (Dự kiến tham gia Ok Om Bok).
+                                <span class="font-bold text-sm text-emerald-600 dark:text-emerald-400">+15 điểm</span>
+                            </div>
+                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/50 flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="material-symbols-outlined text-[20px] text-slate-400">forum</span>
+                                    <span class="text-xs font-semibold text-on-surface dark:text-zinc-200">Bài đăng Cộng đồng được duyệt</span>
                                 </div>
+                                <span class="font-bold text-sm text-emerald-600 dark:text-emerald-400">+10 điểm</span>
+                            </div>
+                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/50 flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="material-symbols-outlined text-[20px] text-amber-400">verified</span>
+                                    <span class="text-xs font-semibold text-on-surface dark:text-zinc-200">Đóng góp đặc biệt hữu ích</span>
+                                </div>
+                                <span class="font-bold text-sm text-amber-600 dark:text-amber-400">+10 điểm</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Section: Recent Contributions & Eco Stories -->
+                    <!-- Section: Recent Point Transactions Ledger -->
                     <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
                         <div class="flex items-center justify-between">
-                            <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100">Đóng Góp Cộng Đồng Gần Đây</h2>
-                            <button type="button" class="text-xs text-secondary dark:text-emerald-400 font-semibold hover:underline">Xem thêm lịch sử</button>
+                            <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100">Lịch Sử Giao Dịch Điểm Của Tôi</h2>
+                            <span class="text-xs text-outline dark:text-zinc-400">Sổ cái nguyên tử</span>
                         </div>
-                        <div class="space-y-3">
-                            ${(profile.recentContributions || []).map(item => `
-                                <div class="p-3.5 sm:p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/70 flex items-center justify-between gap-4 border border-outline-variant/20 dark:border-zinc-700/50">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <div class="w-10 h-10 rounded-xl bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
-                                            <span class="material-symbols-outlined text-[20px]">${item.icon}</span>
+                        ${(profile.pointTransactions && profile.pointTransactions.length > 0) ? `
+                            <div class="space-y-2.5">
+                                ${profile.pointTransactions.map(tx => `
+                                    <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/70 flex items-center justify-between gap-3 border border-outline-variant/15 dark:border-zinc-700/40">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                                <span class="material-symbols-outlined text-[16px]">${tx.points >= 0 ? 'add_circle' : 'remove_circle'}</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="text-xs font-bold text-on-surface dark:text-zinc-100 truncate">${escapeHtml(tx.action_type || 'Giao dịch điểm')}</div>
+                                                <div class="text-[10px] text-outline dark:text-zinc-400">${tx.created_at ? new Date(tx.created_at).toLocaleString('vi-VN') : 'Gần đây'}</div>
+                                            </div>
                                         </div>
-                                        <div class="min-w-0">
-                                            <div class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 truncate">${escapeHtml(item.title)}</div>
-                                            <div class="text-[11px] text-outline dark:text-zinc-400 truncate mt-0.5">${escapeHtml(item.desc)} • ${item.time}</div>
-                                        </div>
+                                        <span class="text-xs font-bold ${tx.points >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                                            ${tx.points >= 0 ? '+' : ''}${tx.points} điểm
+                                        </span>
                                     </div>
-                                    <span class="px-2.5 py-1 rounded-md bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-bold text-xs whitespace-nowrap shrink-0">
-                                        ${item.reward}
-                                    </span>
-                                </div>
-                            `).join('')}
-                        </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="p-6 rounded-xl bg-surface-container-low/50 dark:bg-zinc-800/40 text-center flex flex-col items-center gap-2 border border-dashed border-outline-variant/30 dark:border-zinc-700">
+                                <span class="material-symbols-outlined text-3xl text-outline dark:text-zinc-500">history</span>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-400">Chưa có giao dịch điểm nào. Hãy gửi bài viết, cẩm nang hoặc địa điểm đầu tiên để được cộng điểm sau khi duyệt!</p>
+                            </div>
+                        `}
                     </div>
                 </div>
 
-                <!-- Right Column (4 Columns): Tier Status, Eco Impact, & Certificates -->
+                <!-- Right Column (4 Columns): Monthly Honors & Data Verification Status -->
                 <div class="col-span-12 lg:col-span-4 flex flex-col gap-6 sm:gap-8">
-                    <!-- Member Level Card -->
-                    <div class="bg-primary-container text-white rounded-2xl p-6 shadow-md relative overflow-hidden flex flex-col justify-between border border-emerald-900">
-                        <div class="absolute -right-10 -bottom-10 w-44 h-44 rounded-full bg-white/5 pointer-events-none"></div>
-                        <div>
-                            <div class="flex items-center justify-between">
-                                <span class="px-3 py-1 rounded-full bg-white/10 text-emerald-200 font-bold text-xs">
-                                    ${level.tier || 'Cấp 4 / 5'}
-                                </span>
-                                <span class="text-xs text-emerald-200">Điểm: ${level.currentXp || 3750} XP</span>
+                    <!-- Monthly Honors Card -->
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <div class="flex flex-col">
+                                <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Vinh Danh Tháng</span>
+                                <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100 mt-0.5">Bảng Đóng Góp Kỳ ${currentPeriodLabel}</h3>
                             </div>
-                            <h3 class="text-2xl font-bold text-white mt-4 tracking-tight">${level.title || 'Bảo tồn Di sản'}</h3>
-                            <p class="text-xs text-emerald-100/80 mt-1 leading-relaxed">
-                                Danh hiệu dành riêng cho các thành viên có đóng góp nổi bật về bảo tồn nếp sống và cổ kính miền Tây.
-                            </p>
-                            <!-- Progress Bar -->
-                            <div class="mt-6 flex flex-col gap-2">
-                                <div class="flex justify-between text-xs text-emerald-200">
-                                    <span>Tiến trình cấp bậc</span>
-                                    <span class="font-bold">${level.progressPercent || 93.7}%</span>
-                                </div>
-                                <div class="w-full h-3 rounded-full bg-white/10 overflow-hidden p-0.5">
-                                    <div class="h-full rounded-full bg-secondary-fixed w-[${level.progressPercent || 93.7}%] transition-all"></div>
-                                </div>
-                                <span class="text-[11px] text-emerald-200/80 mt-1">
-                                    Chỉ còn <strong class="text-white">250 XP</strong> nữa để vinh danh <strong>Tinh hoa Xứ Trà (Cấp 5)</strong>!
-                                </span>
-                            </div>
-                        </div>
-                        <div class="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
-                            <span class="text-xs text-emerald-200">Đặc quyền cấp bậc:</span>
-                            <span class="text-xs font-semibold text-secondary-fixed hover:underline flex items-center gap-1 cursor-pointer">
-                                Xem 6 quyền lợi
-                                <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+                            <span class="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 font-semibold text-[11px] inline-flex items-center gap-1 border border-amber-300/40">
+                                <span class="material-symbols-outlined text-[13px]">verified</span> Admin thẩm định
                             </span>
                         </div>
+
+                        <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/50 text-[11px] text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                            <span class="font-bold text-secondary dark:text-emerald-400">Quy tắc đồng điểm:</span> Điểm cao hơn xếp trước &rarr; Đạt điểm sớm hơn xếp trước &rarr; Cùng thời điểm sẽ xếp đồng hạng (không bốc thăm ngẫu nhiên). Múi giờ Việt Nam (UTC+7).
+                        </div>
+
+                        ${leaderboard.length > 0 ? `
+                            <div class="space-y-2.5">
+                                ${leaderboard.map(item => {
+                                    const rankStyles = {
+                                        1: 'bg-amber-500 text-white shadow-xs',
+                                        2: 'bg-slate-400 text-white shadow-xs',
+                                        3: 'bg-amber-700 text-white shadow-xs'
+                                    };
+                                    const rankBadgeClass = rankStyles[item.rank] || 'bg-surface-container-high dark:bg-zinc-700 text-on-surface dark:text-zinc-200';
+                                    return `
+                                        <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/70 flex items-center justify-between gap-3 border border-outline-variant/15 dark:border-zinc-700/40">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                <span class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${rankBadgeClass}">
+                                                    ${item.rank}
+                                                </span>
+                                                <div class="min-w-0">
+                                                    <div class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 truncate flex items-center gap-1.5">
+                                                        <span>${escapeHtml(item.user_name || 'Người dùng')}</span>
+                                                        ${item.title ? `<span class="text-[10px] text-secondary dark:text-emerald-400 font-normal">(${escapeHtml(item.title)})</span>` : ''}
+                                                    </div>
+                                                    <div class="text-[10px] text-outline dark:text-zinc-400">Kỳ vinh danh tháng ${currentPeriodLabel}</div>
+                                                </div>
+                                            </div>
+                                            <span class="font-bold text-xs text-amber-600 dark:text-amber-400 shrink-0">
+                                                ${(item.points || 0).toLocaleString()} điểm
+                                            </span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        ` : `
+                            <div class="p-4 rounded-xl bg-surface-container-low/50 dark:bg-zinc-800/40 text-center flex flex-col items-center gap-1.5 border border-dashed border-outline-variant/30 dark:border-zinc-700 text-xs text-on-surface-variant dark:text-zinc-400">
+                                <span class="material-symbols-outlined text-2xl text-secondary dark:text-emerald-400">hourglass_top</span>
+                                <p class="font-medium">Đang cập nhật bảng vinh danh kỳ ${currentPeriodLabel}</p>
+                                <p class="text-[11px] text-outline dark:text-zinc-400">Kết quả chính thức sẽ được công bố sau khi admin hoàn tất thẩm định đóng góp.</p>
+                            </div>
+                        `}
                     </div>
 
-                    <!-- Eco Impact Stats Ring & Metrics -->
-                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-5">
-                        <div class="flex flex-col">
-                            <span class="text-xs text-secondary dark:text-emerald-400 uppercase font-bold tracking-wider">Tác Động Môi Trường</span>
-                            <h2 class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 mt-0.5">Dấu Chân Xanh 2024</h2>
-                        </div>
-                        <!-- Circular Chart Preview SVG -->
-                        <div class="flex items-center gap-5">
-                            <div class="relative w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center shrink-0">
-                                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                    <circle class="text-surface-container-high dark:text-zinc-800" cx="50" cy="50" fill="none" r="40" stroke="currentColor" stroke-width="8"></circle>
-                                    <circle class="text-secondary dark:text-emerald-400" cx="50" cy="50" fill="none" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="55" stroke-linecap="round" stroke-width="8"></circle>
-                                </svg>
-                                <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                    <span class="text-lg sm:text-xl font-bold text-on-surface dark:text-zinc-100 leading-none">${stats.co2ReducedKg || 128}</span>
-                                    <span class="text-[10px] text-outline dark:text-zinc-400 uppercase mt-0.5">kg CO₂</span>
-                                </div>
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <div class="text-sm font-bold text-secondary dark:text-emerald-400 leading-snug">Giảm phát thải hiệu quả</div>
-                                <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
-                                    Nhờ sử dụng xe đạp trên 642 km đường làng Trà Vinh thay vì xe máy.
-                                </p>
-                            </div>
-                        </div>
-                        <!-- Impact breakdown list -->
-                        <div class="space-y-2.5 pt-2">
-                            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs">
-                                <span class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
-                                    <span class="material-symbols-outlined text-[18px] text-secondary">park</span>
-                                    <span>Cây xanh bảo trợ:</span>
-                                </span>
-                                <span class="font-bold text-on-surface dark:text-zinc-100">${stats.treesSponsored || 14} Cây Sao Đen</span>
-                            </div>
-                            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs">
-                                <span class="flex items-center gap-2 text-on-surface dark:text-zinc-200">
-                                    <span class="material-symbols-outlined text-[18px] text-secondary">no_drinks</span>
-                                    <span>Chai nhựa từ chối:</span>
-                                </span>
-                                <span class="font-bold text-on-surface dark:text-zinc-100">${stats.plasticBottlesRefused || 240} Chai dùng 1 lần</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Cultural & Community Certificates Widget -->
+                    <!-- Real Data Verification State Card -->
                     <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Chứng Nhận Cộng Đồng</h3>
-                            <span class="px-2 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-bold text-xs">
-                                ${(profile.certificates || []).length} Chứng chỉ
+                            <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Xác Nhận Dữ Liệu Thực Tế</h3>
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold text-[11px]">
+                                Số liệu thật
                             </span>
                         </div>
-                        <div class="space-y-3">
-                            ${(profile.certificates || []).map(cert => `
-                                <div class="p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/70 flex gap-3 border border-outline-variant/20 dark:border-zinc-700/50">
-                                    <div class="w-11 h-11 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                                        <span class="material-symbols-outlined text-[22px]">${cert.icon}</span>
-                                    </div>
-                                    <div class="flex flex-col min-w-0">
-                                        <span class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 leading-snug">${escapeHtml(cert.title)}</span>
-                                        <span class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5 truncate">${escapeHtml(cert.issuer)}</span>
-                                        <span class="text-[11px] text-outline dark:text-zinc-500 mt-1">Cấp ngày: ${cert.date}</span>
-                                    </div>
-                                </div>
-                            `).join('')}
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                            ViVu Trà Vinh tuân thủ nguyên tắc minh bạch: chỉ hiển thị số liệu khi đã được người dùng thực hiện và hệ thống xác thực, loại bỏ hoàn toàn số liệu mẫu.
+                        </p>
+                        <div class="space-y-2">
+                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 flex items-center justify-between text-xs border border-outline-variant/15 dark:border-zinc-700/40">
+                                <span class="text-on-surface dark:text-zinc-300 flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[17px] text-secondary">hiking</span>
+                                    <span>Chuyến đi thực địa:</span>
+                                </span>
+                                <span class="font-medium text-outline dark:text-zinc-400">${stats.tripsCompleted !== null && stats.tripsCompleted !== undefined ? stats.tripsCompleted : 'Chưa có dữ liệu'}</span>
+                            </div>
+                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 flex items-center justify-between text-xs border border-outline-variant/15 dark:border-zinc-700/40">
+                                <span class="text-on-surface dark:text-zinc-300 flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[17px] text-secondary">temple_buddhist</span>
+                                    <span>Chùa Khmer đã viếng:</span>
+                                </span>
+                                <span class="font-medium text-outline dark:text-zinc-400">${stats.pagodasVisited !== null && stats.pagodasVisited !== undefined ? stats.pagodasVisited : 'Chưa có dữ liệu'}</span>
+                            </div>
+                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 flex items-center justify-between text-xs border border-outline-variant/15 dark:border-zinc-700/40">
+                                <span class="text-on-surface dark:text-zinc-300 flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[17px] text-secondary">directions_bike</span>
+                                    <span>Quãng đường đạp xe:</span>
+                                </span>
+                                <span class="font-medium text-outline dark:text-zinc-400">${stats.cyclingKm !== null && stats.cyclingKm !== undefined ? stats.cyclingKm + ' km' : 'Chưa có dữ liệu'}</span>
+                            </div>
+                            <div class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 flex items-center justify-between text-xs border border-outline-variant/15 dark:border-zinc-700/40">
+                                <span class="text-on-surface dark:text-zinc-300 flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-[17px] text-secondary">explore</span>
+                                    <span>Bản đồ độ phủ 9 huyện:</span>
+                                </span>
+                                <span class="font-medium text-outline dark:text-zinc-400">Chưa có dữ liệu xác nhận</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             ` : activeTab === 'trips' ? `
             <!-- Trips & GPS Logs Tab -->
-            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-xl font-bold text-on-surface dark:text-zinc-100">Nhật Ký Hành Trình GPS Gần Đây</h2>
-                        <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-0.5">Các tuyến đường đạp xe xanh và tọa độ văn hóa bạn đã chinh phục</p>
-                    </div>
-                    <span class="px-3 py-1 rounded-full bg-secondary-container dark:bg-emerald-950 text-secondary dark:text-emerald-300 font-bold text-xs">
-                        48 Chuyến hoàn thành
-                    </span>
+            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-outline-variant/30 dark:border-zinc-800 text-center flex flex-col items-center gap-3">
+                <div class="w-14 h-14 rounded-2xl bg-surface-container-high dark:bg-zinc-800 text-outline dark:text-zinc-400 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[32px]">route</span>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex flex-col gap-3 border border-outline-variant/20 dark:border-zinc-700">
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-sm text-on-surface dark:text-zinc-100">Cung đường Di sản: Ao Bà Om - Chùa Âng - Chùa Hang</span>
-                            <span class="text-xs font-semibold text-secondary dark:text-emerald-400">14.8 km</span>
-                        </div>
-                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
-                            Khởi hành sáng sớm 06:30, qua rặng cây cổ thụ Ao Bà Om và chiêm bái nghệ thuật điêu khắc tượng gỗ Chùa Hang.
-                        </p>
-                        <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-700 text-xs text-outline dark:text-zinc-400">
-                            <span>Hoàn thành 25/10/2024 • 3 giờ 45 phút</span>
-                            <button type="button" onclick="window.ViVuApp.shareProfileStory()" class="text-secondary dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[16px]">share</span> Chia sẻ
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex flex-col gap-3 border border-outline-variant/20 dark:border-zinc-700">
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-sm text-on-surface dark:text-zinc-100">Vòng quanh Miệt vườn Cù Lao Tân Quy</span>
-                            <span class="text-xs font-semibold text-secondary dark:text-emerald-400">22.5 km</span>
-                        </div>
-                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
-                            Đạp xe dọc bờ sông Hậu rợp bóng dừa nước, thưởng thức chôm chôm chín cây và dừa sáp Cầu Kè.
-                        </p>
-                        <div class="flex items-center justify-between pt-2 border-t border-outline-variant/20 dark:border-zinc-700 text-xs text-outline dark:text-zinc-400">
-                            <span>Hoàn thành 12/10/2024 • 4 giờ 15 phút</span>
-                            <button type="button" onclick="window.ViVuApp.shareProfileStory()" class="text-secondary dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[16px]">share</span> Chia sẻ
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <h3 class="font-bold text-base sm:text-lg text-on-surface dark:text-zinc-100">Chưa có dữ liệu hành trình GPS thực tế</h3>
+                <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-md leading-relaxed">
+                    Nhật ký hành trình và quãng đường chỉ được ghi nhận khi bạn thực hiện chuyến đi thực tế trên địa bàn Trà Vinh. Dữ liệu mẫu đã được gỡ bỏ khỏi tài khoản của bạn.
+                </p>
+                <button type="button" onclick="window.ViVuApp.closeProfileModal(); window.location.hash='#/planner';" class="mt-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-secondary transition-all">Lên kế hoạch chuyến đi</button>
             </div>
             ` : activeTab === 'my-content' ? `
             ${renderMyContentTabContent(typeof window !== 'undefined' && window.ViVuApp?.getUserUgcState ? window.ViVuApp.getUserUgcState() : {}, isAuth)}
             ` : `
             <!-- Reviews & Contributions Tab -->
-            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-xl font-bold text-on-surface dark:text-zinc-100">Bài Viết &amp; Đánh Giá Đã Đăng (18)</h2>
-                        <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-0.5">Chia sẻ cảm nhận ẩm thực và hướng dẫn văn hóa cho du khách phương xa</p>
-                    </div>
+            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-6 sm:p-8 shadow-sm border border-outline-variant/30 dark:border-zinc-800 text-center flex flex-col items-center gap-3">
+                <div class="w-14 h-14 rounded-2xl bg-surface-container-high dark:bg-zinc-800 text-outline dark:text-zinc-400 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[32px]">rate_review</span>
                 </div>
-                <div class="space-y-4">
-                    <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex flex-col gap-2.5 border border-outline-variant/20 dark:border-zinc-700">
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-sm text-on-surface dark:text-zinc-100">Đánh giá 5 sao cho Bún Nước Lèo Cô Ba Xứ Trà</span>
-                            <span class="text-xs text-outline dark:text-zinc-400">3 ngày trước</span>
-                        </div>
-                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
-                            "Nước lèo nấu từ cá lóc đồng và mắm bò hóc thơm lừng, thịt quay giòn rụm không ngấy, ăn kèm đĩa rau ghém hoa chuối tươi ngon tuyệt đỉnh!"
-                        </p>
-                        <div class="flex items-center gap-2 text-xs text-secondary dark:text-emerald-400 font-semibold">
-                            <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">recommend</span>
-                            <span>Đóng góp trải nghiệm cộng đồng</span>
-                        </div>
-                    </div>
-                </div>
+                <h3 class="font-bold text-base sm:text-lg text-on-surface dark:text-zinc-100">Chưa có đánh giá thực tế được phê duyệt</h3>
+                <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-md leading-relaxed">
+                    Bạn có thể đóng góp bài viết cảm nhận, cẩm nang du lịch hoặc chia sẻ hình ảnh tại mục "Nội dung của tôi" hoặc chuyên mục Cộng đồng ViVu Trà Vinh.
+                </p>
+                <button type="button" onclick="window.ViVuApp.switchProfileTab('my-content')" class="mt-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-secondary transition-all">Xem nội dung của tôi</button>
             </div>
             `}
         </div>
@@ -6909,17 +6849,17 @@ export function renderSavedCollectionsModalContent(savedItems = [], folders = []
 /**
  * Render Redeem Gift Modal Content
  */
-export function renderRedeemGiftModalContent(gifts = [], userCoins = 1250) {
+export function renderRedeemGiftModalContent(gifts = [], userCoins = 0) {
     return `
         <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 border border-outline-variant/30 dark:border-zinc-800">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">redeem</span>
+                        <span class="material-symbols-outlined text-[24px]">military_tech</span>
                     </div>
                     <div>
-                        <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Đổi Quà Xứ Trà</h3>
-                        <p class="text-xs text-on-surface-variant dark:text-zinc-400">Số dư hiện tại: <strong class="text-amber-600 dark:text-amber-400">${userCoins.toLocaleString()} Xu</strong></p>
+                        <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Huy hiệu &amp; Danh hiệu</h3>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400">Điểm đóng góp hiện tại: <strong class="text-amber-600 dark:text-amber-400">${Number(userCoins || 0).toLocaleString()} Điểm</strong></p>
                     </div>
                 </div>
                 <button type="button" onclick="window.ViVuApp.closeRedeemGiftModal()"
@@ -6928,24 +6868,24 @@ export function renderRedeemGiftModalContent(gifts = [], userCoins = 1250) {
                 </button>
             </div>
 
-            <div class="space-y-3 max-h-[60vh] overflow-y-auto no-scrollbar">
-                ${gifts.map(gift => `
-                    <div class="p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex items-center justify-between gap-3 border border-outline-variant/20 dark:border-zinc-700">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-10 h-10 rounded-xl bg-secondary/10 dark:bg-emerald-950 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
-                                <span class="material-symbols-outlined text-[20px]">${gift.icon}</span>
-                            </div>
-                            <div class="min-w-0">
-                                <div class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100 truncate">${escapeHtml(gift.name)}</div>
-                                <div class="text-[11px] text-outline dark:text-zinc-400 line-clamp-1">${escapeHtml(gift.desc)}</div>
-                            </div>
-                        </div>
-                        <button type="button" onclick="window.ViVuApp.redeemGift('${gift.id}')"
-                            class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#EA580C] to-amber-600 hover:from-[#C2410C] hover:to-amber-700 text-white font-bold text-xs shrink-0 min-h-[44px]">
-                            ${gift.cost} Xu
-                        </button>
-                    </div>
-                `).join('')}
+            <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex flex-col gap-2">
+                <div class="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs sm:text-sm">
+                    <span class="material-symbols-outlined text-[18px]">info</span>
+                    <span>Tính năng đổi quà vật chất đang tạm ẩn</span>
+                </div>
+                <p class="text-xs text-amber-900/80 dark:text-amber-200/80 leading-relaxed">
+                    Giai đoạn này hệ thống ViVu Trà Vinh tập trung vinh danh người dùng thông qua <strong>Huy hiệu, Danh hiệu và Bảng xếp hạng đóng góp</strong>. Chưa áp dụng phần thưởng vật chất.
+                </p>
+                <p class="text-[11px] text-amber-900/70 dark:text-amber-300/70 mt-1">
+                    Toàn bộ điểm đóng góp của bạn vẫn được tích lũy đầy đủ và bảo toàn để sẵn sàng cho các chương trình tri ân ở các giai đoạn sau.
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="window.ViVuApp.closeRedeemGiftModal(); window.ViVuApp.switchProfileTab('overview');"
+                    class="px-4 py-2.5 rounded-xl bg-primary text-white text-xs sm:text-sm font-semibold hover:bg-secondary transition-all min-h-[44px]">
+                    Xem Huy hiệu &amp; Bảng vinh danh
+                </button>
             </div>
         </div>
     `;
@@ -7632,11 +7572,11 @@ export function renderSecurityModalContent(secState, activeTab = 'security') {
                                 <div class="flex items-start justify-between gap-4">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-2">
-                                            <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Thành tích &amp; Huy hiệu Eco</h4>
-                                            <span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold">+Xu Xứ Trà</span>
+                                            <h4 class="font-bold text-xs sm:text-sm text-on-surface dark:text-zinc-100">Thành tích &amp; Điểm đóng góp</h4>
+                                            <span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold">+Điểm đóng góp</span>
                                         </div>
                                         <p class="text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">
-                                            Chúc mừng mở khóa huy hiệu mới, cộng điểm thưởng Xu Xứ Trà khi hoàn thành km xanh.
+                                            Thông báo mở khóa huy hiệu mới và cộng điểm đóng góp khi nội dung của bạn được duyệt.
                                         </p>
                                     </div>
                                     <button type="button" role="switch" aria-checked="${notifs.pushBadges ? 'true' : 'false'}"
