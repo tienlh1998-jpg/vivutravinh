@@ -104,8 +104,32 @@ async function inspectProduction() {
       console.log(`   -> Cột "contributor": ${hasContributor ? 'CÓ' : 'KHÔNG'}`);
     }
 
+    // Kiểm tra cột metadata trên community_posts và articles (bắt buộc cho cờ loại trừ test/mock)
+    console.log('\n4. KIỂM TRA CỘT METADATA TRÊN BẢNG COMMUNITY_POSTS & ARTICLES:');
+    let missingColumns = [];
+    if (definitions.community_posts) {
+      const cpCols = Object.keys(definitions.community_posts.properties || {});
+      const hasCpMeta = cpCols.includes('metadata');
+      if (hasCpMeta) {
+        console.log('   ✓ Cột "metadata" trong community_posts: ĐÃ TỒN TẠI');
+      } else {
+        console.log('   ❌ Cột "metadata" trong community_posts: CHƯA CÓ (Cần chạy: ALTER TABLE public.community_posts ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT \'{}\'::jsonb;)');
+        missingColumns.push('community_posts.metadata');
+      }
+    }
+    if (definitions.articles) {
+      const artCols = Object.keys(definitions.articles.properties || {});
+      const hasArtMeta = artCols.includes('metadata');
+      if (hasArtMeta) {
+        console.log('   ✓ Cột "metadata" trong articles: ĐÃ TỒN TẠI');
+      } else {
+        console.log('   ❌ Cột "metadata" trong articles: CHƯA CÓ (Cần chạy: ALTER TABLE public.articles ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT \'{}\'::jsonb;)');
+        missingColumns.push('articles.metadata');
+      }
+    }
+
     // Đối chiếu các bảng mới của G15
-    console.log('\n4. KIỂM TRA CÁC BẢNG MỚI CỦA G15 TRÊN PRODUCTION:');
+    console.log('\n5. KIỂM TRA CÁC BẢNG MỚI CỦA G15 TRÊN PRODUCTION:');
     const g15Tables = ['point_transactions', 'user_contribution_points', 'user_badges', 'monthly_honors', 'v_user_contribution_points'];
     for (const t of g15Tables) {
       if (definitions[t]) {

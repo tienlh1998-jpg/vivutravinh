@@ -19,12 +19,18 @@
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 1. CẬP NHẬT BẢNG PLACES: Bổ sung user_id liên kết với auth.users
+-- 1. CẬP NHẬT SCHEMA BẢNG HIỆN HỮU: Bổ sung user_id và metadata
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.places 
   ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_places_user_id ON public.places(user_id);
+
+ALTER TABLE public.community_posts 
+  ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
+
+ALTER TABLE public.articles 
+  ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
 
 -- ----------------------------------------------------------------------------
 -- 2. BẢNG POINT_TRANSACTIONS: Lịch sử sổ cái điểm đóng góp

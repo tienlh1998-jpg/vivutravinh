@@ -1,9 +1,15 @@
 /**
  * scripts/verify-g15-live-db.cjs
  *
- * Kiểm tra trạng thái triển khai migration G15 trên CSDL Supabase Live (foyraoimhksfvlxndwxr):
- * - Bảng: point_transactions, user_contribution_points, user_badges, monthly_honors
- * - RPCs: select_user_title, get_contribution_leaderboard, admin_confirm_monthly_honors, admin_moderate_entity_atomic (G15)
+ * Kiểm tra trạng thái triển khai schema G15 trên CSDL Supabase Live (foyraoimhksfvlxndwxr):
+ * - Bảng mới: point_transactions, user_contribution_points, user_badges, monthly_honors
+ * - View mới: v_user_contribution_points
+ * - Cột bổ sung trên bảng hiện hữu:
+ *     + places.user_id (liên kết auth.users để cộng điểm địa điểm)
+ *     + community_posts.metadata (lưu cờ loại trừ test/mock)
+ *     + articles.metadata (lưu cờ loại trừ test/mock)
+ * - RPCs: select_user_title, get_contribution_leaderboard, admin_confirm_monthly_honors,
+ *         admin_moderate_entity_atomic, admin_update_place_atomic
  */
 
 const fs = require('fs');
@@ -29,6 +35,29 @@ if (!urlMatch || !keyMatch) {
 const supabaseUrl = urlMatch[0];
 const serviceKey = keyMatch[1];
 
+let cachedOpenApi = null;
+
+async function getOpenApi() {
+  if (cachedOpenApi) return cachedOpenApi;
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/`, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        Accept: 'application/openapi+json'
+      }
+    });
+    if (res.ok) {
+      cachedOpenApi = await res.json();
+    } else {
+      cachedOpenApi = { paths: {}, definitions: {} };
+    }
+  } catch (e) {
+    cachedOpenApi = { paths: {}, definitions: {} };
+  }
+  return cachedOpenApi;
+}
+
 async function checkTable(tableName) {
   try {
     const res = await fetch(`${supabaseUrl}/rest/v1/${tableName}?select=count`, {
@@ -44,79 +73,99 @@ async function checkTable(tableName) {
   }
 }
 
-let cachedOpenApiPaths = null;
+async function checkColumn(tableName, columnName) {
+  const openapi = await getOpenApi();
+  const def = openapi.definitions?.[tableName];
+  if (!def || !def.properties) return false;
+  return Object.prototype.hasOwnProperty.call(def.properties, columnName);
+}
 
 async function checkRpc(rpcName) {
-  try {
-    if (!cachedOpenApiPaths) {
-      const res = await fetch(`${supabaseUrl}/rest/v1/`, {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-          Accept: 'application/openapi+json'
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        cachedOpenApiPaths = Object.keys(data.paths || {});
-      } else {
-        cachedOpenApiPaths = [];
-      }
-    }
-    return cachedOpenApiPaths.includes(`/rpc/${rpcName}`);
-  } catch (e) {
-    return false;
-  }
+  const openapi = await getOpenApi();
+  const paths = Object.keys(openapi.paths || {});
+  return paths.includes(`/rpc/${rpcName}`);
 }
 
 async function verifyLiveDb() {
   console.log('================================================================================');
-  console.log(' KIỂM TRA TRẠNG THÁI TRIỂN KHAI G15 TRÊN SUPABASE LIVE');
+  console.log(' KIỂM TRA TRẠNG THÁI TRIỂN KHAI VÀ TOÀN VẸN SCHEMA G15 TRÊN SUPABASE LIVE');
   console.log(` Mục tiêu: ${supabaseUrl}`);
   console.log('================================================================================\n');
 
+  // 1. Kiểm tra các bảng mới
   const tables = ['point_transactions', 'user_contribution_points', 'user_badges', 'monthly_honors'];
-  const rpcs = ['select_user_title', 'get_contribution_leaderboard', 'admin_confirm_monthly_honors'];
-
+  console.log('[1/4] Kiểm tra các bảng nghiệp vụ điểm và huy hiệu mới:');
   let allTablesReady = true;
   for (const table of tables) {
     const exists = await checkTable(table);
     if (exists) {
       console.log(`  ✓ Bảng public.${table}: ĐÃ TỒN TẠI VÀ SẴN SÀNG`);
     } else {
-      console.log(`  ⚠️ Bảng public.${table}: CHƯA TỒN TẠI (Cần chạy migration SQL)`);
+      console.log(`  ❌ Bảng public.${table}: CHƯA TỒN TẠI`);
       allTablesReady = false;
     }
   }
 
-  console.log('');
+  // 2. Kiểm tra View
+  console.log('\n[2/4] Kiểm tra View tính điểm tự động theo kỳ:');
+  const viewExists = await checkTable('v_user_contribution_points');
+  if (viewExists) {
+    console.log('  ✓ View public.v_user_contribution_points: ĐÃ TỒN TẠI VÀ SẴN SÀNG');
+  } else {
+    console.log('  ❌ View public.v_user_contribution_points: CHƯA TỒN TẠI');
+  }
+
+  // 3. Kiểm tra các cột bắt buộc trên các bảng hiện hữu (Phát hiện thiếu cột trước khi chạy code)
+  console.log('\n[3/4] Kiểm tra các cột bắt buộc trên bảng hiện hữu:');
+  const requiredColumns = [
+    { table: 'places', column: 'user_id', desc: 'Liên kết tác giả để ghi điểm đóng góp địa điểm' },
+    { table: 'community_posts', column: 'metadata', desc: 'Lưu cờ loại trừ test/mock khi tính điểm bài cộng đồng' },
+    { table: 'articles', column: 'metadata', desc: 'Lưu cờ loại trừ test/mock khi tính điểm bài blog' }
+  ];
+
+  let allColumnsReady = true;
+  for (const req of requiredColumns) {
+    const exists = await checkColumn(req.table, req.column);
+    if (exists) {
+      console.log(`  ✓ Cột public.${req.table}.${req.column}: ĐÃ TỒN TẠI (${req.desc})`);
+    } else {
+      console.log(`  ❌ Cột public.${req.table}.${req.column}: CHƯA TỒN TẠI - ${req.desc}`);
+      allColumnsReady = false;
+    }
+  }
+
+  // 4. Kiểm tra các hàm RPC
+  console.log('\n[4/4] Kiểm tra các hàm RPC Stored Functions G15:');
+  const rpcs = [
+    'select_user_title',
+    'get_contribution_leaderboard',
+    'admin_confirm_monthly_honors',
+    'admin_moderate_entity_atomic',
+    'admin_update_place_atomic'
+  ];
+
   let allRpcsReady = true;
   for (const rpc of rpcs) {
     const exists = await checkRpc(rpc);
     if (exists) {
-      console.log(`  ✓ Hàm RPC public.${rpc}: ĐÃ TỒN TẠI`);
+      console.log(`  ✓ Hàm RPC public.${rpc}: ĐÃ TỒN TẠI VÀ SẴN SÀNG`);
     } else {
-      console.log(`  ⚠️ Hàm RPC public.${rpc}: CHƯA TỒN TẠI (Cần chạy migration SQL)`);
+      console.log(`  ❌ Hàm RPC public.${rpc}: CHƯA TỒN TẠI`);
       allRpcsReady = false;
     }
   }
 
   console.log('\n--------------------------------------------------------------------------------');
-  if (allTablesReady && allRpcsReady) {
-    console.log(' ✅ CƠ SỞ DỮ LIỆU SUPABASE LIVE ĐÃ ĐƯỢC CẬP NHẬT MIGRATION G15 HOÀN TẤT!');
-    console.log(' Hệ thống sẵn sàng cho việc Commit, Push và Deploy lên Production.');
-    process.exit(0);
+  if (allTablesReady && viewExists && allColumnsReady && allRpcsReady) {
+    console.log(' ✅ CƠ SỞ DỮ LIỆU SUPABASE LIVE ĐÃ ĐẦY ĐỦ 100% SCHEMA VÀ CỘT CỦA G15!');
+    console.log(' Toàn bộ bảng, view, cột và RPC sẵn sàng cho kiểm thử tài khoản thật.');
   } else {
-    console.log(' ⏸️ CSDL Supabase Live CHƯA CHẠY migration G15.');
-    console.log(' Hướng dẫn thực hiện:');
-    console.log(' 1. Truy cập Supabase Dashboard:');
-    console.log('    https://supabase.com/dashboard/project/foyraoimhksfvlxndwxr/sql/new');
-    console.log(' 2. Sao chép và dán toàn bộ nội dung file:');
-    console.log('    supabase/g15_contribution_points_and_badges.sql');
-    console.log(' 3. Nhấn "Run" để áp dụng migration.');
-    console.log(' 4. Sau đó chạy lại lệnh: node scripts/verify-g15-live-db.cjs để xác nhận.');
+    console.log(' ❌ CSDL Supabase Live còn thiếu bảng, view hoặc cột.');
     process.exit(1);
   }
 }
 
-verifyLiveDb();
+verifyLiveDb().catch(err => {
+  console.error('Lỗi khi kiểm tra CSDL Supabase Live:', err);
+  process.exit(1);
+});
