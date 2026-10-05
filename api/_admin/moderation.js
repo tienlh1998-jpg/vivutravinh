@@ -155,6 +155,11 @@ async function handleGetModerationList(request, response, adminContext) {
       articles: Array.isArray(articles) ? articles : [],
       activities: Array.isArray(activities) ? activities : [],
       kpi: {
+        pendingTotal: (Array.isArray(posts) ? posts.filter(p => p.status === 'pending').length : 0) +
+                      (Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0) +
+                      (Array.isArray(events) ? events.filter(e => e.status === 'pending').length : 0) +
+                      (Array.isArray(articles) ? articles.filter(a => a.status === 'pending').length : 0) +
+                      (Array.isArray(activities) ? activities.filter(act => act.status === 'pending').length : 0),
         pendingPosts: Array.isArray(posts) ? posts.filter(p => p.status === 'pending').length : 0,
         pendingClubs: Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0,
         pendingEvents: Array.isArray(events) ? events.filter(e => e.status === 'pending').length : 0,

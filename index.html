@@ -319,7 +319,7 @@
                                 <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">admin_panel_settings</span>
                                 <span>Kiểm duyệt nội dung</span>
                             </div>
-                            <span class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-badge text-[11px] font-bold leading-none shadow-xs">11</span>
+                            <span id="sidebarAdminModerationBadge" class="hidden px-2 py-0.5 rounded-full bg-rose-600 text-white font-badge text-[11px] font-bold leading-none shadow-xs">0</span>
                         </a>
                         <a href="#" onclick="window.ViVuApp?.openAdminSupportModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">volunteer_activism</span>
@@ -999,7 +999,7 @@
                                             <span id="newPostCheckinAddress" class="text-[11px] text-orange-700 dark:text-orange-300 truncate"></span>
                                         </div>
                                     </div>
-                                    <button type="button" onclick="window.ViVuApp.clearCommunityPostCheckin()" class="text-orange-700 dark:text-orange-300 hover:text-red-600 text-xs font-bold px-2 py-1 rounded hover:bg-orange-100 dark:hover:bg-orange-900/50 min-h-[36px] flex items-center justify-center shrink-0" title="Bỏ chọn địa điểm">
+                                    <button type="button" id="clearCommunityPostCheckinBtn" onclick="window.ViVuApp.clearCommunityPostCheckin()" class="text-orange-700 dark:text-orange-300 hover:text-red-600 text-xs font-bold px-2 py-1 rounded hover:bg-orange-100 dark:hover:bg-orange-900/50 min-h-[36px] flex items-center justify-center shrink-0" title="Bỏ chọn địa điểm">
                                         <span>Bỏ chọn</span>
                                     </button>
                                 </div>
@@ -1011,7 +1011,7 @@
                                             <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">add_photo_alternate</span>
                                             <span>Ảnh</span>
                                         </button>
-                                        <button type="button" onclick="window.ViVuApp.promptAddPostLocation()"
+                                        <button type="button" id="communityPostCheckinBtn" onclick="window.ViVuApp.promptAddPostLocation()"
                                             class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-colors text-xs font-semibold min-h-[44px]">
                                             <span class="material-symbols-outlined text-[18px] text-orange-500">location_on</span>
                                             <span>Check-in địa điểm</span>
@@ -3014,6 +3014,8 @@
                 </div>
             </div>
         </div>
+    </div>
+
     <!-- 39. MODAL CHECK-IN ĐỊA ĐIỂM CÔNG KHAI -->
     <div id="communityCheckinModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="communityCheckinModalTitle">
         <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeCommunityCheckinModal()"></div>

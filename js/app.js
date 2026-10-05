@@ -6013,22 +6013,66 @@ export async function promptAddPostLocation() {
     const modal = document.getElementById('communityCheckinModal');
     if (!modal) return;
     modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
 
     const searchInput = document.getElementById('communityCheckinSearchInput');
     if (searchInput) {
         searchInput.value = '';
-        searchInput.focus();
+        setTimeout(() => searchInput.focus(), 60);
     }
 
-    let places = state.allPlaces || [];
-    if (places.length === 0 && window.ViVuData?.loadPlaces) {
-        try {
+    const container = document.getElementById('communityCheckinPlacesList');
+
+    if (Array.isArray(state.allPlaces) && state.allPlaces.length > 0) {
+        renderCheckinPlacesList(state.allPlaces);
+        return;
+    }
+
+    // Hiển thị trạng thái đang tải
+    if (container) {
+        container.innerHTML = `
+            <div class="py-8 flex flex-col items-center justify-center gap-3 text-center">
+                <div class="w-8 h-8 rounded-full border-3 border-orange-500 border-t-transparent animate-spin"></div>
+                <p class="text-xs font-medium text-on-surface-variant dark:text-zinc-400">Đang tải danh sách địa điểm công khai...</p>
+            </div>
+        `;
+    }
+
+    try {
+        let places = [];
+        if (window.ViVuData?.loadPlaces) {
             places = await window.ViVuData.loadPlaces();
-            state.allPlaces = places;
-        } catch (_) {}
+        } else {
+            const res = await fetch('/api/places');
+            if (res.ok) places = await res.json();
+        }
+        state.allPlaces = Array.isArray(places) ? places : [];
+        renderCheckinPlacesList(state.allPlaces);
+    } catch (err) {
+        console.warn('[Checkin] Lỗi tải địa điểm:', err.message);
+        if (container) {
+            container.innerHTML = `
+                <div class="py-6 flex flex-col items-center justify-center gap-2 text-center text-xs">
+                    <span class="material-symbols-outlined text-rose-500 text-3xl">cloud_off</span>
+                    <p class="font-semibold text-rose-600 dark:text-rose-400">Không thể tải danh sách địa điểm</p>
+                    <p class="text-outline dark:text-zinc-500 text-[11px]">Vui lòng kiểm tra kết nối mạng và thử lại.</p>
+                    <button type="button" onclick="window.ViVuApp.retryLoadCheckinPlaces()"
+                        class="mt-2 px-3 py-1.5 rounded-lg bg-orange-500 text-white font-bold text-xs hover:bg-orange-600 transition-colors min-h-[36px]">
+                        Thử lại
+                    </button>
+                </div>
+            `;
+        }
     }
+}
 
-    renderCheckinPlacesList(places);
+/**
+ * Thử tải lại danh sách địa điểm check-in
+ */
+export async function retryLoadCheckinPlaces() {
+    state.allPlaces = [];
+    await promptAddPostLocation();
 }
 
 /**
@@ -6036,7 +6080,11 @@ export async function promptAddPostLocation() {
  */
 export function closeCommunityCheckinModal() {
     const modal = document.getElementById('communityCheckinModal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+    }
 }
 
 /**
@@ -8785,6 +8833,92 @@ export function confirmSimulatedDonation(amount) {
 }
 
 /**
+ * Cập nhật số lượng hiển thị trên Badge Sidebar Admin Moderation
+ */
+export function updateAdminModerationBadge(count) {
+    const badge = document.getElementById('sidebarAdminModerationBadge');
+    if (!badge) return;
+    const num = typeof count === 'number' ? count : (state.moderationKpi?.pendingCount || 0);
+    if (num > 0) {
+        badge.textContent = String(num);
+        badge.classList.remove('hidden');
+    } else {
+        badge.textContent = '0';
+        badge.classList.add('hidden');
+    }
+}
+
+/**
+ * Tính toán lại tổng số mục đang thực sự chờ duyệt (status === 'pending')
+ */
+export function syncAndRecalculateModerationPending() {
+    const pPosts = (state.moderationPosts || []).filter(p => p.status === 'pending').length;
+    const pClubs = (state.moderationClubs || []).filter(c => c.status === 'pending').length;
+    const pActs = (state.moderationActivities || []).filter(a => a.status === 'pending').length;
+    const pEvents = (state.moderationEvents || []).filter(e => e.status === 'pending').length;
+    const pArticles = (state.moderationArticles || []).filter(a => a.status === 'pending').length;
+    const total = pPosts + pClubs + pActs + pEvents + pArticles;
+
+    state.moderationKpi = {
+        ...(state.moderationKpi || {}),
+        pendingCount: total,
+        pendingPostsCount: pPosts,
+        pendingClubsCount: pClubs,
+        pendingActivitiesCount: pActs,
+        pendingEventsCount: pEvents,
+        pendingArticlesCount: pArticles
+    };
+    updateAdminModerationBadge(total);
+    return total;
+}
+
+/**
+ * Tải và làm mới số lượng chờ duyệt từ database/API
+ */
+export async function refreshAdminModerationCounts() {
+    const session = getAdminSession();
+    const role = session?.user?.role;
+    const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
+    if (!isAdmin) {
+        updateAdminModerationBadge(0);
+        return;
+    }
+
+    try {
+        const token = await getValidAdminToken();
+        if (!token) return;
+        const res = await fetch('/api/admin-moderation?status=pending', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            const pPosts = Array.isArray(data.posts) ? data.posts.filter(p => p.status === 'pending').length : 0;
+            const pClubs = Array.isArray(data.clubs) ? data.clubs.filter(c => c.status === 'pending').length : 0;
+            const pActs = Array.isArray(data.activities) ? data.activities.filter(a => a.status === 'pending').length : 0;
+            const pEvents = Array.isArray(data.events) ? data.events.filter(e => e.status === 'pending').length : 0;
+            const pArticles = Array.isArray(data.articles) ? data.articles.filter(a => a.status === 'pending').length : 0;
+            const total = pPosts + pClubs + pActs + pEvents + pArticles;
+
+            state.moderationKpi = {
+                ...(state.moderationKpi || {}),
+                pendingCount: total,
+                pendingPostsCount: pPosts,
+                pendingClubsCount: pClubs,
+                pendingActivitiesCount: pActs,
+                pendingEventsCount: pEvents,
+                pendingArticlesCount: pArticles
+            };
+            updateAdminModerationBadge(total);
+        }
+    } catch (e) {
+        console.warn('[AdminModeration] Lỗi cập nhật số lượng chờ duyệt:', e.message);
+        updateAdminModerationBadge(state.moderationKpi?.pendingCount || 0);
+    }
+}
+
+/**
  * Cập nhật giao diện thanh Sidebar dựa trên phiên làm việc Quản trị viên (Admin/Moderator)
  * Chỉ hiển thị mục "Kiểm duyệt nội dung" cho tài khoản quản trị thực sự từ trang admin cũ.
  */
@@ -8826,11 +8960,13 @@ export function updateAdminRoleUI() {
             userRoleEl.textContent = role === 'admin' ? 'Quản trị viên' : (role === 'editor' ? 'Biên tập viên' : 'Kiểm duyệt viên');
             userRoleEl.className = 'font-caption text-[10px] text-amber-500 font-bold';
         }
+        refreshAdminModerationCounts();
     } else {
         if (moderationLink) {
             moderationLink.classList.add('hidden');
             moderationLink.classList.remove('flex');
         }
+        updateAdminModerationBadge(0);
         if (adminLoginLink) {
             adminLoginLink.classList.remove('hidden');
             adminLoginLink.classList.add('flex');
@@ -9045,6 +9181,7 @@ export async function openAdminModerationModal(tab = 'posts') {
                         approvedToday: state.moderationKpi.approvedToday || 0,
                         pointsIssued: 0,
                         violationRate: "0%",
+                        pendingPostsCount: data.kpi.pendingPosts || 0,
                         pendingClubsCount: data.kpi.pendingClubs || 0,
                         pendingEventsCount: data.kpi.pendingEvents || 0,
                         pendingArticlesCount: data.kpi.pendingArticles || 0,
@@ -9057,6 +9194,7 @@ export async function openAdminModerationModal(tab = 'posts') {
         console.warn('[AdminModeration] Dùng dữ liệu hàng đợi cục bộ:', e.message);
     }
 
+    syncAndRecalculateModerationPending();
     renderModerationModal();
     modal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
@@ -9136,6 +9274,7 @@ export async function approvePost(postId) {
     }
 
     post.status = 'approved';
+    state.moderationPosts = state.moderationPosts.filter(p => p.id !== postId);
     state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
     saveStoredModerationPosts(state.moderationPosts);
 
@@ -9147,6 +9286,7 @@ export async function approvePost(postId) {
     }
     renderCommunityFeed();
 
+    syncAndRecalculateModerationPending();
     renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và xuất bản bài viết thành công (+50 Xu thưởng)!');
 }
@@ -9177,6 +9317,7 @@ export async function approveClub(clubId) {
 
     club.status = 'approved';
     club.isEligible = true;
+    state.moderationClubs = state.moderationClubs.filter(c => c.id !== clubId);
     saveStoredModerationClubs(state.moderationClubs);
 
     const mainClub = state.clubs.find(c => c.id === clubId);
@@ -9185,6 +9326,7 @@ export async function approveClub(clubId) {
     }
     renderClubsGrid();
 
+    syncAndRecalculateModerationPending();
     renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và cấp Tích Xanh chính thức cho CLB (+500 Xu quỹ khởi đầu)!');
 }
@@ -9214,12 +9356,14 @@ export async function approveEvent(eventId) {
     }
 
     event.status = 'approved';
+    state.moderationEvents = state.moderationEvents.filter(e => e.id !== eventId);
     state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
     saveStoredModerationEvents(state.moderationEvents);
 
     // Đồng bộ lại events công khai
     await syncCommunityEventsFromSupabase().catch(() => {});
 
+    syncAndRecalculateModerationPending();
     renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và xuất bản sự kiện cộng đồng!');
 }
@@ -9266,6 +9410,7 @@ export async function approveArticle(articleId) {
 
     await syncArticlesFromSupabase().catch(() => {});
 
+    syncAndRecalculateModerationPending();
     renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và xuất bản bài cẩm nang du lịch!');
 }
@@ -9306,6 +9451,7 @@ export async function approveClubActivity(activityId) {
 
     await syncClubActivitiesFromSupabase().catch(() => {});
 
+    syncAndRecalculateModerationPending();
     renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và xuất bản lịch sinh hoạt CLB!');
 }
@@ -9332,16 +9478,14 @@ export function closeActionReasonModal() {
 }
 
 export async function submitActionReason(actionType, targetId) {
+    const actType = actionType || state.actionReasonModalState?.actionType || '';
+    const tgtId = targetId || state.actionReasonModalState?.targetId || '';
     const input = document.getElementById('actionReasonInput');
     const reason = input ? input.value.trim() : '';
 
-    if (actionType.startsWith('reject_post')) {
-        const post = state.moderationPosts.find(p => p.id === targetId);
-        if (post) {
-            post.status = 'rejected';
-            post.rejectionReason = reason;
-            saveStoredModerationPosts(state.moderationPosts);
-        }
+    if (actType.startsWith('reject_post')) {
+        state.moderationPosts = state.moderationPosts.filter(p => p.id !== tgtId);
+        saveStoredModerationPosts(state.moderationPosts);
         try {
             const token = await getValidAdminToken();
             if (token) {
@@ -9353,7 +9497,7 @@ export async function submitActionReason(actionType, targetId) {
                     },
                     body: JSON.stringify({
                         entity_type: 'community_post',
-                        entity_id: targetId,
+                        entity_id: tgtId,
                         action: 'reject',
                         reason: reason || 'Nội dung không phù hợp tiêu chuẩn cộng đồng.'
                     })
@@ -9363,21 +9507,17 @@ export async function submitActionReason(actionType, targetId) {
             console.warn('[Moderation] API reject post error:', e.message);
         }
         showSavedToast('Đã từ chối bài viết và gửi lý do cho người đăng.');
-    } else if (actionType.startsWith('edit_post')) {
-        const post = state.moderationPosts.find(p => p.id === targetId);
+    } else if (actType.startsWith('edit_post')) {
+        const post = state.moderationPosts.find(p => p.id === tgtId);
         if (post) {
             post.status = 'needs_edit';
             post.editRequestReason = reason;
             saveStoredModerationPosts(state.moderationPosts);
         }
         showSavedToast('Đã gửi thông báo yêu cầu tác giả chỉnh sửa bổ sung thông tin.');
-    } else if (actionType.startsWith('reject_club')) {
-        const club = state.moderationClubs.find(c => c.id === targetId);
-        if (club) {
-            club.status = 'rejected';
-            club.rejectionReason = reason;
-            saveStoredModerationClubs(state.moderationClubs);
-        }
+    } else if (actType.startsWith('reject_club')) {
+        state.moderationClubs = state.moderationClubs.filter(c => c.id !== tgtId);
+        saveStoredModerationClubs(state.moderationClubs);
         try {
             const token = await getValidAdminToken();
             if (token) {
@@ -9389,7 +9529,7 @@ export async function submitActionReason(actionType, targetId) {
                     },
                     body: JSON.stringify({
                         entity_type: 'club',
-                        entity_id: targetId,
+                        entity_id: tgtId,
                         action: 'reject',
                         reason: reason || 'Hồ sơ CLB không đạt tiêu chuẩn điều lệ.'
                     })
@@ -9399,21 +9539,17 @@ export async function submitActionReason(actionType, targetId) {
             console.warn('[Moderation] API reject club error:', e.message);
         }
         showSavedToast('Đã từ chối hồ sơ CLB và gửi lý do thẩm định.');
-    } else if (actionType.startsWith('request_club_info')) {
-        const club = state.moderationClubs.find(c => c.id === targetId);
+    } else if (actType.startsWith('request_club_info')) {
+        const club = state.moderationClubs.find(c => c.id === tgtId);
         if (club) {
             club.status = 'needs_info';
             club.infoRequestReason = reason;
             saveStoredModerationClubs(state.moderationClubs);
         }
         showSavedToast('Đã gửi yêu cầu bổ sung thông tin cho Trưởng nhóm CLB.');
-    } else if (actionType.startsWith('reject_event')) {
-        const event = state.moderationEvents.find(e => e.id === targetId);
-        if (event) {
-            event.status = 'rejected';
-            event.rejectionReason = reason;
-            saveStoredModerationEvents(state.moderationEvents);
-        }
+    } else if (actType.startsWith('reject_event')) {
+        state.moderationEvents = state.moderationEvents.filter(e => e.id !== tgtId);
+        saveStoredModerationEvents(state.moderationEvents);
         try {
             const token = await getValidAdminToken();
             if (token) {
@@ -9425,7 +9561,7 @@ export async function submitActionReason(actionType, targetId) {
                     },
                     body: JSON.stringify({
                         entity_type: 'community_event',
-                        entity_id: targetId,
+                        entity_id: tgtId,
                         action: 'reject',
                         reason: reason || 'Nội dung sự kiện không phù hợp tiêu chuẩn.'
                     })
@@ -9435,12 +9571,8 @@ export async function submitActionReason(actionType, targetId) {
             console.warn('[Moderation] API reject event error:', e.message);
         }
         showSavedToast('Đã từ chối sự kiện và lưu lý do thẩm định.');
-    } else if (actionType.startsWith('reject_article')) {
-        const article = (state.moderationArticles || []).find(a => a.id === targetId);
-        if (article) {
-            article.status = 'rejected';
-            article.rejectionReason = reason;
-        }
+    } else if (actType.startsWith('reject_article')) {
+        state.moderationArticles = (state.moderationArticles || []).filter(a => a.id !== tgtId);
         try {
             const token = await getValidAdminToken();
             if (token) {
@@ -9452,7 +9584,7 @@ export async function submitActionReason(actionType, targetId) {
                     },
                     body: JSON.stringify({
                         entity_type: 'article',
-                        entity_id: targetId,
+                        entity_id: tgtId,
                         action: 'reject',
                         reason: reason || 'Nội dung chưa đáp ứng tiêu chuẩn cẩm nang du lịch.'
                     })
@@ -9461,17 +9593,12 @@ export async function submitActionReason(actionType, targetId) {
         } catch (e) {
             console.warn('[Moderation] API reject article error:', e.message);
         }
-        state.moderationArticles = (state.moderationArticles || []).filter(a => a.id !== targetId);
-        if (state.selectedModerationArticleId === targetId) {
+        if (state.selectedModerationArticleId === tgtId) {
             state.selectedModerationArticleId = state.moderationArticles[0]?.id || null;
         }
         showSavedToast('Đã từ chối bài cẩm nang và lưu lý do thẩm định.');
-    } else if (actionType.startsWith('reject_activity')) {
-        const act = (state.moderationActivities || []).find(a => a.id === targetId);
-        if (act) {
-            act.status = 'rejected';
-            act.rejectionReason = reason;
-        }
+    } else if (actType.startsWith('reject_activity')) {
+        state.moderationActivities = (state.moderationActivities || []).filter(a => a.id !== tgtId);
         try {
             const token = await getValidAdminToken();
             if (token) {
@@ -9483,7 +9610,7 @@ export async function submitActionReason(actionType, targetId) {
                     },
                     body: JSON.stringify({
                         entity_type: 'club_activity',
-                        entity_id: targetId,
+                        entity_id: tgtId,
                         action: 'reject',
                         reason: reason || 'Lịch sinh hoạt chưa đáp ứng tiêu chuẩn cộng đồng.'
                     })
@@ -9492,13 +9619,13 @@ export async function submitActionReason(actionType, targetId) {
         } catch (e) {
             console.warn('[Moderation] API reject activity error:', e.message);
         }
-        state.moderationActivities = (state.moderationActivities || []).filter(a => a.id !== targetId);
-        if (state.selectedModerationActivityId === targetId) {
+        if (state.selectedModerationActivityId === tgtId) {
             state.selectedModerationActivityId = state.moderationActivities[0]?.id || null;
         }
         showSavedToast('Đã từ chối lịch sinh hoạt CLB và lưu lý do thẩm định.');
     }
 
+    syncAndRecalculateModerationPending();
     closeActionReasonModal();
     renderModerationModal();
 }
@@ -9512,8 +9639,10 @@ export function quickApproveHighTrust() {
         }
     });
     if (count > 0) {
+        state.moderationPosts = state.moderationPosts.filter(p => p.status === 'pending');
         state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + count;
         saveStoredModerationPosts(state.moderationPosts);
+        syncAndRecalculateModerationPending();
         renderModerationModal();
         showSavedToast(`✓ Đã duyệt nhanh ${count} bài viết đạt chuẩn an toàn cao!`);
     } else {
@@ -10026,6 +10155,10 @@ if (typeof window !== 'undefined') {
         getArticleCategoryName,
         sanitizeArticleContent,
         updateAdminRoleUI,
+        updateAdminModerationBadge,
+        refreshAdminModerationCounts,
+        syncAndRecalculateModerationPending,
+        retryLoadCheckinPlaces,
         // UGC Content & Rejection Lifecycle Methods (My Content)
         getUserUgcState,
         filterUserUgcContent,
