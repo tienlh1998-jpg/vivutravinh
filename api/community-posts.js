@@ -70,8 +70,8 @@ async function handleGet(request, response) {
   const selectColumns = isPrivileged
     ? '*'
     : (isOwner
-        ? 'id,club_id,author_id,author_name,author_avatar,category,title,content,images,likes_count,comments_count,status,moderation_reason,created_at,updated_at'
-        : 'id,club_id,author_id,author_name,author_avatar,category,title,content,images,likes_count,comments_count,status,created_at');
+        ? 'id,club_id,author_id,author_name,author_avatar,category,title,content,images,likes_count,comments_count,status,moderation_reason,metadata,created_at,updated_at'
+        : 'id,club_id,author_id,author_name,author_avatar,category,title,content,images,likes_count,comments_count,status,metadata,created_at');
 
   let query = `${TABLE_NAME}?select=${selectColumns}&order=created_at.desc&limit=${limit}`;
   if (effectiveStatus !== 'all') {
@@ -143,6 +143,25 @@ async function handlePost(request, response) {
     return;
   }
 
+  // Xử lý thông tin check-in địa điểm công khai vào metadata
+  let locationData = null;
+  if (body.location) {
+    if (typeof body.location === 'object' && body.location.name) {
+      locationData = {
+        id: String(body.location.id || '').trim().slice(0, 100),
+        name: String(body.location.name || '').trim().slice(0, 120),
+        address: String(body.location.address || '').trim().slice(0, 200),
+        coords: body.location.coords ? String(body.location.coords).trim().slice(0, 50) : null
+      };
+    } else if (typeof body.location === 'string' && body.location.trim()) {
+      locationData = {
+        name: body.location.trim().slice(0, 120)
+      };
+    }
+  }
+
+  const postMetadata = locationData ? { location: locationData } : {};
+
   const authorName = userContext.user.user_metadata?.display_name || userContext.user.email?.split('@')[0] || 'Thành viên Xứ Trà';
   const authorAvatar = userContext.user.user_metadata?.avatar_url || '/icons/icon.svg';
 
@@ -157,7 +176,8 @@ async function handlePost(request, response) {
     images,
     likes_count: 0,
     comments_count: 0,
-    status: requestedStatus
+    status: requestedStatus,
+    metadata: postMetadata
   };
 
   try {

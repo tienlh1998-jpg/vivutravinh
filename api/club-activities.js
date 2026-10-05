@@ -172,8 +172,8 @@ async function handlePost(request, response) {
     sendError(response, 400, 'INVALID_TITLE', 'Tiêu đề buổi sinh hoạt phải từ 3 đến 150 ký tự.');
     return;
   }
-  if (!timeSchedule || timeSchedule.length < 3) {
-    sendError(response, 400, 'INVALID_SCHEDULE', 'Thời gian sinh hoạt không được để trống.');
+  if (!timeSchedule || timeSchedule.length < 2) {
+    sendError(response, 400, 'INVALID_SCHEDULE', 'Thời gian sinh hoạt không được để trống (tối thiểu 2 ký tự, ví dụ: "9h", "08:00 - 10:00").');
     return;
   }
   if (!location || location.length < 3) {
@@ -312,8 +312,8 @@ async function handlePatch(request, response) {
     }
     if (body.time_schedule !== undefined || body.timeSchedule !== undefined || body.time !== undefined) {
       const timeSchedule = sanitizeText(body.time_schedule || body.timeSchedule || body.time);
-      if (timeSchedule.length < 3) {
-        sendError(response, 400, 'INVALID_SCHEDULE', 'Thời gian sinh hoạt không được để trống.');
+      if (timeSchedule.length < 2) {
+        sendError(response, 400, 'INVALID_SCHEDULE', 'Thời gian sinh hoạt không được để trống (tối thiểu 2 ký tự, ví dụ: "9h", "08:00 - 10:00").');
         return;
       }
       patch.time_schedule = timeSchedule;

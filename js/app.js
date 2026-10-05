@@ -5568,7 +5568,7 @@ export async function syncCommunityUgcFeed() {
             avatarUrl: p.author_avatar,
             badge: 'Thành viên',
             timeAgo: 'Gần đây',
-            location: 'Trà Vinh',
+            location: (p.metadata?.location?.name || (typeof p.location === 'object' ? p.location?.name : p.location) || 'Trà Vinh'),
             content: p.content,
             image: (p.images && p.images[0]) || null,
             likes: p.likes_count || 0,
@@ -5855,47 +5855,243 @@ export function handleCommentPrompt(postId) {
 }
 
 /**
- * Đính kèm ảnh cho bài viết mới
+ * Xử lý khi người dùng chọn tệp ảnh cho bài viết cộng đồng
+ */
+async function handleCommunityPostFileChange(event) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showNotification('Chỉ hỗ trợ tải lên tệp hình ảnh (JPEG, PNG, WebP, GIF).', 'error');
+        event.target.value = '';
+        return;
+    }
+
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_SIZE) {
+        showNotification('Dung lượng ảnh vượt quá giới hạn 5MB. Vui lòng chọn ảnh nhỏ hơn.', 'error');
+        event.target.value = '';
+        return;
+    }
+
+    const preview = document.getElementById('newPostMediaPreview');
+    const previewImg = document.getElementById('newPostMediaPreviewImg');
+    const previewText = document.getElementById('newPostMediaPreviewText');
+    const uploadStatus = document.getElementById('newPostMediaUploadStatus');
+
+    if (previewImg) {
+        try {
+            previewImg.src = URL.createObjectURL(file);
+            previewImg.classList.remove('hidden');
+        } catch (_) {}
+    }
+    if (previewText) {
+        previewText.textContent = file.name;
+    }
+    if (uploadStatus) {
+        uploadStatus.textContent = 'Đang tải lên...';
+        uploadStatus.className = 'text-[11px] font-bold text-amber-500';
+    }
+    if (preview) preview.classList.remove('hidden');
+
+    state._communityUploading = true;
+    state._communityUploadedImageUrl = null;
+
+    try {
+        const token = await getValidUserToken().catch(() => null);
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath = `reviews/community/clrev_${Date.now()}_${safeName}`;
+
+        const uploadHeaders = {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+            'Content-Type': file.type
+        };
+
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/review-photos/${filePath}`, {
+            method: 'POST',
+            headers: uploadHeaders,
+            body: file
+        });
+
+        if (!uploadRes.ok) {
+            const errBody = await uploadRes.json().catch(() => ({}));
+            throw new Error(errBody.message || errBody.error || `Mã lỗi ${uploadRes.status}`);
+        }
+
+        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/review-photos/${filePath}`;
+        state._communityUploadedImageUrl = publicUrl;
+        state._communityUploading = false;
+
+        if (uploadStatus) {
+            uploadStatus.textContent = 'Đã tải lên';
+            uploadStatus.className = 'text-[11px] font-bold text-emerald-600 dark:text-emerald-400';
+        }
+        showNotification('Đã tải lên ảnh thành công!');
+    } catch (err) {
+        state._communityUploading = false;
+        state._communityUploadedImageUrl = null;
+        console.error('[CommunityUpload] Upload error:', err);
+        if (uploadStatus) {
+            uploadStatus.textContent = 'Tải lên thất bại';
+            uploadStatus.className = 'text-[11px] font-bold text-red-500';
+        }
+        showNotification('Tải ảnh thất bại: ' + (err.message || 'Lỗi mạng.'), 'error');
+        // Không xóa nội dung đang soạn trong textarea
+    }
+}
+
+/**
+ * Đính kèm ảnh cho bài viết mới qua file input
  */
 export function promptAddPostPhoto() {
-    const samplePhotos = ['./chùa âng.jpg', './ao bà om.jpg', './cồn chim.jpg', './chùa hang.jpg', './cù lao tân qui.jpg'];
-    const chosen = samplePhotos[Math.floor(Math.random() * samplePhotos.length)];
-    state.newPostAttachment = chosen;
-
-    const preview = document.getElementById('newPostMediaPreview');
-    const previewText = document.getElementById('newPostMediaPreviewText');
-    if (preview && previewText) {
-        previewText.textContent = `📷 Đã đính kèm ảnh: ${chosen.replace(/^\.\//, '')}`;
-        preview.classList.remove('hidden');
+    const fileInput = document.getElementById('communityPostFileInput');
+    if (!fileInput) return;
+    if (!fileInput.dataset.bound) {
+        fileInput.dataset.bound = 'true';
+        fileInput.addEventListener('change', handleCommunityPostFileChange);
     }
-    showNotification('Đã đính kèm hình ảnh di sản Trà Vinh!');
+    fileInput.click();
 }
 
 /**
- * Đính kèm địa điểm check-in cho bài viết mới
- */
-export function promptAddPostLocation() {
-    const sampleLocs = ['Wat Angkor Borey (Chùa Âng)', 'Thắng cảnh Ao Bà Om', 'Khu du lịch Cồn Chim', 'Chùa Hang (Wat Kompong Nikroth)', 'Cù lao Tân Quy'];
-    const chosen = sampleLocs[Math.floor(Math.random() * sampleLocs.length)];
-    state.newPostLocation = chosen;
-
-    const preview = document.getElementById('newPostMediaPreview');
-    const previewText = document.getElementById('newPostMediaPreviewText');
-    if (preview && previewText) {
-        previewText.textContent = `📍 Đã check-in: ${chosen}`;
-        preview.classList.remove('hidden');
-    }
-    showNotification(`Đã gắn thẻ địa điểm: ${chosen}`);
-}
-
-/**
- * Xóa đính kèm bài viết mới
+ * Xóa đính kèm ảnh bài viết mới
  */
 export function clearCommunityPostAttachment() {
-    state.newPostAttachment = null;
-    state.newPostLocation = null;
+    state._communityUploadedImageUrl = null;
+    state._communityUploading = false;
+    const fileInput = document.getElementById('communityPostFileInput');
+    if (fileInput) fileInput.value = '';
     const preview = document.getElementById('newPostMediaPreview');
+    const previewImg = document.getElementById('newPostMediaPreviewImg');
+    const uploadStatus = document.getElementById('newPostMediaUploadStatus');
+    if (previewImg) {
+        previewImg.src = '';
+        previewImg.classList.add('hidden');
+    }
+    if (uploadStatus) uploadStatus.textContent = '';
     if (preview) preview.classList.add('hidden');
+}
+
+/**
+ * Render danh sách địa điểm trong modal check-in
+ */
+function renderCheckinPlacesList(places) {
+    const container = document.getElementById('communityCheckinPlacesList');
+    if (!container) return;
+
+    if (!Array.isArray(places) || places.length === 0) {
+        container.innerHTML = `
+            <div class="p-6 text-center text-xs text-outline dark:text-zinc-500">
+                Không tìm thấy địa điểm công khai phù hợp.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = places.slice(0, 30).map(p => `
+        <div onclick="window.ViVuApp.selectCheckinPlace('${escapeHtml(p.id)}')"
+            class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800/70 hover:bg-surface-container dark:hover:bg-zinc-800 transition-colors flex items-center justify-between gap-3 cursor-pointer border border-outline-variant/20 dark:border-zinc-700/40">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <span class="material-symbols-outlined text-orange-500 text-[20px] shrink-0">location_on</span>
+                <div class="flex flex-col min-w-0">
+                    <span class="text-xs font-bold text-on-surface dark:text-zinc-100 truncate">${escapeHtml(p.name)}</span>
+                    <span class="text-[11px] text-outline dark:text-zinc-400 truncate">${escapeHtml(p.address || p.area || 'Trà Vinh')}</span>
+                </div>
+            </div>
+            <button type="button" class="px-3 py-1 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 text-xs font-semibold shrink-0">
+                Chọn
+            </button>
+        </div>
+    `).join('');
+}
+
+/**
+ * Mở modal Check-in địa điểm công khai
+ */
+export async function promptAddPostLocation() {
+    const modal = document.getElementById('communityCheckinModal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+
+    const searchInput = document.getElementById('communityCheckinSearchInput');
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+    }
+
+    let places = state.allPlaces || [];
+    if (places.length === 0 && window.ViVuData?.loadPlaces) {
+        try {
+            places = await window.ViVuData.loadPlaces();
+            state.allPlaces = places;
+        } catch (_) {}
+    }
+
+    renderCheckinPlacesList(places);
+}
+
+/**
+ * Đóng modal Check-in địa điểm
+ */
+export function closeCommunityCheckinModal() {
+    const modal = document.getElementById('communityCheckinModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Tìm kiếm lọc địa điểm check-in
+ */
+export function filterCheckinPlaces(query = '') {
+    const q = (query || '').trim().toLowerCase();
+    const places = state.allPlaces || [];
+    if (!q) {
+        renderCheckinPlacesList(places);
+        return;
+    }
+    const filtered = places.filter(p => {
+        const name = (p.name || '').toLowerCase();
+        const cat = (p.category || '').toLowerCase();
+        const area = (p.area || p.address || '').toLowerCase();
+        return name.includes(q) || cat.includes(q) || area.includes(q);
+    });
+    renderCheckinPlacesList(filtered);
+}
+
+/**
+ * Chọn một địa điểm check-in
+ */
+export function selectCheckinPlace(placeId) {
+    const place = (state.allPlaces || []).find(p => p.id === placeId || p.slug === placeId);
+    if (!place) return;
+
+    state.newPostCheckin = {
+        id: place.id,
+        slug: place.slug,
+        name: place.name,
+        address: place.address || place.area || 'Trà Vinh',
+        coords: place.coordinates || null
+    };
+
+    const chip = document.getElementById('newPostCheckinChip');
+    const nameEl = document.getElementById('newPostCheckinName');
+    const addrEl = document.getElementById('newPostCheckinAddress');
+
+    if (nameEl) nameEl.textContent = place.name;
+    if (addrEl) addrEl.textContent = place.address || place.area || 'Trà Vinh';
+    if (chip) chip.classList.remove('hidden');
+
+    closeCommunityCheckinModal();
+    showNotification(`Đã gắn thẻ check-in: ${place.name}`);
+}
+
+/**
+ * Bỏ chọn địa điểm check-in
+ */
+export function clearCommunityPostCheckin() {
+    state.newPostCheckin = null;
+    const chip = document.getElementById('newPostCheckinChip');
+    if (chip) chip.classList.add('hidden');
 }
 
 let pendingAuthCallback = null;
@@ -6059,6 +6255,11 @@ export async function submitNewCommunityPost() {
         return;
     }
 
+    if (state._communityUploading) {
+        showNotification('Đang trong quá trình tải ảnh lên, vui lòng chờ trong giây lát!');
+        return;
+    }
+
     // 1. Kiểm tra xác thực Supabase Auth thật
     const session = getUserSession();
     if (!session || !session.access_token) {
@@ -6070,6 +6271,15 @@ export async function submitNewCommunityPost() {
     const topic = topicSelect?.value || '🏷️ Chủ đề: Tự do';
     const cleanTopic = topic.replace(/^[^\w\s]*\s*Chủ đề:\s*/i, '').trim();
     const authorName = session.user?.user_metadata?.display_name || state.userProfile?.name || session.user?.email?.split('@')[0] || 'Thành viên Xứ Trà';
+
+    const images = state._communityUploadedImageUrl ? [state._communityUploadedImageUrl] : [];
+    const location = state.newPostCheckin || null;
+
+    const submitBtn = document.getElementById('submitCommunityPostBtn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> <span>Đang đăng...</span>';
+    }
 
     // 2. Gửi API lên /api/community-posts
     try {
@@ -6084,12 +6294,14 @@ export async function submitNewCommunityPost() {
                 content,
                 category: cleanTopic,
                 status: 'pending',
-                images: state.newPostAttachment ? [state.newPostAttachment] : []
+                images,
+                location
             })
         });
 
         const data = await response.json();
         if (!response.ok) {
+            // Giữ nguyên nội dung soạn thảo trong textarea và đính kèm khi lỗi
             showNotification(data.error?.message || data.message || 'Không thể đăng bài viết lúc này.');
             return;
         }
@@ -6102,9 +6314,9 @@ export async function submitNewCommunityPost() {
             badge: 'Chờ duyệt',
             status: 'pending',
             timeAgo: 'Vừa xong',
-            location: state.newPostLocation || 'Trà Vinh',
+            location: location?.name || 'Trà Vinh',
             content,
-            image: state.newPostAttachment || null,
+            image: images[0] || null,
             likes: 0,
             commentsCount: 0,
             shares: 0,
@@ -6114,15 +6326,21 @@ export async function submitNewCommunityPost() {
         // Thêm vào danh sách hiển thị của tác giả
         state.communityPosts.unshift(newPost);
 
-        // Reset Form
+        // Reset Form chỉ khi gửi bài thành công
         if (textarea) textarea.value = '';
         clearCommunityPostAttachment();
+        clearCommunityPostCheckin();
 
         renderCommunityFeed();
         showNotification('Bài viết của bạn đã được gửi thành công và đang chờ Ban Quản Trị phê duyệt!');
     } catch (err) {
         console.error('[CommunityPost] Lỗi gửi bài:', err);
         showNotification('Không thể kết nối máy chủ để đăng bài. Vui lòng thử lại sau!');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">send</span> <span>Đăng bài</span>';
+        }
     }
 }
 
@@ -6391,8 +6609,8 @@ export async function submitClubActivity(event) {
         showNoticeToast('Tiêu đề không hợp lệ', 'Tiêu đề buổi sinh hoạt phải từ 3 ký tự.');
         return;
     }
-    if (!timeSchedule) {
-        showNoticeToast('Thiếu thời gian', 'Vui lòng nhập thời gian sinh hoạt dự kiến.');
+    if (!timeSchedule || timeSchedule.length < 2) {
+        showNoticeToast('Thiếu thời gian', 'Vui lòng nhập thời gian sinh hoạt (tối thiểu 2 ký tự, ví dụ: 9h, 08:00 - 10:00).');
         return;
     }
     if (!location) {
@@ -6432,7 +6650,7 @@ export async function submitClubActivity(event) {
 
         const data = await res.json();
         if (!res.ok) {
-            throw new Error(data.message || 'Lỗi khi lưu lịch sinh hoạt CLB.');
+            throw new Error(data.error?.message || data.message || 'Lỗi khi lưu lịch sinh hoạt CLB.');
         }
 
         closeSubmitClubActivityModal();
@@ -8683,25 +8901,40 @@ export async function openAdminModerationModal(tab = 'posts') {
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data.posts)) {
-                    state.moderationPosts = data.posts.map(p => ({
-                        id: p.id,
-                        author: {
-                            name: p.author_name || 'Thành viên Xứ Trà',
-                            avatarText: (p.author_name || 'TV').slice(0, 2).toUpperCase(),
-                            trustScore: 85,
-                            verified: true
-                        },
-                        category: p.category || 'Tự do',
-                        title: p.title || 'Bài chia sẻ cộng đồng',
-                        excerpt: p.content ? (p.content.slice(0, 160) + (p.content.length > 160 ? '...' : '')) : '',
-                        fullContent: p.content ? [p.content] : [],
-                        images: (p.images || []).map(img => typeof img === 'string' ? { src: img, caption: 'Hình ảnh' } : img),
-                        tags: ['Cộng đồng', 'Trà Vinh'],
-                        submittedAt: p.created_at || 'Vừa xong',
-                        status: p.status || 'pending',
-                        aiSafeScore: 90,
-                        flagsCount: 0
-                    }));
+                    state.moderationPosts = data.posts.map(p => {
+                        let loc = null;
+                        if (p.metadata?.location) {
+                            loc = p.metadata.location;
+                        } else if (p.location) {
+                            loc = typeof p.location === 'object' ? p.location : { name: p.location };
+                        }
+                        return {
+                            id: p.id,
+                            author: {
+                                name: p.author_name || 'Thành viên Xứ Trà',
+                                avatar: p.author_avatar || null,
+                                avatarText: (p.author_name || 'TV').slice(0, 2).toUpperCase(),
+                                trustScore: null,
+                                verified: false,
+                                memberMonths: null,
+                                postsCount: null,
+                                successRate: null,
+                                level: 'Thành viên'
+                            },
+                            category: p.category || 'Tự do',
+                            title: p.title || (p.content ? (p.content.slice(0, 40) + '...') : 'Bài chia sẻ cộng đồng'),
+                            excerpt: p.content ? (p.content.slice(0, 160) + (p.content.length > 160 ? '...' : '')) : '',
+                            fullContent: p.content ? [p.content] : [],
+                            images: (p.images || []).map(img => typeof img === 'string' ? { src: img, caption: 'Ảnh đính kèm' } : img),
+                            location: loc,
+                            tags: ['Cộng đồng', 'Trà Vinh'],
+                            submittedAt: p.created_at || 'Vừa xong',
+                            status: p.status || 'pending',
+                            aiSafeScore: null,
+                            aiSummary: null,
+                            flagsCount: 0
+                        };
+                    });
                 }
                 if (Array.isArray(data.clubs)) {
                     state.moderationClubs = data.clubs.map(c => ({
@@ -9618,6 +9851,10 @@ if (typeof window !== 'undefined') {
         handleCommentPrompt,
         promptAddPostPhoto,
         promptAddPostLocation,
+        closeCommunityCheckinModal,
+        filterCheckinPlaces,
+        selectCheckinPlace,
+        clearCommunityPostCheckin,
         clearCommunityPostAttachment,
         submitNewCommunityPost,
         openCreateClubModal,

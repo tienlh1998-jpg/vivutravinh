@@ -971,11 +971,36 @@
                                     </div>
                                 </div>
 
-                                <!-- Optional photo preview / location tag if selected -->
-                                <div id="newPostMediaPreview" class="hidden mt-3 p-2 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex items-center justify-between">
-                                    <span id="newPostMediaPreviewText" class="text-xs text-secondary dark:text-emerald-400 font-medium truncate"></span>
-                                    <button type="button" onclick="window.ViVuApp.clearCommunityPostAttachment()" class="text-red-500 p-1 hover:bg-surface-container dark:hover:bg-zinc-700 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center" title="Xóa đính kèm" aria-label="Xóa đính kèm">
+                                <!-- Hidden file input for photo upload -->
+                                <input type="file" id="communityPostFileInput" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
+
+                                <!-- Selected Photo Preview -->
+                                <div id="newPostMediaPreview" class="hidden mt-3 p-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 flex items-center justify-between gap-3 border border-outline-variant/30 dark:border-zinc-700/60">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <img id="newPostMediaPreviewImg" src="" alt="Xem trước ảnh" class="w-12 h-12 rounded-lg object-cover bg-surface-container-high dark:bg-zinc-700 shrink-0 border border-outline-variant/30 dark:border-zinc-700 hidden" />
+                                        <div class="flex flex-col min-w-0">
+                                            <span id="newPostMediaPreviewText" class="text-xs text-on-surface dark:text-zinc-200 font-medium truncate"></span>
+                                            <span id="newPostMediaUploadStatus" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400"></span>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="window.ViVuApp.clearCommunityPostAttachment()" class="text-red-500 hover:text-red-700 p-1 hover:bg-surface-container dark:hover:bg-zinc-700 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0" title="Xóa ảnh" aria-label="Xóa ảnh">
                                         <span class="material-symbols-outlined text-[18px]">close</span>
+                                    </button>
+                                </div>
+
+                                <!-- Selected Check-in Location Chip -->
+                                <div id="newPostCheckinChip" class="hidden mt-2 p-2.5 rounded-xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <div class="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/60 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+                                            <span class="material-symbols-outlined text-[18px]">location_on</span>
+                                        </div>
+                                        <div class="flex flex-col min-w-0">
+                                            <span id="newPostCheckinName" class="text-xs font-bold text-orange-900 dark:text-orange-200 truncate"></span>
+                                            <span id="newPostCheckinAddress" class="text-[11px] text-orange-700 dark:text-orange-300 truncate"></span>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="window.ViVuApp.clearCommunityPostCheckin()" class="text-orange-700 dark:text-orange-300 hover:text-red-600 text-xs font-bold px-2 py-1 rounded hover:bg-orange-100 dark:hover:bg-orange-900/50 min-h-[36px] flex items-center justify-center shrink-0" title="Bỏ chọn địa điểm">
+                                        <span>Bỏ chọn</span>
                                     </button>
                                 </div>
 
@@ -984,7 +1009,7 @@
                                         <button type="button" onclick="window.ViVuApp.promptAddPostPhoto()"
                                             class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-colors text-xs font-semibold min-h-[44px]">
                                             <span class="material-symbols-outlined text-[18px] text-secondary dark:text-emerald-400">add_photo_alternate</span>
-                                            <span>Ảnh / Video</span>
+                                            <span>Ảnh</span>
                                         </button>
                                         <button type="button" onclick="window.ViVuApp.promptAddPostLocation()"
                                             class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 transition-colors text-xs font-semibold min-h-[44px]">
@@ -2987,6 +3012,29 @@
                     <!-- Nội dung lịch trình tour đầy đủ được render qua ui.js -->
                     <div id="tourItinerariesContainer"></div>
                 </div>
+            </div>
+        </div>
+    <!-- 39. MODAL CHECK-IN ĐỊA ĐIỂM CÔNG KHAI -->
+    <div id="communityCheckinModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="communityCheckinModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeCommunityCheckinModal()"></div>
+        <div class="relative z-10 w-full max-w-lg bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 shadow-2xl border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4 max-h-[85vh]">
+            <div class="flex items-center justify-between pb-3 border-b border-outline-variant/20 dark:border-zinc-800">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-orange-500 text-[24px]">location_on</span>
+                    <h3 id="communityCheckinModalTitle" class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Check-in địa điểm công khai</h3>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeCommunityCheckinModal()" class="w-10 h-10 rounded-full hover:bg-surface-container dark:hover:bg-zinc-800 flex items-center justify-center text-on-surface-variant dark:text-zinc-400" aria-label="Đóng modal">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+            <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline dark:text-zinc-500 text-[20px]">search</span>
+                <input type="text" id="communityCheckinSearchInput" oninput="window.ViVuApp.filterCheckinPlaces(this.value)"
+                    placeholder="Tìm theo tên địa điểm, danh mục hoặc khu vực..."
+                    class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-500 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary" />
+            </div>
+            <div id="communityCheckinPlacesList" class="flex flex-col gap-2 overflow-y-auto max-h-[50vh] pr-1">
+                <!-- Injected via app.js -->
             </div>
         </div>
     </div>

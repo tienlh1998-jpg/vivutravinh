@@ -4344,9 +4344,10 @@ export function renderSubmitClubActivityModal(onSubmit, userClubs = [], editingA
                         <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
                             Thời gian sinh hoạt <span class="text-rose-500">*</span>
                         </label>
-                        <input name="time_schedule" type="text" required placeholder="Ví dụ: Sáng Chủ Nhật, 05:30 - 08:30"
+                        <input name="time_schedule" type="text" required placeholder="Ví dụ: 9h hoặc 08:00 - 10:00 Chủ Nhật hàng tuần"
                             value="${editingActivity ? escapeHtml(editingActivity.time_schedule || editingActivity.time || '') : ''}"
                             class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 font-body-md text-xs focus:outline-none focus:bg-surface-container-lowest dark:focus:bg-zinc-700 border border-outline-variant/30 dark:border-zinc-700"/>
+                        <p class="text-[11px] text-outline dark:text-zinc-400 mt-1">Định dạng linh hoạt: Giờ cụ thể (vd: 9h, 19:30) hoặc khung giờ (vd: 08:00 - 10:00 Chủ Nhật hàng tuần, Tối Thứ Bảy 18h - 20h).</p>
                     </div>
                     <div>
                         <label class="block font-caption text-xs font-semibold text-on-surface dark:text-zinc-200 mb-1">
@@ -5454,7 +5455,7 @@ export function renderCommunityPostsFeed(posts, likedPostIds = []) {
         const safeContent = escapeHtml(post.content || '');
         const safeImage = post.image ? escapeHtml(post.image) : null;
         const isLiked = likedPostIds.includes(post.id);
-        const isSample = post.isSample || String(post.id).startsWith('post-');
+        const isSample = Boolean(post.isSample || post.is_mock || (typeof post.id === 'string' && post.id.startsWith('mock-post-')));
 
         return `
             <article class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 sm:p-6 shadow-xs border border-outline-variant/40 dark:border-zinc-800 flex flex-col gap-4">
@@ -5560,7 +5561,7 @@ export function renderWeeklyActivitiesWidget(activities, registeredActivityIds =
         const safeTime = escapeHtml(act.time || act.time_schedule || '');
         const safeLocation = escapeHtml(act.location || '');
         const safeClub = (act.clubName || act.club_name) ? escapeHtml(act.clubName || act.club_name) : '';
-        const isSample = act.isSample || String(act.id).startsWith('act-');
+        const isSample = Boolean(act.isSample || act.is_mock || (typeof act.id === 'string' && act.id.startsWith('mock-act-')));
         const maxCapacity = act.maxAttendees || act.max_attendees || 30;
         const isPending = act.status === 'pending';
 
@@ -10383,27 +10384,27 @@ export function renderAdminModerationModalContent({
                                     <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-4 border-b border-outline-variant/20 dark:border-zinc-800">
                                         <div class="flex items-center gap-3">
                                             <div class="w-12 h-12 rounded-full overflow-hidden shadow-sm bg-surface-container dark:bg-zinc-800 shrink-0">
-                                                <img src="${escapeHtml(selectedPost.author.avatar || 'chùa âng.jpg')}" alt="${escapeHtml(selectedPost.author.name)}" class="w-full h-full object-cover" />
+                                                <img src="${escapeHtml(selectedPost.author.avatar || 'chùa âng.jpg')}" alt="${escapeHtml(selectedPost.author.name || 'Thành viên')}" class="w-full h-full object-cover" />
                                             </div>
                                             <div>
                                                 <div class="flex items-center gap-2 flex-wrap">
-                                                    <span class="font-headline-sm text-base font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedPost.author.name)}</span>
-                                                    ${selectedPost.author.verified ? `
+                                                    <span class="font-headline-sm text-base font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedPost.author.name || 'Chưa có dữ liệu')}</span>
+                                                    ${selectedPost.author.verified && selectedPost.author.verifiedType ? `
                                                         <span class="px-2 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[10px] font-bold flex items-center gap-0.5">
-                                                            <span class="material-symbols-outlined text-[12px]">verified</span> Đã định danh
+                                                            <span class="material-symbols-outlined text-[12px]">verified</span> Đã xác thực
                                                         </span>
                                                     ` : ''}
                                                     <span class="px-2 py-0.5 rounded bg-surface-container-high dark:bg-zinc-800 text-[10px] font-semibold text-on-surface-variant dark:text-zinc-300">
-                                                        ${escapeHtml(selectedPost.author.level)}
+                                                        ${escapeHtml(selectedPost.author.level || 'Thành viên')}
                                                     </span>
                                                 </div>
                                                 <p class="font-caption text-xs text-outline dark:text-zinc-500 mt-0.5">
-                                                    Tham gia ${selectedPost.author.memberMonths} tháng • Đã duyệt ${selectedPost.author.postsCount} bài • Tỷ lệ duyệt: <strong class="text-secondary dark:text-emerald-400 font-semibold">${selectedPost.author.successRate}</strong>
+                                                    ${selectedPost.author.memberMonths ? `Tham gia ${selectedPost.author.memberMonths} tháng • ` : ''}Đã duyệt ${selectedPost.author.postsCount !== null && selectedPost.author.postsCount !== undefined ? `${selectedPost.author.postsCount} bài` : 'Chưa có dữ liệu'} • Tỷ lệ duyệt: <strong class="text-secondary dark:text-emerald-400 font-semibold">${selectedPost.author.successRate || 'Chưa có dữ liệu'}</strong>
                                                 </p>
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-2">
-                                            <button type="button" onclick="alert('Xem hồ sơ chi tiết tác giả ${escapeHtml(selectedPost.author.name)}')"
+                                            <button type="button" onclick="alert('Xem hồ sơ chi tiết tác giả ${escapeHtml(selectedPost.author.name || 'Thành viên')}')"
                                                 class="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high flex items-center justify-center text-on-surface dark:text-zinc-200" title="Xem hồ sơ">
                                                 <span class="material-symbols-outlined text-[18px]">badge</span>
                                             </button>
@@ -10414,51 +10415,55 @@ export function renderAdminModerationModalContent({
                                         </div>
                                     </div>
 
-                                    <!-- AI Guardian Diagnostic Report -->
-                                    <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-3">
+                                    <!-- Automated Moderation Assessment -->
+                                    <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-2">
                                         <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-2 text-secondary dark:text-emerald-400 font-button text-xs font-bold">
-                                                <span class="material-symbols-outlined text-[20px]">shield_with_heart</span>
-                                                <span>Báo cáo kiểm tra AI Guardian v3.1</span>
+                                            <div class="flex items-center gap-2 text-primary dark:text-zinc-200 font-button text-xs font-bold">
+                                                <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">smart_toy</span>
+                                                <span>Kiểm định tự động</span>
                                             </div>
-                                            <span class="px-2.5 py-0.5 rounded-full ${selectedPost.aiSafeScore >= 80 ? 'bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300' : 'bg-error-container dark:bg-rose-950 text-error dark:text-rose-300'} text-xs font-bold">
-                                                ${selectedPost.aiSafeScore >= 80 ? `Đạt chuẩn an toàn (${selectedPost.aiSafeScore}/100)` : `Cảnh báo rủi ro (${selectedPost.aiSafeScore}/100)`}
+                                            <span class="px-2.5 py-0.5 rounded-full bg-surface-container-high dark:bg-zinc-800 text-outline dark:text-zinc-400 text-xs font-medium">
+                                                ${selectedPost.aiSafeScore !== null && selectedPost.aiSafeScore !== undefined ? `Điểm an toàn: ${selectedPost.aiSafeScore}/100` : 'Chưa có dữ liệu'}
                                             </span>
                                         </div>
-                                        <p class="text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed">
-                                            ${escapeHtml(selectedPost.aiSummary)}
+                                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                            ${selectedPost.aiSummary ? escapeHtml(selectedPost.aiSummary) : 'Chưa có dữ liệu đánh giá AI tự động. Nội dung đang chờ Ban Quản Trị thẩm định thủ công.'}
                                         </p>
                                     </div>
 
                                     <!-- WYSIWYG Article Preview -->
                                     <div class="space-y-3">
                                         <span class="px-2.5 py-1 rounded bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-xs font-bold uppercase tracking-wider">
-                                            ${escapeHtml(selectedPost.category)}
+                                            ${escapeHtml(selectedPost.category || 'Tự do')}
                                         </span>
                                         <h2 class="font-headline-lg text-lg sm:text-xl font-bold text-primary dark:text-zinc-100 leading-snug">
-                                            ${escapeHtml(selectedPost.title)}
+                                            ${escapeHtml(selectedPost.title || 'Bài viết cộng đồng')}
                                         </h2>
                                         <div class="font-body-lg text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 space-y-2 leading-relaxed">
-                                            ${selectedPost.fullContent.map(para => `<p>${escapeHtml(para)}</p>`).join('')}
+                                            ${(selectedPost.fullContent || []).map(para => `<p>${escapeHtml(para)}</p>`).join('')}
                                         </div>
 
                                         <!-- Photo Gallery -->
-                                        ${selectedPost.images.length > 0 ? `
+                                        ${(selectedPost.images && selectedPost.images.length > 0) ? `
                                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                                                ${selectedPost.images.map(img => `
-                                                    <div class="rounded-2xl overflow-hidden shadow-xs border border-outline-variant/30 dark:border-zinc-800">
-                                                        <img src="${escapeHtml(img.src)}" alt="${escapeHtml(img.caption)}" class="w-full h-44 object-cover" />
-                                                        <p class="p-2 bg-surface-container dark:bg-zinc-800 text-[11px] text-on-surface-variant dark:text-zinc-400 font-medium">
-                                                            ${escapeHtml(img.caption)}
-                                                        </p>
-                                                    </div>
-                                                `).join('')}
+                                                ${selectedPost.images.map(img => {
+                                                    const imgSrc = typeof img === 'string' ? img : (img.src || '');
+                                                    const imgCaption = (typeof img === 'object' && img.caption) ? img.caption : 'Ảnh đính kèm';
+                                                    return `
+                                                        <div class="rounded-2xl overflow-hidden shadow-xs border border-outline-variant/30 dark:border-zinc-800">
+                                                            <img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(imgCaption)}" class="w-full h-44 object-cover" />
+                                                            <p class="p-2 bg-surface-container dark:bg-zinc-800 text-[11px] text-on-surface-variant dark:text-zinc-400 font-medium">
+                                                                ${escapeHtml(imgCaption)}
+                                                            </p>
+                                                        </div>
+                                                    `;
+                                                }).join('')}
                                             </div>
                                         ` : ''}
 
                                         <!-- Tags -->
                                         <div class="flex items-center gap-1.5 flex-wrap pt-2">
-                                            ${selectedPost.tags.map(tag => `
+                                            ${(selectedPost.tags || []).map(tag => `
                                                 <span class="px-2.5 py-1 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 text-xs font-medium">
                                                     ${escapeHtml(tag)}
                                                 </span>
@@ -10473,8 +10478,8 @@ export function renderAdminModerationModalContent({
                                                         <span class="material-symbols-outlined text-[20px]">location_on</span>
                                                     </div>
                                                     <div>
-                                                        <p class="font-button text-xs font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedPost.location.name)}</p>
-                                                        <p class="font-caption text-[11px] text-outline dark:text-zinc-400">${escapeHtml(selectedPost.location.address)} (${escapeHtml(selectedPost.location.coords)})</p>
+                                                        <p class="font-button text-xs font-bold text-primary dark:text-zinc-100">${escapeHtml(selectedPost.location.name || 'Địa điểm check-in')}</p>
+                                                        <p class="font-caption text-[11px] text-outline dark:text-zinc-400">${escapeHtml(selectedPost.location.address || 'Chưa có dữ liệu')}${selectedPost.location.coords ? ` (${escapeHtml(selectedPost.location.coords)})` : ''}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -10625,7 +10630,7 @@ export function renderAdminModerationModalContent({
                                                     </span>
                                                 </div>
                                                 <p class="font-caption text-xs text-outline dark:text-zinc-400 mt-0.5">
-                                                    Địa bàn: <strong class="text-secondary dark:text-emerald-400 font-semibold">${escapeHtml(selectedClub.operatingHub)}</strong> • Mã: ${escapeHtml(selectedClub.code)}
+                                                    Địa bàn: <strong class="text-secondary dark:text-emerald-400 font-semibold">${escapeHtml(selectedClub.operatingHub || 'Chưa có dữ liệu')}</strong> • Mã: ${escapeHtml(selectedClub.code || selectedClub.id || 'Chưa có dữ liệu')}
                                                 </p>
                                             </div>
                                         </div>
@@ -10638,8 +10643,8 @@ export function renderAdminModerationModalContent({
                                                 <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">how_to_reg</span>
                                                 <span>Tiêu chí cốt lõi: ${selectedClub.membersCount}/${selectedClub.membersRequired} Thành viên sáng lập (${selectedClub.progressPercent}%)</span>
                                             </div>
-                                            <span class="px-2.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-xs font-bold flex items-center gap-1">
-                                                <span class="material-symbols-outlined text-[12px]">verified_user</span> Đã định danh CCCD &amp; SĐT
+                                            <span class="px-2.5 py-0.5 rounded-full bg-surface-container-high dark:bg-zinc-800 text-outline dark:text-zinc-400 text-xs font-medium flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-[14px]">shield</span> Xác minh danh tính: Chưa có dữ liệu
                                             </span>
                                         </div>
                                         <div class="w-full h-3 rounded-full bg-surface-container-high dark:bg-zinc-700 overflow-hidden">

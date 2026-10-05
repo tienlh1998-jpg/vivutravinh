@@ -28,7 +28,7 @@ const MODERATION_ENTITIES = {
       reject: 'rejected',
       archive: 'archived'
     },
-    selectColumns: 'id,title,content,status,author_id,author_name,created_at'
+    selectColumns: 'id,title,content,status,images,metadata,author_id,author_name,created_at'
   },
   club: {
     table: 'clubs',
