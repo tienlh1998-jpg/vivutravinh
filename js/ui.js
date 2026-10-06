@@ -1061,7 +1061,11 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
     renderCheckinAndTikTokTab(place);
 
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    if (typeof window !== 'undefined' && window.ViVuApp?.syncBodyScrollLock) {
+        window.ViVuApp.syncBodyScrollLock();
+    } else {
+        document.body.classList.add('overflow-hidden');
+    }
 }
 
 /**
@@ -13016,5 +13020,8 @@ export function downloadTicketSvg(ticket) {
 export function closeOfflineTicketModal() {
     const modal = document.getElementById('offlineTicketModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    if (typeof window !== 'undefined' && window.ViVuApp?.syncBodyScrollLock) {
+        window.ViVuApp.syncBodyScrollLock();
+    }
 }
+

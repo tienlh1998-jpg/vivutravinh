@@ -3412,11 +3412,11 @@
     </nav>
 
     <!-- 14. MODAL XEM PHÓNG TO ẢNH THỰC TẾ (PHOTO LIGHTBOX) -->
-    <div id="photoLightboxModal" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out" onclick="this.classList.add('hidden')">
+    <div id="photoLightboxModal" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out" onclick="window.ViVuApp?.closePhotoLightbox?.()">
         <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
             <img id="photoLightboxImg" src="" alt="Ảnh chụp thực tế" class="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20">
-            <button onclick="document.getElementById('photoLightboxModal').classList.add('hidden')"
-                class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/90 shadow-md border border-white/30">
+            <button onclick="window.ViVuApp?.closePhotoLightbox?.()"
+                class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/90 shadow-md border border-white/30" aria-label="Đóng xem ảnh phóng to">
                 <span class="material-symbols-outlined text-base">close</span>
             </button>
         </div>

@@ -1132,7 +1132,7 @@ export function openEventRsvpModal(eventOrId) {
 
     const modal = document.getElementById('eventRsvpModal');
     if (modal) modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -1141,7 +1141,7 @@ export function openEventRsvpModal(eventOrId) {
 export function closeEventRsvpModal() {
     const modal = document.getElementById('eventRsvpModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
     state.currentRsvpEvent = null;
 }
 
@@ -1160,7 +1160,7 @@ export function openHostEventModal(editingEvent = null) {
     renderHostEventModal(submitHostEvent, editingEvent);
     const modal = document.getElementById('hostEventModal');
     if (modal) modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -1169,7 +1169,7 @@ export function openHostEventModal(editingEvent = null) {
 export function closeHostEventModal() {
     const modal = document.getElementById('hostEventModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -1426,7 +1426,7 @@ export function openOfflineTicketModal(ticket) {
     renderOfflineTicketCard(ticket);
     const modal = document.getElementById('offlineTicketModal');
     if (modal) modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -1435,7 +1435,7 @@ export function openOfflineTicketModal(ticket) {
 export function closeOfflineTicketModal() {
     const modal = document.getElementById('offlineTicketModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -1461,7 +1461,7 @@ export function openFestivalModal(festivalId) {
 
     const modal = document.getElementById('festivalDetailModal');
     if (modal) modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -1470,7 +1470,7 @@ export function openFestivalModal(festivalId) {
 export function closeFestivalModal() {
     const modal = document.getElementById('festivalDetailModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
     state.currentFestival = null;
 }
 
@@ -1516,7 +1516,7 @@ export async function openArticleModal(articleIdOrSlug) {
 
     const modal = document.getElementById('articleDetailModal');
     if (modal) modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 
     // Cập nhật URL (hỗ trợ deep link bài viết)
     const url = new URL(window.location);
@@ -1530,7 +1530,7 @@ export async function openArticleModal(articleIdOrSlug) {
 export function closeArticleModal() {
     const modal = document.getElementById('articleDetailModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
     state.currentArticle = null;
     state.selectedArticleCommentPhoto = null;
 
@@ -1776,7 +1776,7 @@ export function openSubmitArticleModal(article = null, isAdmin = false) {
     renderSubmitArticleModal(submitArticle, article, isActuallyAdmin);
     const modal = document.getElementById('submitArticleModal');
     if (modal) modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -1785,7 +1785,7 @@ export function openSubmitArticleModal(article = null, isAdmin = false) {
 export function closeSubmitArticleModal() {
     const modal = document.getElementById('submitArticleModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -2801,12 +2801,16 @@ export function openReportModal(place = null) {
     const clientReportInput = document.getElementById('reportClientReportId');
     if (clientReportInput) clientReportInput.value = clientReportId;
 
-    if (modal) modal.classList.remove('hidden');
+    if (modal) {
+        modal.classList.remove('hidden');
+        syncBodyScrollLock();
+    }
 }
 
 export function closeReportModal() {
     const modal = document.getElementById('reportPlaceModal');
     if (modal) modal.classList.add('hidden');
+    syncBodyScrollLock();
 }
 
 export async function submitReportPlace(event) {
@@ -3550,7 +3554,7 @@ export function openTourItinerariesModal(options = {}) {
     );
 
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 
     if (options.updateHash !== false) {
         try {
@@ -3568,7 +3572,7 @@ export function closeTourItinerariesModal(skipHistory = false) {
     if (!modal) return;
 
     modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
 
     if (!skipHistory) {
         const hash = window.location.hash || '';
@@ -3999,7 +4003,7 @@ export function openContributeModal() {
     const modal = document.getElementById('contributeModal');
     if (modal) {
         modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
+        syncBodyScrollLock();
         setTimeout(() => {
             initContributeMap();
         }, 150);
@@ -5001,28 +5005,62 @@ export function setBottomNavActive(activeId) {
 }
 
 /**
- * Kiểm tra xem có bất kỳ Modal nào đang hiển thị hay không
+ * Kiểm tra xem có bất kỳ Modal nào đang hiển thị hay không (theo ID thực tế trong DOM)
  */
 export function hasActiveModalOpen() {
     const modalIds = [
-        'fullMapModal',
-        'savedCollectionsModal',
-        'userProfileModal',
-        'securityModal',
-        'adminModerationModal',
+        // Khám phá & Địa điểm
         'detailModal',
+        'fullMapModal',
         'contributeModal',
+        'reportPlaceModal',
+        'deepPlaceDetailModal',
+        'placePhotoGalleryModal',
+        'photoLightboxModal',
+        'tourItinerariesModal',
         'festivalDetailModal',
         'articleDetailModal',
-        'tourItinerariesModal',
         'offlineTicketModal',
+
+        // Kế hoạch & Cộng đồng
+        'tripPlannerModal',
+        'gpsNavModal',
+        'tripSummaryModal',
+        'storyCardModal',
+        'itineraryFolderDetailModal',
+        'exportItineraryModal',
+        'createCollectionModal',
+        'communityCheckinModal',
+        'createClubModal',
+        'submitClubActivityModal',
+        'eventRsvpModal',
+        'hostEventModal',
+        'submitArticleModal',
+        'editCommunityPostModal',
+
+        // Tài khoản & Bảo mật
+        'userAuthModal',
+        'userProfileModal',
+        'editProfileModal',
+        'redeemGiftModal',
+        'savedCollectionsModal',
+        'securityModal',
+        'link2faModal',
+        'backupCodesModal',
+
+        // Góc Admin & Dự án
+        'adminModerationModal',
+        'adminActionReasonModal',
+        'adminSupportModal',
+
+        // Tương thích ngược / alias
+        'checkinModal',
         'authModal',
         'reportModal',
-        'createPostModal',
-        'createClubModal',
-        'checkinModal'
+        'createPostModal'
     ];
-    return modalIds.some(id => {
+
+    const hasExplicitModal = modalIds.some(id => {
         const el = document.getElementById(id);
         if (!el) return false;
         if (el.classList.contains('hidden')) return false;
@@ -5032,6 +5070,19 @@ export function hasActiveModalOpen() {
             return true;
         }
     });
+
+    if (hasExplicitModal) return true;
+
+    // Quét bổ sung các dialog có role="dialog" hoặc aria-modal="true" đang hiển thị
+    try {
+        const dynamicDialogs = document.querySelectorAll('[role="dialog"]:not(.hidden), [aria-modal="true"]:not(.hidden)');
+        for (const dlg of dynamicDialogs) {
+            if (dlg.id === 'mobileDrawerNav') continue;
+            if (window.getComputedStyle(dlg).display !== 'none') return true;
+        }
+    } catch (_) {}
+
+    return false;
 }
 
 /**
@@ -5595,7 +5646,19 @@ export function viewPhotoModal(src) {
     if (modal && img) {
         img.src = src;
         modal.classList.remove('hidden');
+        syncBodyScrollLock();
     }
+}
+
+/**
+ * Đóng modal xem phóng to ảnh chụp thực tế
+ */
+export function closePhotoLightbox() {
+    const modal = document.getElementById('photoLightboxModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    syncBodyScrollLock();
 }
 
 /**
@@ -6239,7 +6302,7 @@ export async function promptAddPostLocation() {
     if (!modal) return;
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 
     const searchInput = document.getElementById('communityCheckinSearchInput');
     if (searchInput) {
@@ -6308,8 +6371,8 @@ export function closeCommunityCheckinModal() {
     if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 /**
@@ -6383,7 +6446,7 @@ export function openAuthModal(mode = 'signin', onSuccess = null) {
         errorEl.classList.add('hidden');
     }
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -6393,8 +6456,8 @@ export function closeAuthModal() {
     const modal = document.getElementById('userAuthModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
     pendingAuthCallback = null;
 }
 
@@ -6653,7 +6716,7 @@ export function openCreateClubModal(editingClub = null) {
     }
 
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
     const nameInput = document.getElementById('newClubName');
     if (nameInput) setTimeout(() => nameInput.focus(), 100);
 }
@@ -6665,7 +6728,7 @@ export function closeCreateClubModal() {
     const modal = document.getElementById('createClubModal');
     if (!modal) return;
     modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 /**
@@ -6840,7 +6903,7 @@ export async function openSubmitClubActivityModal(editingActivity = null) {
     const modal = document.getElementById('submitClubActivityModal');
     if (modal) {
         modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
+        syncBodyScrollLock();
     }
 }
 
@@ -6848,8 +6911,8 @@ export function closeSubmitClubActivityModal() {
     const modal = document.getElementById('submitClubActivityModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 export async function submitClubActivity(event) {
@@ -7448,7 +7511,7 @@ export function openEditCommunityPostModal(post) {
     if (contentTextarea) contentTextarea.value = post.content || '';
 
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
     if (contentTextarea) setTimeout(() => contentTextarea.focus(), 100);
 }
 
@@ -7456,8 +7519,8 @@ export function closeEditCommunityPostModal() {
     const modal = document.getElementById('editCommunityPostModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 export async function submitEditCommunityPost(formEl) {
@@ -7536,11 +7599,13 @@ export function openRedeemGiftModal() {
 
     content.innerHTML = renderRedeemGiftModalContent(state.redeemableGifts, state.userProfile.totalPoints);
     modal.classList.remove('hidden');
+    syncBodyScrollLock();
 }
 
 export function closeRedeemGiftModal() {
     const modal = document.getElementById('redeemGiftModal');
     if (modal) modal.classList.add('hidden');
+    syncBodyScrollLock();
 }
 
 export function redeemGift(giftId) {
@@ -7554,11 +7619,13 @@ export function openEditProfileModal() {
 
     content.innerHTML = renderEditProfileModalContent(state.userProfile);
     modal.classList.remove('hidden');
+    syncBodyScrollLock();
 }
 
 export function closeEditProfileModal() {
     const modal = document.getElementById('editProfileModal');
     if (modal) modal.classList.add('hidden');
+    syncBodyScrollLock();
 }
 
 export function submitEditProfile(form) {
@@ -7766,11 +7833,13 @@ export function openCreateCollectionModal() {
 
     content.innerHTML = renderCreateCollectionModalContent();
     modal.classList.remove('hidden');
+    syncBodyScrollLock();
 }
 
 export function closeCreateCollectionModal() {
     const modal = document.getElementById('createCollectionModal');
     if (modal) modal.classList.add('hidden');
+    syncBodyScrollLock();
 }
 
 export function submitCreateCollection(form) {
@@ -7814,11 +7883,13 @@ export function openExportItineraryModal() {
 
     content.innerHTML = renderExportItineraryModalContent(state.savedCollections);
     modal.classList.remove('hidden');
+    syncBodyScrollLock();
 }
 
 export function closeExportItineraryModal() {
     const modal = document.getElementById('exportItineraryModal');
     if (modal) modal.classList.add('hidden');
+    syncBodyScrollLock();
 }
 
 export function copyExportItinerary() {
@@ -7955,11 +8026,13 @@ export function openLink2FAModal() {
     if (!modal || !content) return;
     content.innerHTML = renderLink2FAModalContent(state.securitySettings);
     modal.classList.remove('hidden');
+    syncBodyScrollLock();
 }
 
 export function closeLink2FAModal() {
     const modal = document.getElementById('link2faModal');
     if (modal) modal.classList.add('hidden');
+    syncBodyScrollLock();
 }
 
 export function copySecretKey(key) {
@@ -8033,11 +8106,13 @@ export function openBackupCodesModal() {
     if (!modal || !content) return;
     content.innerHTML = renderBackupCodesModalContent(state.securitySettings);
     modal.classList.remove('hidden');
+    syncBodyScrollLock();
 }
 
 export function closeBackupCodesModal() {
     const modal = document.getElementById('backupCodesModal');
     if (modal) modal.classList.add('hidden');
+    syncBodyScrollLock();
 }
 
 export function copyBackupCodes() {
@@ -8357,15 +8432,15 @@ export function openTripPlannerModal() {
         state.plannerSearchQuery
     );
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 export function closeTripPlannerModal() {
     const modal = document.getElementById('tripPlannerModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 export function switchPlannerDay(dayNumber) {
@@ -8810,15 +8885,15 @@ export function openGpsNavModal() {
 
     container.innerHTML = renderGpsNavigationModalContent(state.gpsNavState);
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 export function closeGpsNavModal() {
     const modal = document.getElementById('gpsNavModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 export function toggleGpsVoice() {
@@ -8868,15 +8943,15 @@ export function openTripSummaryModal() {
 
     container.innerHTML = renderTripSummaryModalContent(state.tripSummaryState);
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 export function closeTripSummaryModal() {
     const modal = document.getElementById('tripSummaryModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 export function openStoryShareModal(theme = state.storyTheme) {
@@ -8889,15 +8964,15 @@ export function openStoryShareModal(theme = state.storyTheme) {
     const template = STORY_TEMPLATES[state.storyTheme] || STORY_TEMPLATES.heritage;
     container.innerHTML = renderSocialStoryModalContent(template, state.storyTheme, state.storyToggles);
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 export function closeStoryShareModal() {
     const modal = document.getElementById('storyCardModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 export function switchStoryTheme(theme) {
@@ -8957,8 +9032,8 @@ export function closeAdminSupportModal() {
     const modal = document.getElementById('adminSupportModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 export function selectDonationTier(amount, tierId) {
@@ -9957,6 +10032,7 @@ export function openActionReasonModal(actionType, targetId, targetTitle) {
         targetTitle
     });
     modal.classList.remove('hidden');
+    syncBodyScrollLock();
 }
 
 export function closeActionReasonModal() {
@@ -9964,6 +10040,7 @@ export function closeActionReasonModal() {
     if (modal) {
         modal.classList.add('hidden');
     }
+    syncBodyScrollLock();
 }
 
 export async function submitActionReason(actionType, targetId) {
@@ -10211,7 +10288,7 @@ export function openDeepPlaceDetail(placeId = 'chua-ang') {
     );
 
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 export function closeDeepPlaceDetail() {
@@ -10219,7 +10296,7 @@ export function closeDeepPlaceDetail() {
     if (modal) {
         modal.classList.add('hidden');
     }
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
 
     if (state.deepAudioTimerInterval) {
         clearInterval(state.deepAudioTimerInterval);
@@ -10331,6 +10408,7 @@ export function openPlacePhotoGallery(initialIndex = 0) {
 
     content.innerHTML = renderPlacePhotoGalleryModalContent(place, state.activePhotoGalleryIndex);
     modal.classList.remove('hidden');
+    syncBodyScrollLock();
 }
 
 export function closePlacePhotoGallery() {
@@ -10338,6 +10416,7 @@ export function closePlacePhotoGallery() {
     if (modal) {
         modal.classList.add('hidden');
     }
+    syncBodyScrollLock();
 }
 
 export function switchGalleryPhoto(index) {
@@ -10359,7 +10438,7 @@ export function openItineraryFolderDetail(folderId = 'folder-heritage-01') {
 
     content.innerHTML = renderItineraryFolderDetailModalContent(folder);
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 export function closeItineraryFolderDetail() {
@@ -10367,7 +10446,7 @@ export function closeItineraryFolderDetail() {
     if (modal) {
         modal.classList.add('hidden');
     }
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 export function shareItineraryFolder(folderId) {
@@ -10454,6 +10533,7 @@ if (typeof window !== 'undefined') {
         handleTourSelect,
         handleSearchKeyword,
         viewPhotoModal,
+        closePhotoLightbox,
         switchModalTab,
         openFestivalModal,
         closeFestivalModal,
