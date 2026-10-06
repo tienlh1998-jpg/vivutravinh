@@ -4686,13 +4686,14 @@ function initEventListeners() {
     clearSearchBtn?.addEventListener('click', clearSearch);
     clearBannerBtn?.addEventListener('click', clearSearch);
 
-    // Phím tắt ⌘K hoặc Ctrl+K, Escape, Focus Trap trong Modals (Accessibility)
+    // Phím tắt ⌘K hoặc Ctrl+K, Escape, Focus Trap trong Modals và Drawer (Accessibility)
     window.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
             e.preventDefault();
             searchInput?.focus();
         }
         if (e.key === 'Escape') {
+            closeMobileDrawer();
             closeDetailModal();
             closeContributeModal();
             closeFullMapModal();
@@ -4702,9 +4703,12 @@ function initEventListeners() {
             closeOfflineTicketModal();
         }
 
-        // Focus Trap trong các Modals đang mở
+        // Focus Trap trong Drawer hoặc các Modals đang mở
         if (e.key === 'Tab') {
-            const activeModal = [
+            const drawerNav = document.getElementById('mobileDrawerNav');
+            const isDrawerOpen = drawerNav && !drawerNav.classList.contains('-translate-x-full') && !drawerNav.hasAttribute('inert');
+
+            const activeModal = isDrawerOpen ? drawerNav : [
                 document.getElementById('detailModal'),
                 document.getElementById('contributeModal'),
                 document.getElementById('fullMapModal'),
@@ -4996,82 +5000,152 @@ export function setBottomNavActive(activeId) {
     });
 }
 
+export function openMobileDrawer() {
+    const drawer = document.getElementById('mobileDrawerNav');
+    const backdrop = document.getElementById('mobileDrawerBackdrop');
+    const openBtn = document.getElementById('mobileMenuOpenBtn');
+    if (!drawer || !backdrop) return;
+
+    drawer.removeAttribute('inert');
+    drawer.setAttribute('aria-hidden', 'false');
+    if (openBtn) openBtn.setAttribute('aria-expanded', 'true');
+
+    backdrop.classList.remove('opacity-0', 'pointer-events-none');
+    backdrop.classList.add('opacity-100');
+
+    drawer.classList.remove('-translate-x-full');
+    drawer.classList.add('translate-x-0');
+
+    document.body.classList.add('overflow-hidden');
+
+    const closeBtn = document.getElementById('mobileDrawerCloseBtn');
+    if (closeBtn) {
+        setTimeout(() => closeBtn.focus(), 50);
+    }
+}
+
+export function closeMobileDrawer() {
+    const drawer = document.getElementById('mobileDrawerNav');
+    const backdrop = document.getElementById('mobileDrawerBackdrop');
+    const openBtn = document.getElementById('mobileMenuOpenBtn');
+    if (!drawer || !backdrop) return;
+
+    drawer.classList.remove('translate-x-0');
+    drawer.classList.add('-translate-x-full');
+
+    backdrop.classList.remove('opacity-100');
+    backdrop.classList.add('opacity-0', 'pointer-events-none');
+
+    drawer.setAttribute('inert', '');
+    drawer.setAttribute('aria-hidden', 'true');
+    if (openBtn) openBtn.setAttribute('aria-expanded', 'false');
+
+    document.body.classList.remove('overflow-hidden');
+
+    if (document.activeElement && drawer.contains(document.activeElement)) {
+        if (openBtn) openBtn.focus();
+    }
+}
+
+// Tự động đóng mobile drawer và dọn dẹp scroll-lock khi chuyển sang kích thước desktop (≥ 1024px)
+if (typeof window !== 'undefined' && window.matchMedia) {
+    const lgBreakpointQuery = window.matchMedia('(min-width: 1024px)');
+    const handleLgBreakpoint = (e) => {
+        if (e.matches) {
+            closeMobileDrawer();
+        }
+    };
+    if (lgBreakpointQuery.addEventListener) {
+        lgBreakpointQuery.addEventListener('change', handleLgBreakpoint);
+    } else if (lgBreakpointQuery.addListener) {
+        lgBreakpointQuery.addListener(handleLgBreakpoint);
+    }
+}
+
 export function updateSidebarNavActive(target) {
     const map = {
-        home: 'sidebarLinkHome',
-        map: 'sidebarLinkMap',
-        clubs: 'sidebarLinkClubs',
-        community: 'sidebarLinkCommunity',
-        blog: 'sidebarLinkBlog',
-        events: 'sidebarLinkEvents',
-        planner: 'sidebarLinkPlanner',
-        saved: 'sidebarLinkSaved',
-        feedback: 'sidebarLinkFeedback',
-        about: 'sidebarLinkAbout',
-        companion: 'sidebarLinkCompanion'
+        home: 'home',
+        map: 'map',
+        clubs: 'clubs',
+        community: 'community',
+        blog: 'blog',
+        events: 'events',
+        planner: 'planner',
+        saved: 'saved',
+        feedback: 'feedback',
+        about: 'about',
+        companion: 'companion'
     };
-    const activeId = map[target] || null;
+    const activeTarget = map[target] || null;
+
     const standardLinks = [
-        { id: 'sidebarLinkHome', iconColor: '' },
-        { id: 'sidebarLinkMap', iconColor: '' },
-        { id: 'sidebarLinkClubs', iconColor: '' },
-        { id: 'sidebarLinkCommunity', iconColor: '' },
-        { id: 'sidebarLinkBlog', iconColor: '' },
-        { id: 'sidebarLinkEvents', iconColor: '' },
-        { id: 'sidebarLinkPlanner', iconColor: '' },
-        { id: 'sidebarLinkSaved', iconColor: 'text-rose-500' }
+        { target: 'home', ids: ['sidebarLinkHome', 'drawerLinkHome'], iconColor: '' },
+        { target: 'map', ids: ['sidebarLinkMap', 'drawerLinkMap'], iconColor: '' },
+        { target: 'clubs', ids: ['sidebarLinkClubs', 'drawerLinkClubs'], iconColor: '' },
+        { target: 'community', ids: ['sidebarLinkCommunity', 'drawerLinkCommunity'], iconColor: '' },
+        { target: 'blog', ids: ['sidebarLinkBlog', 'drawerLinkBlog'], iconColor: '' },
+        { target: 'events', ids: ['sidebarLinkEvents', 'drawerLinkEvents'], iconColor: '' },
+        { target: 'planner', ids: ['sidebarLinkPlanner', 'drawerLinkPlanner'], iconColor: '' },
+        { target: 'saved', ids: ['sidebarLinkSaved', 'drawerLinkSaved'], iconColor: 'text-rose-500' }
     ];
 
-    standardLinks.forEach(({ id, iconColor }) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const isActive = id === activeId;
-        if (isActive) {
-            el.className = 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-primary-container text-white font-button text-xs font-semibold shadow-xs';
-            const icon = el.querySelector('.material-symbols-outlined');
-            if (icon) {
-                icon.className = 'material-symbols-outlined text-[20px] text-white';
+    standardLinks.forEach(({ target: linkTarget, ids, iconColor }) => {
+        const isActive = linkTarget === activeTarget;
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (isActive) {
+                el.className = 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-primary-container text-white font-button text-xs font-semibold shadow-xs';
+                const icon = el.querySelector('.material-symbols-outlined');
+                if (icon) {
+                    icon.className = 'material-symbols-outlined text-[20px] text-white';
+                }
+            } else {
+                el.className = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]';
+                const icon = el.querySelector('.material-symbols-outlined');
+                if (icon) {
+                    icon.className = `material-symbols-outlined text-[20px] ${iconColor}`;
+                }
             }
-        } else {
-            el.className = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]';
-            const icon = el.querySelector('.material-symbols-outlined');
-            if (icon) {
-                icon.className = `material-symbols-outlined text-[20px] ${iconColor}`;
-            }
-        }
+        });
     });
 
     // 3 danh mục công khai trong GÓC ADMIN & DỰ ÁN (Xanh dương, Tím, Cam hổ phách)
     const adminProjectLinks = [
         {
-            id: 'sidebarLinkFeedback',
+            target: 'feedback',
+            ids: ['sidebarLinkFeedback', 'drawerLinkFeedback'],
             iconColor: 'text-blue-600 dark:text-blue-400',
             activeClass: 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 font-button text-xs font-bold shadow-xs',
             inactiveClass: 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-blue-50/70 dark:hover:bg-blue-950/30 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-button text-xs font-semibold min-h-[44px]'
         },
         {
-            id: 'sidebarLinkAbout',
+            target: 'about',
+            ids: ['sidebarLinkAbout', 'drawerLinkAbout'],
             iconColor: 'text-purple-600 dark:text-purple-400',
             activeClass: 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80 font-button text-xs font-bold shadow-xs',
             inactiveClass: 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-purple-50/70 dark:hover:bg-purple-950/30 hover:text-purple-700 dark:hover:text-purple-300 transition-colors font-button text-xs font-semibold min-h-[44px]'
         },
         {
-            id: 'sidebarLinkCompanion',
+            target: 'companion',
+            ids: ['sidebarLinkCompanion', 'drawerLinkCompanion'],
             iconColor: 'text-amber-600 dark:text-amber-400',
             activeClass: 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 font-button text-xs font-bold shadow-xs',
             inactiveClass: 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-amber-50/70 dark:hover:bg-amber-950/30 hover:text-amber-800 dark:hover:text-amber-300 transition-colors font-button text-xs font-semibold min-h-[44px]'
         }
     ];
 
-    adminProjectLinks.forEach(({ id, iconColor, activeClass, inactiveClass }) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const isActive = id === activeId;
-        el.className = isActive ? activeClass : inactiveClass;
-        const icon = el.querySelector('.material-symbols-outlined');
-        if (icon) {
-            icon.className = `material-symbols-outlined text-[20px] ${iconColor}`;
-        }
+    adminProjectLinks.forEach(({ target: linkTarget, ids, iconColor, activeClass, inactiveClass }) => {
+        const isActive = linkTarget === activeTarget;
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.className = isActive ? activeClass : inactiveClass;
+            const icon = el.querySelector('.material-symbols-outlined');
+            if (icon) {
+                icon.className = `material-symbols-outlined text-[20px] ${iconColor}`;
+            }
+        });
     });
 }
 
@@ -5116,7 +5190,8 @@ export function switchView(viewName, options = {}) {
     }
     state.currentView = viewName;
 
-    // Đóng các modal overlay nếu cần
+    // Đóng mobile drawer và các modal overlay nếu cần
+    closeMobileDrawer();
     if (closeOverlays) {
         const mapModal = document.getElementById('fullMapModal');
         if (mapModal && !mapModal.classList.contains('hidden')) {
@@ -8918,42 +8993,47 @@ export function confirmSimulatedDonation(amount) {
 }
 
 /**
- * Cập nhật số lượng hiển thị trên Badge Sidebar Admin Moderation
+ * Cập nhật số lượng hiển thị trên Badge Sidebar & Mobile Drawer Admin Moderation
  */
 export function updateAdminModerationBadge(count, isError = false) {
-    const badge = document.getElementById('sidebarAdminModerationBadge');
-    if (!badge) return;
+    const badges = [
+        document.getElementById('sidebarAdminModerationBadge'),
+        document.getElementById('drawerAdminModerationBadge')
+    ].filter(Boolean);
+    if (!badges.length) return;
 
-    if (isError || (count === null && state.moderationKpi?.hasError)) {
-        badge.textContent = '!';
-        badge.title = 'Chưa tải được số lượng chờ duyệt (Lỗi kết nối)';
-        badge.setAttribute('aria-label', 'Chưa tải được số lượng chờ duyệt');
-        badge.className = 'ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500 text-white shadow-xs';
-        badge.classList.remove('hidden');
-        return;
-    }
+    badges.forEach(badge => {
+        if (isError || (count === null && state.moderationKpi?.hasError)) {
+            badge.textContent = '!';
+            badge.title = 'Chưa tải được số lượng chờ duyệt (Lỗi kết nối)';
+            badge.setAttribute('aria-label', 'Chưa tải được số lượng chờ duyệt');
+            badge.className = 'ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500 text-white shadow-xs';
+            badge.classList.remove('hidden');
+            return;
+        }
 
-    const num = typeof count === 'number' ? count : (state.moderationKpi?.hasError ? null : state.moderationKpi?.pendingCount);
-    if (typeof num === 'number' && num > 0) {
-        badge.textContent = String(num);
-        badge.title = `${num} nội dung chờ duyệt`;
-        badge.setAttribute('aria-label', `${num} nội dung chờ duyệt`);
-        badge.className = 'ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500 text-white shadow-xs';
-        badge.classList.remove('hidden');
-    } else if (num === 0) {
-        badge.textContent = '0';
-        badge.title = 'Hàng đợi kiểm duyệt đã sạch';
-        badge.setAttribute('aria-label', 'Không có nội dung chờ duyệt');
-        badge.classList.add('hidden');
-    } else if (state.moderationKpi?.hasError) {
-        badge.textContent = '!';
-        badge.title = 'Chưa tải được số lượng chờ duyệt';
-        badge.setAttribute('aria-label', 'Chưa tải được số lượng chờ duyệt');
-        badge.classList.remove('hidden');
-    } else {
-        badge.textContent = '0';
-        badge.classList.add('hidden');
-    }
+        const num = typeof count === 'number' ? count : (state.moderationKpi?.hasError ? null : state.moderationKpi?.pendingCount);
+        if (typeof num === 'number' && num > 0) {
+            badge.textContent = String(num);
+            badge.title = `${num} nội dung chờ duyệt`;
+            badge.setAttribute('aria-label', `${num} nội dung chờ duyệt`);
+            badge.className = 'ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500 text-white shadow-xs';
+            badge.classList.remove('hidden');
+        } else if (num === 0) {
+            badge.textContent = '0';
+            badge.title = 'Hàng đợi kiểm duyệt đã sạch';
+            badge.setAttribute('aria-label', 'Không có nội dung chờ duyệt');
+            badge.classList.add('hidden');
+        } else if (state.moderationKpi?.hasError) {
+            badge.textContent = '!';
+            badge.title = 'Chưa tải được số lượng chờ duyệt';
+            badge.setAttribute('aria-label', 'Chưa tải được số lượng chờ duyệt');
+            badge.classList.remove('hidden');
+        } else {
+            badge.textContent = '0';
+            badge.classList.add('hidden');
+        }
+    });
 }
 
 /**
@@ -9109,49 +9189,61 @@ export function updateAdminRoleUI() {
     const role = session?.user?.role;
     const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
 
-    const moderationLink = document.getElementById('sidebarAdminModerationLink');
-    const adminLoginLink = document.getElementById('sidebarAdminLoginLink');
-    const userNameEl = document.getElementById('sidebarUserName');
-    const userRoleEl = document.getElementById('sidebarUserRole');
+    const moderationLinks = [
+        document.getElementById('sidebarAdminModerationLink'),
+        document.getElementById('drawerAdminModerationLink')
+    ].filter(Boolean);
+    const adminLoginLinks = [
+        document.getElementById('sidebarAdminLoginLink'),
+        document.getElementById('drawerAdminLoginLink')
+    ].filter(Boolean);
+    const userNameEls = [
+        document.getElementById('sidebarUserName'),
+        document.getElementById('drawerUserName')
+    ].filter(Boolean);
+    const userRoleEls = [
+        document.getElementById('sidebarUserRole'),
+        document.getElementById('drawerUserRole')
+    ].filter(Boolean);
 
     if (isAdmin) {
-        if (moderationLink) {
-            moderationLink.classList.remove('hidden');
-            moderationLink.classList.add('flex');
-        }
-        if (adminLoginLink) {
-            adminLoginLink.classList.add('hidden');
-            adminLoginLink.classList.remove('flex');
-        }
-        if (userNameEl) {
-            userNameEl.textContent = session.user.email?.split('@')[0] || 'Quản Trị Viên';
-            userNameEl.title = session.user.email || '';
-        }
-        if (userRoleEl) {
-            userRoleEl.textContent = role === 'admin' ? 'Quản trị viên' : (role === 'editor' ? 'Biên tập viên' : 'Kiểm duyệt viên');
-            userRoleEl.className = 'font-caption text-[10px] text-amber-500 font-bold';
-        }
+        moderationLinks.forEach(el => {
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        });
+        adminLoginLinks.forEach(el => {
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        });
+        userNameEls.forEach(el => {
+            el.textContent = session.user.email?.split('@')[0] || 'Quản Trị Viên';
+            el.title = session.user.email || '';
+        });
+        userRoleEls.forEach(el => {
+            el.textContent = role === 'admin' ? 'Quản trị viên' : (role === 'editor' ? 'Biên tập viên' : 'Kiểm duyệt viên');
+            el.className = 'font-caption text-[10px] text-amber-500 font-bold';
+        });
         refreshAdminModerationCounts();
     } else {
-        if (moderationLink) {
-            moderationLink.classList.add('hidden');
-            moderationLink.classList.remove('flex');
-        }
+        moderationLinks.forEach(el => {
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        });
         updateAdminModerationBadge(0);
-        if (adminLoginLink) {
-            adminLoginLink.classList.remove('hidden');
-            adminLoginLink.classList.add('flex');
-        }
-        if (userNameEl) {
-            userNameEl.textContent = communityUser
+        adminLoginLinks.forEach(el => {
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        });
+        userNameEls.forEach(el => {
+            el.textContent = communityUser
                 ? (communityUser.user_metadata?.display_name || communityUser.email?.split('@')[0] || 'Thành viên')
                 : 'Khách vãng lai';
-            userNameEl.title = '';
-        }
-        if (userRoleEl) {
-            userRoleEl.textContent = communityUser ? 'Thành viên' : 'Đăng nhập / Đăng ký';
-            userRoleEl.className = 'font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium';
-        }
+            el.title = '';
+        });
+        userRoleEls.forEach(el => {
+            el.textContent = communityUser ? 'Thành viên' : 'Đăng nhập / Đăng ký';
+            el.className = 'font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium';
+        });
     }
 }
 
@@ -10303,6 +10395,8 @@ if (typeof window !== 'undefined') {
         setBottomNavActive,
         updateNavActiveStates,
         updateSidebarNavActive,
+        openMobileDrawer,
+        closeMobileDrawer,
         toggleNearMeFilter,
         handleTourSelect,
         handleSearchKeyword,

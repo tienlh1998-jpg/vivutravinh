@@ -123,6 +123,12 @@
                 scroll-margin-top: 124px;
             }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            #mobileDrawerNav, #mobileDrawerBackdrop {
+                transition: none !important;
+            }
+        }
     </style>
 
     <!-- App Configuration & Module Exposing -->
@@ -235,7 +241,7 @@
     <!-- ======================================================== -->
     <!-- DESKTOP FIXED SIDEBAR NAVIGATION (STITCH DESIGN - lg+)  -->
     <!-- ======================================================== -->
-    <aside class="hidden lg:flex fixed left-0 top-0 h-screen w-[248px] bg-surface-container-lowest dark:bg-zinc-900 border-r border-[#E4E4E7] dark:border-zinc-800 z-40 flex-col justify-between select-none">
+    <aside id="appSidebarNav" class="hidden lg:flex fixed left-0 top-0 h-screen w-[248px] bg-surface-container-lowest dark:bg-zinc-900 border-r border-[#E4E4E7] dark:border-zinc-800 z-40 flex-col justify-between select-none">
         <!-- Brand Logo Header (Căn chuẩn chiều cao 104px khớp đường đáy với header nội dung) -->
         <div id="sidebarBrandHeader" class="h-[104px] border-b border-[#E4E4E7] dark:border-zinc-800 flex items-center px-6 gap-3 shrink-0">
             <div class="w-9 h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
@@ -371,6 +377,156 @@
     </aside>
 
     <!-- ======================================================== -->
+    <!-- MOBILE DRAWER NAVIGATION (STITCH DESIGN - lg:hidden)      -->
+    <!-- ======================================================== -->
+    <!-- Backdrop che mờ (Overlay) -->
+    <div id="mobileDrawerBackdrop" onclick="window.ViVuApp?.closeMobileDrawer?.()"
+        class="fixed inset-0 bg-black/60 backdrop-blur-xs z-[60] transition-opacity duration-300 ease-out motion-reduce:transition-none opacity-0 pointer-events-none lg:hidden"
+        aria-hidden="true"></div>
+
+    <!-- Panel trượt từ trái (Drawer) -->
+    <nav id="mobileDrawerNav" role="dialog" aria-modal="true" aria-label="Danh mục ứng dụng"
+        class="fixed top-0 bottom-0 left-0 w-[85vw] max-w-[320px] bg-surface-container-lowest dark:bg-zinc-900 border-r border-[#E4E4E7] dark:border-zinc-800 z-[70] flex flex-col justify-between select-none shadow-2xl transform -translate-x-full transition-transform duration-300 ease-out motion-reduce:transition-none lg:hidden"
+        inert aria-hidden="true">
+        <!-- Header Drawer: Logo & Nút đóng (min 44px) -->
+        <div class="h-16 border-b border-[#E4E4E7] dark:border-zinc-800 flex items-center justify-between px-4 sm:px-5 shrink-0 bg-surface dark:bg-zinc-900">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">eco</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-headline-sm text-sm text-primary dark:text-emerald-400 font-bold leading-none tracking-tight">ViVuTraVinh</span>
+                    <span class="font-caption text-[10px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Khám Phá &amp; Kết Nối</span>
+                </div>
+            </div>
+            <button id="mobileDrawerCloseBtn" type="button" onclick="window.ViVuApp?.closeMobileDrawer?.()"
+                class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 flex items-center justify-center transition-colors active:scale-95"
+                title="Đóng danh mục" aria-label="Đóng danh mục">
+                <span class="material-symbols-outlined text-2xl">close</span>
+            </button>
+        </div>
+
+        <!-- Thân danh mục cuộn riêng biệt -->
+        <div class="flex flex-col flex-1 overflow-y-auto overscroll-contain py-4 gap-6 no-scrollbar">
+            <!-- Group 1: Khám Phá & Kết Nối -->
+            <div class="px-4">
+                <span class="px-2 font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Khám Phá &amp; Kết Nối</span>
+                <div role="navigation" aria-label="Khám Phá &amp; Kết Nối" class="mt-2 flex flex-col gap-1">
+                    <a href="#/home" id="drawerLinkHome" onclick="window.ViVuApp?.navGoHome?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-primary-container text-white font-button text-xs font-semibold shadow-xs">
+                        <span class="material-symbols-outlined text-[20px]">home</span>
+                        <span>Trang chủ</span>
+                    </a>
+                    <a href="#/map" id="drawerLinkMap" onclick="window.ViVuApp?.navGoMap?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <span class="material-symbols-outlined text-[20px]">map</span>
+                        <span>Bản đồ &amp; Địa điểm</span>
+                    </a>
+                    <a href="#/clubs" id="drawerLinkClubs" onclick="window.ViVuApp?.navGoClubs?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <span class="material-symbols-outlined text-[20px]">groups</span>
+                        <span>Câu lạc bộ</span>
+                    </a>
+                    <a href="#/community" id="drawerLinkCommunity" onclick="window.ViVuApp?.navGoCommunity?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <span class="material-symbols-outlined text-[20px]">forum</span>
+                        <span>Cộng đồng</span>
+                    </a>
+                    <a href="#/blog" id="drawerLinkBlog" onclick="window.ViVuApp?.navGoBlog?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <span class="material-symbols-outlined text-[20px]">auto_stories</span>
+                        <span>Blog ViVu</span>
+                    </a>
+                    <a href="#/events" id="drawerLinkEvents" onclick="window.ViVuApp?.navGoEvents ? window.ViVuApp.navGoEvents() : (window.ViVuApp?.navGoSection ? window.ViVuApp.navGoSection('festivalsPortalSection') : null); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <span class="material-symbols-outlined text-[20px]">event</span>
+                        <span>Sự kiện &amp; Gặp gỡ</span>
+                    </a>
+                    <a href="#/planner" id="drawerLinkPlanner" onclick="window.ViVuApp?.navGoPlanner?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold">
+                        <span class="material-symbols-outlined text-[20px]">route</span>
+                        <span>Lên kế hoạch chuyến đi</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Group 2: Cá Nhân -->
+            <div class="px-4">
+                <span class="px-2 font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Cá Nhân</span>
+                <div role="navigation" aria-label="Cá Nhân" class="mt-2 flex flex-col gap-1">
+                    <a href="#userProfileModal" id="drawerLinkSaved" onclick="window.ViVuApp?.navGoSaved?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px] text-rose-500">bookmark</span>
+                        <span>Bộ sưu tập đã lưu</span>
+                    </a>
+                    <a href="#userProfileModal" id="drawerLinkMyContent" onclick="window.ViVuApp?.openProfileModal ? window.ViVuApp.openProfileModal('my-content') : (window.ViVuApp?.openMyContentModal ? window.ViVuApp.openMyContentModal() : null); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px] text-blue-500">folder_shared</span>
+                        <span>Nội dung của tôi</span>
+                    </a>
+                    <a href="#userProfileModal" onclick="window.ViVuApp?.openProfileModal?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px] text-amber-500">military_tech</span>
+                        <span>Hồ sơ &amp; Thành tích</span>
+                    </a>
+                    <a href="#securityModal" onclick="window.ViVuApp?.openSecurityModal?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px] text-emerald-600 dark:text-emerald-400">shield_lock</span>
+                        <span>Cài đặt &amp; Bảo mật</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Group 3: GÓC ADMIN & DỰ ÁN -->
+            <div class="px-4">
+                <span class="px-2 font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">GÓC ADMIN &amp; DỰ ÁN</span>
+                <div role="navigation" aria-label="Góc Admin &amp; Dự Án" class="mt-2 flex flex-col gap-1">
+                    <!-- Mục Kiểm duyệt nội dung (chỉ hiện với Admin) -->
+                    <a href="#/moderation" id="drawerAdminModerationLink" onclick="window.ViVuApp?.openAdminModerationModal?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="hidden items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">admin_panel_settings</span>
+                            <span>Kiểm duyệt nội dung</span>
+                        </div>
+                        <span id="drawerAdminModerationBadge" class="hidden px-2 py-0.5 rounded-full bg-rose-600 text-white font-badge text-[11px] font-bold leading-none shadow-xs">0</span>
+                    </a>
+
+                    <!-- 1. Góp ý & Hỗ trợ (Xanh dương) -->
+                    <a href="#/feedback" id="drawerLinkFeedback" onclick="window.ViVuApp?.navGoFeedback?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-blue-50/70 dark:hover:bg-blue-950/30 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px] text-blue-600 dark:text-blue-400">rate_review</span>
+                        <span>Góp ý &amp; Hỗ trợ</span>
+                    </a>
+
+                    <!-- 2. Về dự án & Kế hoạch (Tím) -->
+                    <a href="#/about" id="drawerLinkAbout" onclick="window.ViVuApp?.navGoAbout?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-purple-50/70 dark:hover:bg-purple-950/30 hover:text-purple-700 dark:hover:text-purple-300 transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px] text-purple-600 dark:text-purple-400">timeline</span>
+                        <span>Về dự án &amp; Kế hoạch</span>
+                    </a>
+
+                    <!-- 3. Đồng hành cùng Admin (Cam hổ phách) -->
+                    <a href="#/companion" id="drawerLinkCompanion" onclick="window.ViVuApp?.navGoCompanion?.(); window.ViVuApp?.closeMobileDrawer?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-amber-50/70 dark:hover:bg-amber-950/30 hover:text-amber-800 dark:hover:text-amber-300 transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">volunteer_activism</span>
+                        <span>Đồng hành cùng Admin</span>
+                    </a>
+
+                    <!-- Link Đăng nhập Quản trị -->
+                    <a href="/admin.html" id="drawerAdminLoginLink" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-stone-500 hover:text-emerald-600 dark:text-zinc-400 dark:hover:text-emerald-400 hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <span class="material-symbols-outlined text-[20px]">lock</span>
+                        <span>Đăng nhập Quản trị</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Widget tài khoản & tiện ích đáy Drawer -->
+        <div class="p-3 border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between gap-1 shrink-0">
+            <button type="button" onclick="window.ViVuApp?.openProfileModal?.(); window.ViVuApp?.closeMobileDrawer?.();" class="flex items-center gap-2.5 min-w-0 text-left hover:opacity-85 transition-opacity min-h-[44px] flex-1">
+                <div class="w-8 h-8 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_outline</span>
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <span id="drawerUserName" class="font-button text-xs text-on-surface dark:text-zinc-100 font-semibold truncate leading-tight">Khách vãng lai</span>
+                    <span id="drawerUserRole" class="font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium">Đăng nhập / Đăng ký</span>
+                </div>
+            </button>
+            <button onclick="window.ViVuApp?.openSecurityModal?.(); window.ViVuApp?.closeMobileDrawer?.();" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Cài đặt &amp; Bảo mật" type="button" id="drawerSettingsBtn">
+                <span class="material-symbols-outlined text-[20px]">settings</span>
+            </button>
+            <button onclick="window.ViVuApp?.toggleTheme?.()" class="p-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 rounded-lg transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center" title="Chuyển chế độ giao diện" type="button" id="drawerThemeToggleBtn">
+                <span class="material-symbols-outlined text-[20px]">dark_mode</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ======================================================== -->
     <!-- APP MAIN CONTENT WRAPPER (Shifted by 248px on lg+)       -->
     <!-- ======================================================== -->
     <div class="lg:pl-[248px] flex flex-col flex-1 min-w-0 w-full transition-all">
@@ -393,16 +549,24 @@
             <!-- 2. Thanh điều hướng chính (Top Nav & Search Pill) -->
             <div id="topNavSearchContainer" class="max-w-[1200px] mx-auto px-3 sm:px-6 lg:px-8 w-full">
                 <div class="flex items-center justify-between h-16 lg:h-[68px] gap-1.5 sm:gap-4">
-                    <!-- Mobile Brand Logo (< lg) -->
-                    <a href="/" class="flex items-center lg:hidden shrink-0 group gap-1.5 sm:gap-2" aria-label="ViVuTraVinh - Trang chủ">
-                        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
-                            <span class="material-symbols-outlined text-lg sm:text-xl" style="font-variation-settings: 'FILL' 1;">eco</span>
-                        </div>
-                        <div class="flex flex-col justify-center leading-tight">
-                            <span class="font-headline-sm text-xs sm:text-sm text-primary dark:text-emerald-400 tracking-tight font-bold">ViVuTraVinh</span>
-                            <span class="font-caption text-[9px] sm:text-[10px] text-on-surface-variant dark:text-zinc-400">Xứ Trà</span>
-                        </div>
-                    </a>
+                    <!-- Mobile Brand Area (< lg): Nút Mở Danh Mục & Logo -->
+                    <div class="flex items-center lg:hidden shrink-0 gap-1">
+                        <button id="mobileMenuOpenBtn" type="button" onclick="window.ViVuApp?.openMobileDrawer?.()"
+                            class="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl text-on-surface-variant dark:text-zinc-300 hover:text-on-surface dark:hover:text-zinc-100 hover:bg-surface-container-low dark:hover:bg-zinc-800 flex items-center justify-center transition-colors active:scale-95 shrink-0"
+                            title="Mở danh mục" aria-label="Mở danh mục" aria-expanded="false" aria-controls="mobileDrawerNav">
+                            <span class="material-symbols-outlined text-2xl">menu</span>
+                        </button>
+                        <a href="/" onclick="window.ViVuApp?.openMobileDrawer ? window.ViVuApp.openMobileDrawer() : (window.ViVuApp?.navGoHome ? window.ViVuApp.navGoHome() : null); return false;"
+                            class="flex items-center shrink-0 group gap-1.5" aria-label="ViVuTraVinh - Mở danh mục">
+                            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary text-secondary-container flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-lg sm:text-xl" style="font-variation-settings: 'FILL' 1;">eco</span>
+                            </div>
+                            <div class="flex flex-col justify-center leading-tight hidden min-[400px]:flex">
+                                <span class="font-headline-sm text-xs sm:text-sm text-primary dark:text-emerald-400 tracking-tight font-bold">ViVuTraVinh</span>
+                                <span class="font-caption text-[9px] sm:text-[10px] text-on-surface-variant dark:text-zinc-400">Xứ Trà</span>
+                            </div>
+                        </a>
+                    </div>
 
                     <!-- Ô tìm kiếm dạng Pill nổi bật (chiếm toàn bộ không gian khả dụng, touch target min 44px) -->
                     <div class="flex-1 min-w-0 max-w-xl mx-1 sm:mx-4">
