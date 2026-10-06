@@ -147,20 +147,32 @@ class CDPClient {
     }
 
     async captureScreenshot(filename) {
+        const finalName = process.env.TARGET_URL?.includes('vivutravinh.id.vn') && !filename.startsWith('prod_')
+            ? `prod_${filename.replace(/^local_/, '')}`
+            : filename;
         const res = await this.send('Page.captureScreenshot', { format: 'png' });
-        const filePath = path.join(ARTIFACT_DIR, filename);
+        const filePath = path.join(ARTIFACT_DIR, finalName);
         fs.writeFileSync(filePath, Buffer.from(res.data, 'base64'));
-        console.log(`  📸 Đã chụp màn hình: ${filename}`);
+        console.log(`  📸 Đã chụp màn hình: ${finalName}`);
         return filePath;
     }
 }
 
 async function main() {
     console.log('=== BẮT ĐẦU KIỂM THỬ E2E AVATAR & BỘ LỌC ĐỊA ĐIỂM ===');
-    const localPort = 4175;
-    const server = await startLocalServer(localPort);
-    const BASE_URL = `http://localhost:${localPort}`;
-    console.log(`✓ Local server đang chạy tại ${BASE_URL}`);
+    const targetEnv = process.env.TARGET_URL;
+    const isProd = !!targetEnv && targetEnv.includes('vivutravinh.id.vn');
+    const prefix = isProd ? 'prod_' : 'local_';
+    let server = null;
+    let BASE_URL = targetEnv;
+    if (!BASE_URL) {
+        const localPort = 4175;
+        server = await startLocalServer(localPort);
+        BASE_URL = `http://localhost:${localPort}`;
+        console.log(`✓ Local server đang chạy tại ${BASE_URL}`);
+    } else {
+        console.log(`✓ Đang kiểm thử trên môi trường: ${BASE_URL}`);
+    }
 
     // Launch Chrome
     const userDataDir = path.join(os.tmpdir(), `vivu-avatar-filter-test-${Date.now()}`);
@@ -637,7 +649,7 @@ async function main() {
         }
 
         chromeProc.kill();
-        server.close();
+        if (server) server.close();
     }
 }
 
