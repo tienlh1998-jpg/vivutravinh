@@ -134,7 +134,8 @@ export const MODERATION_KPI = {
     pointsIssued: 0,
     violationRate: "0%",
     pendingClubsCount: 0,
-    eligibleClubsCount: 0
+    eligibleClubsCount: 0,
+    pendingPlacesCount: 0
 };
 
 export const INITIAL_PENDING_POSTS = [

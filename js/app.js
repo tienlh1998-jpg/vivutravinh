@@ -736,6 +736,8 @@ export const state = {
     selectedModerationArticleId: null,
     moderationActivities: [],
     selectedModerationActivityId: null,
+    moderationPlaces: [],
+    selectedModerationPlaceId: null,
     moderationKpi: { ...MODERATION_KPI },
     moderationActiveTab: 'posts',
     moderationFilterCategory: 'all',
@@ -8895,8 +8897,11 @@ export function syncAndRecalculateModerationPending() {
     const pArticles = typeof state.moderationKpi?.pendingArticlesCount === 'number'
         ? state.moderationKpi.pendingArticlesCount
         : (state.moderationArticles || []).filter(a => a.status === 'pending').length;
+    const pPlaces = typeof state.moderationKpi?.pendingPlacesCount === 'number'
+        ? state.moderationKpi.pendingPlacesCount
+        : (state.moderationPlaces || []).filter(p => p.status === 'draft' || p.status === 'pending').length;
 
-    const total = pPosts + pClubs + pActs + pEvents + pArticles;
+    const total = pPosts + pClubs + pActs + pEvents + pArticles + pPlaces;
 
     state.moderationKpi = {
         ...(state.moderationKpi || {}),
@@ -8907,7 +8912,8 @@ export function syncAndRecalculateModerationPending() {
         pendingClubsCount: pClubs,
         pendingActivitiesCount: pActs,
         pendingEventsCount: pEvents,
-        pendingArticlesCount: pArticles
+        pendingArticlesCount: pArticles,
+        pendingPlacesCount: pPlaces
     };
     updateAdminModerationBadge(total, false);
     return total;
@@ -8946,7 +8952,8 @@ export async function refreshAdminModerationCounts() {
                     pendingClubsCount: data.kpi.pendingClubs ?? 0,
                     pendingActivitiesCount: data.kpi.pendingActivities ?? 0,
                     pendingEventsCount: data.kpi.pendingEvents ?? 0,
-                    pendingArticlesCount: data.kpi.pendingArticles ?? 0
+                    pendingArticlesCount: data.kpi.pendingArticles ?? 0,
+                    pendingPlacesCount: data.kpi.pendingPlaces ?? 0
                 };
                 updateAdminModerationBadge(total, false);
             } else {
@@ -8960,7 +8967,8 @@ export async function refreshAdminModerationCounts() {
                     pendingClubsCount: null,
                     pendingActivitiesCount: null,
                     pendingEventsCount: null,
-                    pendingArticlesCount: null
+                    pendingArticlesCount: null,
+                    pendingPlacesCount: null
                 };
                 updateAdminModerationBadge(null, true);
             }
@@ -8975,7 +8983,8 @@ export async function refreshAdminModerationCounts() {
                 pendingClubsCount: null,
                 pendingActivitiesCount: null,
                 pendingEventsCount: null,
-                pendingArticlesCount: null
+                pendingArticlesCount: null,
+                pendingPlacesCount: null
             };
             updateAdminModerationBadge(null, true);
         }
@@ -8990,7 +8999,8 @@ export async function refreshAdminModerationCounts() {
             pendingClubsCount: null,
             pendingActivitiesCount: null,
             pendingEventsCount: null,
-            pendingArticlesCount: null
+            pendingArticlesCount: null,
+            pendingPlacesCount: null
         };
         updateAdminModerationBadge(null, true);
     }
@@ -9077,6 +9087,8 @@ function renderModerationModal() {
         selectedArticleId: state.selectedModerationArticleId,
         activities: state.moderationActivities || [],
         selectedActivityId: state.selectedModerationActivityId,
+        places: state.moderationPlaces || [],
+        selectedPlaceId: state.selectedModerationPlaceId,
         kpi: state.moderationKpi,
         filterCategory: state.moderationFilterCategory,
         riskFilter: state.moderationRiskFilter,
@@ -9251,13 +9263,53 @@ export async function openAdminModerationModal(tab = 'posts') {
                         admin_notes: act.admin_notes || ''
                     }));
                 }
+                if (Array.isArray(data.places)) {
+                    state.moderationPlaces = data.places.map(pl => {
+                        let imgs = [];
+                        if (Array.isArray(pl.images)) {
+                            imgs = pl.images.map(img => typeof img === 'string' ? { src: img, caption: pl.name } : img);
+                        } else if (typeof pl.images === 'string' && pl.images.trim()) {
+                            imgs = [{ src: pl.images.trim(), caption: pl.name }];
+                        }
+                        if (pl.image_link && !imgs.some(i => i.src === pl.image_link)) {
+                            imgs.unshift({ src: pl.image_link, caption: pl.name });
+                        }
+                        return {
+                            id: pl.id,
+                            name: pl.name || 'Địa điểm chưa đặt tên',
+                            slug: pl.slug,
+                            category: pl.category || 'Địa điểm du lịch',
+                            area: pl.area || 'Toàn tỉnh',
+                            address: pl.address || '',
+                            map_link: pl.map_link || '',
+                            price_raw: pl.price_raw || 'Liên hệ',
+                            description: pl.description || '',
+                            note: pl.note || '',
+                            contact: pl.contact || '',
+                            coordinates: pl.coordinates || '',
+                            contributor: pl.contributor || 'Thành viên đóng góp',
+                            display_hours: pl.display_hours || '07:00 - 18:00',
+                            operating_status: pl.operating_status || 'Normal',
+                            status: pl.status || 'draft',
+                            images: imgs,
+                            image_link: pl.image_link || (imgs[0]?.src || null),
+                            client_submission_id: pl.client_submission_id,
+                            created_at: pl.created_at || 'Vừa xong'
+                        };
+                    });
+                    if (!state.selectedModerationPlaceId || !state.moderationPlaces.some(p => p.id === state.selectedModerationPlaceId)) {
+                        state.selectedModerationPlaceId = state.moderationPlaces[0]?.id || null;
+                    }
+                }
                 if (data.kpi && !data.kpi.hasError) {
-                    const total = typeof data.kpi.pendingTotal === 'number' ? data.kpi.pendingTotal : ((data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0));
+                    const total = typeof data.kpi.pendingTotal === 'number'
+                        ? data.kpi.pendingTotal
+                        : ((data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0) + (data.kpi.pendingPlaces || 0));
                     state.moderationKpi = {
                         hasError: false,
                         pendingCount: total,
                         pendingTotal: total,
-                        pendingNew: (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0),
+                        pendingNew: (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0) + (data.kpi.pendingPlaces || 0),
                         flaggedCount: 0,
                         approvedToday: state.moderationKpi?.approvedToday || 0,
                         pointsIssued: 0,
@@ -9266,7 +9318,8 @@ export async function openAdminModerationModal(tab = 'posts') {
                         pendingClubsCount: data.kpi.pendingClubs ?? 0,
                         pendingEventsCount: data.kpi.pendingEvents ?? 0,
                         pendingArticlesCount: data.kpi.pendingArticles ?? 0,
-                        pendingActivitiesCount: data.kpi.pendingActivities ?? 0
+                        pendingActivitiesCount: data.kpi.pendingActivities ?? 0,
+                        pendingPlacesCount: data.kpi.pendingPlaces ?? 0
                     };
                     updateAdminModerationBadge(total, false);
                 } else {
@@ -9279,7 +9332,8 @@ export async function openAdminModerationModal(tab = 'posts') {
                         pendingClubsCount: null,
                         pendingActivitiesCount: null,
                         pendingEventsCount: null,
-                        pendingArticlesCount: null
+                        pendingArticlesCount: null,
+                        pendingPlacesCount: null
                     };
                     updateAdminModerationBadge(null, true);
                 }
@@ -9293,7 +9347,8 @@ export async function openAdminModerationModal(tab = 'posts') {
                     pendingClubsCount: null,
                     pendingActivitiesCount: null,
                     pendingEventsCount: null,
-                    pendingArticlesCount: null
+                    pendingArticlesCount: null,
+                    pendingPlacesCount: null
                 };
                 updateAdminModerationBadge(null, true);
             }
@@ -9309,7 +9364,8 @@ export async function openAdminModerationModal(tab = 'posts') {
             pendingClubsCount: null,
             pendingActivitiesCount: null,
             pendingEventsCount: null,
-            pendingArticlesCount: null
+            pendingArticlesCount: null,
+            pendingPlacesCount: null
         };
         updateAdminModerationBadge(null, true);
     }
@@ -9598,6 +9654,71 @@ export async function approveClubActivity(activityId) {
     refreshAdminModerationCounts().catch(() => {});
 }
 
+export function selectModerationPlace(placeId) {
+    state.selectedModerationPlaceId = placeId;
+    renderModerationModal();
+}
+
+export async function approvePlace(placeId) {
+    const place = (state.moderationPlaces || []).find(p => p.id === placeId);
+    if (!place) return;
+
+    try {
+        const token = await getValidAdminToken();
+        if (token) {
+            const auditNoteEl = document.getElementById('moderatorAuditNote');
+            const adminNotes = auditNoteEl ? auditNoteEl.value.trim() : undefined;
+            const res = await fetch('/api/admin-moderation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    entity_type: 'place',
+                    entity_id: placeId,
+                    action: 'approve',
+                    admin_notes: adminNotes
+                })
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                showSavedToast('Lỗi phê duyệt địa điểm: ' + (errData.error?.message || res.statusText));
+                return;
+            }
+        }
+    } catch (e) {
+        console.warn('[Moderation] API approvePlace error:', e.message);
+        showSavedToast('Lỗi kết nối khi phê duyệt địa điểm: ' + e.message);
+        return;
+    }
+
+    place.status = 'approved';
+    state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
+    state.moderationPlaces = (state.moderationPlaces || []).filter(p => p.id !== placeId);
+    if (typeof state.moderationKpi?.pendingPlacesCount === 'number') {
+        state.moderationKpi.pendingPlacesCount = Math.max(0, state.moderationKpi.pendingPlacesCount - 1);
+    }
+    if (state.selectedModerationPlaceId === placeId) {
+        state.selectedModerationPlaceId = state.moderationPlaces[0]?.id || null;
+    }
+
+    // Làm mới danh sách địa điểm công khai để địa điểm mới duyệt xuất hiện ngay
+    if (window.ViVuData?.loadPlaces) {
+        const freshPlaces = await window.ViVuData.loadPlaces({ forceRefresh: true }).catch(() => null);
+        if (Array.isArray(freshPlaces)) {
+            state.allPlaces = freshPlaces;
+            state.filteredPlaces = [...freshPlaces];
+            renderPlacesGrid('placesContainer', state.filteredPlaces, openDetailModal, toggleBookmark, isPlaceSaved);
+        }
+    }
+
+    syncAndRecalculateModerationPending();
+    renderModerationModal();
+    showSavedToast('✓ Đã phê duyệt và xuất bản địa điểm thành công (+15 Điểm Thổ Địa G15)!');
+    refreshAdminModerationCounts().catch(() => {});
+}
+
 export function openActionReasonModal(actionType, targetId, targetTitle) {
     state.actionReasonModalState = { actionType, targetId, targetTitle };
     const modal = document.getElementById('adminActionReasonModal');
@@ -9780,6 +9901,35 @@ export async function submitActionReason(actionType, targetId) {
             state.selectedModerationActivityId = state.moderationActivities[0]?.id || null;
         }
         showSavedToast('Đã từ chối lịch sinh hoạt CLB và lưu lý do thẩm định.');
+    } else if (actType.startsWith('reject_place')) {
+        state.moderationPlaces = (state.moderationPlaces || []).filter(p => p.id !== tgtId);
+        if (typeof state.moderationKpi?.pendingPlacesCount === 'number') {
+            state.moderationKpi.pendingPlacesCount = Math.max(0, state.moderationKpi.pendingPlacesCount - 1);
+        }
+        try {
+            const token = await getValidAdminToken();
+            if (token) {
+                await fetch('/api/admin-moderation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        entity_type: 'place',
+                        entity_id: tgtId,
+                        action: 'reject',
+                        reason: reason || 'Địa điểm không đáp ứng tiêu chuẩn cộng đồng.'
+                    })
+                });
+            }
+        } catch (e) {
+            console.warn('[Moderation] API reject place error:', e.message);
+        }
+        if (state.selectedModerationPlaceId === tgtId) {
+            state.selectedModerationPlaceId = state.moderationPlaces[0]?.id || null;
+        }
+        showSavedToast('Đã từ chối đề xuất địa điểm và lưu lý do thẩm định.');
     }
 
     syncAndRecalculateModerationPending();
@@ -10309,6 +10459,8 @@ if (typeof window !== 'undefined') {
         syncClubActivitiesFromSupabase,
         selectModerationActivity,
         approveClubActivity,
+        selectModerationPlace,
+        approvePlace,
         getArticleCategoryBadgeClass,
         getArticleCategoryName,
         sanitizeArticleContent,

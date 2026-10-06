@@ -10014,6 +10014,8 @@ export function renderAdminModerationModalContent({
     selectedArticleId = null,
     activities = [],
     selectedActivityId = null,
+    places = [],
+    selectedPlaceId = null,
     kpi = {},
     filterCategory = 'all',
     riskFilter = 'all',
@@ -10024,6 +10026,7 @@ export function renderAdminModerationModalContent({
     const pendingActivities = (activities || []).filter(act => act.status === 'pending');
     const pendingEvents = (events || []).filter(e => e.status === 'pending');
     const pendingArticles = (articles || []).filter(a => a.status === 'pending');
+    const pendingPlaces = (places || []).filter(p => p.status === 'draft' || p.status === 'pending');
 
     const isError = Boolean(kpi && kpi.hasError);
     const pPostsCount = isError ? null : (typeof kpi.pendingPostsCount === 'number' ? kpi.pendingPostsCount : (typeof kpi.pendingPosts === 'number' ? kpi.pendingPosts : pendingPosts.length));
@@ -10031,6 +10034,7 @@ export function renderAdminModerationModalContent({
     const pActsCount = isError ? null : (typeof kpi.pendingActivitiesCount === 'number' ? kpi.pendingActivitiesCount : (typeof kpi.pendingActivities === 'number' ? kpi.pendingActivities : pendingActivities.length));
     const pEventsCount = isError ? null : (typeof kpi.pendingEventsCount === 'number' ? kpi.pendingEventsCount : (typeof kpi.pendingEvents === 'number' ? kpi.pendingEvents : pendingEvents.length));
     const pArticlesCount = isError ? null : (typeof kpi.pendingArticlesCount === 'number' ? kpi.pendingArticlesCount : (typeof kpi.pendingArticles === 'number' ? kpi.pendingArticles : pendingArticles.length));
+    const pPlacesCount = isError ? null : (typeof kpi.pendingPlacesCount === 'number' ? kpi.pendingPlacesCount : (typeof kpi.pendingPlaces === 'number' ? kpi.pendingPlaces : pendingPlaces.length));
 
 
     let displayedPosts = pendingPosts;
@@ -10098,11 +10102,25 @@ export function renderAdminModerationModalContent({
         );
     }
 
+    let displayedPlaces = pendingPlaces;
+    if (searchQuery.trim() && activeTab === 'places') {
+        const q = searchQuery.toLowerCase().trim();
+        displayedPlaces = displayedPlaces.filter(p =>
+            (p.name && p.name.toLowerCase().includes(q)) ||
+            (p.contributor && p.contributor.toLowerCase().includes(q)) ||
+            (p.address && p.address.toLowerCase().includes(q)) ||
+            (p.description && p.description.toLowerCase().includes(q)) ||
+            (p.category && p.category.toLowerCase().includes(q)) ||
+            (p.area && p.area.toLowerCase().includes(q))
+        );
+    }
+
     const selectedPost = displayedPosts.find(p => p.id === selectedPostId) || displayedPosts[0] || null;
     const selectedClub = displayedClubs.find(c => c.id === selectedClubId) || displayedClubs[0] || null;
     const selectedEvent = displayedEvents.find(e => e.id === selectedEventId) || displayedEvents[0] || null;
     const selectedArticle = displayedArticles.find(a => a.id === selectedArticleId) || displayedArticles[0] || null;
     const selectedActivity = displayedActivities.find(act => act.id === selectedActivityId) || displayedActivities[0] || null;
+    const selectedPlace = displayedPlaces.find(p => p.id === selectedPlaceId) || displayedPlaces[0] || null;
 
     return `
         <div class="relative bg-surface dark:bg-zinc-950 text-on-surface dark:text-zinc-100 p-4 sm:p-6 lg:p-8 max-h-[92vh] overflow-y-auto no-scrollbar">
@@ -10154,7 +10172,7 @@ export function renderAdminModerationModalContent({
                 ` : ''}
 
                 <!-- KPI LIVE DASHBOARD CARDS -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3.5">
                     <!-- Stat 1: Pending Posts -->
                     <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'posts' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
                         onclick="window.ViVuApp.switchModerationTab('posts', 'all')">
@@ -10171,7 +10189,26 @@ export function renderAdminModerationModalContent({
                         </div>
                     </div>
 
-                    <!-- Stat 2: Pending Club Dossiers -->
+                    <!-- Stat 2: Pending Place Proposals -->
+                    <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'places' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
+                        onclick="window.ViVuApp.switchModerationTab('places')">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-1.5">
+                                <p class="font-caption text-xs text-primary dark:text-zinc-100 font-bold">Địa điểm chờ duyệt</p>
+                                <span class="px-1.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-[10px] font-bold">Mới</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-headline-lg text-2xl font-bold text-secondary dark:text-emerald-400">${isError ? '--' : pPlacesCount}</span>
+                                <span class="font-caption text-xs ${isError ? 'text-amber-500 font-semibold' : (pPlacesCount > 0 ? 'text-secondary dark:text-emerald-400 font-medium' : 'text-outline dark:text-zinc-500 font-medium')}">${isError ? 'Chưa tải được' : (pPlacesCount > 0 ? 'Chờ duyệt' : 'Đã sạch')}</span>
+                            </div>
+                            <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Đề xuất địa điểm</p>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 flex items-center justify-center shadow-xs">
+                            <span class="material-symbols-outlined text-[20px]">add_location_alt</span>
+                        </div>
+                    </div>
+
+                    <!-- Stat 3: Pending Club Dossiers -->
                     <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'clubs' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
                         onclick="window.ViVuApp.switchModerationTab('clubs')">
                         <div class="space-y-1">
@@ -10190,7 +10227,7 @@ export function renderAdminModerationModalContent({
                         </div>
                     </div>
 
-                    <!-- Stat 3: Pending Club Activities -->
+                    <!-- Stat 4: Pending Club Activities -->
                     <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'activities' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
                         onclick="window.ViVuApp.switchModerationTab('activities')">
                         <div class="space-y-1">
@@ -10206,7 +10243,7 @@ export function renderAdminModerationModalContent({
                         </div>
                     </div>
 
-                    <!-- Stat 4: Pending Events -->
+                    <!-- Stat 5: Pending Events -->
                     <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'events' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
                         onclick="window.ViVuApp.switchModerationTab('events')">
                         <div class="space-y-1">
@@ -10222,7 +10259,7 @@ export function renderAdminModerationModalContent({
                         </div>
                     </div>
 
-                    <!-- Stat 5: Pending Articles -->
+                    <!-- Stat 6: Pending Articles -->
                     <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border-2 ${activeTab === 'articles' ? 'border-secondary dark:border-emerald-500' : 'border-outline-variant/30 dark:border-zinc-800'} flex items-center justify-between cursor-pointer"
                         onclick="window.ViVuApp.switchModerationTab('articles')">
                         <div class="space-y-1">
@@ -10238,7 +10275,7 @@ export function renderAdminModerationModalContent({
                         </div>
                     </div>
 
-                    <!-- Stat 6: Reports / Violations -->
+                    <!-- Stat 7: Reports / Violations -->
                     <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex items-center justify-between">
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Báo cáo vi phạm</p>
@@ -10262,7 +10299,7 @@ export function renderAdminModerationModalContent({
                             <input id="moderationSearchInput" type="text" value="${escapeHtml(searchQuery)}"
                                 oninput="window.ViVuApp.handleModerationSearch(this.value)"
                                 class="w-full h-11 pl-11 pr-4 bg-surface-container-low dark:bg-zinc-800 rounded-xl font-body-md text-xs sm:text-sm text-on-surface dark:text-zinc-100 placeholder:text-outline dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-secondary/30 transition-all border border-transparent focus:border-secondary"
-                                placeholder="Tìm theo tiêu đề bài viết, sự kiện, cẩm nang, lịch CLB, tên tác giả, CLB..." />
+                                placeholder="Tìm theo tiêu đề bài viết, địa điểm, sự kiện, cẩm nang, lịch CLB, tên tác giả, CLB..." />
                         </div>
                         <div class="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
                             <div class="relative shrink-0">
@@ -10278,49 +10315,77 @@ export function renderAdminModerationModalContent({
                     </div>
 
                     <!-- Category Chips Tabs -->
-                    <div class="flex items-center gap-2 overflow-x-auto pt-1 no-scrollbar text-nowrap">
-                        <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'all')"
-                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-primary-container text-on-primary font-bold shadow-xs ring-2 ring-secondary/40' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
-                            <span>Tất cả bài viết</span>
-                            <span class="w-5 h-5 rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-secondary text-white' : 'bg-surface-container dark:bg-zinc-700'} text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pPostsCount}</span>
-                        </button>
-                        <button type="button" onclick="window.ViVuApp.switchModerationTab('clubs')"
-                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'clubs' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
-                            <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">groups</span>
-                            <span>Đề xuất tạo CLB</span>
-                            <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pClubsCount}</span>
-                        </button>
-                        <button type="button" onclick="window.ViVuApp.switchModerationTab('activities')"
-                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'activities' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-emerald-500/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
-                            <span class="material-symbols-outlined text-[16px] text-emerald-500">calendar_month</span>
-                            <span>Lịch sinh hoạt CLB</span>
-                            <span class="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pActsCount}</span>
-                        </button>
-                        <button type="button" onclick="window.ViVuApp.switchModerationTab('events')"
-                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'events' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
-                            <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">event</span>
-                            <span>Sự kiện &amp; Workshop</span>
-                            <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pEventsCount}</span>
-                        </button>
-                        <button type="button" onclick="window.ViVuApp.switchModerationTab('articles')"
-                            class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'articles' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-amber-500/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
-                            <span class="material-symbols-outlined text-[16px] text-amber-500">auto_stories</span>
-                            <span>Cẩm nang du lịch</span>
-                            <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pArticlesCount}</span>
-                        </button>
-                        <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'culture')"
-                            class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'culture' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
-                            <span>Ký sự &amp; Trải nghiệm</span>
-                        </button>
-                        <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'location')"
-                            class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'location' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
-                            <span>Đề xuất địa điểm mới</span>
-                        </button>
-                        <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'report')"
-                            class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'report' ? 'bg-error text-white font-bold' : 'bg-error-container dark:bg-rose-950/60 text-on-error-container dark:text-rose-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
-                            <span class="material-symbols-outlined text-[16px]">report</span>
-                            <span>Bình luận bị báo cáo</span>
-                        </button>
+                    <div class="space-y-1.5 pt-1">
+                        <!-- Mobile Horizontal Scroll Cue -->
+                        <div class="flex md:hidden items-center justify-between text-[11px] text-outline dark:text-zinc-400 px-1">
+                            <span class="flex items-center gap-1 font-medium">
+                                <span class="material-symbols-outlined text-[15px] text-secondary dark:text-emerald-400">swipe</span>
+                                <span>Vuốt ngang xem đầy đủ các mục duyệt</span>
+                            </span>
+                            <span class="text-[10px] text-outline/80">◀ kéo sang ▶</span>
+                        </div>
+
+                        <div class="flex flex-nowrap md:flex-wrap items-center gap-2 overflow-x-auto md:overflow-visible pb-2 pt-0.5 scrollbar-thin scrollbar-thumb-outline-variant/40">
+                            <!-- Tab: Tất cả bài viết -->
+                            <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'all')"
+                                class="shrink-0 whitespace-nowrap px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-primary-container text-on-primary font-bold shadow-xs ring-2 ring-secondary/40' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                                <span>Tất cả bài viết</span>
+                                <span class="w-5 h-5 rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-secondary text-white' : 'bg-surface-container dark:bg-zinc-700'} text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pPostsCount}</span>
+                            </button>
+
+                            <!-- Tab riêng: Đề xuất địa điểm (từ bảng places) -->
+                            <button type="button" onclick="window.ViVuApp.switchModerationTab('places')"
+                                class="shrink-0 whitespace-nowrap px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'places' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">add_location_alt</span>
+                                <span>Đề xuất địa điểm</span>
+                                <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pPlacesCount}</span>
+                            </button>
+
+                            <!-- Tab: Đề xuất tạo CLB -->
+                            <button type="button" onclick="window.ViVuApp.switchModerationTab('clubs')"
+                                class="shrink-0 whitespace-nowrap px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'clubs' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">groups</span>
+                                <span>Đề xuất tạo CLB</span>
+                                <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pClubsCount}</span>
+                            </button>
+
+                            <!-- Tab: Lịch sinh hoạt CLB -->
+                            <button type="button" onclick="window.ViVuApp.switchModerationTab('activities')"
+                                class="shrink-0 whitespace-nowrap px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'activities' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-emerald-500/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                                <span class="material-symbols-outlined text-[16px] text-emerald-500">calendar_month</span>
+                                <span>Lịch sinh hoạt CLB</span>
+                                <span class="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pActsCount}</span>
+                            </button>
+
+                            <!-- Tab: Sự kiện & Workshop -->
+                            <button type="button" onclick="window.ViVuApp.switchModerationTab('events')"
+                                class="shrink-0 whitespace-nowrap px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'events' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">event</span>
+                                <span>Sự kiện &amp; Workshop</span>
+                                <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pEventsCount}</span>
+                            </button>
+
+                            <!-- Tab: Cẩm nang du lịch -->
+                            <button type="button" onclick="window.ViVuApp.switchModerationTab('articles')"
+                                class="shrink-0 whitespace-nowrap px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'articles' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-amber-500/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                                <span class="material-symbols-outlined text-[16px] text-amber-500">auto_stories</span>
+                                <span>Cẩm nang du lịch</span>
+                                <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pArticlesCount}</span>
+                            </button>
+
+                            <!-- Filter: Ký sự & Trải nghiệm -->
+                            <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'culture')"
+                                class="shrink-0 whitespace-nowrap px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'culture' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                                <span>Ký sự &amp; Trải nghiệm</span>
+                            </button>
+
+                            <!-- Filter: Bình luận bị báo cáo -->
+                            <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'report')"
+                                class="shrink-0 whitespace-nowrap px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'report' ? 'bg-error text-white font-bold' : 'bg-error-container dark:bg-rose-950/60 text-on-error-container dark:text-rose-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
+                                <span class="material-symbols-outlined text-[16px]">report</span>
+                                <span>Bình luận bị báo cáo</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -10552,6 +10617,244 @@ export function renderAdminModerationModalContent({
                                 <div class="p-12 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl border border-outline-variant/30 dark:border-zinc-800">
                                     <span class="material-symbols-outlined text-4xl text-outline mb-2">article</span>
                                     <p class="text-sm text-on-surface-variant dark:text-zinc-400">Không có bài viết nào được chọn.</p>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                ` : activeTab === 'places' ? `
+                    <!-- SUB-VIEW F: PLACES PROPOSALS MODERATION -->
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        <!-- LEFT COLUMN: Place Proposals Queue List (5 cols) -->
+                        <div class="lg:col-span-5 space-y-3">
+                            <div class="flex items-center justify-between px-1">
+                                <span class="font-button text-xs font-bold text-primary dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[18px] text-secondary">add_location_alt</span>
+                                    Đề xuất địa điểm chờ duyệt (${displayedPlaces.length})
+                                </span>
+                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">sync</span> Tự động làm mới
+                                </span>
+                            </div>
+
+                            ${displayedPlaces.length === 0 ? `
+                                <div class="p-8 text-center bg-surface-container-low dark:bg-zinc-800/40 rounded-2xl border border-dashed border-outline-variant/50 dark:border-zinc-800 space-y-2">
+                                    <span class="material-symbols-outlined text-4xl text-secondary dark:text-emerald-400">task_alt</span>
+                                    <p class="text-sm font-semibold text-primary dark:text-zinc-200">Không có đề xuất nào chờ duyệt</p>
+                                    <p class="text-xs text-on-surface-variant dark:text-zinc-400">Hàng đợi đề xuất địa điểm đang trống.</p>
+                                </div>
+                            ` : `
+                                <div class="space-y-3">
+                                    ${displayedPlaces.map(p => {
+                                        const isSelected = selectedPlace && selectedPlace.id === p.id;
+                                        const dateStr = p.created_at ? new Date(p.created_at).toLocaleDateString('vi-VN') : 'Mới gửi';
+                                        const thumb = (p.images && p.images[0]?.src) || p.image_link || null;
+                                        return `
+                                            <div onclick="window.ViVuApp.selectModerationPlace(${p.id})"
+                                                class="p-4 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border-2 ${isSelected ? 'border-secondary dark:border-emerald-500 ring-2 ring-secondary/20 shadow-md' : 'border-outline-variant/30 dark:border-zinc-800 hover:border-secondary/40'} cursor-pointer transition-all space-y-3">
+                                                <div class="flex items-start gap-3">
+                                                    <!-- Thumbnail -->
+                                                    <div class="w-16 h-16 rounded-xl bg-surface-container-high dark:bg-zinc-800 overflow-hidden shrink-0 flex items-center justify-center border border-outline-variant/20">
+                                                        ${thumb ? `
+                                                            <img src="${escapeHtml(thumb)}" alt="${escapeHtml(p.name)}" class="w-full h-full object-cover" />
+                                                        ` : `
+                                                            <span class="material-symbols-outlined text-2xl text-secondary dark:text-emerald-400">add_location_alt</span>
+                                                        `}
+                                                    </div>
+                                                    <!-- Info -->
+                                                    <div class="flex-1 min-w-0 space-y-1">
+                                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                                            <span class="px-2 py-0.5 rounded-md bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-badge text-[10px] font-bold">
+                                                                ${escapeHtml(p.category || 'Địa điểm')}
+                                                            </span>
+                                                            <span class="px-2 py-0.5 rounded-md bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-badge text-[10px]">
+                                                                ${escapeHtml(p.area || 'Trà Vinh')}
+                                                            </span>
+                                                        </div>
+                                                        <h3 class="font-headline-sm text-sm font-bold text-primary dark:text-zinc-100 line-clamp-1">
+                                                            ${escapeHtml(p.name)}
+                                                        </h3>
+                                                        <p class="font-caption text-[11px] text-outline dark:text-zinc-400 line-clamp-1 flex items-center gap-0.5">
+                                                            <span class="material-symbols-outlined text-[13px] shrink-0">location_on</span>
+                                                            <span class="truncate">${escapeHtml(p.address || 'Chưa cập nhật địa chỉ')}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Submitter & Date Footer -->
+                                                <div class="pt-2 border-t border-outline-variant/20 dark:border-zinc-800 flex items-center justify-between text-[11px] text-outline dark:text-zinc-400">
+                                                    <span class="flex items-center gap-1 text-primary dark:text-zinc-300 font-medium truncate max-w-[65%]">
+                                                        <span class="material-symbols-outlined text-[14px] text-secondary dark:text-emerald-400">person</span>
+                                                        <span class="truncate">${escapeHtml(p.contributor || 'Thành viên')}</span>
+                                                    </span>
+                                                    <span class="shrink-0 text-[10px]">${escapeHtml(dateStr)}</span>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- RIGHT COLUMN: Place Proposal Detail View (7 cols) -->
+                        <div class="lg:col-span-7">
+                            ${selectedPlace ? `
+                                <div class="p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 shadow-md space-y-5">
+                                    <!-- Title Header -->
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="space-y-1">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <span class="px-2.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 font-badge text-xs font-bold">
+                                                    ${escapeHtml(selectedPlace.category || 'Địa điểm')}
+                                                </span>
+                                                <span class="px-2.5 py-0.5 rounded-full bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-badge text-xs">
+                                                    ${escapeHtml(selectedPlace.area || 'Trà Vinh')}
+                                                </span>
+                                                <span class="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-badge text-[10px] font-bold">
+                                                    Chờ thẩm định xuất bản
+                                                </span>
+                                            </div>
+                                            <h2 class="font-headline-md text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                                                ${escapeHtml(selectedPlace.name)}
+                                            </h2>
+                                        </div>
+                                        <div class="shrink-0">
+                                            <span class="text-[11px] text-outline dark:text-zinc-400 font-mono">Mã: #${selectedPlace.id}</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Image Gallery -->
+                                    ${selectedPlace.images && selectedPlace.images.length > 0 ? `
+                                        <div class="space-y-2">
+                                            <span class="font-button text-xs font-bold text-primary dark:text-zinc-200 flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">photo_library</span>
+                                                Hình ảnh đính kèm (${selectedPlace.images.length} ảnh):
+                                            </span>
+                                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                ${selectedPlace.images.map(img => `
+                                                    <a href="${escapeHtml(img.src)}" target="_blank" rel="noopener noreferrer" class="group relative aspect-video rounded-xl overflow-hidden bg-surface-container-high dark:bg-zinc-800 border border-outline-variant/30 hover:opacity-95 transition-opacity">
+                                                        <img src="${escapeHtml(img.src)}" alt="${escapeHtml(selectedPlace.name)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                        <span class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[10px] flex items-center gap-0.5">
+                                                            <span class="material-symbols-outlined text-[10px]">open_in_new</span>
+                                                        </span>
+                                                    </a>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    ` : selectedPlace.image_link ? `
+                                        <div class="space-y-2">
+                                            <span class="font-button text-xs font-bold text-primary dark:text-zinc-200">Hình ảnh đại diện:</span>
+                                            <div class="aspect-video rounded-2xl overflow-hidden bg-surface-container-high dark:bg-zinc-800 border border-outline-variant/30 max-h-56">
+                                                <img src="${escapeHtml(selectedPlace.image_link)}" alt="${escapeHtml(selectedPlace.name)}" class="w-full h-full object-cover" />
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 text-outline dark:text-zinc-400 text-xs flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[18px]">no_photography</span>
+                                            <span>Người dùng không đính kèm hình ảnh cho địa điểm này.</span>
+                                        </div>
+                                    `}
+
+                                    <!-- Details Grid -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <!-- Submitter Card -->
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/50 border border-outline-variant/20 dark:border-zinc-700/50 flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-secondary-container dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                                <span class="material-symbols-outlined text-[20px]">person_outline</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-[11px] text-outline dark:text-zinc-400">Người gửi đề xuất</p>
+                                                <p class="text-xs font-bold text-primary dark:text-zinc-100 truncate">${escapeHtml(selectedPlace.contributor || 'Thành viên')}</p>
+                                                ${selectedPlace.client_submission_id ? `<p class="text-[10px] text-outline dark:text-zinc-500 font-mono truncate">${escapeHtml(selectedPlace.client_submission_id)}</p>` : ''}
+                                            </div>
+                                        </div>
+
+                                        <!-- Address Card -->
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/50 border border-outline-variant/20 dark:border-zinc-700/50 flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-secondary-container dark:bg-emerald-950/60 text-secondary dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                                <span class="material-symbols-outlined text-[20px]">location_on</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-[11px] text-outline dark:text-zinc-400">Địa chỉ cụ thể</p>
+                                                <p class="text-xs font-bold text-primary dark:text-zinc-100 truncate">${escapeHtml(selectedPlace.address || 'Chưa cập nhật')}</p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Hours & Price Card -->
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/50 border border-outline-variant/20 dark:border-zinc-700/50 flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                                                <span class="material-symbols-outlined text-[20px]">schedule</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-[11px] text-outline dark:text-zinc-400">Giờ mở cửa / Giá</p>
+                                                <p class="text-xs font-bold text-primary dark:text-zinc-100 truncate">${escapeHtml(selectedPlace.display_hours || '07:00 - 18:00')} &bull; ${escapeHtml(selectedPlace.price_raw || 'Liên hệ')}</p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Coordinates / Maps Link -->
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/50 border border-outline-variant/20 dark:border-zinc-700/50 flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                                                <span class="material-symbols-outlined text-[20px]">map</span>
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-[11px] text-outline dark:text-zinc-400">Tọa độ &amp; Bản đồ</p>
+                                                <p class="text-xs font-bold font-mono text-primary dark:text-zinc-100 truncate">${escapeHtml(selectedPlace.coordinates || 'Chưa có tọa độ')}</p>
+                                            </div>
+                                            ${selectedPlace.map_link ? `
+                                                <a href="${escapeHtml(selectedPlace.map_link)}" target="_blank" rel="noopener noreferrer"
+                                                    class="p-1.5 rounded-lg bg-surface-container dark:bg-zinc-700 text-primary dark:text-zinc-200 hover:text-secondary text-xs flex items-center gap-1 shrink-0" title="Mở Google Maps">
+                                                    <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                                                </a>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+
+                                    <!-- Description & Note -->
+                                    <div class="space-y-2">
+                                        <span class="font-button text-xs font-bold text-primary dark:text-zinc-200">Mô tả chi tiết:</span>
+                                        <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 text-xs text-on-surface-variant dark:text-zinc-300 leading-relaxed border border-outline-variant/20 dark:border-zinc-800 whitespace-pre-line max-h-48 overflow-y-auto">
+                                            ${escapeHtml(selectedPlace.description || 'Không có mô tả chi tiết.')}
+                                        </div>
+                                    </div>
+
+                                    ${selectedPlace.note || selectedPlace.contact ? `
+                                        <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 text-xs text-on-surface-variant dark:text-zinc-300 border border-outline-variant/20 dark:border-zinc-800 space-y-1">
+                                            ${selectedPlace.contact ? `<p><span class="font-bold text-primary dark:text-zinc-200">Liên hệ:</span> ${escapeHtml(selectedPlace.contact)}</p>` : ''}
+                                            ${selectedPlace.note ? `<p><span class="font-bold text-primary dark:text-zinc-200">Ghi chú:</span> ${escapeHtml(selectedPlace.note)}</p>` : ''}
+                                        </div>
+                                    ` : ''}
+
+                                    <!-- Moderator Audit Note -->
+                                    <div class="space-y-2 pt-2 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <label class="flex items-center justify-between font-button text-xs font-bold text-primary dark:text-zinc-200">
+                                            <span class="flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">edit_note</span>
+                                                Ghi chú thẩm định địa điểm (Audit Note):
+                                            </span>
+                                            <span class="text-[11px] text-outline dark:text-zinc-500 font-normal">Chỉ Admin &amp; BQT thấy</span>
+                                        </label>
+                                        <textarea id="moderatorAuditNote" class="w-full p-3 rounded-2xl bg-surface-container-low dark:bg-zinc-800 text-xs text-on-surface dark:text-zinc-200 placeholder:text-outline outline-none border border-outline-variant/30 dark:border-zinc-700 focus:border-secondary resize-none" rows="2" placeholder="Ghi chú nội bộ về địa điểm này..."></textarea>
+                                    </div>
+
+                                    <!-- Decision Action Bar -->
+                                    <div class="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-outline-variant/20 dark:border-zinc-800">
+                                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                                            <button type="button" onclick="window.ViVuApp.openActionReasonModal('reject_place', '${selectedPlace.id}', '${escapeHtml(selectedPlace.name)}')"
+                                                class="px-4 py-2.5 min-h-[44px] rounded-xl bg-error text-white hover:bg-rose-700 transition-all font-button text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm w-full sm:w-auto">
+                                                <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                                <span>Từ chối đề xuất</span>
+                                            </button>
+                                        </div>
+                                        <button type="button" onclick="window.ViVuApp.approvePlace('${selectedPlace.id}')"
+                                            class="px-5 py-2.5 min-h-[44px] rounded-xl bg-secondary text-white hover:bg-primary transition-all font-button text-xs font-semibold flex items-center justify-center gap-2 shadow-md w-full sm:w-auto">
+                                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                            <span>Phê duyệt &amp; Xuất bản (+15 Điểm Thổ Địa)</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="p-12 text-center bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl border border-outline-variant/30 dark:border-zinc-800">
+                                    <span class="material-symbols-outlined text-4xl text-outline mb-2">add_location_alt</span>
+                                    <p class="text-sm text-on-surface-variant dark:text-zinc-400">Không có đề xuất địa điểm nào được chọn.</p>
                                 </div>
                             `}
                         </div>
@@ -11292,7 +11595,9 @@ export function renderAdminActionReasonModalContent({
     const isReject = actionType.startsWith('reject');
     const titleText = isReject ? 'Từ chối phê duyệt' : 'Yêu cầu chỉnh sửa / bổ sung thông tin';
     let presets = [];
-    if (actionType.startsWith('reject_activity')) {
+    if (actionType.startsWith('reject_place')) {
+        presets = ['Địa điểm không có thật hoặc sai lệch địa chỉ/tọa độ', 'Hình ảnh không rõ ràng hoặc vi phạm bản quyền', 'Nội dung spam, quảng cáo thương mại không phù hợp', 'Địa điểm trùng lặp với địa điểm đã có trên hệ thống'];
+    } else if (actionType.startsWith('reject_activity')) {
         presets = ['Thời gian / địa điểm sinh hoạt chưa cụ thể hoặc không an toàn', 'Nội dung sinh hoạt không phù hợp với định hướng CLB', 'Trùng lặp với lịch sinh hoạt khác đã được phê duyệt', 'Chưa đủ thông tin về quy mô hoặc điều kiện tham gia'];
     } else if (actionType.startsWith('reject_event')) {
         presets = ['Thời gian / địa điểm tổ chức không rõ ràng', 'Nội dung thương mại / bán hàng chưa đăng ký', 'Sự kiện trùng lặp với lịch trình đã có', 'Vi phạm quy định văn hóa / an toàn công cộng'];

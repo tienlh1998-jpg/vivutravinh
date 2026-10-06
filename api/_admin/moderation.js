@@ -72,29 +72,33 @@ const MODERATION_ENTITIES = {
   },
   place: {
     table: 'places',
-    label: 'Địa điểm đóng góp',
+    label: 'Đề xuất địa điểm',
     actionStatusMap: {
       approve: 'approved',
-      reject: 'rejected',
+      reject: 'archived',
       archive: 'archived'
     },
-    selectColumns: 'id,name,slug,category,area,status,contributor,user_id,created_at'
+    selectColumns: 'id,name,slug,category,area,address,map_link,price_raw,description,note,contact,coordinates,contributor,rating,opening_time,closing_time,display_hours,operating_status,status,images,image_link,client_submission_id,user_id,created_at,updated_at'
   }
 };
 
 const ALLOWED_ACTIONS = new Set(['approve', 'reject', 'archive']);
+
+// Bộ lọc định danh đề xuất địa điểm do người dùng gửi chờ duyệt (phân biệt với bản nháp admin BQT)
+const PLACES_PENDING_FILTER = 'or=(and(status.eq.draft,or(client_submission_id.ilike.contrib*,slug.ilike.contrib*,and(contributor.neq.BQT%20ViVuTraVinh,contributor.neq.Admin))),status.eq.pending)';
 
 /**
  * Truy vấn tổng số lượng mục đang chờ duyệt (status = 'pending') chính xác
  * độc lập hoàn toàn với tham số phân trang (limit, offset) và bộ lọc của hàng đợi.
  */
 async function fetchExactPendingCounts() {
-  const [postsRes, clubsRes, eventsRes, articlesRes, actsRes] = await Promise.all([
+  const [postsRes, clubsRes, eventsRes, articlesRes, actsRes, placesRes] = await Promise.all([
     supabaseRequest('community_posts?select=id&status=eq.pending', { count: true }),
     supabaseRequest('clubs?select=id&status=eq.pending', { count: true }),
     supabaseRequest('community_events?select=id&status=eq.pending', { count: true }),
     supabaseRequest('articles?select=id&status=eq.pending', { count: true }),
-    supabaseRequest('club_activities?select=id&status=eq.pending', { count: true })
+    supabaseRequest('club_activities?select=id&status=eq.pending', { count: true }),
+    supabaseRequest(`places?select=id&${PLACES_PENDING_FILTER}`, { count: true })
   ]);
 
   const pPosts = typeof postsRes?.total === 'number' ? postsRes.total : (Array.isArray(postsRes?.data) ? postsRes.data.length : 0);
@@ -102,14 +106,16 @@ async function fetchExactPendingCounts() {
   const pEvents = typeof eventsRes?.total === 'number' ? eventsRes.total : (Array.isArray(eventsRes?.data) ? eventsRes.data.length : 0);
   const pArticles = typeof articlesRes?.total === 'number' ? articlesRes.total : (Array.isArray(articlesRes?.data) ? articlesRes.data.length : 0);
   const pActivities = typeof actsRes?.total === 'number' ? actsRes.total : (Array.isArray(actsRes?.data) ? actsRes.data.length : 0);
+  const pPlaces = typeof placesRes?.total === 'number' ? placesRes.total : (Array.isArray(placesRes?.data) ? placesRes.data.length : 0);
 
   return {
-    pendingTotal: pPosts + pClubs + pEvents + pArticles + pActivities,
+    pendingTotal: pPosts + pClubs + pEvents + pArticles + pActivities + pPlaces,
     pendingPosts: pPosts,
     pendingClubs: pClubs,
     pendingEvents: pEvents,
     pendingArticles: pArticles,
     pendingActivities: pActivities,
+    pendingPlaces: pPlaces,
     hasError: false
   };
 }
@@ -150,7 +156,11 @@ async function handleGetModerationList(request, response, adminContext) {
       const entity = MODERATION_ENTITIES[entityType];
       let query = `${entity.table}?select=*&order=created_at.desc&limit=${limit}`;
       if (status !== 'all') {
-        query += `&status=eq.${encodeURIComponent(status)}`;
+        if (entityType === 'place' && status === 'pending') {
+          query += `&${PLACES_PENDING_FILTER}`;
+        } else {
+          query += `&status=eq.${encodeURIComponent(status)}`;
+        }
       }
 
       const [rows, kpi] = await Promise.all([
@@ -165,7 +175,8 @@ async function handleGetModerationList(request, response, adminContext) {
             pendingClubs: null,
             pendingEvents: null,
             pendingArticles: null,
-            pendingActivities: null
+            pendingActivities: null,
+            pendingPlaces: null
           };
         })
       ]);
@@ -181,14 +192,15 @@ async function handleGetModerationList(request, response, adminContext) {
       return;
     }
 
-    // 3. Nếu không chỉ định entity_type: trả về tổng hợp cả 5 hàng đợi + KPI pending độc lập
+    // 3. Nếu không chỉ định entity_type: trả về tổng hợp cả 6 hàng đợi + KPI pending độc lập
     const postsQuery = `community_posts?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const clubsQuery = `clubs?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const eventsQuery = `community_events?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const articlesQuery = `articles?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const activitiesQuery = `club_activities?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
+    const placesQuery = `places?select=*&order=created_at.desc&limit=${limit}${status === 'pending' ? `&${PLACES_PENDING_FILTER}` : (status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : '')}`;
 
-    const [posts, clubs, events, articles, activities, kpi] = await Promise.all([
+    const [posts, clubs, events, articles, activities, places, kpi] = await Promise.all([
       supabaseRequest(postsQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc posts queue:', err.message);
         return [];
@@ -209,6 +221,10 @@ async function handleGetModerationList(request, response, adminContext) {
         console.warn('[AdminModeration] Lỗi đọc activities queue:', err.message);
         return [];
       }),
+      supabaseRequest(placesQuery).catch(err => {
+        console.warn('[AdminModeration] Lỗi đọc places queue:', err.message);
+        return [];
+      }),
       fetchExactPendingCounts().catch(err => {
         console.warn('[AdminModeration] Lỗi tính KPI pending chính xác:', err.message);
         return {
@@ -219,7 +235,8 @@ async function handleGetModerationList(request, response, adminContext) {
           pendingClubs: null,
           pendingEvents: null,
           pendingArticles: null,
-          pendingActivities: null
+          pendingActivities: null,
+          pendingPlaces: null
         };
       })
     ]);
@@ -232,6 +249,7 @@ async function handleGetModerationList(request, response, adminContext) {
       events: Array.isArray(events) ? events : [],
       articles: Array.isArray(articles) ? articles : [],
       activities: Array.isArray(activities) ? activities : [],
+      places: Array.isArray(places) ? places : [],
       kpi
     });
   } catch (err) {
@@ -290,13 +308,15 @@ async function moderateEntity(request, response, adminContext) {
   try {
     // 1. Thử thực thi qua PostgreSQL Stored Function admin_moderate_entity_atomic:
     // Đảm bảo CẬP NHẬT TRẠNG THÁI VÀ GHI AUDIT LOG CHẠY TRONG CÙNG MỘT TRANSACTION NGUYÊN TỬ (ACID)
+    // Lưu ý: Đối với places, DB check constraint chỉ chấp nhận (approved, draft, hidden, archived) nên reject ánh xạ sang archive
+    const rpcAction = (entityType === 'place' && action === 'reject') ? 'archive' : action;
     await supabaseRpc('admin_moderate_entity_atomic', {
       p_actor_id: actorId,
       p_actor_email: actorEmail,
       p_actor_role: actorRole,
       p_entity_type: entityType,
       p_entity_id: entityId,
-      p_action: action,
+      p_action: rpcAction,
       p_reason: reason || null,
       p_admin_notes: adminNotes,
       p_ip: adminContext?.ip || null,
