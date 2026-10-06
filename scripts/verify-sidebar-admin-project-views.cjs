@@ -21,6 +21,44 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const envPath = path.join(ROOT_DIR, '.env.live.tmp');
+const envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+const SUPABASE_URL = process.env.SUPABASE_URL || (envContent.match(/SUPABASE_URL="([^"]+)"/) || [])[1] || 'https://foyraoimhksfvlxndwxr.supabase.co';
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || (envContent.match(/SUPABASE_SERVICE_ROLE_KEY="([^"]+)"/) || [])[1] || '';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || (envContent.match(/SUPABASE_ANON_KEY="([^"]+)"/) || [])[1] || 'sb_publishable_ThGdyDQHqdNXPFgKRr0XaA_copz_ulU';
+
+async function getRealUserSession(email) {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
+        method: 'POST',
+        headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ type: 'magiclink', email })
+    });
+    const data = await res.json();
+    if (!data.hashed_token) throw new Error('Không thể tạo magiclink cho: ' + email + ' - ' + JSON.stringify(data));
+    
+    const verifyRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+        method: 'POST',
+        headers: {
+            apikey: SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ type: 'magiclink', token_hash: data.hashed_token })
+    });
+    const verifyData = await verifyRes.json();
+    if (!verifyData.access_token) throw new Error('Không thể verify token cho: ' + email + ' - ' + JSON.stringify(verifyData));
+    
+    return {
+        access_token: verifyData.access_token,
+        refresh_token: verifyData.refresh_token,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        user: verifyData.user
+    };
+}
+
 function startLocalServer(port = 4180) {
     const mimeTypes = {
         '.html': 'text/html; charset=utf-8',
@@ -254,7 +292,13 @@ async function main() {
         assert.strictEqual(sidebarStateGuest.hasSidebarContribute, false, '"Đóng góp địa điểm" phải bỏ khỏi sidebar');
         assert.ok(sidebarStateGuest.hasHeaderContributeBtn, 'Nút "+ Đóng góp" trên header phải tồn tại');
 
-        // Chụp ảnh Sidebar khách
+        // Cuộn sidebar xuống để thấy rõ nhóm GÓC ADMIN & DỰ ÁN và chụp ảnh
+        await cdp.eval(`(() => {
+            const el = document.getElementById('sidebarLinkFeedback');
+            if (el) el.scrollIntoView({ block: 'center' });
+        })()`);
+        await sleep(400);
+
         const screenshotSidebar = path.join(ARTIFACT_DIR, `${prefix}sidebar_admin_project_group.png`);
         await cdp.captureScreenshot(screenshotSidebar);
         console.log(`[Artifact] Ảnh Sidebar: ${screenshotSidebar}`);
@@ -296,9 +340,8 @@ async function main() {
             const hasHero = Boolean(view?.querySelector('h1')?.textContent?.includes('Góp Ý & Hỗ Trợ'));
             const hasGuide = Boolean(view?.innerText?.includes('Hướng Dẫn Sử Dụng Nhanh'));
             const hasReport = Boolean(view?.innerText?.includes('Báo Sai Thông Tin Địa Điểm'));
-            const hasEmail = Boolean(view?.innerText?.includes('tienlh1998@gmail.com'));
-            const hasFacebook = Boolean(view?.innerText?.includes('facebook.com/vivutravinh.official'));
-            const hasZaloNotice = Boolean(view?.innerText?.includes('Kênh Zalo và hotline riêng đang chờ chủ dự án cấu hình'));
+            const hasZaloNotice = Boolean(view?.innerText?.includes('Kênh Zalo và hotline riêng đang chờ chủ dự án'));
+            const hasNeutralContact = Boolean(view?.innerText?.includes('Email kỹ thuật ban đầu') && view?.innerText?.includes('chờ chủ dự án'));
             const hasDrafter = Boolean(document.getElementById('feedbackDraftForm'));
 
             return {
@@ -309,9 +352,10 @@ async function main() {
                 hasHero,
                 hasGuide,
                 hasReport,
-                hasEmail,
-                hasFacebook,
+                hasEmail: Boolean(view?.innerText?.includes('tienlh1998@gmail.com')),
+                hasFacebook: Boolean(view?.innerText?.includes('facebook.com/vivutravinh.official')),
                 hasZaloNotice,
+                hasNeutralContact,
                 hasDrafter
             };
         })()`);
@@ -323,9 +367,10 @@ async function main() {
         assert.ok(feedbackViewState.iconClass.includes('blue'), 'Icon phải có màu xanh dương');
         assert.ok(feedbackViewState.hasGuide, 'Phải có hướng dẫn sử dụng nhanh');
         assert.ok(feedbackViewState.hasReport, 'Phải có hướng dẫn báo sai thông tin');
-        assert.ok(feedbackViewState.hasEmail, 'Phải có email xác thực BQT');
-        assert.ok(feedbackViewState.hasFacebook, 'Phải có link fanpage dự án');
-        assert.ok(feedbackViewState.hasZaloNotice, 'Phải có thông báo chờ cấu hình Zalo/Hotline (không để link giả)');
+        assert.ok(feedbackViewState.hasEmail, 'Phải có email kỹ thuật BQT');
+        assert.ok(feedbackViewState.hasFacebook, 'Phải có link fanpage tham khảo');
+        assert.ok(feedbackViewState.hasZaloNotice, 'Phải có thông báo chờ chủ dự án xác nhận kênh Zalo/Hotline (không để link giả)');
+        assert.ok(feedbackViewState.hasNeutralContact, 'Kênh liên hệ phải dùng mô tả trung tính chờ chủ dự án xác nhận');
         assert.ok(feedbackViewState.hasDrafter, 'Phải có form soạn góp ý gửi BQT');
 
         const screenshotFeedback = path.join(ARTIFACT_DIR, `${prefix}view_feedback_desktop.png`);
@@ -349,8 +394,8 @@ async function main() {
             const hasStory = text.includes('Câu Chuyện ViVuTraVinh');
             const hasCoreValues = text.includes('3 Giá Trị Cốt Lõi');
             const hasColLive = text.includes('ĐÃ CÓ (LIVE)');
-            const hasColProgress = text.includes('ĐANG THỰC HIỆN');
-            const hasColPlan = text.includes('DỰ KIẾN');
+            const hasColIdeas = text.includes('Ý TƯỞNG ĐANG CÂN NHẮC');
+            const hasNoFalseCommitment = text.includes('Chỉ mô tả tính năng đã xác minh, không cam kết tiến độ ảo');
 
             return {
                 linkClass: link?.className,
@@ -361,8 +406,8 @@ async function main() {
                 hasStory,
                 hasCoreValues,
                 hasColLive,
-                hasColProgress,
-                hasColPlan
+                hasColIdeas,
+                hasNoFalseCommitment
             };
         })()`);
 
@@ -373,8 +418,8 @@ async function main() {
         assert.ok(aboutViewState.iconClass.includes('purple'), 'Icon phải có màu tím');
         assert.ok(aboutViewState.hasStory, 'Phải có câu chuyện phát triển dự án');
         assert.ok(aboutViewState.hasColLive, 'Phải phân biệt cột "ĐÃ CÓ (LIVE)"');
-        assert.ok(aboutViewState.hasColProgress, 'Phải phân biệt cột "ĐANG THỰC HIỆN"');
-        assert.ok(aboutViewState.hasColPlan, 'Phải phân biệt cột "DỰ KIẾN"');
+        assert.ok(aboutViewState.hasColIdeas, 'Phải phân biệt các cột "Ý TƯỞNG ĐANG CÂN NHẮC" thay vì cam kết tiến độ');
+        assert.ok(aboutViewState.hasNoFalseCommitment, 'Chỉ mô tả tính năng đã xác minh, không cam kết tiến độ ảo');
 
         const screenshotAbout = path.join(ARTIFACT_DIR, `${prefix}view_about_desktop.png`);
         await cdp.captureScreenshot(screenshotAbout);
@@ -394,9 +439,10 @@ async function main() {
             const currentHash = window.location.hash;
             const text = (view?.textContent || '').replace(/\\s+/g, ' ');
             const hasHero = text.includes('Đồng Hành Cùng Admin');
-            const hasBio = (text.includes('Trần Tiến') || text.includes('Tien Le')) && (text.includes('Kỹ sư') || text.includes('kỹ sư') || text.toLowerCase().includes('tiến'));
+            const hasNeutralBio = text.includes('Ban Quản Trị & Đội Ngũ Phát Triển') && text.includes('chờ chủ dự án xác nhận');
             const hasVolunteerPriority = text.includes('Ưu Tiên Đóng Góp Công Sức');
             const hasNotOpenNotice = text.includes('Chưa mở nhận ủng hộ tài chính');
+            const hasNoBankCommitment = !text.includes('tài khoản ngân hàng chuyên biệt') && !text.includes('sao kê tự động');
             // Kiểm tra xem có dính dữ liệu mẫu giả không
             const hasFakeQr = text.includes('DEMO THỬ NGHIỆM') || text.includes('Quét mã VietQR');
             const hasTechClearance = text.includes('Ổ cứng di động SSD') || text.includes('NuPhy');
@@ -408,10 +454,11 @@ async function main() {
                 viewVisible: Boolean(view && !view.classList.contains('hidden')),
                 currentHash,
                 hasHero,
-                hasBio,
+                hasNeutralBio,
                 sampleSnippet: text.slice(0, 200),
                 hasVolunteerPriority,
                 hasNotOpenNotice,
+                hasNoBankCommitment,
                 hasFakeQr,
                 hasTechClearance,
                 hasSimulatedConfirm
@@ -423,9 +470,10 @@ async function main() {
         assert.strictEqual(companionViewState.currentHash, '#/companion', 'URL hash phải cập nhật thành #/companion');
         assert.ok(companionViewState.linkClass.includes('amber'), 'Active state phải có phong cách màu cam hổ phách');
         assert.ok(companionViewState.iconClass.includes('amber'), 'Icon phải có màu cam hổ phách');
-        assert.ok(companionViewState.hasBio, 'Phải có thông tin người phát triển Trần Tiến');
+        assert.ok(companionViewState.hasNeutralBio, 'Phải có mô tả trung tính Ban Quản Trị đang chờ chủ dự án xác nhận');
         assert.ok(companionViewState.hasVolunteerPriority, 'Phải ưu tiên đóng góp công sức');
         assert.ok(companionViewState.hasNotOpenNotice, 'Phải nêu rõ "Chưa mở nhận ủng hộ tài chính"');
+        assert.ok(companionViewState.hasNoBankCommitment, 'Đã bỏ cam kết ngân hàng / sao kê tự động chưa thống nhất');
         assert.strictEqual(companionViewState.hasFakeQr, false, 'Đã gỡ bỏ QR SVG giả');
         assert.strictEqual(companionViewState.hasTechClearance, false, 'Đã ẩn phần thanh lý đồ công nghệ mẫu');
         assert.strictEqual(companionViewState.hasSimulatedConfirm, false, 'Đã gỡ nút mô phỏng chuyển khoản');
@@ -477,40 +525,130 @@ async function main() {
         assert.ok(afterForward.feedbackVisible, 'Bấm Forward phải quay lại Feedback');
 
         // -----------------------------------------------------------------
-        // BƯỚC 7: KIỂM TRA QUYỀN ADMIN (MỤC KIỂM DUYỆT HIỆN DIỆN VỚI ADMIN)
+        // BƯỚC 7: KIỂM TRA XÁC THỰC QUYỀN VÀ HIỂN THỊ GIAO DIỆN VỚI TÀI KHOẢN THẬT
         // -----------------------------------------------------------------
-        console.log('\n[Bước 7] Kiểm tra khi đăng nhập Admin...');
-        await cdp.eval(`(() => {
-            const adminSess = {
-                access_token: 'fake_test_token',
-                user: { id: 'admin-123', email: 'tienlh1998@gmail.com', role: 'admin' }
-            };
-            localStorage.setItem('vivu_admin_session', JSON.stringify(adminSess));
-            sessionStorage.setItem('vivu_admin_session', JSON.stringify(adminSess));
+        console.log('\n[Bước 7] Kiểm tra quyền hạn bằng tài khoản thật (Member & Admin)...');
+
+        // 7.0 Lấy token thật từ Supabase Auth
+        console.log('  -> Lấy phiên Supabase thật cho Admin và Member...');
+        const adminEmail = 'tienlh1998@gmail.com';
+        const memberEmail = 'prod_norm_1791220432814@vivutest.local';
+
+        const realAdminSession = await getRealUserSession(adminEmail);
+        const realMemberSession = await getRealUserSession(memberEmail);
+        console.log(`  -> Đã lấy phiên thật cho Admin (${realAdminSession.user.id}) và Member (${realMemberSession.user.id})`);
+
+        // 7.1 Kiểm tra RBAC Backend API (/api/admin?route=profile)
+        console.log('  -> [RBAC API] Xác thực quyền truy cập qua endpoint quản trị live...');
+        const apiBase = isProd ? BASE_URL.replace(/\/$/, '') : 'https://vivutravinh.id.vn';
+
+        const adminApiRes = await fetch(`${apiBase}/api/admin?route=profile`, {
+            headers: { Authorization: `Bearer ${realAdminSession.access_token}` }
+        });
+        const adminApiData = await adminApiRes.json();
+        console.log(`     Admin API Response (HTTP ${adminApiRes.status}):`, adminApiData);
+        assert.strictEqual(adminApiRes.status, 200, 'Admin thật phải được Backend trả về HTTP 200');
+        assert.strictEqual(adminApiData.success, true, 'Admin API success phải là true');
+        assert.strictEqual(adminApiData.user.role, 'admin', 'Role của admin trong DB phải là admin');
+
+        const memberApiRes = await fetch(`${apiBase}/api/admin?route=profile`, {
+            headers: { Authorization: `Bearer ${realMemberSession.access_token}` }
+        });
+        const memberApiData = await memberApiRes.json();
+        console.log(`     Member API Response (HTTP ${memberApiRes.status}):`, memberApiData);
+        assert.strictEqual(memberApiRes.status, 403, 'Member thật phải bị Backend chặn với HTTP 403 FORBIDDEN');
+        assert.strictEqual(memberApiData.success, false, 'Member API success phải là false');
+
+        // 7.2 Kiểm tra giao diện Sidebar với Tài khoản Member Thật
+        console.log('  -> [UI Member] Đăng nhập tài khoản Member thật vào giao diện...');
+        await cdp.eval(`((sess) => {
+            localStorage.removeItem('vivu_admin_session');
+            sessionStorage.removeItem('vivu_admin_session');
+            localStorage.setItem('vivu_user_session', JSON.stringify(sess));
             if (window.ViVuApp?.updateAdminRoleUI) {
                 window.ViVuApp.updateAdminRoleUI();
             }
-        })()`);
-        await sleep(500);
+        })(${JSON.stringify(realMemberSession)})`);
+        await sleep(600);
 
-        const adminState = await cdp.eval(`(() => {
+        const memberUiState = await cdp.eval(`(() => {
             const modLink = document.getElementById('sidebarAdminModerationLink');
             const adminLoginLink = document.getElementById('sidebarAdminLoginLink');
-            const badge = document.getElementById('sidebarAdminModerationBadge');
+            const userNameEl = document.getElementById('sidebarUserName');
+            const userRoleEl = document.getElementById('sidebarUserRole');
             return {
                 modVisible: Boolean(modLink && !modLink.classList.contains('hidden')),
                 loginVisible: Boolean(adminLoginLink && !adminLoginLink.classList.contains('hidden')),
-                badgeExists: Boolean(badge)
+                userName: userNameEl?.textContent?.trim() || '',
+                userRole: userRoleEl?.textContent?.trim() || ''
             };
         })()`);
-        console.log('Trạng thái Sidebar khi là Admin:', adminState);
-        assert.ok(adminState.modVisible, 'Admin phải nhìn thấy mục "Kiểm duyệt nội dung"');
-        assert.strictEqual(adminState.loginVisible, false, '"Đăng nhập Quản trị" phải ẩn khi đã là Admin');
-        assert.ok(adminState.badgeExists, 'Badge số chờ duyệt phải tồn tại');
+        console.log('     Trạng thái Sidebar khi đăng nhập Member thật:', memberUiState);
+        assert.strictEqual(memberUiState.modVisible, false, 'Mục "Kiểm duyệt nội dung" phải ẨN với Member thật');
+        assert.strictEqual(memberUiState.userRole, 'Thành viên', 'Vai trò phải hiển thị "Thành viên"');
+
+        // Cuộn sidebar và chụp ảnh artifact Member
+        await cdp.eval(`(() => {
+            const el = document.getElementById('sidebarLinkFeedback');
+            if (el) el.scrollIntoView({ block: 'center' });
+        })()`);
+        await sleep(400);
+        const screenshotMemberSidebar = path.join(ARTIFACT_DIR, `${prefix}sidebar_member_role.png`);
+        await cdp.captureScreenshot(screenshotMemberSidebar);
+        console.log(`     [Artifact] Ảnh Sidebar với Member thật: ${screenshotMemberSidebar}`);
+
+        // 7.3 Kiểm tra giao diện Sidebar với Tài khoản Admin Thật
+        console.log('  -> [UI Admin] Đăng nhập tài khoản Admin thật vào giao diện...');
+        const adminSessionForClient = {
+            access_token: realAdminSession.access_token,
+            refresh_token: realAdminSession.refresh_token,
+            expires_at: realAdminSession.expires_at,
+            user: {
+                id: realAdminSession.user.id,
+                email: realAdminSession.user.email,
+                role: 'admin'
+            }
+        };
+        await cdp.eval(`((sess) => {
+            localStorage.removeItem('vivu_user_session');
+            sessionStorage.setItem('vivu_admin_session', JSON.stringify(sess));
+            localStorage.setItem('vivu_admin_session', JSON.stringify(sess));
+            if (window.ViVuApp?.updateAdminRoleUI) {
+                window.ViVuApp.updateAdminRoleUI();
+            }
+        })(${JSON.stringify(adminSessionForClient)})`);
+        await sleep(600);
+
+        const adminUiState = await cdp.eval(`(() => {
+            const modLink = document.getElementById('sidebarAdminModerationLink');
+            const adminLoginLink = document.getElementById('sidebarAdminLoginLink');
+            const badge = document.getElementById('sidebarAdminModerationBadge');
+            const userNameEl = document.getElementById('sidebarUserName');
+            const userRoleEl = document.getElementById('sidebarUserRole');
+            return {
+                modVisible: Boolean(modLink && !modLink.classList.contains('hidden')),
+                loginVisible: Boolean(adminLoginLink && !adminLoginLink.classList.contains('hidden')),
+                badgeExists: Boolean(badge),
+                userName: userNameEl?.textContent?.trim() || '',
+                userRole: userRoleEl?.textContent?.trim() || ''
+            };
+        })()`);
+        console.log('     Trạng thái Sidebar khi đăng nhập Admin thật:', adminUiState);
+        assert.ok(adminUiState.modVisible, 'Admin thật phải nhìn thấy mục "Kiểm duyệt nội dung"');
+        assert.strictEqual(adminUiState.loginVisible, false, '"Đăng nhập Quản trị" phải ẩn khi đã là Admin');
+        assert.ok(adminUiState.badgeExists, 'Badge số chờ duyệt phải tồn tại');
+        assert.strictEqual(adminUiState.userRole, 'Quản trị viên', 'Vai trò phải hiển thị "Quản trị viên"');
+
+        // Cuộn sidebar xuống để thấy rõ mục Kiểm duyệt nội dung và các danh mục
+        await cdp.eval(`(() => {
+            const el = document.getElementById('sidebarAdminModerationLink');
+            if (el) el.scrollIntoView({ block: 'center' });
+        })()`);
+        await sleep(400);
 
         const screenshotAdminSidebar = path.join(ARTIFACT_DIR, `${prefix}sidebar_admin_role_visible.png`);
         await cdp.captureScreenshot(screenshotAdminSidebar);
-        console.log(`[Artifact] Ảnh Sidebar khi có quyền Admin: ${screenshotAdminSidebar}`);
+        console.log(`     [Artifact] Ảnh Sidebar khi có quyền Admin thật: ${screenshotAdminSidebar}`);
 
         // -----------------------------------------------------------------
         // BƯỚC 8: KIỂM TRA MOBILE VIEWPORT (375x812) - KHÔNG TRÀN NGANG
@@ -558,20 +696,25 @@ async function main() {
         const screenshotMobileCompanion = path.join(ARTIFACT_DIR, `${prefix}view_companion_mobile.png`);
         await cdp.captureScreenshot(screenshotMobileCompanion);
 
-        console.log('\n======================================================');
+        console.log('\n======================================================================');
         console.log('TỔNG HỢP KẾT QUẢ KIỂM THỬ: TẤT CẢ TIÊU CHÍ ĐỀU ĐẠT 100%');
-        console.log('======================================================');
-        console.log('1. Đổi tên nhóm thành "GÓC ADMIN & DỰ ÁN": ĐẠT');
-        console.log('2. Bỏ "Đóng góp địa điểm" khỏi sidebar (giữ nút + Đóng góp header): ĐẠT');
-        console.log('3. 3 danh mục công khai hiển thị cho mọi người dùng: ĐẠT');
-        console.log('4. Quyền Admin: Kiểm duyệt nội dung giữ nguyên và chỉ hiện với Admin: ĐẠT');
-        console.log('5. Màu sắc trạng thái: Góp ý (xanh dương), Dự án (tím), Đồng hành (cam hổ phách): ĐẠT');
-        console.log('6. Không có badge/cập nhật mới giả trên 3 mục công khai: ĐẠT');
-        console.log('7. Nội dung Góp ý & Hỗ trợ (hướng dẫn, báo lỗi, kênh liên hệ thật): ĐẠT');
-        console.log('8. Nội dung Về dự án & Kế hoạch (3 cột Đã có, Đang làm, Dự kiến): ĐẠT');
-        console.log('9. Nội dung Đồng hành cùng Admin (thông tin người phát triển, ưu tiên công sức, chưa mở nhận tài chính, gỡ QR/clearance giả): ĐẠT');
-        console.log('10. Router SPA, URL trực tiếp, Reload, Back/Forward: ĐẠT');
-        console.log('11. Responsive Mobile (375x812) không tràn ngang: ĐẠT');
+        console.log('======================================================================');
+        console.log('\n--- [A. KẾT QUẢ GIAO DIỆN (UI/UX & CONTENT)] ---');
+        console.log('1. Tên nhóm Sidebar: "GÓC ADMIN & DỰ ÁN": ĐẠT');
+        console.log('2. Bỏ "Đóng góp địa điểm" khỏi sidebar (giữ nút "+ Đóng góp" cố định header): ĐẠT');
+        console.log('3. 3 danh mục công khai hiển thị cho mọi người dùng (Khách & Member): ĐẠT');
+        console.log('4. Màu sắc & trạng thái: Góp ý (xanh dương), Về dự án (tím), Đồng hành (cam hổ phách): ĐẠT');
+        console.log('5. Không gắn badge giả hoặc "Có cập nhật mới" giả tạo trên 3 mục công khai: ĐẠT');
+        console.log('6. Nội dung "Góp ý & Hỗ trợ": Hướng dẫn sử dụng nhanh, báo sai tọa độ, kênh liên hệ trung tính: ĐẠT');
+        console.log('7. Nội dung "Về dự án & Kế hoạch": ĐÃ CÓ (LIVE) vs Ý TƯỞNG ĐANG CÂN NHẮC (không cam kết ảo): ĐẠT');
+        console.log('8. Nội dung "Đồng hành cùng Admin": BQT trung tính chờ xác nhận, ưu tiên công sức, chưa mở nhận tài chính, bỏ cam kết ngân hàng/sao kê tự động, gỡ sạch dữ liệu mẫu giả: ĐẠT');
+        console.log('9. Router SPA, URL trực tiếp (#/feedback, #/about, #/companion), Reload, Back/Forward: ĐẠT');
+        console.log('10. Responsive Mobile (375x812, Light/Dark mode), không tràn ngang, không vỡ layout: ĐẠT');
+        console.log('\n--- [B. KẾT QUẢ XÁC THỰC QUYỀN (AUTH & RBAC)] ---');
+        console.log('1. Phiên xác thực 100% người dùng thật từ Supabase Auth (không dùng session giả): ĐẠT');
+        console.log('2. Backend RBAC API (/api/admin?route=profile): Admin trả HTTP 200 (role: admin), Member trả HTTP 403 FORBIDDEN: ĐẠT');
+        console.log('3. Giao diện Sidebar với Member thật: Ẩn mục "Kiểm duyệt nội dung", hiển thị vai trò "Thành viên": ĐẠT');
+        console.log('4. Giao diện Sidebar với Admin thật: Hiển thị mục "Kiểm duyệt nội dung", badge kiểm duyệt, hiển thị vai trò "Quản trị viên": ĐẠT');
 
     } finally {
         if (cdp) cdp.close();

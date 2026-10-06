@@ -5,11 +5,11 @@
  */
 
 export const ADMIN_INFO = {
-    name: "Trần Tiến",
-    role: "Quản trị viên hệ thống & Người sáng lập ViVuTraVinh",
-    title: "IT Specialist • Người con Trà Vinh • Người sáng lập dự án",
+    name: "Ban Quản Trị ViVuTraVinh",
+    role: "Quản trị viên hệ thống & Đội ngũ vận hành",
+    title: "Thông tin ban quản trị đang chờ chủ dự án xác nhận",
     avatar: "chùa âng.jpg",
-    bio: "Chào mọi người, mình là Tiến — một kỹ sư phần mềm sinh ra và lớn lên tại đất Trà Vinh. ViVuTraVinh được xây dựng từ tình yêu với những ngôi chùa Khmer rợp bóng cổ thụ, hương vị bún nước lèo thân thương và mong muốn du khách khắp nơi có một cẩm nang địa phương chân thực nhất. Nền tảng hoạt động hoàn toàn phi lợi nhuận và mở cho cộng đồng đóng góp.",
+    bio: "ViVuTraVinh được xây dựng từ tình yêu với vùng đất Trà Vinh, hương vị ẩm thực bản địa và mong muốn du khách khắp nơi có một cẩm nang địa phương chân thực nhất. Nền tảng hoạt động phi lợi nhuận và mở cho cộng đồng đóng góp. Thông tin chi tiết về chủ dự án và ban quản trị chính thức đang chờ cập nhật xác nhận.",
     contacts: {
         email: "mailto:tienlh1998@gmail.com",
         github: "https://github.com/tienlh1998-jpg/vivutravinh",
