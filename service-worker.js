@@ -1,7 +1,7 @@
 // ViVuTraVinh Service Worker
-// Version 2.11.0 - Partitioned Caches & Atomic Precache (đầy đủ 8 module dữ liệu Phase 5-11)
+// Version 2.12.0 - Partitioned Caches & Atomic Precache (Mobile Drawer Navigation & Public Views)
 
-const VERSION = '2.11.0';
+const VERSION = '2.12.0';
 const CACHE_SHELL = `vivutravinh-shell-v${VERSION}`;
 const CACHE_DATA = `vivutravinh-data-v${VERSION}`;
 const CACHE_IMAGES = `vivutravinh-images-v${VERSION}`;
