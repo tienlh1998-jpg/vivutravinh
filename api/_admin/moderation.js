@@ -85,6 +85,36 @@ const MODERATION_ENTITIES = {
 const ALLOWED_ACTIONS = new Set(['approve', 'reject', 'archive']);
 
 /**
+ * Truy vấn tổng số lượng mục đang chờ duyệt (status = 'pending') chính xác
+ * độc lập hoàn toàn với tham số phân trang (limit, offset) và bộ lọc của hàng đợi.
+ */
+async function fetchExactPendingCounts() {
+  const [postsRes, clubsRes, eventsRes, articlesRes, actsRes] = await Promise.all([
+    supabaseRequest('community_posts?select=id&status=eq.pending', { count: true }),
+    supabaseRequest('clubs?select=id&status=eq.pending', { count: true }),
+    supabaseRequest('community_events?select=id&status=eq.pending', { count: true }),
+    supabaseRequest('articles?select=id&status=eq.pending', { count: true }),
+    supabaseRequest('club_activities?select=id&status=eq.pending', { count: true })
+  ]);
+
+  const pPosts = typeof postsRes?.total === 'number' ? postsRes.total : (Array.isArray(postsRes?.data) ? postsRes.data.length : 0);
+  const pClubs = typeof clubsRes?.total === 'number' ? clubsRes.total : (Array.isArray(clubsRes?.data) ? clubsRes.data.length : 0);
+  const pEvents = typeof eventsRes?.total === 'number' ? eventsRes.total : (Array.isArray(eventsRes?.data) ? eventsRes.data.length : 0);
+  const pArticles = typeof articlesRes?.total === 'number' ? articlesRes.total : (Array.isArray(articlesRes?.data) ? articlesRes.data.length : 0);
+  const pActivities = typeof actsRes?.total === 'number' ? actsRes.total : (Array.isArray(actsRes?.data) ? actsRes.data.length : 0);
+
+  return {
+    pendingTotal: pPosts + pClubs + pEvents + pArticles + pActivities,
+    pendingPosts: pPosts,
+    pendingClubs: pClubs,
+    pendingEvents: pEvents,
+    pendingArticles: pArticles,
+    pendingActivities: pActivities,
+    hasError: false
+  };
+}
+
+/**
  * Xử lý GET: Lấy danh sách nội dung chờ duyệt hoặc theo bộ lọc
  */
 async function handleGetModerationList(request, response, adminContext) {
@@ -93,7 +123,25 @@ async function handleGetModerationList(request, response, adminContext) {
     const entityType = url.searchParams.get('entity_type');
     const status = url.searchParams.get('status') || 'pending';
     const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '50', 10), 1), 100);
+    const countsOnly = url.searchParams.get('counts_only') === 'true' || url.searchParams.get('counts_only') === '1';
 
+    // 1. Nếu client chỉ yêu cầu kiểm tra số lượng (counts_only)
+    if (countsOnly) {
+      try {
+        const kpi = await fetchExactPendingCounts();
+        sendJson(response, 200, {
+          success: true,
+          kpi
+        });
+        return;
+      } catch (countErr) {
+        console.error('[AdminModeration] Lỗi fetchExactPendingCounts (counts_only):', countErr.message);
+        sendError(response, 500, 'COUNT_FETCH_ERROR', 'Không thể lấy số lượng chờ duyệt lúc này.');
+        return;
+      }
+    }
+
+    // 2. Nếu client chỉ định entity_type cụ thể
     if (entityType) {
       if (!MODERATION_ENTITIES[entityType]) {
         sendError(response, 400, 'INVALID_ENTITY_TYPE', 'Loại nội dung không hợp lệ (community_post | club | community_event | article | club_activity | place).');
@@ -105,25 +153,42 @@ async function handleGetModerationList(request, response, adminContext) {
         query += `&status=eq.${encodeURIComponent(status)}`;
       }
 
-      const rows = await supabaseRequest(query);
+      const [rows, kpi] = await Promise.all([
+        supabaseRequest(query),
+        fetchExactPendingCounts().catch(err => {
+          console.warn('[AdminModeration] Lỗi fetchExactPendingCounts:', err.message);
+          return {
+            hasError: true,
+            errorMessage: err.message,
+            pendingTotal: null,
+            pendingPosts: null,
+            pendingClubs: null,
+            pendingEvents: null,
+            pendingArticles: null,
+            pendingActivities: null
+          };
+        })
+      ]);
+
       sendJson(response, 200, {
         success: true,
         entity_type: entityType,
         status,
         count: Array.isArray(rows) ? rows.length : 0,
-        items: Array.isArray(rows) ? rows : []
+        items: Array.isArray(rows) ? rows : [],
+        kpi
       });
       return;
     }
 
-    // Nếu không chỉ định entity_type: trả về tổng hợp cả 4 hàng đợi
+    // 3. Nếu không chỉ định entity_type: trả về tổng hợp cả 5 hàng đợi + KPI pending độc lập
     const postsQuery = `community_posts?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const clubsQuery = `clubs?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const eventsQuery = `community_events?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const articlesQuery = `articles?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
     const activitiesQuery = `club_activities?select=*&order=created_at.desc&limit=${limit}${status !== 'all' ? `&status=eq.${encodeURIComponent(status)}` : ''}`;
 
-    const [posts, clubs, events, articles, activities] = await Promise.all([
+    const [posts, clubs, events, articles, activities, kpi] = await Promise.all([
       supabaseRequest(postsQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc posts queue:', err.message);
         return [];
@@ -143,6 +208,19 @@ async function handleGetModerationList(request, response, adminContext) {
       supabaseRequest(activitiesQuery).catch(err => {
         console.warn('[AdminModeration] Lỗi đọc activities queue:', err.message);
         return [];
+      }),
+      fetchExactPendingCounts().catch(err => {
+        console.warn('[AdminModeration] Lỗi tính KPI pending chính xác:', err.message);
+        return {
+          hasError: true,
+          errorMessage: err.message,
+          pendingTotal: null,
+          pendingPosts: null,
+          pendingClubs: null,
+          pendingEvents: null,
+          pendingArticles: null,
+          pendingActivities: null
+        };
       })
     ]);
 
@@ -154,18 +232,7 @@ async function handleGetModerationList(request, response, adminContext) {
       events: Array.isArray(events) ? events : [],
       articles: Array.isArray(articles) ? articles : [],
       activities: Array.isArray(activities) ? activities : [],
-      kpi: {
-        pendingTotal: (Array.isArray(posts) ? posts.filter(p => p.status === 'pending').length : 0) +
-                      (Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0) +
-                      (Array.isArray(events) ? events.filter(e => e.status === 'pending').length : 0) +
-                      (Array.isArray(articles) ? articles.filter(a => a.status === 'pending').length : 0) +
-                      (Array.isArray(activities) ? activities.filter(act => act.status === 'pending').length : 0),
-        pendingPosts: Array.isArray(posts) ? posts.filter(p => p.status === 'pending').length : 0,
-        pendingClubs: Array.isArray(clubs) ? clubs.filter(c => c.status === 'pending').length : 0,
-        pendingEvents: Array.isArray(events) ? events.filter(e => e.status === 'pending').length : 0,
-        pendingArticles: Array.isArray(articles) ? articles.filter(a => a.status === 'pending').length : 0,
-        pendingActivities: Array.isArray(activities) ? activities.filter(act => act.status === 'pending').length : 0
-      }
+      kpi
     });
   } catch (err) {
     console.error('[AdminModeration] Lỗi lấy hàng đợi:', err.message);

@@ -10025,6 +10025,14 @@ export function renderAdminModerationModalContent({
     const pendingEvents = (events || []).filter(e => e.status === 'pending');
     const pendingArticles = (articles || []).filter(a => a.status === 'pending');
 
+    const isError = Boolean(kpi && kpi.hasError);
+    const pPostsCount = isError ? null : (typeof kpi.pendingPostsCount === 'number' ? kpi.pendingPostsCount : (typeof kpi.pendingPosts === 'number' ? kpi.pendingPosts : pendingPosts.length));
+    const pClubsCount = isError ? null : (typeof kpi.pendingClubsCount === 'number' ? kpi.pendingClubsCount : (typeof kpi.pendingClubs === 'number' ? kpi.pendingClubs : pendingClubs.length));
+    const pActsCount = isError ? null : (typeof kpi.pendingActivitiesCount === 'number' ? kpi.pendingActivitiesCount : (typeof kpi.pendingActivities === 'number' ? kpi.pendingActivities : pendingActivities.length));
+    const pEventsCount = isError ? null : (typeof kpi.pendingEventsCount === 'number' ? kpi.pendingEventsCount : (typeof kpi.pendingEvents === 'number' ? kpi.pendingEvents : pendingEvents.length));
+    const pArticlesCount = isError ? null : (typeof kpi.pendingArticlesCount === 'number' ? kpi.pendingArticlesCount : (typeof kpi.pendingArticles === 'number' ? kpi.pendingArticles : pendingArticles.length));
+
+
     let displayedPosts = pendingPosts;
     if (filterCategory !== 'all') {
         if (filterCategory === 'culture') displayedPosts = displayedPosts.filter(p => p.categoryKey === 'culture');
@@ -10131,6 +10139,20 @@ export function renderAdminModerationModalContent({
             </div>
 
             <div class="flex flex-col gap-6 pt-5">
+                ${isError ? `
+                    <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+                        <div class="flex items-center gap-2.5 text-xs font-semibold">
+                            <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">warning</span>
+                            <span>Chưa tải được số lượng chờ duyệt mới nhất từ máy chủ (Lỗi kết nối). Vui lòng thử lại.</span>
+                        </div>
+                        <button type="button" onclick="window.ViVuApp.openAdminModerationModal('${activeTab}')"
+                            class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-button text-xs font-bold transition-all shadow-xs shrink-0 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-[16px]">refresh</span>
+                            <span>Tải lại</span>
+                        </button>
+                    </div>
+                ` : ''}
+
                 <!-- KPI LIVE DASHBOARD CARDS -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
                     <!-- Stat 1: Pending Posts -->
@@ -10139,8 +10161,8 @@ export function renderAdminModerationModalContent({
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Bài viết chờ duyệt</p>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${pendingPosts.length}</span>
-                                <span class="font-caption text-xs text-on-tertiary-container dark:text-amber-400 font-semibold">${pendingPosts.length > 0 ? 'Cần xử lý' : 'Đã sạch'}</span>
+                                <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${isError ? '--' : pPostsCount}</span>
+                                <span class="font-caption text-xs ${isError ? 'text-amber-500 font-semibold' : (pPostsCount > 0 ? 'text-on-tertiary-container dark:text-amber-400 font-semibold' : 'text-outline dark:text-zinc-500 font-medium')}">${isError ? 'Chưa tải được' : (pPostsCount > 0 ? 'Cần xử lý' : 'Đã sạch')}</span>
                             </div>
                             <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Bài cộng đồng</p>
                         </div>
@@ -10158,8 +10180,8 @@ export function renderAdminModerationModalContent({
                                 <span class="px-1.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 text-[10px] font-bold">Mới</span>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-secondary dark:text-emerald-400">${pendingClubs.length}</span>
-                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-medium">${pendingClubs.length > 0 ? 'Chờ duyệt' : 'Đã sạch'}</span>
+                                <span class="font-headline-lg text-2xl font-bold text-secondary dark:text-emerald-400">${isError ? '--' : pClubsCount}</span>
+                                <span class="font-caption text-xs ${isError ? 'text-amber-500 font-semibold' : (pClubsCount > 0 ? 'text-secondary dark:text-emerald-400 font-medium' : 'text-outline dark:text-zinc-500 font-medium')}">${isError ? 'Chưa tải được' : (pClubsCount > 0 ? 'Chờ duyệt' : 'Đã sạch')}</span>
                             </div>
                             <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">Đề xuất CLB</p>
                         </div>
@@ -10174,8 +10196,8 @@ export function renderAdminModerationModalContent({
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Lịch CLB chờ duyệt</p>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-emerald-600 dark:text-emerald-400">${pendingActivities.length}</span>
-                                <span class="font-caption text-xs text-emerald-600 dark:text-emerald-400 font-semibold">${pendingActivities.length > 0 ? 'Chờ duyệt' : 'Đã sạch'}</span>
+                                <span class="font-headline-lg text-2xl font-bold text-emerald-600 dark:text-emerald-400">${isError ? '--' : pActsCount}</span>
+                                <span class="font-caption text-xs ${isError ? 'text-amber-500 font-semibold' : (pActsCount > 0 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-outline dark:text-zinc-500 font-medium')}">${isError ? 'Chưa tải được' : (pActsCount > 0 ? 'Chờ duyệt' : 'Đã sạch')}</span>
                             </div>
                             <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Lịch sinh hoạt CLB</p>
                         </div>
@@ -10190,8 +10212,8 @@ export function renderAdminModerationModalContent({
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Sự kiện &amp; Workshop</p>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${pendingEvents.length}</span>
-                                <span class="font-caption text-xs text-secondary dark:text-emerald-400 font-semibold">${pendingEvents.length > 0 ? 'Chờ duyệt' : 'Đã sạch'}</span>
+                                <span class="font-headline-lg text-2xl font-bold text-primary dark:text-zinc-100">${isError ? '--' : pEventsCount}</span>
+                                <span class="font-caption text-xs ${isError ? 'text-amber-500 font-semibold' : (pEventsCount > 0 ? 'text-secondary dark:text-emerald-400 font-semibold' : 'text-outline dark:text-zinc-500 font-medium')}">${isError ? 'Chưa tải được' : (pEventsCount > 0 ? 'Chờ duyệt' : 'Đã sạch')}</span>
                             </div>
                             <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đăng ký sự kiện</p>
                         </div>
@@ -10206,8 +10228,8 @@ export function renderAdminModerationModalContent({
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Cẩm nang du lịch</p>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-amber-600 dark:text-amber-400">${pendingArticles.length}</span>
-                                <span class="font-caption text-xs text-amber-600 dark:text-amber-400 font-semibold">${pendingArticles.length > 0 ? 'Chờ duyệt' : 'Đã sạch'}</span>
+                                <span class="font-headline-lg text-2xl font-bold text-amber-600 dark:text-amber-400">${isError ? '--' : pArticlesCount}</span>
+                                <span class="font-caption text-xs ${isError ? 'text-amber-500 font-semibold' : (pArticlesCount > 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-outline dark:text-zinc-500 font-medium')}">${isError ? 'Chưa tải được' : (pArticlesCount > 0 ? 'Chờ duyệt' : 'Đã sạch')}</span>
                             </div>
                             <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Bài cẩm nang mới</p>
                         </div>
@@ -10221,10 +10243,10 @@ export function renderAdminModerationModalContent({
                         <div class="space-y-1">
                             <p class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 font-medium">Báo cáo vi phạm</p>
                             <div class="flex items-baseline gap-2">
-                                <span class="font-headline-lg text-2xl font-bold text-error dark:text-rose-400">${kpi.flaggedCount || 0}</span>
-                                <span class="font-caption text-xs text-error dark:text-rose-400 font-semibold">Ưu tiên xử lý</span>
+                                <span class="font-headline-lg text-2xl font-bold text-error dark:text-rose-400">${isError ? '--' : (kpi.flaggedCount || 0)}</span>
+                                <span class="font-caption text-xs ${isError ? 'text-amber-500 font-semibold' : 'text-error dark:text-rose-400 font-semibold'}">${isError ? 'Chưa tải được' : 'Ưu tiên xử lý'}</span>
                             </div>
-                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">Đã duyệt hôm nay: ${kpi.approvedToday || 0}</p>
+                            <p class="font-caption text-[11px] text-outline dark:text-zinc-500">${isError ? 'Trạng thái máy chủ: Lỗi kết nối' : `Đã duyệt hôm nay: ${kpi.approvedToday || 0}`}</p>
                         </div>
                         <div class="w-10 h-10 rounded-xl bg-error-container dark:bg-rose-950/60 text-on-error-container dark:text-rose-300 flex items-center justify-center shadow-xs">
                             <span class="material-symbols-outlined text-[20px]">flag_circle</span>
@@ -10260,31 +10282,31 @@ export function renderAdminModerationModalContent({
                         <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'all')"
                             class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-primary-container text-on-primary font-bold shadow-xs ring-2 ring-secondary/40' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
                             <span>Tất cả bài viết</span>
-                            <span class="w-5 h-5 rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-secondary text-white' : 'bg-surface-container dark:bg-zinc-700'} text-[11px] flex items-center justify-center font-bold">${pendingPosts.length}</span>
+                            <span class="w-5 h-5 rounded-full ${activeTab === 'posts' && filterCategory === 'all' ? 'bg-secondary text-white' : 'bg-surface-container dark:bg-zinc-700'} text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pPostsCount}</span>
                         </button>
                         <button type="button" onclick="window.ViVuApp.switchModerationTab('clubs')"
                             class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'clubs' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
                             <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">groups</span>
                             <span>Đề xuất tạo CLB</span>
-                            <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${pendingClubs.length}</span>
+                            <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pClubsCount}</span>
                         </button>
                         <button type="button" onclick="window.ViVuApp.switchModerationTab('activities')"
                             class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'activities' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-emerald-500/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
                             <span class="material-symbols-outlined text-[16px] text-emerald-500">calendar_month</span>
                             <span>Lịch sinh hoạt CLB</span>
-                            <span class="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${pendingActivities.length}</span>
+                            <span class="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pActsCount}</span>
                         </button>
                         <button type="button" onclick="window.ViVuApp.switchModerationTab('events')"
                             class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'events' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-secondary/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
                             <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400">event</span>
                             <span>Sự kiện &amp; Workshop</span>
-                            <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${pendingEvents.length}</span>
+                            <span class="w-5 h-5 rounded-full bg-secondary-container dark:bg-emerald-950 text-on-secondary-container dark:text-emerald-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pEventsCount}</span>
                         </button>
                         <button type="button" onclick="window.ViVuApp.switchModerationTab('articles')"
                             class="px-4 py-2 min-h-[44px] rounded-full ${activeTab === 'articles' ? 'bg-primary text-white font-bold shadow-xs ring-2 ring-amber-500/50' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
                             <span class="material-symbols-outlined text-[16px] text-amber-500">auto_stories</span>
                             <span>Cẩm nang du lịch</span>
-                            <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 text-[11px] flex items-center justify-center font-bold">${pendingArticles.length}</span>
+                            <span class="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 text-[11px] flex items-center justify-center font-bold">${isError ? '--' : pArticlesCount}</span>
                         </button>
                         <button type="button" onclick="window.ViVuApp.switchModerationTab('posts', 'culture')"
                             class="px-3.5 py-2 min-h-[44px] rounded-full ${activeTab === 'posts' && filterCategory === 'culture' ? 'bg-secondary text-white font-bold' : 'bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300'} font-badge text-xs flex items-center gap-1.5 transition-all">
@@ -10522,7 +10544,7 @@ export function renderAdminModerationModalContent({
                                         <button type="button" onclick="window.ViVuApp.approvePost('${selectedPost.id}')"
                                             class="px-5 py-2.5 min-h-[44px] rounded-xl bg-secondary text-white hover:bg-primary transition-all font-button text-xs font-semibold flex items-center justify-center gap-2 shadow-md w-full sm:w-auto">
                                             <span class="material-symbols-outlined text-[18px]">check_circle</span>
-                                            <span>Phê duyệt &amp; Xuất bản (+50 Xu)</span>
+                                            <span>Phê duyệt &amp; Xuất bản (+10 điểm)</span>
                                         </button>
                                     </div>
                                 </div>
@@ -10747,7 +10769,7 @@ export function renderAdminModerationModalContent({
                                         <button type="button" onclick="window.ViVuApp.approveClub('${selectedClub.id}')"
                                             class="px-5 py-2.5 min-h-[44px] rounded-xl bg-secondary text-white hover:bg-primary transition-all font-button text-xs font-semibold flex items-center justify-center gap-2 shadow-md w-full sm:w-auto">
                                             <span class="material-symbols-outlined text-[18px]">verified</span>
-                                            <span>Phê duyệt &amp; Cấp tích xanh (+500 Xu)</span>
+                                            <span>Phê duyệt &amp; Cấp tích xanh</span>
                                         </button>
                                     </div>
                                 </div>
@@ -11056,7 +11078,7 @@ export function renderAdminModerationModalContent({
                                         <button type="button" onclick="window.ViVuApp.approveArticle('${selectedArticle.id}')"
                                             class="px-5 py-2.5 min-h-[44px] rounded-xl bg-secondary text-white hover:bg-primary transition-all font-button text-xs font-semibold flex items-center justify-center gap-2 shadow-md w-full sm:w-auto">
                                             <span class="material-symbols-outlined text-[18px]">check_circle</span>
-                                            <span>Phê duyệt &amp; Xuất bản</span>
+                                            <span>Phê duyệt &amp; Xuất bản (+20 điểm)</span>
                                         </button>
                                     </div>
                                 </div>

@@ -4344,12 +4344,12 @@ export async function handleContributeSubmit(event) {
     if (toast && toastTitle && toastMsg) {
         toastTitle.textContent = '🎉 Đóng góp địa điểm thành công!';
         toastMsg.textContent = submittedSuccess
-            ? 'Địa điểm đã gửi lên hệ thống chờ Ban Quản Trị duyệt (+50 Điểm Thổ Địa).'
-            : 'Đã lưu an toàn ngoại tuyến và sẽ tự động chuyển tới BQT khi có mạng (+50 Điểm Thổ Địa).';
+            ? 'Địa điểm đã gửi lên hệ thống chờ Ban Quản Trị duyệt (+15 Điểm Thổ Địa).'
+            : 'Đã lưu an toàn ngoại tuyến và sẽ tự động chuyển tới BQT khi có mạng (+15 Điểm Thổ Địa).';
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 6000);
     } else {
-        alert(`🎉 Cảm ơn bạn! Địa điểm "${name}" đã được ghi nhận thành công (+50 Điểm Thổ Địa).`);
+        alert(`🎉 Cảm ơn bạn! Địa điểm "${name}" đã được ghi nhận thành công (+15 Điểm Thổ Địa).`);
     }
 
     form.reset();
@@ -8835,12 +8835,35 @@ export function confirmSimulatedDonation(amount) {
 /**
  * Cập nhật số lượng hiển thị trên Badge Sidebar Admin Moderation
  */
-export function updateAdminModerationBadge(count) {
+export function updateAdminModerationBadge(count, isError = false) {
     const badge = document.getElementById('sidebarAdminModerationBadge');
     if (!badge) return;
-    const num = typeof count === 'number' ? count : (state.moderationKpi?.pendingCount || 0);
-    if (num > 0) {
+
+    if (isError || (count === null && state.moderationKpi?.hasError)) {
+        badge.textContent = '!';
+        badge.title = 'Chưa tải được số lượng chờ duyệt (Lỗi kết nối)';
+        badge.setAttribute('aria-label', 'Chưa tải được số lượng chờ duyệt');
+        badge.className = 'ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500 text-white shadow-xs';
+        badge.classList.remove('hidden');
+        return;
+    }
+
+    const num = typeof count === 'number' ? count : (state.moderationKpi?.hasError ? null : state.moderationKpi?.pendingCount);
+    if (typeof num === 'number' && num > 0) {
         badge.textContent = String(num);
+        badge.title = `${num} nội dung chờ duyệt`;
+        badge.setAttribute('aria-label', `${num} nội dung chờ duyệt`);
+        badge.className = 'ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-amber-500 text-white shadow-xs';
+        badge.classList.remove('hidden');
+    } else if (num === 0) {
+        badge.textContent = '0';
+        badge.title = 'Hàng đợi kiểm duyệt đã sạch';
+        badge.setAttribute('aria-label', 'Không có nội dung chờ duyệt');
+        badge.classList.add('hidden');
+    } else if (state.moderationKpi?.hasError) {
+        badge.textContent = '!';
+        badge.title = 'Chưa tải được số lượng chờ duyệt';
+        badge.setAttribute('aria-label', 'Chưa tải được số lượng chờ duyệt');
         badge.classList.remove('hidden');
     } else {
         badge.textContent = '0';
@@ -8852,23 +8875,41 @@ export function updateAdminModerationBadge(count) {
  * Tính toán lại tổng số mục đang thực sự chờ duyệt (status === 'pending')
  */
 export function syncAndRecalculateModerationPending() {
-    const pPosts = (state.moderationPosts || []).filter(p => p.status === 'pending').length;
-    const pClubs = (state.moderationClubs || []).filter(c => c.status === 'pending').length;
-    const pActs = (state.moderationActivities || []).filter(a => a.status === 'pending').length;
-    const pEvents = (state.moderationEvents || []).filter(e => e.status === 'pending').length;
-    const pArticles = (state.moderationArticles || []).filter(a => a.status === 'pending').length;
+    if (state.moderationKpi?.hasError) {
+        updateAdminModerationBadge(null, true);
+        return null;
+    }
+
+    const pPosts = typeof state.moderationKpi?.pendingPostsCount === 'number'
+        ? state.moderationKpi.pendingPostsCount
+        : (state.moderationPosts || []).filter(p => p.status === 'pending').length;
+    const pClubs = typeof state.moderationKpi?.pendingClubsCount === 'number'
+        ? state.moderationKpi.pendingClubsCount
+        : (state.moderationClubs || []).filter(c => c.status === 'pending').length;
+    const pActs = typeof state.moderationKpi?.pendingActivitiesCount === 'number'
+        ? state.moderationKpi.pendingActivitiesCount
+        : (state.moderationActivities || []).filter(a => a.status === 'pending').length;
+    const pEvents = typeof state.moderationKpi?.pendingEventsCount === 'number'
+        ? state.moderationKpi.pendingEventsCount
+        : (state.moderationEvents || []).filter(e => e.status === 'pending').length;
+    const pArticles = typeof state.moderationKpi?.pendingArticlesCount === 'number'
+        ? state.moderationKpi.pendingArticlesCount
+        : (state.moderationArticles || []).filter(a => a.status === 'pending').length;
+
     const total = pPosts + pClubs + pActs + pEvents + pArticles;
 
     state.moderationKpi = {
         ...(state.moderationKpi || {}),
+        hasError: false,
         pendingCount: total,
+        pendingTotal: total,
         pendingPostsCount: pPosts,
         pendingClubsCount: pClubs,
         pendingActivitiesCount: pActs,
         pendingEventsCount: pEvents,
         pendingArticlesCount: pArticles
     };
-    updateAdminModerationBadge(total);
+    updateAdminModerationBadge(total, false);
     return total;
 }
 
@@ -8894,27 +8935,64 @@ export async function refreshAdminModerationCounts() {
         });
         if (res.ok) {
             const data = await res.json();
-            const pPosts = Array.isArray(data.posts) ? data.posts.filter(p => p.status === 'pending').length : 0;
-            const pClubs = Array.isArray(data.clubs) ? data.clubs.filter(c => c.status === 'pending').length : 0;
-            const pActs = Array.isArray(data.activities) ? data.activities.filter(a => a.status === 'pending').length : 0;
-            const pEvents = Array.isArray(data.events) ? data.events.filter(e => e.status === 'pending').length : 0;
-            const pArticles = Array.isArray(data.articles) ? data.articles.filter(a => a.status === 'pending').length : 0;
-            const total = pPosts + pClubs + pActs + pEvents + pArticles;
-
+            if (data.kpi && !data.kpi.hasError) {
+                const total = typeof data.kpi.pendingTotal === 'number' ? data.kpi.pendingTotal : 0;
+                state.moderationKpi = {
+                    ...(state.moderationKpi || {}),
+                    hasError: false,
+                    pendingCount: total,
+                    pendingTotal: total,
+                    pendingPostsCount: data.kpi.pendingPosts ?? 0,
+                    pendingClubsCount: data.kpi.pendingClubs ?? 0,
+                    pendingActivitiesCount: data.kpi.pendingActivities ?? 0,
+                    pendingEventsCount: data.kpi.pendingEvents ?? 0,
+                    pendingArticlesCount: data.kpi.pendingArticles ?? 0
+                };
+                updateAdminModerationBadge(total, false);
+            } else {
+                console.warn('[AdminModeration] KPI trả về trạng thái lỗi:', data.kpi?.errorMessage);
+                state.moderationKpi = {
+                    ...(state.moderationKpi || {}),
+                    hasError: true,
+                    pendingCount: null,
+                    pendingTotal: null,
+                    pendingPostsCount: null,
+                    pendingClubsCount: null,
+                    pendingActivitiesCount: null,
+                    pendingEventsCount: null,
+                    pendingArticlesCount: null
+                };
+                updateAdminModerationBadge(null, true);
+            }
+        } else {
+            console.warn('[AdminModeration] Lỗi HTTP khi tải số lượng chờ duyệt:', res.status);
             state.moderationKpi = {
                 ...(state.moderationKpi || {}),
-                pendingCount: total,
-                pendingPostsCount: pPosts,
-                pendingClubsCount: pClubs,
-                pendingActivitiesCount: pActs,
-                pendingEventsCount: pEvents,
-                pendingArticlesCount: pArticles
+                hasError: true,
+                pendingCount: null,
+                pendingTotal: null,
+                pendingPostsCount: null,
+                pendingClubsCount: null,
+                pendingActivitiesCount: null,
+                pendingEventsCount: null,
+                pendingArticlesCount: null
             };
-            updateAdminModerationBadge(total);
+            updateAdminModerationBadge(null, true);
         }
     } catch (e) {
-        console.warn('[AdminModeration] Lỗi cập nhật số lượng chờ duyệt:', e.message);
-        updateAdminModerationBadge(state.moderationKpi?.pendingCount || 0);
+        console.warn('[AdminModeration] Lỗi kết nối khi cập nhật số lượng chờ duyệt:', e.message);
+        state.moderationKpi = {
+            ...(state.moderationKpi || {}),
+            hasError: true,
+            pendingCount: null,
+            pendingTotal: null,
+            pendingPostsCount: null,
+            pendingClubsCount: null,
+            pendingActivitiesCount: null,
+            pendingEventsCount: null,
+            pendingArticlesCount: null
+        };
+        updateAdminModerationBadge(null, true);
     }
 }
 
@@ -9173,28 +9251,72 @@ export async function openAdminModerationModal(tab = 'posts') {
                         admin_notes: act.admin_notes || ''
                     }));
                 }
-                if (data.kpi) {
+                if (data.kpi && !data.kpi.hasError) {
+                    const total = typeof data.kpi.pendingTotal === 'number' ? data.kpi.pendingTotal : ((data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0));
                     state.moderationKpi = {
-                        pendingCount: (data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0),
+                        hasError: false,
+                        pendingCount: total,
+                        pendingTotal: total,
                         pendingNew: (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0),
                         flaggedCount: 0,
-                        approvedToday: state.moderationKpi.approvedToday || 0,
+                        approvedToday: state.moderationKpi?.approvedToday || 0,
                         pointsIssued: 0,
                         violationRate: "0%",
-                        pendingPostsCount: data.kpi.pendingPosts || 0,
-                        pendingClubsCount: data.kpi.pendingClubs || 0,
-                        pendingEventsCount: data.kpi.pendingEvents || 0,
-                        pendingArticlesCount: data.kpi.pendingArticles || 0,
-                        pendingActivitiesCount: data.kpi.pendingActivities || 0
+                        pendingPostsCount: data.kpi.pendingPosts ?? 0,
+                        pendingClubsCount: data.kpi.pendingClubs ?? 0,
+                        pendingEventsCount: data.kpi.pendingEvents ?? 0,
+                        pendingArticlesCount: data.kpi.pendingArticles ?? 0,
+                        pendingActivitiesCount: data.kpi.pendingActivities ?? 0
                     };
+                    updateAdminModerationBadge(total, false);
+                } else {
+                    state.moderationKpi = {
+                        ...(state.moderationKpi || {}),
+                        hasError: true,
+                        pendingCount: null,
+                        pendingTotal: null,
+                        pendingPostsCount: null,
+                        pendingClubsCount: null,
+                        pendingActivitiesCount: null,
+                        pendingEventsCount: null,
+                        pendingArticlesCount: null
+                    };
+                    updateAdminModerationBadge(null, true);
                 }
+            } else {
+                state.moderationKpi = {
+                    ...(state.moderationKpi || {}),
+                    hasError: true,
+                    pendingCount: null,
+                    pendingTotal: null,
+                    pendingPostsCount: null,
+                    pendingClubsCount: null,
+                    pendingActivitiesCount: null,
+                    pendingEventsCount: null,
+                    pendingArticlesCount: null
+                };
+                updateAdminModerationBadge(null, true);
             }
         }
     } catch (e) {
-        console.warn('[AdminModeration] Dùng dữ liệu hàng đợi cục bộ:', e.message);
+        console.warn('[AdminModeration] Lỗi khi tải dữ liệu duyệt từ API:', e.message);
+        state.moderationKpi = {
+            ...(state.moderationKpi || {}),
+            hasError: true,
+            pendingCount: null,
+            pendingTotal: null,
+            pendingPostsCount: null,
+            pendingClubsCount: null,
+            pendingActivitiesCount: null,
+            pendingEventsCount: null,
+            pendingArticlesCount: null
+        };
+        updateAdminModerationBadge(null, true);
     }
 
-    syncAndRecalculateModerationPending();
+    if (!state.moderationKpi?.hasError && typeof state.moderationKpi?.pendingCount !== 'number') {
+        syncAndRecalculateModerationPending();
+    }
     renderModerationModal();
     modal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
@@ -9276,6 +9398,9 @@ export async function approvePost(postId) {
     post.status = 'approved';
     state.moderationPosts = state.moderationPosts.filter(p => p.id !== postId);
     state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
+    if (typeof state.moderationKpi?.pendingPostsCount === 'number') {
+        state.moderationKpi.pendingPostsCount = Math.max(0, state.moderationKpi.pendingPostsCount - 1);
+    }
     saveStoredModerationPosts(state.moderationPosts);
 
     // Đồng bộ sang danh sách bài viết trang chủ/feed
@@ -9288,7 +9413,8 @@ export async function approvePost(postId) {
 
     syncAndRecalculateModerationPending();
     renderModerationModal();
-    showSavedToast('✓ Đã phê duyệt và xuất bản bài viết thành công (+50 Xu thưởng)!');
+    showSavedToast('✓ Đã phê duyệt và xuất bản bài viết thành công (+10 điểm đóng góp G15)!');
+    refreshAdminModerationCounts().catch(() => {});
 }
 
 export async function approveClub(clubId) {
@@ -9318,6 +9444,9 @@ export async function approveClub(clubId) {
     club.status = 'approved';
     club.isEligible = true;
     state.moderationClubs = state.moderationClubs.filter(c => c.id !== clubId);
+    if (typeof state.moderationKpi?.pendingClubsCount === 'number') {
+        state.moderationKpi.pendingClubsCount = Math.max(0, state.moderationKpi.pendingClubsCount - 1);
+    }
     saveStoredModerationClubs(state.moderationClubs);
 
     const mainClub = state.clubs.find(c => c.id === clubId);
@@ -9328,7 +9457,8 @@ export async function approveClub(clubId) {
 
     syncAndRecalculateModerationPending();
     renderModerationModal();
-    showSavedToast('✓ Đã phê duyệt và cấp Tích Xanh chính thức cho CLB (+500 Xu quỹ khởi đầu)!');
+    showSavedToast('✓ Đã phê duyệt và cấp Tích Xanh chính thức cho CLB!');
+    refreshAdminModerationCounts().catch(() => {});
 }
 
 export async function approveEvent(eventId) {
@@ -9358,6 +9488,9 @@ export async function approveEvent(eventId) {
     event.status = 'approved';
     state.moderationEvents = state.moderationEvents.filter(e => e.id !== eventId);
     state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
+    if (typeof state.moderationKpi?.pendingEventsCount === 'number') {
+        state.moderationKpi.pendingEventsCount = Math.max(0, state.moderationKpi.pendingEventsCount - 1);
+    }
     saveStoredModerationEvents(state.moderationEvents);
 
     // Đồng bộ lại events công khai
@@ -9366,6 +9499,7 @@ export async function approveEvent(eventId) {
     syncAndRecalculateModerationPending();
     renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và xuất bản sự kiện cộng đồng!');
+    refreshAdminModerationCounts().catch(() => {});
 }
 
 export function openEditArticleFromModeration(articleId) {
@@ -9404,6 +9538,9 @@ export async function approveArticle(articleId) {
     article.status = 'approved';
     state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
     state.moderationArticles = (state.moderationArticles || []).filter(a => a.id !== articleId);
+    if (typeof state.moderationKpi?.pendingArticlesCount === 'number') {
+        state.moderationKpi.pendingArticlesCount = Math.max(0, state.moderationKpi.pendingArticlesCount - 1);
+    }
     if (state.selectedModerationArticleId === articleId) {
         state.selectedModerationArticleId = state.moderationArticles[0]?.id || null;
     }
@@ -9412,7 +9549,8 @@ export async function approveArticle(articleId) {
 
     syncAndRecalculateModerationPending();
     renderModerationModal();
-    showSavedToast('✓ Đã phê duyệt và xuất bản bài cẩm nang du lịch!');
+    showSavedToast('✓ Đã phê duyệt và xuất bản bài cẩm nang du lịch (+20 điểm đóng góp G15)!');
+    refreshAdminModerationCounts().catch(() => {});
 }
 
 export async function approveClubActivity(activityId) {
@@ -9445,6 +9583,9 @@ export async function approveClubActivity(activityId) {
     act.status = 'approved';
     state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
     state.moderationActivities = (state.moderationActivities || []).filter(a => a.id !== activityId);
+    if (typeof state.moderationKpi?.pendingActivitiesCount === 'number') {
+        state.moderationKpi.pendingActivitiesCount = Math.max(0, state.moderationKpi.pendingActivitiesCount - 1);
+    }
     if (state.selectedModerationActivityId === activityId) {
         state.selectedModerationActivityId = state.moderationActivities[0]?.id || null;
     }
@@ -9454,6 +9595,7 @@ export async function approveClubActivity(activityId) {
     syncAndRecalculateModerationPending();
     renderModerationModal();
     showSavedToast('✓ Đã phê duyệt và xuất bản lịch sinh hoạt CLB!');
+    refreshAdminModerationCounts().catch(() => {});
 }
 
 export function openActionReasonModal(actionType, targetId, targetTitle) {
@@ -9485,6 +9627,9 @@ export async function submitActionReason(actionType, targetId) {
 
     if (actType.startsWith('reject_post')) {
         state.moderationPosts = state.moderationPosts.filter(p => p.id !== tgtId);
+        if (typeof state.moderationKpi?.pendingPostsCount === 'number') {
+            state.moderationKpi.pendingPostsCount = Math.max(0, state.moderationKpi.pendingPostsCount - 1);
+        }
         saveStoredModerationPosts(state.moderationPosts);
         try {
             const token = await getValidAdminToken();
@@ -9517,6 +9662,9 @@ export async function submitActionReason(actionType, targetId) {
         showSavedToast('Đã gửi thông báo yêu cầu tác giả chỉnh sửa bổ sung thông tin.');
     } else if (actType.startsWith('reject_club')) {
         state.moderationClubs = state.moderationClubs.filter(c => c.id !== tgtId);
+        if (typeof state.moderationKpi?.pendingClubsCount === 'number') {
+            state.moderationKpi.pendingClubsCount = Math.max(0, state.moderationKpi.pendingClubsCount - 1);
+        }
         saveStoredModerationClubs(state.moderationClubs);
         try {
             const token = await getValidAdminToken();
@@ -9549,6 +9697,9 @@ export async function submitActionReason(actionType, targetId) {
         showSavedToast('Đã gửi yêu cầu bổ sung thông tin cho Trưởng nhóm CLB.');
     } else if (actType.startsWith('reject_event')) {
         state.moderationEvents = state.moderationEvents.filter(e => e.id !== tgtId);
+        if (typeof state.moderationKpi?.pendingEventsCount === 'number') {
+            state.moderationKpi.pendingEventsCount = Math.max(0, state.moderationKpi.pendingEventsCount - 1);
+        }
         saveStoredModerationEvents(state.moderationEvents);
         try {
             const token = await getValidAdminToken();
@@ -9573,6 +9724,9 @@ export async function submitActionReason(actionType, targetId) {
         showSavedToast('Đã từ chối sự kiện và lưu lý do thẩm định.');
     } else if (actType.startsWith('reject_article')) {
         state.moderationArticles = (state.moderationArticles || []).filter(a => a.id !== tgtId);
+        if (typeof state.moderationKpi?.pendingArticlesCount === 'number') {
+            state.moderationKpi.pendingArticlesCount = Math.max(0, state.moderationKpi.pendingArticlesCount - 1);
+        }
         try {
             const token = await getValidAdminToken();
             if (token) {
@@ -9599,6 +9753,9 @@ export async function submitActionReason(actionType, targetId) {
         showSavedToast('Đã từ chối bài cẩm nang và lưu lý do thẩm định.');
     } else if (actType.startsWith('reject_activity')) {
         state.moderationActivities = (state.moderationActivities || []).filter(a => a.id !== tgtId);
+        if (typeof state.moderationKpi?.pendingActivitiesCount === 'number') {
+            state.moderationKpi.pendingActivitiesCount = Math.max(0, state.moderationKpi.pendingActivitiesCount - 1);
+        }
         try {
             const token = await getValidAdminToken();
             if (token) {
@@ -9628,6 +9785,7 @@ export async function submitActionReason(actionType, targetId) {
     syncAndRecalculateModerationPending();
     closeActionReasonModal();
     renderModerationModal();
+    refreshAdminModerationCounts().catch(() => {});
 }
 
 export function quickApproveHighTrust() {
