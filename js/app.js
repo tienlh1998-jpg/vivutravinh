@@ -2648,7 +2648,7 @@ export function closeDetailModal(fromPopstate = false) {
     stopAudioGuide();
     const modal = document.getElementById('detailModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
     state.currentDetailPlace = null;
     clearCommentPhoto();
     restoreDefaultMetaTags();
@@ -3477,7 +3477,7 @@ export function openFullMapModal() {
     if (!modal) return;
 
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 
     // Reset mobile view to map
     state.mapMobileView = 'map';
@@ -3526,7 +3526,7 @@ export function openFullMapModal() {
 export function closeFullMapModal(fromRouter = false) {
     const modal = document.getElementById('fullMapModal');
     if (modal) modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
     closeMapActiveCard();
     state.currentOverlay = null;
 
@@ -4010,8 +4010,8 @@ export function closeContributeModal() {
     const modal = document.getElementById('contributeModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 /**
@@ -5000,6 +5000,57 @@ export function setBottomNavActive(activeId) {
     });
 }
 
+/**
+ * Kiểm tra xem có bất kỳ Modal nào đang hiển thị hay không
+ */
+export function hasActiveModalOpen() {
+    const modalIds = [
+        'fullMapModal',
+        'savedCollectionsModal',
+        'userProfileModal',
+        'securityModal',
+        'adminModerationModal',
+        'detailModal',
+        'contributeModal',
+        'festivalDetailModal',
+        'articleDetailModal',
+        'tourItinerariesModal',
+        'offlineTicketModal',
+        'authModal',
+        'reportModal',
+        'createPostModal',
+        'createClubModal',
+        'checkinModal'
+    ];
+    return modalIds.some(id => {
+        const el = document.getElementById(id);
+        if (!el) return false;
+        if (el.classList.contains('hidden')) return false;
+        try {
+            return window.getComputedStyle(el).display !== 'none';
+        } catch (_) {
+            return true;
+        }
+    });
+}
+
+/**
+ * Quản lý đồng bộ scroll-lock trên document.body:
+ * Chỉ khóa cuộn khi Mobile Drawer hoặc ít nhất một Modal đang mở.
+ * Chỉ khôi phục cuộn khi CẢ drawer và TẤT CẢ modal đều đã đóng.
+ */
+export function syncBodyScrollLock() {
+    const drawer = document.getElementById('mobileDrawerNav');
+    const isDrawerOpen = Boolean(drawer && !drawer.classList.contains('-translate-x-full') && !drawer.hasAttribute('inert'));
+    if (isDrawerOpen || hasActiveModalOpen()) {
+        document.body.classList.add('overflow-hidden');
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.classList.remove('overflow-hidden');
+        document.body.style.overflow = '';
+    }
+}
+
 export function openMobileDrawer() {
     const drawer = document.getElementById('mobileDrawerNav');
     const backdrop = document.getElementById('mobileDrawerBackdrop');
@@ -5016,7 +5067,7 @@ export function openMobileDrawer() {
     drawer.classList.remove('-translate-x-full');
     drawer.classList.add('translate-x-0');
 
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 
     const closeBtn = document.getElementById('mobileDrawerCloseBtn');
     if (closeBtn) {
@@ -5040,7 +5091,7 @@ export function closeMobileDrawer() {
     drawer.setAttribute('aria-hidden', 'true');
     if (openBtn) openBtn.setAttribute('aria-expanded', 'false');
 
-    document.body.classList.remove('overflow-hidden');
+    syncBodyScrollLock();
 
     if (document.activeElement && drawer.contains(document.activeElement)) {
         if (openBtn) openBtn.focus();
@@ -6979,7 +7030,7 @@ export function openProfileModal(tab = 'overview') {
 
     content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
     modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    syncBodyScrollLock();
 
     // Đồng bộ điểm đóng góp, huy hiệu và bảng vinh danh từ server
     fetchUserContributionPoints();
@@ -6993,8 +7044,8 @@ export function closeProfileModal() {
     const modal = document.getElementById('userProfileModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.style.overflow = '';
     }
+    syncBodyScrollLock();
 }
 
 export function switchProfileTab(tab) {
@@ -7550,15 +7601,15 @@ export function openSavedCollectionsModal() {
         state.savedSearchTerm
     );
     modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    syncBodyScrollLock();
 }
 
 export function closeSavedCollectionsModal(fromRouter = false) {
     const modal = document.getElementById('savedCollectionsModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.style.overflow = '';
     }
+    syncBodyScrollLock();
     state.currentOverlay = null;
 
     if (!fromRouter) {
@@ -7839,15 +7890,15 @@ export function openSecurityModal(tab = 'security') {
     if (!modal || !content) return;
     content.innerHTML = renderSecurityModalContent(state.securitySettings, state.securityActiveTab);
     modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    syncBodyScrollLock();
 }
 
 export function closeSecurityModal() {
     const modal = document.getElementById('securityModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.style.overflow = '';
     }
+    syncBodyScrollLock();
 }
 
 export function switchSecurityTab(tab) {
@@ -9550,15 +9601,15 @@ export async function openAdminModerationModal(tab = 'posts') {
     }
     renderModerationModal();
     modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    syncBodyScrollLock();
 }
 
 export function closeAdminModerationModal() {
     const modal = document.getElementById('adminModerationModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
     }
+    syncBodyScrollLock();
 }
 
 export function switchModerationTab(tab, category = 'all') {
@@ -10397,6 +10448,8 @@ if (typeof window !== 'undefined') {
         updateSidebarNavActive,
         openMobileDrawer,
         closeMobileDrawer,
+        hasActiveModalOpen,
+        syncBodyScrollLock,
         toggleNearMeFilter,
         handleTourSelect,
         handleSearchKeyword,
