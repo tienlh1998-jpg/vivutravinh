@@ -4565,6 +4565,24 @@ function handleDeepLink() {
         return;
     }
 
+    // Góp ý & Hỗ trợ View
+    if (hash === '#/feedback' || hash === '#feedback' || hash === '#/support' || hash === '#support' || hash === '#/gopy' || hash === '#gopy') {
+        switchView('feedback', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
+        return;
+    }
+
+    // Về dự án & Kế hoạch View
+    if (hash === '#/about' || hash === '#about' || hash === '#/roadmap' || hash === '#roadmap' || hash === '#/kehoachduan' || hash === '#kehoachduan') {
+        switchView('about', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
+        return;
+    }
+
+    // Đồng hành cùng Admin View
+    if (hash === '#/companion' || hash === '#companion' || hash === '#/donghanh' || hash === '#donghanh' || hash === '#adminsupport' || hash === '#/adminsupport' || hash === '#admin-wall' || hash === '#/admin-wall') {
+        switchView('companion', { updateHash: false, pushState: false, closeOverlays: false, scrollTop: true });
+        return;
+    }
+
     // Trang chủ (hoặc hash rỗng)
     if (hash === '#/home' || hash === '#home' || !hash) {
         switchView('home', { updateHash: false, pushState: false, closeOverlays: false });
@@ -4987,10 +5005,13 @@ export function updateSidebarNavActive(target) {
         blog: 'sidebarLinkBlog',
         events: 'sidebarLinkEvents',
         planner: 'sidebarLinkPlanner',
-        saved: 'sidebarLinkSaved'
+        saved: 'sidebarLinkSaved',
+        feedback: 'sidebarLinkFeedback',
+        about: 'sidebarLinkAbout',
+        companion: 'sidebarLinkCompanion'
     };
     const activeId = map[target] || null;
-    const allLinks = [
+    const standardLinks = [
         { id: 'sidebarLinkHome', iconColor: '' },
         { id: 'sidebarLinkMap', iconColor: '' },
         { id: 'sidebarLinkClubs', iconColor: '' },
@@ -5001,22 +5022,55 @@ export function updateSidebarNavActive(target) {
         { id: 'sidebarLinkSaved', iconColor: 'text-rose-500' }
     ];
 
-    allLinks.forEach(({ id, iconColor }) => {
+    standardLinks.forEach(({ id, iconColor }) => {
         const el = document.getElementById(id);
         if (!el) return;
         const isActive = id === activeId;
         if (isActive) {
             el.className = 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-primary-container text-white font-button text-xs font-semibold shadow-xs';
             const icon = el.querySelector('.material-symbols-outlined');
-            if (icon && iconColor) {
+            if (icon) {
                 icon.className = 'material-symbols-outlined text-[20px] text-white';
             }
         } else {
             el.className = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]';
             const icon = el.querySelector('.material-symbols-outlined');
-            if (icon && iconColor) {
+            if (icon) {
                 icon.className = `material-symbols-outlined text-[20px] ${iconColor}`;
             }
+        }
+    });
+
+    // 3 danh mục công khai trong GÓC ADMIN & DỰ ÁN (Xanh dương, Tím, Cam hổ phách)
+    const adminProjectLinks = [
+        {
+            id: 'sidebarLinkFeedback',
+            iconColor: 'text-blue-600 dark:text-blue-400',
+            activeClass: 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 font-button text-xs font-bold shadow-xs',
+            inactiveClass: 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-blue-50/70 dark:hover:bg-blue-950/30 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-button text-xs font-semibold min-h-[44px]'
+        },
+        {
+            id: 'sidebarLinkAbout',
+            iconColor: 'text-purple-600 dark:text-purple-400',
+            activeClass: 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80 font-button text-xs font-bold shadow-xs',
+            inactiveClass: 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-purple-50/70 dark:hover:bg-purple-950/30 hover:text-purple-700 dark:hover:text-purple-300 transition-colors font-button text-xs font-semibold min-h-[44px]'
+        },
+        {
+            id: 'sidebarLinkCompanion',
+            iconColor: 'text-amber-600 dark:text-amber-400',
+            activeClass: 'flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 font-button text-xs font-bold shadow-xs',
+            inactiveClass: 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-amber-50/70 dark:hover:bg-amber-950/30 hover:text-amber-800 dark:hover:text-amber-300 transition-colors font-button text-xs font-semibold min-h-[44px]'
+        }
+    ];
+
+    adminProjectLinks.forEach(({ id, iconColor, activeClass, inactiveClass }) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const isActive = id === activeId;
+        el.className = isActive ? activeClass : inactiveClass;
+        const icon = el.querySelector('.material-symbols-outlined');
+        if (icon) {
+            icon.className = `material-symbols-outlined text-[20px] ${iconColor}`;
         }
     });
 }
@@ -5049,7 +5103,7 @@ export function switchView(viewName, options = {}) {
         scrollTop = !scrollTo
     } = options;
 
-    const validViews = ['home', 'clubs', 'community', 'blog', 'events', 'planner', 'search'];
+    const validViews = ['home', 'clubs', 'community', 'blog', 'events', 'planner', 'search', 'feedback', 'about', 'companion'];
     if (!validViews.includes(viewName)) {
         console.warn(`[Router] View "${viewName}" không hợp lệ, chuyển về "home"`);
         viewName = 'home';
@@ -5253,6 +5307,39 @@ export function navGoSearch() {
             searchInput.select();
         }, 150);
     }
+}
+
+export function navGoFeedback() {
+    switchView('feedback', { updateHash: true, pushState: true, customHash: '#/feedback', closeOverlays: true, scrollTop: true });
+}
+
+export function navGoAbout() {
+    switchView('about', { updateHash: true, pushState: true, customHash: '#/about', closeOverlays: true, scrollTop: true });
+}
+
+export function navGoCompanion() {
+    switchView('companion', { updateHash: true, pushState: true, customHash: '#/companion', closeOverlays: true, scrollTop: true });
+}
+
+export function submitFeedbackDraft(event) {
+    if (event && event.preventDefault) event.preventDefault();
+    const typeEl = document.getElementById('feedbackTypeSelect');
+    const titleEl = document.getElementById('feedbackTitleInput');
+    const contentEl = document.getElementById('feedbackContentInput');
+    const type = typeEl ? typeEl.value : 'Góp ý chung';
+    const title = titleEl ? titleEl.value.trim() : '';
+    const content = contentEl ? contentEl.value.trim() : '';
+
+    if (!title || !content) {
+        showNoticeToast('Thiếu thông tin', 'Vui lòng nhập đầy đủ tiêu đề và nội dung góp ý.');
+        return;
+    }
+
+    const subject = encodeURIComponent(`[ViVuTraVinh - ${type}] ${title}`);
+    const body = encodeURIComponent(`Kính gửi Ban Quản Trị ViVuTraVinh,\n\nTôi xin gửi góp ý về: ${type}\nTiêu đề: ${title}\n\nNội dung chi tiết:\n${content}\n\n---\nGửi từ người dùng ViVuTraVinh (${window.location.origin})`);
+    const mailtoUrl = `mailto:tienlh1998@gmail.com?subject=${subject}&body=${body}`;
+    window.location.href = mailtoUrl;
+    showSavedToast('Đang mở ứng dụng email để gửi góp ý cho Ban Quản Trị...');
 }
 
 export function navGoSection(sectionId) {
@@ -8736,22 +8823,8 @@ export function shareToSocial(platform) {
 // =========================================================================
 
 export function openAdminSupportModal() {
-    const modal = document.getElementById('adminSupportModal');
-    const container = document.getElementById('adminSupportModalContent');
-    if (!modal || !container) return;
-
-    container.innerHTML = renderAdminSupportModalContent({
-        adminInfo: state.adminInfo,
-        financialReport: state.financialReport,
-        donationTiers: state.donationTiers,
-        selectedAmount: state.selectedDonationAmount,
-        selectedNote: state.selectedDonationTierId,
-        techClearance: state.techClearance,
-        travelGear: state.travelGear,
-        recentSupporters: state.recentSupporters
-    });
-    modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
+    closeAdminSupportModal();
+    navGoCompanion();
 }
 
 export function closeAdminSupportModal() {
@@ -10220,6 +10293,10 @@ if (typeof window !== 'undefined') {
         navGoPlanner,
         navGoSaved,
         navGoSearch,
+        navGoFeedback,
+        navGoAbout,
+        navGoCompanion,
+        submitFeedbackDraft,
         navGoSection,
         switchView,
         getActiveView,

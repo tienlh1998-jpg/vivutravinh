@@ -11,9 +11,9 @@ export const ADMIN_INFO = {
     avatar: "chùa âng.jpg",
     bio: "Chào mọi người, mình là Tiến — một kỹ sư phần mềm sinh ra và lớn lên tại đất Trà Vinh. ViVuTraVinh được xây dựng từ tình yêu với những ngôi chùa Khmer rợp bóng cổ thụ, hương vị bún nước lèo thân thương và mong muốn du khách khắp nơi có một cẩm nang địa phương chân thực nhất. Nền tảng hoạt động hoàn toàn phi lợi nhuận và mở cho cộng đồng đóng góp.",
     contacts: {
-        zalo: "https://zalo.me",
-        facebook: "https://facebook.com",
-        email: "mailto:admin@vivutravinh.vn"
+        email: "mailto:tienlh1998@gmail.com",
+        github: "https://github.com/tienlh1998-jpg/vivutravinh",
+        facebook: "https://facebook.com/vivutravinh.official"
     }
 };
 

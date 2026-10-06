@@ -309,26 +309,37 @@
                     </div>
                 </div>
 
-                <!-- Group 3: Quản Trị & Hỗ Trợ -->
+                <!-- Group 3: GÓC ADMIN & DỰ ÁN -->
                 <div class="px-space-md">
-                    <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">Quản Trị &amp; Hỗ Trợ</span>
-                    <div role="navigation" aria-label="Quản Trị &amp; Hỗ Trợ" class="mt-2 flex flex-col gap-1">
+                    <span class="px-space-sm font-caption text-[11px] font-semibold tracking-wider text-outline dark:text-zinc-500 uppercase">GÓC ADMIN &amp; DỰ ÁN</span>
+                    <div role="navigation" aria-label="Góc Admin &amp; Dự Án" class="mt-2 flex flex-col gap-1">
                         <!-- MỤC KIỂM DUYỆT NỘI DUNG: CHỈ HIỂN THỊ KHI ĐÃ ĐĂNG NHẬP ADMIN! -->
-                        <a href="#" id="sidebarAdminModerationLink" onclick="window.ViVuApp?.openAdminModerationModal?.(); return false;" class="hidden items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
+                        <a href="#/moderation" id="sidebarAdminModerationLink" onclick="window.ViVuApp?.openAdminModerationModal?.(); return false;" class="hidden items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <div class="flex items-center gap-3">
                                 <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">admin_panel_settings</span>
                                 <span>Kiểm duyệt nội dung</span>
                             </div>
                             <span id="sidebarAdminModerationBadge" class="hidden px-2 py-0.5 rounded-full bg-rose-600 text-white font-badge text-[11px] font-bold leading-none shadow-xs">0</span>
                         </a>
-                        <a href="#" onclick="window.ViVuApp?.openAdminSupportModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
-                            <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">volunteer_activism</span>
-                            <span>Tường Admin &amp; Hỗ trợ</span>
+
+                        <!-- 1. Góp ý & Hỗ trợ (Xanh dương) -->
+                        <a href="#/feedback" id="sidebarLinkFeedback" onclick="window.ViVuApp?.navGoFeedback?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-blue-50/70 dark:hover:bg-blue-950/30 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-blue-600 dark:text-blue-400">rate_review</span>
+                            <span>Góp ý &amp; Hỗ trợ</span>
                         </a>
-                        <a href="#" onclick="window.ViVuApp?.openContributeModal?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-surface-container-low dark:hover:bg-zinc-800 hover:text-on-surface transition-colors font-button text-xs font-semibold min-h-[44px]">
-                            <span class="material-symbols-outlined text-[20px]">add_location_alt</span>
-                            <span>Đóng góp địa điểm</span>
+
+                        <!-- 2. Về dự án & Kế hoạch (Tím) -->
+                        <a href="#/about" id="sidebarLinkAbout" onclick="window.ViVuApp?.navGoAbout?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-purple-50/70 dark:hover:bg-purple-950/30 hover:text-purple-700 dark:hover:text-purple-300 transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-purple-600 dark:text-purple-400">timeline</span>
+                            <span>Về dự án &amp; Kế hoạch</span>
                         </a>
+
+                        <!-- 3. Đồng hành cùng Admin (Cam hổ phách) -->
+                        <a href="#/companion" id="sidebarLinkCompanion" onclick="window.ViVuApp?.navGoCompanion?.(); return false;" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant dark:text-zinc-300 hover:bg-amber-50/70 dark:hover:bg-amber-950/30 hover:text-amber-800 dark:hover:text-amber-300 transition-colors font-button text-xs font-semibold min-h-[44px]">
+                            <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">volunteer_activism</span>
+                            <span>Đồng hành cùng Admin</span>
+                        </a>
+
                         <!-- Link Đăng nhập Quản trị (Hiện khi chưa đăng nhập admin) -->
                         <a href="/admin.html" id="sidebarAdminLoginLink" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-stone-500 hover:text-emerald-600 dark:text-zinc-400 dark:hover:text-emerald-400 hover:bg-surface-container-low dark:hover:bg-zinc-800 transition-colors font-button text-xs font-semibold min-h-[44px]">
                             <span class="material-symbols-outlined text-[20px]">lock</span>
@@ -1282,6 +1293,616 @@
                 <!-- Injected via ui.js -->
             </div>
         </section>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VIEW: GÓP Ý & HỖ TRỢ                       -->
+            <!-- ========================================== -->
+            <div id="view-feedback" class="app-view space-y-8 hidden" data-view="feedback" role="region" aria-label="Góp ý &amp; Hỗ trợ" tabindex="-1">
+                <!-- Header Hero Banner (Blue) -->
+                <section class="rounded-3xl bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 text-white p-6 sm:p-8 lg:p-10 shadow-sm relative overflow-hidden">
+                    <div class="pointer-events-none absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-blue-400/20 blur-3xl"></div>
+                    <div class="relative z-10 max-w-3xl space-y-3">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/30 border border-blue-300/30 text-blue-100 text-xs font-bold uppercase tracking-wider">
+                            <span class="material-symbols-outlined text-[16px]">support_agent</span>
+                            Trung tâm Hỗ trợ &amp; Tiếp nhận Góp ý
+                        </div>
+                        <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
+                            Góp Ý &amp; Hỗ Trợ Người Dùng
+                        </h1>
+                        <p class="text-sm sm:text-base text-blue-100 leading-relaxed">
+                            ViVuTraVinh luôn lắng nghe mọi phản hồi, ý kiến đóng góp tính năng và báo cáo sự cố từ cộng đồng để không ngừng hoàn thiện cẩm nang du lịch Xứ Trà.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Quick Guide (Hướng dẫn sử dụng ngắn) -->
+                <section class="space-y-4">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-2xl">menu_book</span>
+                        <h2 class="text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                            Hướng Dẫn Sử Dụng Nhanh
+                        </h2>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-2">
+                            <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+                                <span class="material-symbols-outlined text-[22px]">explore</span>
+                            </div>
+                            <h3 class="font-bold text-sm text-primary dark:text-zinc-100">1. Tìm kiếm &amp; Bộ lọc</h3>
+                            <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                Sử dụng thanh tìm kiếm để tra cứu món ăn, chùa Khmer, địa danh. Kết hợp bộ lọc huyện/thành phố và mức giá để chọn điểm đến ưng ý.
+                            </p>
+                        </div>
+                        <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-2">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                                <span class="material-symbols-outlined text-[22px]">near_me</span>
+                            </div>
+                            <h3 class="font-bold text-sm text-primary dark:text-zinc-100">2. Bản đồ &amp; Chỉ đường</h3>
+                            <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                Mở tab "Bản đồ" để xem vị trí trực quan. Bấm nút "Chỉ đường" tại chi tiết địa điểm để chuyển sang Google Maps dẫn đường chính xác.
+                            </p>
+                        </div>
+                        <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-2">
+                            <div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+                                <span class="material-symbols-outlined text-[22px]">route</span>
+                            </div>
+                            <h3 class="font-bold text-sm text-primary dark:text-zinc-100">3. Lịch trình &amp; Yêu thích</h3>
+                            <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                Bấm biểu tượng lưu để giữ lại các địa điểm muốn đi. Vào mục "Lên kế hoạch" để tự sắp xếp lịch trình 1 ngày, 2 ngày thuận tiện nhất.
+                            </p>
+                        </div>
+                        <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-2">
+                            <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                                <span class="material-symbols-outlined text-[22px]">add_location_alt</span>
+                            </div>
+                            <h3 class="font-bold text-sm text-primary dark:text-zinc-100">4. Đóng góp địa điểm mới</h3>
+                            <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                Bấm nút "+ Đóng góp" trên thanh tiêu đề để chia sẻ quán ngon, di tích mới. Khi được admin duyệt xuất bản, bạn nhận ngay +15 Điểm Thổ Địa!
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Reporting & Issue Resolution (Cách báo lỗi) -->
+                <section class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                    <div class="p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-rose-600 dark:text-rose-400 text-2xl">report_problem</span>
+                            <h3 class="text-lg font-bold text-primary dark:text-zinc-100">Báo Sai Thông Tin Địa Điểm</h3>
+                        </div>
+                        <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                            Nếu bạn phát hiện quán ăn đã chuyển địa điểm, đổi giờ mở cửa, số điện thoại không liên lạc được hoặc thông tin chưa chuẩn xác:
+                        </p>
+                        <ol class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 space-y-1.5 list-decimal pl-5">
+                            <li>Mở chi tiết địa điểm đó trên ViVuTraVinh.</li>
+                            <li>Cuộn xuống cuối và bấm nút <strong>"Báo sai thông tin"</strong> (hoặc biểu tượng báo cáo).</li>
+                            <li>Chọn loại lỗi (sai tọa độ, sai giá, đóng cửa...) và gửi phản ánh.</li>
+                        </ol>
+                        <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                            Ban Quản Trị sẽ tiếp nhận tại Trung tâm Kiểm duyệt và cập nhật trong thời gian sớm nhất.
+                        </p>
+                    </div>
+
+                    <div class="p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-amber-600 dark:text-amber-400 text-2xl">bug_report</span>
+                            <h3 class="text-lg font-bold text-primary dark:text-zinc-100">Báo Lỗi Kỹ Thuật &amp; Giao Diện</h3>
+                        </div>
+                        <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed">
+                            Khi gặp sự cố kỹ thuật như giao diện bị lỗi font, bản đồ không hiển thị, lỗi đăng nhập hoặc phản hồi chậm trên thiết bị di động:
+                        </p>
+                        <div class="flex flex-col gap-2 pt-1">
+                            <a href="https://github.com/tienlh1998-jpg/vivutravinh/issues" target="_blank" rel="noopener noreferrer"
+                                class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-xs font-bold text-primary dark:text-zinc-200 transition-colors w-fit border border-outline-variant/30 dark:border-zinc-700">
+                                <span class="material-symbols-outlined text-base text-blue-500">terminal</span>
+                                Mở GitHub Issue (Dành cho lập trình viên)
+                            </a>
+                            <p class="text-xs text-on-surface-variant dark:text-zinc-400">
+                                Hoặc gửi mô tả lỗi kèm ảnh chụp màn hình qua email Ban Quản Trị bên dưới.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Contact & Feedback Form (Kênh liên hệ & Góp ý) -->
+                <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    <!-- Verified Contact Channels (5 cols) -->
+                    <div class="lg:col-span-5 p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-4">
+                        <h3 class="text-lg font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">contact_phone</span>
+                            Kênh Liên Hệ Chính Thức
+                        </h3>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                            Các kênh đã được xác thực của Ban Quản Trị ViVuTraVinh. Chúng tôi phản hồi thư từ cộng đồng trong vòng 24–48 giờ.
+                        </p>
+
+                        <div class="space-y-3 pt-2">
+                            <!-- Email -->
+                            <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/40 flex items-start gap-3">
+                                <span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-xl shrink-0 mt-0.5">mail</span>
+                                <div class="min-w-0 flex-1">
+                                    <span class="text-[11px] font-bold text-outline dark:text-zinc-400 uppercase tracking-wider block">Email BQT:</span>
+                                    <a href="mailto:tienlh1998@gmail.com" class="text-xs sm:text-sm font-semibold text-primary dark:text-blue-400 hover:underline break-all">
+                                        tienlh1998@gmail.com
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Fanpage -->
+                            <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/40 flex items-start gap-3">
+                                <span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-xl shrink-0 mt-0.5">share</span>
+                                <div class="min-w-0 flex-1">
+                                    <span class="text-[11px] font-bold text-outline dark:text-zinc-400 uppercase tracking-wider block">Fanpage Dự Án:</span>
+                                    <a href="https://facebook.com/vivutravinh.official" target="_blank" rel="noopener noreferrer" class="text-xs sm:text-sm font-semibold text-primary dark:text-blue-400 hover:underline break-all">
+                                        facebook.com/vivutravinh.official
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- GitHub -->
+                            <div class="p-3.5 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/20 dark:border-zinc-700/40 flex items-start gap-3">
+                                <span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-xl shrink-0 mt-0.5">code</span>
+                                <div class="min-w-0 flex-1">
+                                    <span class="text-[11px] font-bold text-outline dark:text-zinc-400 uppercase tracking-wider block">Mã Nguồn Mở:</span>
+                                    <a href="https://github.com/tienlh1998-jpg/vivutravinh" target="_blank" rel="noopener noreferrer" class="text-xs sm:text-sm font-semibold text-primary dark:text-blue-400 hover:underline break-all">
+                                        github.com/tienlh1998-jpg/vivutravinh
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Lưu ý kênh Zalo / Hotline -->
+                            <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200 text-xs space-y-1">
+                                <div class="flex items-center gap-1.5 font-bold">
+                                    <span class="material-symbols-outlined text-base text-amber-600 dark:text-amber-400">info</span>
+                                    Lưu ý kênh Zalo &amp; Hotline:
+                                </div>
+                                <p class="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                                    Kênh Zalo và hotline riêng đang chờ chủ dự án cấu hình chính thức. Để bảo đảm an toàn, vui lòng không liên hệ qua các số điện thoại chưa được xác thực trên trang web.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Feedback Drafter (7 cols) -->
+                    <div class="lg:col-span-7 p-6 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-4">
+                        <h3 class="text-lg font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-blue-600 dark:text-blue-400">rate_review</span>
+                            Gửi Góp Ý Tính Năng &amp; Trải Nghiệm
+                        </h3>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                            Soạn nội dung góp ý bên dưới. Hệ thống sẽ tạo liên kết chuyển tiếp trực tiếp vào ứng dụng thư điện tử để gửi thẳng về Ban Quản Trị mà không làm mất nội dung của bạn.
+                        </p>
+
+                        <form id="feedbackDraftForm" onsubmit="window.ViVuApp?.submitFeedbackDraft?.(event); return false;" class="space-y-3 pt-1">
+                            <div>
+                                <label for="feedbackTypeSelect" class="block text-xs font-semibold text-on-surface dark:text-zinc-300 mb-1">
+                                    Chủ đề góp ý:
+                                </label>
+                                <select id="feedbackTypeSelect" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs font-medium text-on-surface dark:text-zinc-200 border border-outline-variant/40 dark:border-zinc-700 outline-none focus:border-blue-500">
+                                    <option value="Đề xuất tính năng mới">Đề xuất tính năng mới</option>
+                                    <option value="Góp ý trải nghiệm giao diện">Góp ý trải nghiệm giao diện</option>
+                                    <option value="Bổ sung danh mục / địa điểm văn hóa">Bổ sung danh mục / địa điểm văn hóa</option>
+                                    <option value="Báo lỗi kỹ thuật">Báo lỗi kỹ thuật</option>
+                                    <option value="Khác">Khác</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="feedbackTitleInput" class="block text-xs font-semibold text-on-surface dark:text-zinc-300 mb-1">
+                                    Tiêu đề ngắn gọn:
+                                </label>
+                                <input id="feedbackTitleInput" type="text" placeholder="Ví dụ: Mong muốn thêm tính năng lọc quán chay Trà Vinh" required
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs font-medium text-on-surface dark:text-zinc-200 border border-outline-variant/40 dark:border-zinc-700 outline-none focus:border-blue-500" />
+                            </div>
+
+                            <div>
+                                <label for="feedbackContentInput" class="block text-xs font-semibold text-on-surface dark:text-zinc-300 mb-1">
+                                    Chi tiết góp ý:
+                                </label>
+                                <textarea id="feedbackContentInput" rows="4" placeholder="Mô tả chi tiết ý tưởng hoặc trải nghiệm của bạn khi sử dụng ứng dụng..." required
+                                    class="w-full p-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-xs font-medium text-on-surface dark:text-zinc-200 border border-outline-variant/40 dark:border-zinc-700 outline-none focus:border-blue-500 resize-none"></textarea>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                                <span class="text-[11px] text-outline dark:text-zinc-500">
+                                    Tiếp nhận trực tiếp qua Email BQT (không lưu giả lập)
+                                </span>
+                                <button type="submit"
+                                    class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-button text-xs font-bold transition-colors shadow-xs flex items-center justify-center gap-2 min-h-[44px]">
+                                    <span class="material-symbols-outlined text-[18px]">forward_to_inbox</span>
+                                    <span>Soạn Email Gửi BQT</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VIEW: VỀ DỰ ÁN & KẾ HOẠCH                  -->
+            <!-- ========================================== -->
+            <div id="view-about" class="app-view space-y-8 hidden" data-view="about" role="region" aria-label="Về dự án &amp; Kế hoạch" tabindex="-1">
+                <!-- Header Hero Banner (Purple) -->
+                <section class="rounded-3xl bg-gradient-to-br from-purple-800 via-purple-900 to-indigo-950 text-white p-6 sm:p-8 lg:p-10 shadow-sm relative overflow-hidden">
+                    <div class="pointer-events-none absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-purple-400/20 blur-3xl"></div>
+                    <div class="relative z-10 max-w-3xl space-y-3">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/30 border border-purple-300/30 text-purple-100 text-xs font-bold uppercase tracking-wider">
+                            <span class="material-symbols-outlined text-[16px]">rocket_launch</span>
+                            Dự Án Số Hóa Di Sản &amp; Du Lịch Xứ Trà
+                        </div>
+                        <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
+                            Về Dự Án &amp; Kế Hoạch Phát Triển
+                        </h1>
+                        <p class="text-sm sm:text-base text-purple-100 leading-relaxed">
+                            Khám phá câu chuyện hình thành nền tảng ViVuTraVinh, các giá trị cốt lõi hướng đến cộng đồng và lộ trình phát triển được kiểm chứng minh bạch.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Story & Mission (Câu chuyện & Mục đích) -->
+                <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                    <div class="lg:col-span-7 p-6 sm:p-8 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-4 flex flex-col justify-between">
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-bold text-xs uppercase tracking-wider">
+                                <span class="material-symbols-outlined text-[18px]">history_edu</span>
+                                Câu Chuyện ViVuTraVinh
+                            </div>
+                            <h2 class="text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                                Từ Tình Yêu Quê Hương Đến Cẩm Nang Du Lịch Số
+                            </h2>
+                            <div class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed space-y-3 text-justify">
+                                <p>
+                                    Trà Vinh là vùng đất giao thoa văn hóa đặc sắc giữa ba dân tộc Kinh – Khmer – Hoa với hơn 140 ngôi chùa Phật giáo Nam tông Khmer cổ kính, những rặng cây sao dầu hàng trăm năm tuổi và nền ẩm thực phong phú nức tiếng miền Tây.
+                                </p>
+                                <p>
+                                    Trước đây, du khách tự túc thường gặp khó khăn khi tìm kiếm thông tin tọa độ chuẩn xác, giờ mở cửa các điểm di tích hay những quán ăn bản địa thân thiện. <strong>ViVuTraVinh</strong> ra đời với tâm niệm trở thành cầu nối chân thực nhất, nơi mỗi tọa độ được xác thực kỹ lưỡng, tôn trọng bản sắc văn hóa và hoàn toàn phi lợi nhuận.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="pt-4 border-t border-outline-variant/20 dark:border-zinc-800 flex flex-wrap gap-4 text-xs font-semibold text-outline dark:text-zinc-400">
+                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm text-emerald-500">check_circle</span> 100% Phi lợi nhuận</span>
+                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm text-emerald-500">check_circle</span> Không quảng cáo phiền toái</span>
+                            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm text-emerald-500">check_circle</span> Mã nguồn mở &amp; Cộng đồng</span>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-surface-container-low dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700/50 space-y-4">
+                        <h3 class="text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-purple-600 dark:text-purple-400">flag</span>
+                            3 Giá Trị Cốt Lõi
+                        </h3>
+                        <div class="space-y-3.5">
+                            <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-700/40 space-y-1">
+                                <h4 class="font-bold text-xs text-primary dark:text-zinc-200">1. Xác thực &amp; Tin cậy</h4>
+                                <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    Mọi địa điểm, chùa chiền và quán ăn đều có tọa độ GPS thực tế, chỉ đường bản đồ chính xác, không đưa tin ảo.
+                                </p>
+                            </div>
+                            <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-700/40 space-y-1">
+                                <h4 class="font-bold text-xs text-primary dark:text-zinc-200">2. Tôn vinh văn hóa bản địa</h4>
+                                <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    Lưu giữ nét đẹp kiến trúc Khmer, lịch trình lễ hội cổ truyền (Ok Om Bok, Vu Lan Thắng Hội) và làng nghề truyền thống.
+                                </p>
+                            </div>
+                            <div class="p-3.5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-700/40 space-y-1">
+                                <h4 class="font-bold text-xs text-primary dark:text-zinc-200">3. Cộng đồng cùng xây dựng</h4>
+                                <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    Mỗi người dân và du khách đều có thể đóng góp địa điểm, chia sẻ câu chuyện và cùng BQT kiểm duyệt thông tin.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Roadmap 3 Columns (Đã có / Đang thực hiện / Dự kiến) -->
+                <section class="space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <span class="text-xs font-bold tracking-wider uppercase text-purple-600 dark:text-purple-400 block mb-0.5">
+                                LỘ TRÌNH RÕ RÀNG &amp; MINH BẠCH
+                            </span>
+                            <h2 class="text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                                Kế Hoạch &amp; Hiện Trạng Tính Năng
+                            </h2>
+                        </div>
+                        <span class="text-xs text-outline dark:text-zinc-500 italic">
+                            * Chỉ mô tả tính năng đã xác minh, không cam kết tiến độ ảo
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+                        <!-- Cột 1: ĐÃ CÓ (Verified & Live) -->
+                        <div class="p-6 rounded-3xl bg-emerald-50/50 dark:bg-emerald-950/20 border-2 border-emerald-500/30 dark:border-emerald-700/40 space-y-4 flex flex-col justify-between">
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-3 py-1 rounded-full bg-emerald-600 text-white font-badge text-xs font-bold uppercase tracking-wider">
+                                        ĐÃ CÓ (LIVE)
+                                    </span>
+                                    <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-xl">verified</span>
+                                </div>
+                                <h3 class="font-bold text-sm sm:text-base text-emerald-950 dark:text-emerald-200">
+                                    Hệ thống hoàn chỉnh đang vận hành
+                                </h3>
+                                <ul class="text-xs text-on-surface-variant dark:text-zinc-300 space-y-2">
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">check</span>
+                                        <span>Tra cứu 120+ địa điểm di sản, ẩm thực, chùa Khmer kèm GPS &amp; Google Maps.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">check</span>
+                                        <span>Bản đồ tương tác đa danh mục &amp; lọc theo địa bàn hành chính.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">check</span>
+                                        <span>Bộ công cụ tự lập lịch trình (Planner) &amp; gợi ý tour tự túc.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">check</span>
+                                        <span>Bảng tin cộng đồng, tương tác, ảnh check-in &amp; Câu lạc bộ địa phương.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">check</span>
+                                        <span>Cổng tra cứu Lễ hội văn hóa Trà Vinh theo mùa.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">check</span>
+                                        <span>Đóng góp địa điểm cộng đồng tích lũy Điểm Thổ Địa (+15đ/địa điểm).</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">check</span>
+                                        <span>Trung tâm kiểm duyệt Admin (ACID Atomic Moderation Portal).</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="pt-3 border-t border-emerald-200/50 dark:border-emerald-800/50 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                                Đang hoạt động ổn định trên vivutravinh.id.vn
+                            </div>
+                        </div>
+
+                        <!-- Cột 2: ĐANG THỰC HIỆN (In Progress) -->
+                        <div class="p-6 rounded-3xl bg-blue-50/50 dark:bg-blue-950/20 border-2 border-blue-500/30 dark:border-blue-700/40 space-y-4 flex flex-col justify-between">
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-3 py-1 rounded-full bg-blue-600 text-white font-badge text-xs font-bold uppercase tracking-wider">
+                                        ĐANG THỰC HIỆN
+                                    </span>
+                                    <span class="material-symbols-outlined text-blue-600 dark:text-blue-400 text-xl">autorenew</span>
+                                </div>
+                                <h3 class="font-bold text-sm sm:text-base text-blue-950 dark:text-blue-200">
+                                    Nâng cấp và tinh chỉnh trải nghiệm
+                                </h3>
+                                <ul class="text-xs text-on-surface-variant dark:text-zinc-300 space-y-2">
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">pending</span>
+                                        <span>Tối ưu hóa phản hồi thông báo lý do kiểm duyệt về tác giả đề xuất.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">pending</span>
+                                        <span>Hoàn thiện bộ nhớ đệm PWA Offline để xem cẩm nang khi mất sóng di động.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">pending</span>
+                                        <span>Bổ sung bản ghi âm thuyết minh tự động (Audio Guide) cho Chùa Âng, Ao Bà Om.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">pending</span>
+                                        <span>Cải tiến tốc độ tải hình ảnh độ phân giải cao trên thiết bị di động yếu.</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="pt-3 border-t border-blue-200/50 dark:border-blue-800/50 text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                                Đang thử nghiệm trong các bản cập nhật gần nhất
+                            </div>
+                        </div>
+
+                        <!-- Cột 3: DỰ KIẾN (Planned Roadmap) -->
+                        <div class="p-6 rounded-3xl bg-purple-50/50 dark:bg-purple-950/20 border-2 border-purple-500/30 dark:border-purple-700/40 space-y-4 flex flex-col justify-between">
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-3 py-1 rounded-full bg-purple-600 text-white font-badge text-xs font-bold uppercase tracking-wider">
+                                        DỰ KIẾN
+                                    </span>
+                                    <span class="material-symbols-outlined text-purple-600 dark:text-purple-400 text-xl">event_upcoming</span>
+                                </div>
+                                <h3 class="font-bold text-sm sm:text-base text-purple-950 dark:text-purple-200">
+                                    Định hướng mở rộng tương lai
+                                </h3>
+                                <ul class="text-xs text-on-surface-variant dark:text-zinc-300 space-y-2">
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-purple-600 dark:text-purple-400 shrink-0 mt-0.5">lightbulb</span>
+                                        <span>Hệ thống danh hiệu và bảng vinh danh Thổ Địa Đất Trà theo từng mùa lễ hội.</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-purple-600 dark:text-purple-400 shrink-0 mt-0.5">lightbulb</span>
+                                        <span>Bản đồ số hóa chi tiết làng nghề truyền thống (Bánh tét Trà Cuôn, dệt chiếu, đan lát...).</span>
+                                    </li>
+                                    <li class="flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-[16px] text-purple-600 dark:text-purple-400 shrink-0 mt-0.5">lightbulb</span>
+                                        <span>Kết nối thông tin hợp tác đơn vị lưu trú, dịch vụ lữ hành uy tín tại địa phương.</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="pt-3 border-t border-purple-200/50 dark:border-purple-800/50 text-[11px] font-bold text-purple-700 dark:text-purple-300">
+                                Phát triển tuần tự theo nguồn lực cộng đồng
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VIEW: ĐỒNG HÀNH CÙNG ADMIN                 -->
+            <!-- ========================================== -->
+            <div id="view-companion" class="app-view space-y-8 hidden" data-view="companion" role="region" aria-label="Đồng hành cùng Admin" tabindex="-1">
+                <!-- Header Hero Banner (Amber) -->
+                <section class="rounded-3xl bg-gradient-to-br from-amber-700 via-amber-800 to-orange-950 text-white p-6 sm:p-8 lg:p-10 shadow-sm relative overflow-hidden">
+                    <div class="pointer-events-none absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-amber-400/20 blur-3xl"></div>
+                    <div class="relative z-10 max-w-3xl space-y-3">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/30 border border-amber-300/30 text-amber-100 text-xs font-bold uppercase tracking-wider">
+                            <span class="material-symbols-outlined text-[16px]">volunteer_activism</span>
+                            Chung Tay Vì Cộng Đồng Xứ Trà
+                        </div>
+                        <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
+                            Đồng Hành Cùng Admin
+                        </h1>
+                        <p class="text-sm sm:text-base text-amber-100 leading-relaxed">
+                            ViVuTraVinh được xây dựng bởi những người con quê hương với mong muốn lan tỏa vẻ đẹp văn hóa và du lịch Trà Vinh. Hãy cùng chung tay tiếp sức cho dự án!
+                        </p>
+                    </div>
+                </section>
+
+                <!-- Developer Bio Card (Thông tin người phát triển được xác nhận) -->
+                <section class="p-6 sm:p-8 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800">
+                    <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
+                        <div class="relative shrink-0">
+                            <div class="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl overflow-hidden shadow-md ring-4 ring-amber-500/20 border border-outline-variant/30">
+                                <img src="chùa âng.jpg" alt="Trần Tiến" class="w-full h-full object-cover" />
+                            </div>
+                            <span class="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-full bg-amber-600 text-white text-[10px] font-bold shadow-xs">
+                                Người sáng lập
+                            </span>
+                        </div>
+                        <div class="space-y-3 flex-1 text-center md:text-left">
+                            <div>
+                                <h2 class="text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                                    Trần Tiến (Tien Le)
+                                </h2>
+                                <p class="text-xs font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
+                                    Kỹ sư phần mềm • Người con Trà Vinh • Người sáng lập dự án
+                                </p>
+                            </div>
+                            <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-300 leading-relaxed max-w-3xl">
+                                Chào mọi người, mình là Tiến — một kỹ sư phần mềm sinh ra và lớn lên tại đất Trà Vinh. ViVuTraVinh được xây dựng từ tình yêu với những ngôi chùa Khmer rợp bóng cổ thụ, hương vị bún nước lèo thân thương và mong muốn du khách khắp nơi có một cẩm nang địa phương chân thực nhất. Nền tảng hoạt động hoàn toàn phi lợi nhuận và mở cho cộng đồng đóng góp.
+                            </p>
+                            <div class="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3">
+                                <a href="mailto:tienlh1998@gmail.com" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-xs font-semibold text-on-surface dark:text-zinc-200 transition-colors border border-outline-variant/30 dark:border-zinc-700">
+                                    <span class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">mail</span>
+                                    tienlh1998@gmail.com
+                                </a>
+                                <a href="https://github.com/tienlh1998-jpg/vivutravinh" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-xs font-semibold text-on-surface dark:text-zinc-200 transition-colors border border-outline-variant/30 dark:border-zinc-700">
+                                    <span class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">code</span>
+                                    GitHub: tienlh1998-jpg
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Priority: Đóng góp công sức (Ưu tiên hàng đầu) -->
+                <section class="space-y-4">
+                    <div>
+                        <span class="text-xs font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 block mb-0.5">
+                            TIẾP SỨC DỰ ÁN
+                        </span>
+                        <h2 class="text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                            Ưu Tiên Đóng Góp Công Sức &amp; Nội Dung
+                        </h2>
+                        <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-1 max-w-2xl">
+                            Sự tham gia tích cực từ cộng đồng là nguồn động lực quý giá nhất để ViVuTraVinh tiếp tục phát triển bền vững.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- 1. Gửi địa điểm mới -->
+                        <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-3 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-[22px]">add_location_alt</span>
+                                </div>
+                                <h3 class="font-bold text-sm text-primary dark:text-zinc-100">1. Đóng góp địa điểm</h3>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    Bạn biết quán ăn ngon, tiệm bánh gia truyền hay điểm check-in độc đáo? Hãy gửi ngay cho BQT để xuất bản cho du khách.
+                                </p>
+                            </div>
+                            <button type="button" onclick="window.ViVuApp?.openContributeModal?.()"
+                                class="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-button text-xs font-bold transition-colors shadow-xs text-center min-h-[36px]">
+                                + Gửi đề xuất ngay
+                            </button>
+                        </div>
+
+                        <!-- 2. Viết bài & Check-in -->
+                        <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-3 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-[22px]">post_add</span>
+                                </div>
+                                <h3 class="font-bold text-sm text-primary dark:text-zinc-100">2. Viết bài chia sẻ</h3>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    Đăng ảnh check-in, review trải nghiệm du lịch thực tế lên Bảng tin cộng đồng hoặc tham gia các Câu lạc bộ Xứ Trà.
+                                </p>
+                            </div>
+                            <button type="button" onclick="window.ViVuApp?.navGoCommunity?.()"
+                                class="w-full py-2 px-3 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-primary dark:text-zinc-200 font-button text-xs font-bold transition-colors border border-outline-variant/30 dark:border-zinc-700 text-center min-h-[36px]">
+                                Vào Bảng tin Cộng đồng
+                            </button>
+                        </div>
+
+                        <!-- 3. Báo sai thông tin -->
+                        <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-3 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <div class="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-[22px]">edit_note</span>
+                                </div>
+                                <h3 class="font-bold text-sm text-primary dark:text-zinc-100">3. Báo sai &amp; Cập nhật</h3>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    Giúp BQT phát hiện các thông tin giờ mở cửa, số điện thoại hoặc giá vé đã thay đổi để dữ liệu luôn chính xác 100%.
+                                </p>
+                            </div>
+                            <button type="button" onclick="window.ViVuApp?.navGoFeedback?.()"
+                                class="w-full py-2 px-3 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-primary dark:text-zinc-200 font-button text-xs font-bold transition-colors border border-outline-variant/30 dark:border-zinc-700 text-center min-h-[36px]">
+                                Xem hướng dẫn báo lỗi
+                            </button>
+                        </div>
+
+                        <!-- 4. Lan tỏa dự án -->
+                        <div class="p-5 rounded-2xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-3 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                                    <span class="material-symbols-outlined text-[22px]">share</span>
+                                </div>
+                                <h3 class="font-bold text-sm text-primary dark:text-zinc-100">4. Lan tỏa dự án</h3>
+                                <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    Chia sẻ liên kết ViVuTraVinh đến bạn bè, người thân sắp có dịp về thăm quê hương hay dự các lễ hội truyền thống Trà Vinh.
+                                </p>
+                            </div>
+                            <button type="button" onclick="window.ViVuApp?.shareTripCollection ? window.ViVuApp.shareTripCollection() : navigator.clipboard?.writeText(window.location.origin)"
+                                class="w-full py-2 px-3 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-primary dark:text-zinc-200 font-button text-xs font-bold transition-colors border border-outline-variant/30 dark:border-zinc-700 text-center min-h-[36px]">
+                                Chia sẻ ViVuTraVinh
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Financial Support Status Box (Thông báo chưa mở nhận ủng hộ tài chính) -->
+                <section class="p-6 sm:p-8 rounded-3xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/30 dark:border-zinc-800 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-2xl">account_balance_wallet</span>
+                        </div>
+                        <div>
+                            <h3 class="text-lg sm:text-xl font-bold text-primary dark:text-zinc-100">
+                                Ủng Hộ Kinh Phí Tự Nguyện
+                            </h3>
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-300">
+                                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                Chưa mở nhận ủng hộ tài chính
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="p-4 sm:p-5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs sm:text-sm text-amber-950 dark:text-amber-200 leading-relaxed space-y-2">
+                        <p>
+                            Dự án hiện tại được tài trợ 100% kinh phí duy trì máy chủ, tên miền và lưu trữ dữ liệu bởi người sáng lập cùng sự đóng góp nội dung tự nguyện từ cộng đồng.
+                        </p>
+                        <p>
+                            Để bảo đảm sự minh bạch tuyệt đối, hệ thống <strong>chưa mở cổng tiếp nhận ủng hộ kinh phí tự nguyện</strong> cho đến khi hoàn tất thiết lập tài khoản ngân hàng chuyên biệt và xây dựng cơ chế báo cáo sao kê tự động công khai.
+                        </p>
+                        <p class="font-semibold text-amber-800 dark:text-amber-300 pt-1">
+                            Khi cổng tiếp nhận chính thức được mở, chúng tôi sẽ thông báo công khai và kích hoạt bảng tri ân để ghi nhận tấm lòng của các bạn.
+                        </p>
+                    </div>
+                </section>
             </div>
 
         </main>
