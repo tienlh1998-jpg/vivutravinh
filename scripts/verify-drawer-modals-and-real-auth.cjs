@@ -396,6 +396,11 @@ async function verifyEnvironment(targetUrl, isProd = false) {
         assert.strictEqual(memberDrawerState.userRole, 'Thành viên', 'Member thật: Role phải là "Thành viên"');
         console.log(`     ✓ Member Thật: ModerationVisible=false, LoginVisible=true, Role="${memberDrawerState.userRole}"`);
 
+        // Chụp ảnh Drawer Member thật
+        const memberShot = path.join(ARTIFACT_DIR, isProd ? 'prod_drawer_member_real_auth.png' : 'local_drawer_member_real_auth.png');
+        await cdp.captureScreenshot(memberShot);
+        console.log(`     ✓ [Artifact] Đã lưu ảnh Drawer Member: ${memberShot}`);
+
         // Đóng drawer sau khi kiểm tra Member
         await cdp.eval(`document.getElementById('mobileDrawerCloseBtn').click()`);
         await sleep(350);
@@ -455,6 +460,11 @@ async function verifyEnvironment(targetUrl, isProd = false) {
         console.log(`     ✓ Admin Thật: ModerationVisible=true, LoginVisible=false, Role="${adminDrawerState.userRole}"`);
         console.log(`     ✓ Số Badge hiển thị từ API thực tế: Drawer="${adminDrawerState.drawerBadgeText}", Sidebar="${adminDrawerState.sidebarBadgeText}" (Khớp 100% với Backend)`);
 
+        // Chụp ảnh Drawer Admin thật hiển thị số Badge thật từ API
+        const adminDrawerShot = path.join(ARTIFACT_DIR, isProd ? 'prod_drawer_admin_real_badge.png' : 'local_drawer_admin_real_badge.png');
+        await cdp.captureScreenshot(adminDrawerShot);
+        console.log(`     ✓ [Artifact] Đã lưu ảnh Drawer Admin với Badge: ${adminDrawerShot}`);
+
         // 2.5 Kiểm tra mục số 6: Mở Modal Kiểm duyệt từ Drawer
         console.log('\n 2.5 Kiểm tra mở Modal [Kiểm duyệt nội dung] từ Drawer với quyền Admin thật:');
         await cdp.eval(`document.getElementById('drawerAdminModerationLink').click()`);
@@ -493,6 +503,11 @@ async function verifyEnvironment(targetUrl, isProd = false) {
         assert.strictEqual(moderationModalState.isModalVisible, true, 'Modal Kiểm duyệt phải mở');
         assert.strictEqual(moderationModalState.isScrollLocked, true, 'Nền body phải bị khóa cuộn khi Modal Kiểm duyệt mở');
         console.log(`     ✓ Modal Kiểm duyệt: ModalVisible=true, DrawerClosed=true, ScrollLocked=true`);
+
+        // Chụp ảnh Modal Kiểm duyệt đang mở (Drawer đã đóng, nền khóa cuộn)
+        const moderationModalShot = path.join(ARTIFACT_DIR, isProd ? 'prod_drawer_moderation_modal_open.png' : 'local_drawer_moderation_modal_open.png');
+        await cdp.captureScreenshot(moderationModalShot);
+        console.log(`     ✓ [Artifact] Đã lưu ảnh Modal Kiểm duyệt mở & ScrollLocked: ${moderationModalShot}`);
 
         // Đóng modal Kiểm duyệt
         await cdp.eval(`window.ViVuApp.closeAdminModerationModal()`);
