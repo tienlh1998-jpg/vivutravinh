@@ -181,9 +181,18 @@ async function main() {
     console.log('KIỂM THỬ E2E: NHÓM "GÓC ADMIN & DỰ ÁN", 3 DANH MỤC CÔNG KHAI & VIEWS');
     console.log('======================================================================');
 
-    const port = 4180;
-    const server = await startLocalServer(port);
-    const BASE_URL = `http://localhost:${port}/`;
+    const isProd = Boolean(process.env.TARGET_URL);
+    const prefix = isProd ? 'prod_' : '';
+    let server = null;
+    let BASE_URL = process.env.TARGET_URL;
+
+    if (!isProd) {
+        const port = 4180;
+        server = await startLocalServer(port);
+        BASE_URL = `http://localhost:${port}/`;
+    }
+    console.log(`Kiểm thử mục tiêu: ${BASE_URL} (isProd: ${isProd})`);
+
     let browser, cdp;
 
     try {
@@ -195,7 +204,7 @@ async function main() {
         await cdp.setViewport(1280, 850, false);
 
         await cdp.send('Page.navigate', { url: BASE_URL });
-        await sleep(3000);
+        await sleep(3500);
 
         // -----------------------------------------------------------------
         // BƯỚC 1: KIỂM TRA BỐ CỤC SIDEBAR & QUYỀN HIỂN THỊ (KHÁCH / THÀNH VIÊN)
@@ -246,7 +255,7 @@ async function main() {
         assert.ok(sidebarStateGuest.hasHeaderContributeBtn, 'Nút "+ Đóng góp" trên header phải tồn tại');
 
         // Chụp ảnh Sidebar khách
-        const screenshotSidebar = path.join(ARTIFACT_DIR, 'sidebar_admin_project_group.png');
+        const screenshotSidebar = path.join(ARTIFACT_DIR, `${prefix}sidebar_admin_project_group.png`);
         await cdp.captureScreenshot(screenshotSidebar);
         console.log(`[Artifact] Ảnh Sidebar: ${screenshotSidebar}`);
 
@@ -319,7 +328,7 @@ async function main() {
         assert.ok(feedbackViewState.hasZaloNotice, 'Phải có thông báo chờ cấu hình Zalo/Hotline (không để link giả)');
         assert.ok(feedbackViewState.hasDrafter, 'Phải có form soạn góp ý gửi BQT');
 
-        const screenshotFeedback = path.join(ARTIFACT_DIR, 'view_feedback_desktop.png');
+        const screenshotFeedback = path.join(ARTIFACT_DIR, `${prefix}view_feedback_desktop.png`);
         await cdp.captureScreenshot(screenshotFeedback);
         console.log(`[Artifact] Ảnh View Góp ý & Hỗ trợ: ${screenshotFeedback}`);
 
@@ -367,7 +376,7 @@ async function main() {
         assert.ok(aboutViewState.hasColProgress, 'Phải phân biệt cột "ĐANG THỰC HIỆN"');
         assert.ok(aboutViewState.hasColPlan, 'Phải phân biệt cột "DỰ KIẾN"');
 
-        const screenshotAbout = path.join(ARTIFACT_DIR, 'view_about_desktop.png');
+        const screenshotAbout = path.join(ARTIFACT_DIR, `${prefix}view_about_desktop.png`);
         await cdp.captureScreenshot(screenshotAbout);
         console.log(`[Artifact] Ảnh View Về dự án & Kế hoạch: ${screenshotAbout}`);
 
@@ -383,7 +392,7 @@ async function main() {
             const icon = link?.querySelector('.material-symbols-outlined');
             const view = document.getElementById('view-companion');
             const currentHash = window.location.hash;
-            const text = (view?.textContent || '').replace(/\s+/g, ' ');
+            const text = (view?.textContent || '').replace(/\\s+/g, ' ');
             const hasHero = text.includes('Đồng Hành Cùng Admin');
             const hasBio = (text.includes('Trần Tiến') || text.includes('Tien Le')) && (text.includes('Kỹ sư') || text.includes('kỹ sư') || text.toLowerCase().includes('tiến'));
             const hasVolunteerPriority = text.includes('Ưu Tiên Đóng Góp Công Sức');
@@ -421,7 +430,7 @@ async function main() {
         assert.strictEqual(companionViewState.hasTechClearance, false, 'Đã ẩn phần thanh lý đồ công nghệ mẫu');
         assert.strictEqual(companionViewState.hasSimulatedConfirm, false, 'Đã gỡ nút mô phỏng chuyển khoản');
 
-        const screenshotCompanion = path.join(ARTIFACT_DIR, 'view_companion_desktop.png');
+        const screenshotCompanion = path.join(ARTIFACT_DIR, `${prefix}view_companion_desktop.png`);
         await cdp.captureScreenshot(screenshotCompanion);
         console.log(`[Artifact] Ảnh View Đồng hành cùng Admin: ${screenshotCompanion}`);
 
@@ -499,7 +508,7 @@ async function main() {
         assert.strictEqual(adminState.loginVisible, false, '"Đăng nhập Quản trị" phải ẩn khi đã là Admin');
         assert.ok(adminState.badgeExists, 'Badge số chờ duyệt phải tồn tại');
 
-        const screenshotAdminSidebar = path.join(ARTIFACT_DIR, 'sidebar_admin_role_visible.png');
+        const screenshotAdminSidebar = path.join(ARTIFACT_DIR, `${prefix}sidebar_admin_role_visible.png`);
         await cdp.captureScreenshot(screenshotAdminSidebar);
         console.log(`[Artifact] Ảnh Sidebar khi có quyền Admin: ${screenshotAdminSidebar}`);
 
@@ -520,7 +529,7 @@ async function main() {
         }))()`);
         console.log('Mobile Feedback overflow check:', mobileFeedbackCheck);
         assert.strictEqual(mobileFeedbackCheck.isOverflowing, false, 'Mobile Feedback không được tràn ngang');
-        const screenshotMobileFeedback = path.join(ARTIFACT_DIR, 'view_feedback_mobile.png');
+        const screenshotMobileFeedback = path.join(ARTIFACT_DIR, `${prefix}view_feedback_mobile.png`);
         await cdp.captureScreenshot(screenshotMobileFeedback);
 
         // Check view about on mobile
@@ -533,7 +542,7 @@ async function main() {
         }))()`);
         console.log('Mobile About overflow check:', mobileAboutCheck);
         assert.strictEqual(mobileAboutCheck.isOverflowing, false, 'Mobile About không được tràn ngang');
-        const screenshotMobileAbout = path.join(ARTIFACT_DIR, 'view_about_mobile.png');
+        const screenshotMobileAbout = path.join(ARTIFACT_DIR, `${prefix}view_about_mobile.png`);
         await cdp.captureScreenshot(screenshotMobileAbout);
 
         // Check view companion on mobile
@@ -546,7 +555,7 @@ async function main() {
         }))()`);
         console.log('Mobile Companion overflow check:', mobileCompanionCheck);
         assert.strictEqual(mobileCompanionCheck.isOverflowing, false, 'Mobile Companion không được tràn ngang');
-        const screenshotMobileCompanion = path.join(ARTIFACT_DIR, 'view_companion_mobile.png');
+        const screenshotMobileCompanion = path.join(ARTIFACT_DIR, `${prefix}view_companion_mobile.png`);
         await cdp.captureScreenshot(screenshotMobileCompanion);
 
         console.log('\n======================================================');
@@ -567,7 +576,7 @@ async function main() {
     } finally {
         if (cdp) cdp.close();
         if (browser?.proc) browser.proc.kill();
-        server.close();
+        if (server) server.close();
     }
 }
 
