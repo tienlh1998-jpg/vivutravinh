@@ -5281,16 +5281,16 @@ export function renderMapCategoryPills(categories, activeCategory = 'all', onSel
         const icon = cat.icon || 'explore';
 
         return `
-            <button onclick="${onSelectCallback}('${safeId}')"
-                class="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-full text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+            <button data-category-id="${safeId}" onclick="${onSelectCallback}('${safeId}')"
+                class="flex items-center gap-1.5 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
                     isActive
                         ? 'bg-[#003527] text-white shadow-sm ring-1 ring-[#003527]'
                         : 'bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 border border-outline-variant/30 dark:border-zinc-700'
                 }">
-                <span class="material-symbols-outlined text-[16px]">${icon}</span>
+                <span class="material-symbols-outlined text-[18px]">${icon}</span>
                 <span>${safeLabel}</span>
                 ${cat.count !== undefined ? `
-                    <span class="px-1.5 py-0.2 rounded-full text-[10px] ${
+                    <span class="px-1.5 py-0.5 rounded-full text-[10px] ${
                         isActive ? 'bg-white/20 text-white' : 'bg-surface-container dark:bg-zinc-700 text-slate-500 dark:text-zinc-400'
                     }">${cat.count}</span>
                 ` : ''}
@@ -6900,6 +6900,7 @@ export function renderRedeemGiftModalContent(gifts = [], userCoins = 0) {
  * Render Edit Profile Modal Content
  */
 export function renderEditProfileModalContent(profile) {
+    const avatarUrl = profile.avatar || 'chùa âng.jpg';
     return `
         <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl flex flex-col gap-5 border border-outline-variant/30 dark:border-zinc-800">
             <div class="flex items-center justify-between">
@@ -6910,9 +6911,39 @@ export function renderEditProfileModalContent(profile) {
                     <h3 class="text-base sm:text-lg font-bold text-on-surface dark:text-zinc-100">Chỉnh sửa hồ sơ</h3>
                 </div>
                 <button type="button" onclick="window.ViVuApp.closeEditProfileModal()"
-                    class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]">
+                    class="w-10 h-10 rounded-xl flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 min-h-[44px] min-w-[44px]" aria-label="Đóng chỉnh sửa hồ sơ">
                     <span class="material-symbols-outlined text-[20px]">close</span>
                 </button>
+            </div>
+
+            <!-- Avatar selection & preview section -->
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-3.5 rounded-xl bg-surface-container-low/60 dark:bg-zinc-800/60 border border-outline-variant/30 dark:border-zinc-700">
+                <div class="relative shrink-0">
+                    <div class="w-20 h-20 rounded-2xl overflow-hidden border-2 border-emerald-500/40 dark:border-emerald-500/60 shadow-md bg-surface-container dark:bg-zinc-800">
+                        <img id="editProfileAvatarPreview" src="${escapeHtml(avatarUrl)}" alt="Xem trước ảnh đại diện" class="w-full h-full object-cover" />
+                    </div>
+                </div>
+                <div class="flex flex-col items-center sm:items-start gap-1.5 flex-1 min-w-0">
+                    <span class="text-xs font-bold text-on-surface dark:text-zinc-200">Ảnh đại diện</span>
+                    <p class="text-[11px] text-outline dark:text-zinc-400 text-center sm:text-left">Định dạng JPEG, PNG, WebP (Tối đa 2MB)</p>
+                    <div class="flex items-center gap-2 mt-1 flex-wrap justify-center sm:justify-start">
+                        <input type="file" id="editProfileAvatarInput" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="window.ViVuApp.handleAvatarFileChange(event)" />
+                        <button type="button" id="editProfileAvatarPickBtn" onclick="document.getElementById('editProfileAvatarInput').click()"
+                            class="px-3 py-1.5 min-h-[40px] rounded-lg bg-surface-container hover:bg-surface-container-high dark:bg-zinc-700 dark:hover:bg-zinc-600 text-on-surface dark:text-zinc-100 text-xs font-semibold flex items-center gap-1 transition-colors">
+                            <span class="material-symbols-outlined text-[16px]">photo_camera</span>
+                            <span id="editProfileAvatarPickBtnText">Chọn ảnh</span>
+                        </button>
+                        <button type="button" id="editProfileAvatarCancelBtn" onclick="window.ViVuApp.cancelAvatarChange()"
+                            class="px-3 py-1.5 min-h-[40px] rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-1 transition-colors hidden">
+                            <span class="material-symbols-outlined text-[16px]">undo</span>
+                            <span>Bỏ ảnh mới</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="editProfileAvatarError" class="hidden p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+                <span class="material-symbols-outlined text-base shrink-0">error</span>
+                <span id="editProfileAvatarErrorText"></span>
             </div>
 
             <form id="editProfileForm" onsubmit="event.preventDefault(); window.ViVuApp.submitEditProfile(this);" class="space-y-4">
@@ -6941,9 +6972,9 @@ export function renderEditProfileModalContent(profile) {
                         class="px-4 py-2.5 rounded-xl text-on-surface-variant dark:text-zinc-400 hover:bg-surface-container dark:hover:bg-zinc-800 text-xs sm:text-sm font-semibold min-h-[44px]">
                         Hủy
                     </button>
-                    <button type="submit"
-                        class="px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm min-h-[44px]">
-                        Lưu thay đổi
+                    <button type="submit" id="editProfileSubmitBtn"
+                        class="px-5 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs sm:text-sm min-h-[44px] flex items-center gap-1.5">
+                        <span id="editProfileSubmitText">Lưu thay đổi</span>
                     </button>
                 </div>
             </form>

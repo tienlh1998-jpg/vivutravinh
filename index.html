@@ -359,7 +359,7 @@
         <!-- Bottom Profile Widget (Sidebar) -->
         <div class="p-space-md border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between gap-1">
             <button type="button" onclick="window.ViVuApp?.openProfileModal?.()" class="flex items-center gap-3 min-w-0 text-left hover:opacity-85 transition-opacity min-h-[44px] flex-1">
-                <div class="w-9 h-9 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
+                <div id="sidebarUserAvatar" class="w-9 h-9 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
                     <span class="material-symbols-outlined" aria-hidden="true">person_outline</span>
                 </div>
                 <div class="flex flex-col min-w-0">
@@ -509,7 +509,7 @@
         <!-- Widget tài khoản & tiện ích đáy Drawer -->
         <div class="p-3 border-t border-[#E4E4E7] dark:border-zinc-800 bg-surface-container-lowest dark:bg-zinc-900 flex items-center justify-between gap-1 shrink-0">
             <button type="button" onclick="window.ViVuApp?.closeMobileDrawer?.(); window.ViVuApp?.openProfileModal?.();" class="flex items-center gap-2.5 min-w-0 text-left hover:opacity-85 transition-opacity min-h-[44px] flex-1">
-                <div class="w-8 h-8 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
+                <div id="drawerUserAvatar" class="w-8 h-8 rounded-full overflow-hidden bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center shrink-0 border border-amber-400/40">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_outline</span>
                 </div>
                 <div class="flex flex-col min-w-0">
@@ -1361,39 +1361,42 @@
             </div>
 
             <!-- Tabs Lọc Nhanh Danh Mục -->
-            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
-                <button data-category="" class="category-tab-btn px-4 py-2 rounded-full bg-primary text-white font-semibold text-xs whitespace-nowrap shadow-xs flex items-center gap-1.5 transition-all">
-                    <span class="material-symbols-outlined text-sm">stars</span>
-                    <span>Tất cả</span>
-                </button>
-                <button data-category="Chùa" class="category-tab-btn px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-amber-600">temple_buddhist</span>
-                    <span>Chùa Cổ Khmer</span>
-                </button>
-                <button data-category="Ẩm thực" class="category-tab-btn px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-orange-600">ramen_dining</span>
-                    <span>Ẩm thực bản địa</span>
-                </button>
-                <button data-category="Cafe" class="category-tab-btn px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-emerald-600">local_cafe</span>
-                    <span>Cà phê miệt vườn</span>
-                </button>
-                <button data-category="Di tích" class="category-tab-btn px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-teal-600">account_balance</span>
-                    <span>Di sản văn hóa</span>
-                </button>
-                <button data-category="Check-in" class="category-tab-btn px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-blue-600">photo_camera</span>
-                    <span>Check-in Sống Ảo</span>
-                </button>
-                <button data-category="saved" class="category-tab-btn px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-rose-500">favorite</span>
-                    <span>Đã lưu</span>
-                </button>
-                <button data-category="recent" class="category-tab-btn px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1">
-                    <span class="material-symbols-outlined text-sm text-indigo-500">history</span>
-                    <span>Vừa xem</span>
-                </button>
+            <div class="relative w-full overflow-hidden py-1">
+                <div id="homeCategoryTabsContainer" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth">
+                    <button data-category="" class="category-tab-btn min-h-[44px] px-4 py-2 rounded-full bg-primary text-white font-semibold text-xs whitespace-nowrap shadow-xs flex items-center gap-1.5 transition-all shrink-0">
+                        <span class="material-symbols-outlined text-sm">stars</span>
+                        <span>Tất cả</span>
+                    </button>
+                    <button data-category="Chùa" class="category-tab-btn min-h-[44px] px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shrink-0">
+                        <span class="material-symbols-outlined text-sm text-amber-600">temple_buddhist</span>
+                        <span>Chùa Cổ Khmer</span>
+                    </button>
+                    <button data-category="Ẩm thực" class="category-tab-btn min-h-[44px] px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shrink-0">
+                        <span class="material-symbols-outlined text-sm text-orange-600">ramen_dining</span>
+                        <span>Ẩm thực bản địa</span>
+                    </button>
+                    <button data-category="Cafe" class="category-tab-btn min-h-[44px] px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shrink-0">
+                        <span class="material-symbols-outlined text-sm text-emerald-600">local_cafe</span>
+                        <span>Cà phê miệt vườn</span>
+                    </button>
+                    <button data-category="Di tích" class="category-tab-btn min-h-[44px] px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shrink-0">
+                        <span class="material-symbols-outlined text-sm text-teal-600">account_balance</span>
+                        <span>Di sản văn hóa</span>
+                    </button>
+                    <button data-category="Check-in" class="category-tab-btn min-h-[44px] px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shrink-0">
+                        <span class="material-symbols-outlined text-sm text-blue-600">photo_camera</span>
+                        <span>Check-in Sống Ảo</span>
+                    </button>
+                    <button data-category="saved" class="category-tab-btn min-h-[44px] px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shrink-0">
+                        <span class="material-symbols-outlined text-sm text-rose-500">favorite</span>
+                        <span>Đã lưu</span>
+                    </button>
+                    <button data-category="recent" class="category-tab-btn min-h-[44px] px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shrink-0">
+                        <span class="material-symbols-outlined text-sm text-indigo-500">history</span>
+                        <span>Vừa xem</span>
+                    </button>
+                </div>
+                <div id="homeCategoryFade" class="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface dark:from-dark-bg to-transparent transition-opacity duration-200"></div>
             </div>
 
             <!-- Hàng Bộ Lọc Nâng Cao Dropdown -->
@@ -2931,9 +2934,9 @@
                 <!-- LEFT PANEL (Side Panel): Search, filters & places list (Desktop & Mobile list view) -->
                 <aside id="mapSidePanel" class="hidden lg:flex w-full lg:w-[420px] xl:w-[480px] h-full flex-col bg-background dark:bg-zinc-900 border-r border-outline-variant/30 dark:border-zinc-800 shrink-0 z-20 overflow-hidden">
                     <!-- Sticky Filter Header -->
-                    <div class="p-3.5 sm:p-4 bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-2.5 shrink-0">
-                        <!-- Search Box -->
-                        <div class="relative flex items-center">
+                    <div id="mapFilterHeaderContainer" class="p-3.5 sm:p-4 bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-2.5 shrink-0">
+                        <!-- Hàng 1: Search Box -->
+                        <div class="relative flex items-center w-full">
                             <span class="material-symbols-outlined absolute left-3 text-outline dark:text-zinc-400 pointer-events-none text-[20px]">search</span>
                             <input id="mapSideSearchInput" type="text"
                                 class="w-full h-11 min-h-[44px] pl-10 pr-9 bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 rounded-xl text-xs sm:text-sm placeholder:text-outline dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-secondary/40 transition-all border border-transparent dark:border-zinc-700"
@@ -2945,25 +2948,28 @@
                             </button>
                         </div>
 
-                        <!-- Category Filter Pills (Horizontal Scroll) -->
-                        <div id="mapSideCategoryPills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                            <!-- Populated dynamically by JS -->
+                        <!-- Hàng 2: Category Filter Pills (Horizontal Scroll on Narrow, Wrap on Wide Frame) -->
+                        <div class="relative w-full overflow-hidden">
+                            <div id="mapSideCategoryPills" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth w-full">
+                                <!-- Populated dynamically by JS -->
+                            </div>
+                            <div id="mapSideCategoryFade" class="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface-container-lowest dark:from-zinc-900 to-transparent transition-opacity duration-200"></div>
                         </div>
 
-                        <!-- Quick sub-filters: Đang mở cửa, Miễn phí, Sắp xếp -->
-                        <div class="flex items-center justify-between gap-2 pt-1 text-xs text-on-surface-variant dark:text-zinc-400">
-                            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                        <!-- Hàng 3: Quick sub-filters: Đang mở cửa, Miễn phí vé & Số lượng địa điểm -->
+                        <div class="flex items-center justify-between gap-2 pt-1 text-xs text-on-surface-variant dark:text-zinc-400 flex-wrap sm:flex-nowrap">
+                            <div class="flex items-center gap-2 shrink-0">
                                 <button id="mapFilterOpenOnlyBtn" onclick="window.ViVuApp.toggleMapFilter('openOnly')"
-                                    class="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 transition-colors whitespace-nowrap text-[11px] font-medium border border-outline-variant/30 dark:border-zinc-700">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                    class="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 transition-colors whitespace-nowrap text-xs font-semibold border border-outline-variant/30 dark:border-zinc-700">
+                                    <span class="w-2 h-2 rounded-full bg-secondary"></span>
                                     <span>Đang mở cửa</span>
                                 </button>
                                 <button id="mapFilterFreeBtn" onclick="window.ViVuApp.toggleMapFilter('freeOnly')"
-                                    class="flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] rounded-lg bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 transition-colors whitespace-nowrap text-[11px] font-medium border border-outline-variant/30 dark:border-zinc-700">
+                                    class="flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl bg-surface-container-low dark:bg-zinc-800 hover:bg-surface-container dark:hover:bg-zinc-700 transition-colors whitespace-nowrap text-xs font-semibold border border-outline-variant/30 dark:border-zinc-700">
                                     <span>Miễn phí vé</span>
                                 </button>
                             </div>
-                            <span id="mapPlacesCountBadge" class="text-[11px] font-semibold text-secondary dark:text-emerald-400 whitespace-nowrap">
+                            <span id="mapPlacesCountBadge" class="text-xs font-bold text-secondary dark:text-emerald-400 whitespace-nowrap px-2.5 py-1 rounded-lg bg-secondary/10 dark:bg-emerald-950/40">
                                 0 địa điểm
                             </span>
                         </div>
@@ -2997,8 +3003,11 @@
                             </button>
                         </div>
                         <!-- Floating Horizontal Category Chips -->
-                        <div id="mapMobileCategoryPills" class="w-full overflow-x-auto no-scrollbar flex items-center gap-1.5 pb-1 pointer-events-auto">
-                            <!-- Populated dynamically by JS -->
+                        <div class="relative w-full overflow-hidden pointer-events-auto">
+                            <div id="mapMobileCategoryPills" class="w-full overflow-x-auto no-scrollbar flex items-center gap-2 pb-1 scroll-smooth">
+                                <!-- Populated dynamically by JS -->
+                            </div>
+                            <div id="mapMobileCategoryFade" class="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-surface-container-lowest/90 dark:from-zinc-900/90 to-transparent transition-opacity duration-200"></div>
                         </div>
                     </div>
 

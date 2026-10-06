@@ -682,6 +682,7 @@ export const state = {
     newPostLocation: null,
     // User Profile, Achievements & Badges (Phase 7)
     userProfile: getStoredUserProfile(),
+    pendingAvatarFile: null,
     savedCollections: getStoredSavedCollections(),
     savedFolders: getStoredSavedFolders(),
     redeemableGifts: REDEEMABLE_GIFTS,
@@ -896,6 +897,12 @@ async function initApp() {
 
         // Đồng bộ phân quyền Quản trị viên (nếu đã đăng nhập từ trang admin cũ)
         updateAdminRoleUI();
+
+        // Khởi tạo scroll fade listeners cho category tabs
+        initCategoryScrollListeners();
+
+        // Đồng bộ avatar & profile người dùng thật từ Supabase nếu có phiên
+        syncUserProfileFromRemote();
 
     } catch (err) {
         console.error('[ViVuTraVinh] Lỗi tải dữ liệu:', err);
@@ -1955,11 +1962,22 @@ function updateActiveCategoryTab(catValue) {
     document.querySelectorAll('.category-tab-btn').forEach(btn => {
         const val = btn.dataset.category || '';
         if (val === catValue) {
-            btn.className = 'category-tab-btn px-4 py-2 rounded-full bg-primary text-white font-semibold text-xs whitespace-nowrap shadow-xs flex items-center gap-1.5 transition-all';
+            btn.className = 'category-tab-btn min-h-[44px] px-4 py-2 rounded-full bg-primary text-white font-semibold text-xs whitespace-nowrap shadow-xs flex items-center gap-1.5 transition-all shrink-0';
+            btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
         } else {
-            btn.className = 'category-tab-btn px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1';
+            btn.className = 'category-tab-btn min-h-[44px] px-3.5 py-2 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-300 font-semibold text-xs whitespace-nowrap hover:bg-surface-container-high dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shrink-0';
         }
     });
+    updateCategoryScrollFade('homeCategoryTabsContainer', 'homeCategoryFade');
+}
+
+export function updateCategoryScrollFade(containerId, fadeId) {
+    const container = document.getElementById(containerId);
+    const fade = document.getElementById(fadeId);
+    if (!container || !fade) return;
+
+    const hasMoreRight = container.scrollWidth - container.scrollLeft - container.clientWidth > 12;
+    fade.style.opacity = hasMoreRight ? '1' : '0';
 }
 
 /**
@@ -3413,6 +3431,9 @@ export function updateFullMapContent() {
     const mobilePillsContainer = document.getElementById('mapMobileCategoryPills');
     if (mobilePillsContainer) mobilePillsContainer.innerHTML = pillsHtml;
 
+    updateCategoryScrollFade('mapSideCategoryPills', 'mapSideCategoryFade');
+    updateCategoryScrollFade('mapMobileCategoryPills', 'mapMobileCategoryFade');
+
     // 2. Update Place Counter Badges
     const headerCounter = document.getElementById('mapPlacesHeaderCounter');
     if (headerCounter) {
@@ -3520,6 +3541,8 @@ export function openFullMapModal() {
         }
 
         updateFullMapContent();
+        setupMapSidePanelFrameObserver();
+        initCategoryScrollListeners();
 
         if (state.fullMap) {
             state.fullMap.invalidateSize();
@@ -3747,6 +3770,21 @@ export function clearMapSearch() {
 export function setMapCategory(catId) {
     state.mapCategory = catId || 'all';
     updateFullMapContent();
+
+    setTimeout(() => {
+        const sideContainer = document.getElementById('mapSideCategoryPills');
+        const activeSideBtn = sideContainer?.querySelector(`[data-category-id="${state.mapCategory}"]`);
+        if (activeSideBtn) {
+            activeSideBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        }
+        const mobileContainer = document.getElementById('mapMobileCategoryPills');
+        const activeMobileBtn = mobileContainer?.querySelector(`[data-category-id="${state.mapCategory}"]`);
+        if (activeMobileBtn) {
+            activeMobileBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        }
+        updateCategoryScrollFade('mapSideCategoryPills', 'mapSideCategoryFade');
+        updateCategoryScrollFade('mapMobileCategoryPills', 'mapMobileCategoryFade');
+    }, 60);
 }
 
 export function toggleMapFilter(filterType) {
@@ -3778,6 +3816,63 @@ export function toggleMapFilter(filterType) {
     updateFullMapContent();
 }
 
+export function initCategoryScrollListeners() {
+    const bindScrollFade = (containerId, fadeId) => {
+        const container = document.getElementById(containerId);
+        const fade = document.getElementById(fadeId);
+        if (!container || !fade) return;
+
+        const onScroll = () => {
+            const hasMoreRight = container.scrollWidth - container.scrollLeft - container.clientWidth > 12;
+            fade.style.opacity = hasMoreRight ? '1' : '0';
+        };
+
+        if (container._scrollFadeHandler) {
+            container.removeEventListener('scroll', container._scrollFadeHandler);
+        }
+        container._scrollFadeHandler = onScroll;
+        container.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+    };
+
+    bindScrollFade('mapSideCategoryPills', 'mapSideCategoryFade');
+    bindScrollFade('mapMobileCategoryPills', 'mapMobileCategoryFade');
+    bindScrollFade('homeCategoryTabsContainer', 'homeCategoryFade');
+}
+
+export function setupMapSidePanelFrameObserver() {
+    const headerContainer = document.getElementById('mapFilterHeaderContainer');
+    const pillsEl = document.getElementById('mapSideCategoryPills');
+    const fadeEl = document.getElementById('mapSideCategoryFade');
+    if (!headerContainer || !pillsEl) return;
+
+    const updateFrameMode = () => {
+        const width = headerContainer.clientWidth;
+        // Khung rộng >= 540px: cho xuống dòng gọn gàng, hiện đầy đủ nhãn
+        if (width >= 540) {
+            pillsEl.classList.add('flex-wrap');
+            pillsEl.classList.remove('overflow-x-auto', 'no-scrollbar', 'flex-nowrap');
+            if (fadeEl) fadeEl.style.display = 'none';
+        } else {
+            // Khung hẹp < 540px: cuộn ngang riêng, nút không co ép
+            pillsEl.classList.remove('flex-wrap');
+            pillsEl.classList.add('overflow-x-auto', 'no-scrollbar', 'flex-nowrap');
+            if (fadeEl) fadeEl.style.display = '';
+            updateCategoryScrollFade('mapSideCategoryPills', 'mapSideCategoryFade');
+        }
+    };
+
+    if (window.ResizeObserver) {
+        if (!headerContainer._resizeObserver) {
+            headerContainer._resizeObserver = new ResizeObserver(() => updateFrameMode());
+            headerContainer._resizeObserver.observe(headerContainer);
+        }
+    } else {
+        window.addEventListener('resize', updateFrameMode);
+    }
+    updateFrameMode();
+}
+
 export function toggleMapMobileView() {
     const sidePanel = document.getElementById('mapSidePanel');
     const mobileToggleText = document.getElementById('mapMobileToggleViewText');
@@ -3791,6 +3886,8 @@ export function toggleMapMobileView() {
         }
         if (mobileToggleText) mobileToggleText.textContent = 'Bản đồ';
         if (mobileToggleIcon) mobileToggleIcon.textContent = 'map';
+        setupMapSidePanelFrameObserver();
+        initCategoryScrollListeners();
     } else {
         state.mapMobileView = 'map';
         if (sidePanel) {
@@ -4828,6 +4925,7 @@ function initEventListeners() {
         handleAuthTripPlanSync();
     });
     window.addEventListener('vivu:user-auth-changed', () => {
+        syncUserProfileFromRemote();
         updateAdminRoleUI();
         handleAuthTripPlanSync();
         const profileModal = document.getElementById('userProfileModal');
@@ -6543,6 +6641,9 @@ export async function handleAuthSubmit(event) {
                 email: session.user.email,
                 handle: `@${userName.toLowerCase().replace(/\s+/g, '.')}`
             };
+            saveStoredUserProfile(state.userProfile);
+            syncUserProfileFromRemote();
+            updateAdminRoleUI();
         }
 
         closeAuthModal();
@@ -6570,6 +6671,9 @@ export async function handleAuthSubmit(event) {
  */
 export async function handleUserSignOut() {
     await signOutUser();
+    state.userProfile = { ...USER_PROFILE };
+    saveStoredUserProfile(state.userProfile);
+    updateAdminRoleUI();
     showNoticeToast('Đã đăng xuất', 'Bạn đã đăng xuất khỏi tài khoản thành công.');
     const content = document.getElementById('userProfileModalContent');
     if (content && !document.getElementById('userProfileModal')?.classList.contains('hidden')) {
@@ -7613,6 +7717,7 @@ export function redeemGift(giftId) {
 }
 
 export function openEditProfileModal() {
+    state.pendingAvatarFile = null;
     const modal = document.getElementById('editProfileModal');
     const content = document.getElementById('editProfileModalContent');
     if (!modal || !content) return;
@@ -7623,17 +7728,184 @@ export function openEditProfileModal() {
 }
 
 export function closeEditProfileModal() {
+    state.pendingAvatarFile = null;
     const modal = document.getElementById('editProfileModal');
     if (modal) modal.classList.add('hidden');
     syncBodyScrollLock();
 }
 
-export function submitEditProfile(form) {
+export function handleAvatarFileChange(event) {
+    const file = event?.target?.files?.[0];
+    const errorEl = document.getElementById('editProfileAvatarError');
+    const errorText = document.getElementById('editProfileAvatarErrorText');
+    const cancelBtn = document.getElementById('editProfileAvatarCancelBtn');
+    const previewImg = document.getElementById('editProfileAvatarPreview');
+
+    const showError = (msg) => {
+        if (errorEl && errorText) {
+            errorText.textContent = msg;
+            errorEl.classList.remove('hidden');
+        }
+    };
+    const hideError = () => {
+        if (errorEl) errorEl.classList.add('hidden');
+    };
+
+    hideError();
+
+    if (!file) return;
+
+    // 1. Kiểm tra MIME Type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        showError('Định dạng tệp không hợp lệ! Vui lòng chỉ chọn ảnh JPEG, PNG hoặc WebP.');
+        if (event.target) event.target.value = '';
+        return;
+    }
+
+    // 2. Kiểm tra dung lượng (tối đa 2MB)
+    const MAX_SIZE = 2 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        showError(`Dung lượng ảnh (${sizeMb} MB) vượt quá giới hạn cho phép (2MB). Vui lòng chọn ảnh nhẹ hơn.`);
+        if (event.target) event.target.value = '';
+        return;
+    }
+
+    // 3. Hợp lệ -> lưu tạm và hiển thị preview
+    state.pendingAvatarFile = file;
+    if (previewImg) {
+        try {
+            const previewUrl = URL.createObjectURL(file);
+            previewImg.src = previewUrl;
+        } catch (_) {}
+    }
+    if (cancelBtn) {
+        cancelBtn.classList.remove('hidden');
+    }
+}
+
+export function cancelAvatarChange() {
+    state.pendingAvatarFile = null;
+    const input = document.getElementById('editProfileAvatarInput');
+    if (input) input.value = '';
+    const previewImg = document.getElementById('editProfileAvatarPreview');
+    if (previewImg) {
+        previewImg.src = state.userProfile?.avatar || 'chùa âng.jpg';
+    }
+    const cancelBtn = document.getElementById('editProfileAvatarCancelBtn');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+    const errorEl = document.getElementById('editProfileAvatarError');
+    if (errorEl) errorEl.classList.add('hidden');
+}
+
+export async function submitEditProfile(form) {
     const name = form.querySelector('#editProfileName')?.value?.trim();
     const role = form.querySelector('#editProfileRole')?.value?.trim();
     const bio = form.querySelector('#editProfileBio')?.value?.trim();
     const location = form.querySelector('#editProfileLocation')?.value?.trim();
+    const submitBtn = form.querySelector('#editProfileSubmitBtn');
+    const submitText = form.querySelector('#editProfileSubmitText');
+    const errorEl = document.getElementById('editProfileAvatarError');
+    const errorText = document.getElementById('editProfileAvatarErrorText');
 
+    const showError = (msg) => {
+        if (errorEl && errorText) {
+            errorText.textContent = msg;
+            errorEl.classList.remove('hidden');
+        }
+    };
+    const hideError = () => {
+        if (errorEl) errorEl.classList.add('hidden');
+    };
+
+    hideError();
+
+    const session = getUserSession();
+    const isAuth = Boolean(session && session.user);
+
+    // Nếu người dùng chọn file avatar mới
+    if (state.pendingAvatarFile) {
+        if (!isAuth) {
+            showError('Bạn cần đăng nhập để tải ảnh đại diện lên máy chủ.');
+            return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+        }
+        if (submitText) submitText.textContent = 'Đang tải ảnh...';
+
+        try {
+            const token = await getValidUserToken() || session.access_token;
+            const userId = session.user.id;
+            const file = state.pendingAvatarFile;
+            const ext = file.type === 'image/png' ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg');
+            const filePath = `reviews/avatars/${userId}_${Date.now()}.${ext}`;
+
+            // 1. Upload ảnh lên Supabase Storage bucket 'review-photos'
+            const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/review-photos/${filePath}`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': file.type
+                },
+                body: file
+            });
+
+            if (!uploadRes.ok) {
+                const errJson = await uploadRes.json().catch(() => ({}));
+                throw new Error(errJson.message || `Lỗi tải ảnh lên máy chủ (${uploadRes.status})`);
+            }
+
+            const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/review-photos/${filePath}`;
+
+            // 2. Cập nhật avatar_url vào bảng public.profiles
+            if (submitText) submitText.textContent = 'Đang lưu hồ sơ...';
+            const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
+                },
+                body: JSON.stringify({
+                    avatar_url: publicUrl,
+                    display_name: name || undefined,
+                    bio: bio !== undefined ? bio : undefined,
+                    updated_at: new Date().toISOString()
+                })
+            });
+
+            if (!patchRes.ok) {
+                const patchErr = await patchRes.json().catch(() => ({}));
+                throw new Error(patchErr.message || `Lỗi cập nhật dữ liệu hồ sơ (${patchRes.status})`);
+            }
+
+            const updatedRows = await patchRes.json().catch(() => []);
+            if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
+                throw new Error('Không thể lưu hồ sơ do quyền truy cập (RLS).');
+            }
+
+            // Thành công upload & lưu database -> cập nhật state avatar
+            state.userProfile.avatar = publicUrl;
+            state.pendingAvatarFile = null;
+        } catch (err) {
+            console.error('[Profile] Upload/Update failed:', err);
+            showError(`Lỗi lưu ảnh đại diện: ${err.message || 'Thao tác không thành công'}`);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+            if (submitText) submitText.textContent = 'Lưu thay đổi';
+            return; // Dừng lại, KHÔNG đóng modal, KHÔNG báo thành công, giữ nguyên form & avatar cũ
+        }
+    }
+
+    // Cập nhật các trường thông tin chữ
     if (name) state.userProfile.name = name;
     if (role) state.userProfile.role = role;
     if (bio !== undefined) state.userProfile.bio = bio;
@@ -7643,10 +7915,46 @@ export function submitEditProfile(form) {
     closeEditProfileModal();
     showSavedToast('Hồ sơ của bạn đã được cập nhật thành công!');
 
-    // Re-render profile modal
+    // Đồng bộ lại UI khắp trang
+    updateAdminRoleUI();
+
+    // Re-render profile modal nếu đang mở
     const content = document.getElementById('userProfileModalContent');
     if (content) {
         content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+    }
+}
+
+export async function syncUserProfileFromRemote() {
+    const session = getUserSession();
+    if (!session || !session.user) return;
+    try {
+        const remoteProfile = await fetchUserProfile(session.user.id);
+        if (remoteProfile) {
+            let changed = false;
+            if (remoteProfile.avatar_url && remoteProfile.avatar_url !== state.userProfile.avatar) {
+                state.userProfile.avatar = remoteProfile.avatar_url;
+                changed = true;
+            }
+            if (remoteProfile.display_name && remoteProfile.display_name !== state.userProfile.name) {
+                state.userProfile.name = remoteProfile.display_name;
+                changed = true;
+            }
+            if (remoteProfile.bio !== undefined && remoteProfile.bio !== null && remoteProfile.bio !== state.userProfile.bio) {
+                state.userProfile.bio = remoteProfile.bio;
+                changed = true;
+            }
+            if (changed) {
+                saveStoredUserProfile(state.userProfile);
+                updateAdminRoleUI();
+                const content = document.getElementById('userProfileModalContent');
+                if (content && !document.getElementById('userProfileModal')?.classList.contains('hidden')) {
+                    content.innerHTML = renderUserProfileModalContent(state.userProfile, state.profileActiveTab, state.profileBadgeCategory);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[Profile] Sync from remote warning:', e);
     }
 }
 
@@ -9303,17 +9611,49 @@ export function updateAdminRoleUI() {
     const session = getAdminSession();
     const communitySession = getUserSession();
     const communityUser = communitySession?.user;
+    const role = session?.user?.role;
+    const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
+
+    const isAuth = Boolean(communityUser || isAdmin);
+    const avatarUrl = isAuth ? (state.userProfile?.avatar || null) : null;
+    const displayName = communityUser
+        ? (state.userProfile?.name || communityUser.user_metadata?.display_name || communityUser.email?.split('@')[0] || 'Thành viên')
+        : (isAdmin ? (session.user.email?.split('@')[0] || 'Quản Trị Viên') : 'Khách vãng lai');
+
+    // 1. Cập nhật nút Profile trên Header
     const profileBtn = document.getElementById('headerProfileBtn');
     if (profileBtn) {
         profileBtn.onclick = () => communityUser ? openProfileModal() : openAuthModal('signin');
         profileBtn.setAttribute('aria-label', communityUser ? 'Xem tài khoản cộng đồng' : 'Đăng nhập hoặc tạo tài khoản cộng đồng');
         profileBtn.title = communityUser ? 'Tài khoản cộng đồng' : 'Đăng nhập cộng đồng';
-        profileBtn.innerHTML = communityUser
-            ? '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">account_circle</span><span class="hidden sm:inline">Tài khoản</span>'
-            : '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span><span class="hidden sm:inline">Đăng nhập</span>';
+        if (communityUser) {
+            const avatarHtml = avatarUrl
+                ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="w-6 h-6 rounded-full object-cover shrink-0 border border-emerald-500/50" onerror="this.outerHTML='<span class=\\'material-symbols-outlined text-[18px]\\'>account_circle</span>'" />`
+                : '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">account_circle</span>';
+            profileBtn.innerHTML = `${avatarHtml}<span class="hidden sm:inline max-w-[100px] truncate">${escapeHtml(displayName)}</span>`;
+        } else {
+            profileBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">login</span><span class="hidden sm:inline">Đăng nhập</span>';
+        }
     }
-    const role = session?.user?.role;
-    const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
+
+    // 2. Cập nhật Avatar trên Sidebar (PC) và Drawer (Mobile)
+    const sidebarAvatarEl = document.getElementById('sidebarUserAvatar');
+    if (sidebarAvatarEl) {
+        if (avatarUrl) {
+            sidebarAvatarEl.innerHTML = `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="w-full h-full object-cover" onerror="this.outerHTML='<span class=\\'material-symbols-outlined\\'>person_outline</span>'" />`;
+        } else {
+            sidebarAvatarEl.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">person_outline</span>';
+        }
+    }
+
+    const drawerAvatarEl = document.getElementById('drawerUserAvatar');
+    if (drawerAvatarEl) {
+        if (avatarUrl) {
+            drawerAvatarEl.innerHTML = `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="w-full h-full object-cover" onerror="this.outerHTML='<span class=\\'material-symbols-outlined text-[18px]\\'>person_outline</span>'" />`;
+        } else {
+            drawerAvatarEl.innerHTML = '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_outline</span>';
+        }
+    }
 
     const moderationLinks = [
         document.getElementById('sidebarAdminModerationLink'),
@@ -9342,7 +9682,7 @@ export function updateAdminRoleUI() {
             el.classList.remove('flex');
         });
         userNameEls.forEach(el => {
-            el.textContent = session.user.email?.split('@')[0] || 'Quản Trị Viên';
+            el.textContent = displayName;
             el.title = session.user.email || '';
         });
         userRoleEls.forEach(el => {
@@ -9361,9 +9701,7 @@ export function updateAdminRoleUI() {
             el.classList.add('flex');
         });
         userNameEls.forEach(el => {
-            el.textContent = communityUser
-                ? (communityUser.user_metadata?.display_name || communityUser.email?.split('@')[0] || 'Thành viên')
-                : 'Khách vãng lai';
+            el.textContent = displayName;
             el.title = '';
         });
         userRoleEls.forEach(el => {
@@ -10648,6 +10986,12 @@ if (typeof window !== 'undefined') {
         openEditProfileModal,
         closeEditProfileModal,
         submitEditProfile,
+        handleAvatarFileChange,
+        cancelAvatarChange,
+        syncUserProfileFromRemote,
+        initCategoryScrollListeners,
+        setupMapSidePanelFrameObserver,
+        updateCategoryScrollFade,
         openSavedCollectionsModal,
         closeSavedCollectionsModal,
         filterSavedCategory,

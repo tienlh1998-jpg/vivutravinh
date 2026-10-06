@@ -70,6 +70,10 @@ begin
         select 1 from public.place_comments pc
         where pc.photo_url like '%' || o.name || '%'
       )
+      and not exists (
+        select 1 from public.profiles p
+        where p.avatar_url like '%' || o.name || '%'
+      )
   loop
     delete from storage.objects where bucket_id = 'review-photos' and name = obj.name;
     deleted_name := obj.name;
