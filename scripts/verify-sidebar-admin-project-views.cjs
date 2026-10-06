@@ -389,13 +389,14 @@ async function main() {
             const icon = link?.querySelector('.material-symbols-outlined');
             const view = document.getElementById('view-about');
             const currentHash = window.location.hash;
-            const text = (view?.textContent || '').replace(/\s+/g, ' ');
+            const text = (view?.textContent || '').replace(/\\s+/g, ' ');
             const hasHero = text.includes('Về Dự Án & Kế Hoạch');
             const hasStory = text.includes('Câu Chuyện ViVuTraVinh');
             const hasCoreValues = text.includes('3 Giá Trị Cốt Lõi');
             const hasColLive = text.includes('ĐÃ CÓ (LIVE)');
             const hasColIdeas = text.includes('Ý TƯỞNG ĐANG CÂN NHẮC');
-            const hasNoFalseCommitment = text.includes('Chỉ mô tả tính năng đã xác minh, không cam kết tiến độ ảo');
+            const hasIdeaPolicy = text.includes('Các ý tưởng sẽ được xem xét theo nguồn lực của dự án');
+            const hasNoUnverifiedPlaceCount = !text.includes('120+');
 
             return {
                 linkClass: link?.className,
@@ -407,7 +408,8 @@ async function main() {
                 hasCoreValues,
                 hasColLive,
                 hasColIdeas,
-                hasNoFalseCommitment
+                hasIdeaPolicy,
+                hasNoUnverifiedPlaceCount
             };
         })()`);
 
@@ -419,7 +421,8 @@ async function main() {
         assert.ok(aboutViewState.hasStory, 'Phải có câu chuyện phát triển dự án');
         assert.ok(aboutViewState.hasColLive, 'Phải phân biệt cột "ĐÃ CÓ (LIVE)"');
         assert.ok(aboutViewState.hasColIdeas, 'Phải phân biệt các cột "Ý TƯỞNG ĐANG CÂN NHẮC" thay vì cam kết tiến độ');
-        assert.ok(aboutViewState.hasNoFalseCommitment, 'Chỉ mô tả tính năng đã xác minh, không cam kết tiến độ ảo');
+        assert.ok(aboutViewState.hasIdeaPolicy, 'Phải có câu tự nhiên "Các ý tưởng sẽ được xem xét theo nguồn lực của dự án."');
+        assert.ok(aboutViewState.hasNoUnverifiedPlaceCount, 'Phải bỏ số lượng "120+" khi chưa đối chiếu dữ liệu thực tế');
 
         const screenshotAbout = path.join(ARTIFACT_DIR, `${prefix}view_about_desktop.png`);
         await cdp.captureScreenshot(screenshotAbout);
@@ -706,7 +709,7 @@ async function main() {
         console.log('4. Màu sắc & trạng thái: Góp ý (xanh dương), Về dự án (tím), Đồng hành (cam hổ phách): ĐẠT');
         console.log('5. Không gắn badge giả hoặc "Có cập nhật mới" giả tạo trên 3 mục công khai: ĐẠT');
         console.log('6. Nội dung "Góp ý & Hỗ trợ": Hướng dẫn sử dụng nhanh, báo sai tọa độ, kênh liên hệ trung tính: ĐẠT');
-        console.log('7. Nội dung "Về dự án & Kế hoạch": ĐÃ CÓ (LIVE) vs Ý TƯỞNG ĐANG CÂN NHẮC (không cam kết ảo): ĐẠT');
+        console.log('7. Nội dung "Về dự án & Kế hoạch": ĐÃ CÓ (LIVE) vs Ý TƯỞNG ĐANG CÂN NHẮC (bỏ 120+, câu văn tự nhiên theo nguồn lực): ĐẠT');
         console.log('8. Nội dung "Đồng hành cùng Admin": BQT trung tính chờ xác nhận, ưu tiên công sức, chưa mở nhận tài chính, bỏ cam kết ngân hàng/sao kê tự động, gỡ sạch dữ liệu mẫu giả: ĐẠT');
         console.log('9. Router SPA, URL trực tiếp (#/feedback, #/about, #/companion), Reload, Back/Forward: ĐẠT');
         console.log('10. Responsive Mobile (375x812, Light/Dark mode), không tràn ngang, không vỡ layout: ĐẠT');
