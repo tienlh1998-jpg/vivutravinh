@@ -4191,11 +4191,21 @@ export async function submitContributedPlace(payload) {
     const origin = (typeof window !== 'undefined' && window.location ? window.location.origin : '');
     const apiUrl = origin ? `${origin}/api/submit-place` : '/api/submit-place';
 
+    const headers = { 'Content-Type': 'application/json' };
+    try {
+        if (typeof getValidUserToken === 'function') {
+            const userToken = await getValidUserToken();
+            if (userToken) {
+                headers['Authorization'] = `Bearer ${userToken}`;
+            }
+        }
+    } catch (_) {}
+
     let response;
     try {
         response = await fetch(apiUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 client_submission_id: clientSubmissionId,
                 name: payload.name,
@@ -9660,7 +9670,7 @@ export function selectModerationPlace(placeId) {
 }
 
 export async function approvePlace(placeId) {
-    const place = (state.moderationPlaces || []).find(p => p.id === placeId);
+    const place = (state.moderationPlaces || []).find(p => p.id == placeId || String(p.id) === String(placeId));
     if (!place) return;
 
     try {
@@ -9695,11 +9705,11 @@ export async function approvePlace(placeId) {
 
     place.status = 'approved';
     state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
-    state.moderationPlaces = (state.moderationPlaces || []).filter(p => p.id !== placeId);
+    state.moderationPlaces = (state.moderationPlaces || []).filter(p => p.id != placeId && String(p.id) !== String(placeId));
     if (typeof state.moderationKpi?.pendingPlacesCount === 'number') {
         state.moderationKpi.pendingPlacesCount = Math.max(0, state.moderationKpi.pendingPlacesCount - 1);
     }
-    if (state.selectedModerationPlaceId === placeId) {
+    if (state.selectedModerationPlaceId == placeId || String(state.selectedModerationPlaceId) === String(placeId)) {
         state.selectedModerationPlaceId = state.moderationPlaces[0]?.id || null;
     }
 
@@ -9902,7 +9912,7 @@ export async function submitActionReason(actionType, targetId) {
         }
         showSavedToast('Đã từ chối lịch sinh hoạt CLB và lưu lý do thẩm định.');
     } else if (actType.startsWith('reject_place')) {
-        state.moderationPlaces = (state.moderationPlaces || []).filter(p => p.id !== tgtId);
+        state.moderationPlaces = (state.moderationPlaces || []).filter(p => p.id != tgtId && String(p.id) !== String(tgtId));
         if (typeof state.moderationKpi?.pendingPlacesCount === 'number') {
             state.moderationKpi.pendingPlacesCount = Math.max(0, state.moderationKpi.pendingPlacesCount - 1);
         }
@@ -9926,7 +9936,7 @@ export async function submitActionReason(actionType, targetId) {
         } catch (e) {
             console.warn('[Moderation] API reject place error:', e.message);
         }
-        if (state.selectedModerationPlaceId === tgtId) {
+        if (state.selectedModerationPlaceId == tgtId || String(state.selectedModerationPlaceId) === String(tgtId)) {
             state.selectedModerationPlaceId = state.moderationPlaces[0]?.id || null;
         }
         showSavedToast('Đã từ chối đề xuất địa điểm và lưu lý do thẩm định.');
