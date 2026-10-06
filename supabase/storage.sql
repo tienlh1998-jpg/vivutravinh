@@ -28,6 +28,7 @@ using (bucket_id in ('review-photos', 'place-photos'));
 -- 4. Tên tệp bắt buộc có tiền tố client_review_id hợp lệ
 -- 5. Ngăn chặn triệt để path traversal ('..')
 -- 6. Chỉ chấp nhận phần mở rộng hợp lệ: jpg, jpeg, png, webp
+-- 2.1. Cho phép người dùng tải ảnh đánh giá lên review-photos (Giữ nguyên luồng đánh giá hiện có)
 drop policy if exists "Anon upload review photos" on storage.objects;
 create policy "Anon upload review photos"
 on storage.objects for insert
@@ -35,11 +36,56 @@ to anon, authenticated
 with check (
   bucket_id = 'review-photos'
   and (storage.foldername(name))[1] = 'reviews'
+  and (storage.foldername(name))[2] != 'avatars'
   and array_length(storage.foldername(name), 1) = 2
   and (storage.foldername(name))[2] ~ '^[a-zA-Z0-9_-]{2,100}$'
   and storage.filename(name) ~ '^[a-zA-Z0-9_-]{5,128}_[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp)$'
   and name not like '%..%'
   and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
+);
+
+-- 2.2. Cho phép người dùng ĐÃ ĐĂNG NHẬP tải ảnh đại diện vào đúng ID của chính mình
+drop policy if exists "Authenticated upload own avatar" on storage.objects;
+create policy "Authenticated upload own avatar"
+on storage.objects for insert
+to authenticated
+with check (
+  bucket_id = 'review-photos'
+  and (
+    (
+      (storage.foldername(name))[1] = 'reviews'
+      and (storage.foldername(name))[2] = 'avatars'
+      and storage.filename(name) like (auth.uid())::text || '_%'
+    )
+    or
+    (
+      (storage.foldername(name))[1] = 'avatars'
+      and (storage.foldername(name))[2] = (auth.uid())::text
+    )
+  )
+  and name not like '%..%'
+  and lower(storage.extension(name)) in ('jpg', 'jpeg', 'png', 'webp')
+);
+
+-- 2.3. Cho phép người dùng ĐÃ ĐĂNG NHẬP tự xóa ảnh đại diện của chính mình
+drop policy if exists "Authenticated delete own avatar" on storage.objects;
+create policy "Authenticated delete own avatar"
+on storage.objects for delete
+to authenticated
+using (
+  bucket_id = 'review-photos'
+  and (
+    (
+      (storage.foldername(name))[1] = 'reviews'
+      and (storage.foldername(name))[2] = 'avatars'
+      and storage.filename(name) like (auth.uid())::text || '_%'
+    )
+    or
+    (
+      (storage.foldername(name))[1] = 'avatars'
+      and (storage.foldername(name))[2] = (auth.uid())::text
+    )
+  )
 );
 
 -- Khách vãng lai (anon) KHÔNG ĐƯỢC PHÉP sửa hoặc xóa ảnh đã tải lên
@@ -49,36 +95,33 @@ drop policy if exists "Anon cannot delete review photos" on storage.objects;
 
 -- ==========================================================
 -- 3. THỦ TỤC DỌN DẸP ẢNH MỒ CÔI (ORPHAN PHOTOS CLEANUP)
--- Ảnh tải lên sau 48h nhưng không được liên kết với bất kỳ bình luận nào
--- trong bảng place_comments sẽ được đánh dấu để dọn dẹp định kỳ
+-- Bảo vệ tuyệt đối ảnh đại diện và ảnh bình luận khỏi việc dọn dẹp
 -- ==========================================================
 create or replace function public.cleanup_orphan_review_photos()
-returns table(deleted_name text)
+returns table(orphan_name text)
 language plpgsql
 security definer
 set search_path = public, storage
 as $$
-declare
-  obj record;
 begin
-  for obj in
+  return query
     select o.name
     from storage.objects o
     where o.bucket_id = 'review-photos'
       and o.created_at < now() - interval '48 hours'
+      -- 1. Tuyệt đối KHÔNG quét hoặc xóa ảnh đại diện trong thư mục avatars
+      and coalesce((storage.foldername(o.name))[1], '') != 'avatars'
+      and coalesce((storage.foldername(o.name))[2], '') != 'avatars'
+      -- 2. Tuyệt đối KHÔNG xóa ảnh đang được liên kết trong place_comments
       and not exists (
         select 1 from public.place_comments pc
         where pc.photo_url like '%' || o.name || '%'
       )
+      -- 3. Tuyệt đối KHÔNG xóa ảnh đang được liên kết trong profiles (avatar_url)
       and not exists (
         select 1 from public.profiles p
         where p.avatar_url like '%' || o.name || '%'
-      )
-  loop
-    delete from storage.objects where bucket_id = 'review-photos' and name = obj.name;
-    deleted_name := obj.name;
-    return next;
-  end loop;
+      );
 end;
 $$;
 

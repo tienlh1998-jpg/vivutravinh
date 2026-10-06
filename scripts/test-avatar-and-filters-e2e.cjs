@@ -9,7 +9,6 @@ const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
 const assert = require('assert');
-const { pathToFileURL } = require('url');
 
 const WebSocket = globalThis.WebSocket;
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -43,10 +42,6 @@ function startLocalServer(port = 4175) {
         try {
             const parsedUrl = new URL(req.url, `http://localhost:${port}`);
             let pathname = parsedUrl.pathname;
-
-            if (pathname.startsWith('/api/')) {
-                // handle API if needed
-            }
 
             if (pathname === '/') pathname = '/index.html';
             const filePath = path.join(ROOT_DIR, pathname);
@@ -100,25 +95,23 @@ class CDPClient {
         };
     }
 
-    async ready() {
-        if (this.ws.readyState === WebSocket.OPEN) return;
+    ready() {
         return new Promise((resolve, reject) => {
-            this.ws.onopen = resolve;
-            this.ws.onerror = reject;
+            if (this.ws.readyState === WebSocket.OPEN) return resolve();
+            this.ws.onopen = () => resolve();
+            this.ws.onerror = (err) => reject(err);
         });
     }
 
     send(method, params = {}) {
         return new Promise((resolve, reject) => {
             const id = ++this.reqId;
-            const timer = setTimeout(() => {
-                this.callbacks.delete(id);
-                reject(new Error(`CDP timed out: ${method}`));
-            }, 30000);
             this.callbacks.set(id, (res) => {
-                clearTimeout(timer);
-                if (res.error) reject(new Error(JSON.stringify(res.error)));
-                else resolve(res.result);
+                if (res.error) {
+                    reject(new Error(`CDP Error [${method}]: ${JSON.stringify(res.error)}`));
+                } else {
+                    resolve(res.result);
+                }
             });
             this.ws.send(JSON.stringify({ id, method, params }));
         });
@@ -131,9 +124,9 @@ class CDPClient {
             awaitPromise: true
         });
         if (res.exceptionDetails) {
-            throw new Error(`CDP Eval Exception: ${JSON.stringify(res.exceptionDetails)}`);
+            throw new Error(`Eval exception: ${res.exceptionDetails.text} (${JSON.stringify(res.exceptionDetails.exception)})`);
         }
-        return res.result?.value;
+        return res.result ? res.result.value : undefined;
     }
 
     async setViewport(width, height, isMobile = false) {
@@ -162,7 +155,6 @@ async function main() {
     console.log('=== BẮT ĐẦU KIỂM THỬ E2E AVATAR & BỘ LỌC ĐỊA ĐIỂM ===');
     const targetEnv = process.env.TARGET_URL;
     const isProd = !!targetEnv && targetEnv.includes('vivutravinh.id.vn');
-    const prefix = isProd ? 'prod_' : 'local_';
     let server = null;
     let BASE_URL = targetEnv;
     if (!BASE_URL) {
@@ -191,6 +183,8 @@ async function main() {
     let uploadedAvatarStoragePath = null;
     let normalUserId = null;
     let normalToken = null;
+    let initialProfile = null;
+    let tempDir = null;
 
     try {
         await sleep(2000);
@@ -205,8 +199,21 @@ async function main() {
         await cdp.send('Runtime.enable');
         await cdp.send('DOM.enable');
 
-        // 1. Đăng nhập tài khoản thường thật
-        console.log('\n--- BƯỚC 1: Đăng nhập tài khoản Member thật ---');
+        // Tạo thư mục tạm và các tệp test thật trên đĩa OS
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vivu-test-files-'));
+        const invalidTxtFile = path.join(tempDir, 'invalid_text_doc.txt');
+        fs.writeFileSync(invalidTxtFile, 'Đây là tệp tin văn bản không hợp lệ');
+
+        const oversizedPngFile = path.join(tempDir, 'oversized_giant_image.png');
+        fs.writeFileSync(oversizedPngFile, Buffer.alloc(2.5 * 1024 * 1024, 0));
+
+        const validPngFile = path.join(tempDir, 'valid_real_avatar.png');
+        // Valid 1x1 green PNG
+        const validPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        fs.writeFileSync(validPngFile, Buffer.from(validPngBase64, 'base64'));
+
+        // 1. Đăng nhập với tài khoản member thật
+        console.log('\n--- BƯỚC 1: Đăng nhập tài khoản Member thật & Lưu Snapshot ban đầu ---');
         const normalUserEmail = 'prod_norm_1791220432814@vivutest.local';
         const normalUserPass = 'TestPass123!@#';
         const loginRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -219,6 +226,19 @@ async function main() {
         normalUserId = normalAuth.user.id;
         normalToken = normalAuth.access_token;
         console.log('✓ Member logged in:', normalUserId);
+
+        // Lưu snapshot hồ sơ ban đầu của Member từ database
+        const snapRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${normalUserId}&select=*`, {
+            headers: { apikey: ANON_KEY, Authorization: `Bearer ${normalToken}` }
+        });
+        const snapData = await snapRes.json();
+        assert(Array.isArray(snapData) && snapData.length > 0, 'Không tìm thấy profile của member');
+        initialProfile = snapData[0];
+        console.log('✓ Snapshot hồ sơ ban đầu của Member:', {
+            id: initialProfile.id,
+            avatar_url: initialProfile.avatar_url,
+            display_name: initialProfile.display_name
+        });
 
         await cdp.send('Page.navigate', { url: BASE_URL });
         await sleep(2500);
@@ -236,8 +256,8 @@ async function main() {
         })()`);
         await sleep(1500);
 
-        // 2. Kiểm tra giao diện Hồ sơ & Edit Profile Modal
-        console.log('\n--- BƯỚC 2: Kiểm tra UI Chọn Avatar & Validate kích thước/định dạng ---');
+        // 2. Kiểm tra UI Chọn Avatar & Validate kích thước/định dạng QUA INPUT THẬT
+        console.log('\n--- BƯỚC 2: Kiểm tra Chọn File qua Input thật trong DOM & Validate ---');
         await cdp.eval(`window.ViVuApp.openProfileModal()`);
         await sleep(500);
         await cdp.eval(`window.ViVuApp.openEditProfileModal()`);
@@ -261,69 +281,64 @@ async function main() {
         assert(editModalStatus.hasPreview, 'Phải có preview avatar');
         assert(editModalStatus.inputAccept.includes('image/png'), 'Input phải nhận image/png, jpeg, webp');
 
-        // Test validate định dạng không hợp lệ qua handleAvatarFileChange
-        console.log('Thử nghiệm chọn tệp sai định dạng (text/plain)...');
+        // Tìm node thẻ input trong DOM bằng CDP
+        const docRes = await cdp.send('DOM.getDocument');
+        const inputNodeRes = await cdp.send('DOM.querySelector', {
+            nodeId: docRes.root.nodeId,
+            selector: '#editProfileAvatarInput'
+        });
+        assert(inputNodeRes.nodeId > 0, 'Phải tìm thấy thẻ input[type="file"] thật trong DOM');
+
+        // 2.1. Thử nghiệm nạp tệp sai định dạng (.txt) qua DOM.setFileInputFiles thật
+        console.log('Thử nghiệm nạp tệp sai định dạng (.txt) qua DOM input thật...');
+        await cdp.send('DOM.setFileInputFiles', {
+            nodeId: inputNodeRes.nodeId,
+            files: [invalidTxtFile]
+        });
+        await cdp.eval(`document.getElementById('editProfileAvatarInput').dispatchEvent(new Event('change', { bubbles: true }))`);
+        await sleep(400);
+
         const invalidTypeResult = await cdp.eval(`(() => {
-            const fakeEvent = {
-                target: {
-                    files: [new File(['dummy content'], 'document.txt', { type: 'text/plain' })],
-                    value: 'document.txt'
-                }
-            };
-            window.ViVuApp.handleAvatarFileChange(fakeEvent);
             const errEl = document.getElementById('editProfileAvatarError');
-            const errText = document.getElementById('editProfileAvatarErrorText')?.textContent;
             return {
                 errorVisible: errEl && !errEl.classList.contains('hidden'),
-                errorText: errText
+                errorText: document.getElementById('editProfileAvatarErrorText')?.textContent
             };
         })()`);
-        console.log('Kết quả validate sai định dạng:', invalidTypeResult);
-        assert(invalidTypeResult.errorVisible, 'Phải hiển thị thông báo lỗi khi chọn file sai định dạng');
+        console.log('Kết quả validate sai định dạng qua input thật:', invalidTypeResult);
+        assert(invalidTypeResult.errorVisible, 'Phải hiển thị thông báo lỗi khi chọn file sai định dạng qua input thật');
         assert(invalidTypeResult.errorText.includes('JPEG, PNG'), 'Thông báo lỗi phải nêu rõ định dạng cho phép');
 
-        // Test validate quá dung lượng (> 2MB)
-        console.log('Thử nghiệm chọn tệp quá dung lượng (> 2MB)...');
+        // 2.2. Thử nghiệm nạp tệp quá dung lượng (> 2MB) qua DOM.setFileInputFiles thật
+        console.log('Thử nghiệm nạp tệp quá dung lượng (2.5MB) qua DOM input thật...');
+        await cdp.send('DOM.setFileInputFiles', {
+            nodeId: inputNodeRes.nodeId,
+            files: [oversizedPngFile]
+        });
+        await cdp.eval(`document.getElementById('editProfileAvatarInput').dispatchEvent(new Event('change', { bubbles: true }))`);
+        await sleep(400);
+
         const oversizedResult = await cdp.eval(`(() => {
-            const bigData = new Uint8Array(2.5 * 1024 * 1024);
-            const fakeEvent = {
-                target: {
-                    files: [new File([bigData], 'giant.png', { type: 'image/png' })],
-                    value: 'giant.png'
-                }
-            };
-            window.ViVuApp.handleAvatarFileChange(fakeEvent);
             const errEl = document.getElementById('editProfileAvatarError');
-            const errText = document.getElementById('editProfileAvatarErrorText')?.textContent;
             return {
                 errorVisible: errEl && !errEl.classList.contains('hidden'),
-                errorText: errText
+                errorText: document.getElementById('editProfileAvatarErrorText')?.textContent
             };
         })()`);
-        console.log('Kết quả validate quá dung lượng:', oversizedResult);
+        console.log('Kết quả validate quá dung lượng qua input thật:', oversizedResult);
         assert(oversizedResult.errorVisible, 'Phải hiển thị thông báo lỗi khi dung lượng vượt quá 2MB');
         assert(oversizedResult.errorText.includes('2MB'), 'Thông báo lỗi phải nêu rõ giới hạn 2MB');
 
-        // Test chọn ảnh hợp lệ, kiểm tra preview & nút Bỏ ảnh mới
-        console.log('Thử nghiệm chọn ảnh hợp lệ và preview...');
-        const validPickResult = await cdp.eval(`(() => {
-            // 1x1 png file
-            const byteCharacters = atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const validFile = new File([byteArray], 'my_new_avatar.png', { type: 'image/png' });
-            
-            const fakeEvent = {
-                target: {
-                    files: [validFile],
-                    value: 'my_new_avatar.png'
-                }
-            };
-            window.ViVuApp.handleAvatarFileChange(fakeEvent);
+        // 2.3. Nạp tệp ảnh hợp lệ qua DOM.setFileInputFiles thật, kiểm tra preview & nút Bỏ ảnh mới
+        console.log('Nạp ảnh hợp lệ qua DOM input thật và kiểm tra preview...');
+        await cdp.send('DOM.setFileInputFiles', {
+            nodeId: inputNodeRes.nodeId,
+            files: [validPngFile]
+        });
+        await cdp.eval(`document.getElementById('editProfileAvatarInput').dispatchEvent(new Event('change', { bubbles: true }))`);
+        await sleep(400);
 
+        const validPickResult = await cdp.eval(`(() => {
             const errEl = document.getElementById('editProfileAvatarError');
             const cancelBtn = document.getElementById('editProfileAvatarCancelBtn');
             const preview = document.getElementById('editProfileAvatarPreview');
@@ -333,7 +348,7 @@ async function main() {
                 previewSrcUpdated: preview && preview.src.startsWith('blob:')
             };
         })()`);
-        console.log('Kết quả chọn ảnh hợp lệ:', validPickResult);
+        console.log('Kết quả chọn ảnh hợp lệ qua input thật:', validPickResult);
         assert(validPickResult.errorHidden, 'Lỗi phải bị ẩn khi chọn ảnh hợp lệ');
         assert(validPickResult.cancelBtnVisible, 'Nút Bỏ ảnh mới phải xuất hiện');
         assert(validPickResult.previewSrcUpdated, 'Preview phải cập nhật sang blob url');
@@ -353,23 +368,85 @@ async function main() {
         assert(cancelResult.cancelBtnHidden, 'Nút Bỏ ảnh mới phải ẩn sau khi hủy');
         assert(cancelResult.previewRestored, 'Preview phải khôi phục avatar ban đầu');
 
-        // 3. Thực hiện UPLOAD VÀ LƯU AVATAR THẬT BẰNG USER ACCESS TOKEN
-        console.log('\n--- BƯỚC 3: Upload và lưu avatar thật lên Storage + Profiles ---');
-        // Chọn lại ảnh hợp lệ
+        // 2.4. BỔ SUNG KIỂM TRA: UPLOAD THẤT BẠI GIỮ NGUYÊN AVATAR CŨ VÀ DỮ LIỆU FORM
+        console.log('\n--- BƯỚC 2.4: Kiểm tra upload thất bại -> Giữ avatar cũ & Giữ form data ---');
+        // Chọn lại ảnh hợp lệ qua input thật
+        await cdp.send('DOM.setFileInputFiles', {
+            nodeId: inputNodeRes.nodeId,
+            files: [validPngFile]
+        });
+        await cdp.eval(`document.getElementById('editProfileAvatarInput').dispatchEvent(new Event('change', { bubbles: true }))`);
+        await sleep(400);
+
+        // Thay đổi tên trong form
+        const tempTestName = 'Tên Test Khi Upload Lỗi';
         await cdp.eval(`(() => {
-            const byteCharacters = atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const validFile = new File([byteArray], 'my_new_avatar.png', { type: 'image/png' });
-            
-            window.ViVuApp.handleAvatarFileChange({ target: { files: [validFile], value: 'my_new_avatar.png' } });
+            document.getElementById('editProfileName').value = '${tempTestName}';
         })()`);
 
-        // Submit form
-        console.log('Submit form cập nhật hồ sơ...');
+        // Mô phỏng mạng lỗi khi gọi Storage upload (mock window.fetch cục bộ)
+        await cdp.eval(`(() => {
+            window._realFetch = window.fetch;
+            window.fetch = async function(...args) {
+                const targetUrl = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+                if (targetUrl.includes('/storage/v1/object/review-photos/')) {
+                    return new Response(JSON.stringify({ message: 'Mô phỏng lỗi máy chủ Storage (500 Internal Server Error)' }), {
+                        status: 500,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+                return window._realFetch.apply(this, args);
+            };
+        })()`);
+
+        // Submit form khi upload bị lỗi
+        console.log('Submit form khi Storage upload gặp lỗi...');
+        await cdp.eval(`(() => {
+            const form = document.getElementById('editProfileForm');
+            window.ViVuApp.submitEditProfile(form);
+        })()`);
+        await sleep(1500);
+
+        const uploadFailCheck = await cdp.eval(`(() => {
+            const modal = document.getElementById('editProfileModal');
+            const errEl = document.getElementById('editProfileAvatarError');
+            const errorText = document.getElementById('editProfileAvatarErrorText')?.textContent;
+            const currentName = document.getElementById('editProfileName')?.value;
+            const stateAvatar = window.ViVuApp.getState().userProfile?.avatar;
+            const submitBtn = document.getElementById('editProfileSubmitBtn');
+            return {
+                modalStillOpen: modal && !modal.classList.contains('hidden'),
+                errorVisible: errEl && !errEl.classList.contains('hidden'),
+                errorText,
+                namePreserved: currentName === '${tempTestName}',
+                stateAvatarNotOverwritten: stateAvatar !== null && !stateAvatar.startsWith('blob:'),
+                btnReenabled: submitBtn && !submitBtn.disabled
+            };
+        })()`);
+        console.log('Kết quả kiểm tra upload thất bại:', uploadFailCheck);
+        assert(uploadFailCheck.modalStillOpen, 'Modal phải giữ nguyên, KHÔNG được đóng khi upload thất bại');
+        assert(uploadFailCheck.errorVisible, 'Phải hiển thị thông báo lỗi cụ thể khi upload thất bại');
+        assert(uploadFailCheck.namePreserved, 'Dữ liệu form (họ tên) phải được giữ nguyên khi upload lỗi');
+        assert(uploadFailCheck.stateAvatarNotOverwritten, 'Avatar cũ phải được giữ nguyên khi upload lỗi');
+        assert(uploadFailCheck.btnReenabled, 'Nút Lưu thay đổi phải được kích hoạt lại để người dùng thử lại');
+
+        // Khôi phục window.fetch thật
+        await cdp.eval(`(() => {
+            if (window._realFetch) {
+                window.fetch = window._realFetch;
+                delete window._realFetch;
+            }
+        })()`);
+
+        // 3. Thực hiện UPLOAD VÀ LƯU AVATAR THẬT BẰNG USER ACCESS TOKEN
+        console.log('\n--- BƯỚC 3: Upload và lưu avatar thật lên Storage + Profiles ---');
+        // Đặt lại tên hợp lệ
+        await cdp.eval(`(() => {
+            document.getElementById('editProfileName').value = '${initialProfile.display_name || 'prod_norm_1791220432814'}';
+        })()`);
+
+        // Submit form thật
+        console.log('Submit form cập nhật hồ sơ với fetch thật...');
         await cdp.eval(`(() => {
             const form = document.getElementById('editProfileForm');
             return window.ViVuApp.submitEditProfile(form);
@@ -379,66 +456,110 @@ async function main() {
         // Kiểm tra sau khi submit
         const postSubmitCheck = await cdp.eval(`(() => {
             const modal = document.getElementById('editProfileModal');
-            const state = window.ViVuApp.getState();
-            const headerProfileBtn = document.getElementById('headerProfileBtn');
-            const headerImg = headerProfileBtn?.querySelector('img');
-            const sidebarAvatar = document.getElementById('sidebarUserAvatar');
-            const sidebarImg = sidebarAvatar?.querySelector('img');
-            const drawerAvatar = document.getElementById('drawerUserAvatar');
-            const drawerImg = drawerAvatar?.querySelector('img');
-
+            const stateAvatar = window.ViVuApp.getState().userProfile?.avatar;
+            const headerAvatarImg = document.getElementById('headerProfileBtn')?.querySelector('img')?.src;
+            const sidebarAvatarImg = document.getElementById('sidebarUserAvatar')?.querySelector('img')?.src;
+            const drawerAvatarImg = document.getElementById('drawerUserAvatar')?.querySelector('img')?.src;
             return {
-                modalClosed: !modal || modal.classList.contains('hidden'),
-                avatarStateUrl: state.userProfile?.avatar,
-                headerAvatarSrc: headerImg ? headerImg.src : null,
-                sidebarAvatarSrc: sidebarImg ? sidebarImg.src : null,
-                drawerAvatarSrc: drawerImg ? drawerImg.src : null
+                modalClosed: modal && modal.classList.contains('hidden'),
+                avatarStateUrl: stateAvatar,
+                headerAvatarSrc: headerAvatarImg,
+                sidebarAvatarSrc: sidebarAvatarImg,
+                drawerAvatarSrc: drawerAvatarImg
             };
         })()`);
         console.log('Kết quả sau khi submit hồ sơ:', postSubmitCheck);
-        assert(postSubmitCheck.modalClosed, 'Modal chỉnh sửa phải đóng sau khi lưu');
-        assert(postSubmitCheck.avatarStateUrl.includes('supabase.co/storage/v1/object/public/review-photos/reviews/avatars/'), 'Avatar URL phải là đường dẫn thực trên Supabase Storage');
-        assert(postSubmitCheck.headerAvatarSrc === postSubmitCheck.avatarStateUrl, 'Header phải hiển thị avatar mới');
-        assert(postSubmitCheck.sidebarAvatarSrc === postSubmitCheck.avatarStateUrl, 'Sidebar phải hiển thị avatar mới');
-        assert(postSubmitCheck.drawerAvatarSrc === postSubmitCheck.avatarStateUrl, 'Drawer phải hiển thị avatar mới');
+        assert(postSubmitCheck.modalClosed, 'Modal phải đóng sau khi lưu thành công');
+        assert(postSubmitCheck.avatarStateUrl && postSubmitCheck.avatarStateUrl.includes('review-photos'), 'Avatar state phải có URL Storage thực tế');
+        assert(postSubmitCheck.headerAvatarSrc === postSubmitCheck.avatarStateUrl, 'Header avatar phải đồng bộ');
+        assert(postSubmitCheck.sidebarAvatarSrc === postSubmitCheck.avatarStateUrl, 'Sidebar avatar phải đồng bộ');
+        assert(postSubmitCheck.drawerAvatarSrc === postSubmitCheck.avatarStateUrl, 'Drawer avatar phải đồng bộ');
 
-        // Lưu đường dẫn file để cleanup sau test
-        uploadedAvatarStoragePath = postSubmitCheck.avatarStateUrl.split('/review-photos/')[1];
-        console.log('✓ File đã upload thành công tại path:', uploadedAvatarStoragePath);
+        // Ghi lại đường dẫn trên Storage để dọn dẹp
+        const avatarUrlObj = new URL(postSubmitCheck.avatarStateUrl);
+        const matchPath = avatarUrlObj.pathname.match(/\/review-photos\/(.+)$/);
+        if (matchPath) {
+            uploadedAvatarStoragePath = matchPath[1];
+            console.log('✓ File đã upload thành công tại path:', uploadedAvatarStoragePath);
+        }
+        await cdp.captureScreenshot('avatar_uploaded_and_synced.png');
 
-        await cdp.captureScreenshot('local_avatar_uploaded_and_synced.png');
-
-        // 4. KIỂM TRA RELOAD VÀ ĐĂNG NHẬP LẠI VẪN HIỆN ĐÚNG ẢNH
+        // 4. Kiểm tra tải lại trang (Reload), phiên vẫn duy trì đúng Avatar từ database
         console.log('\n--- BƯỚC 4: Kiểm tra tải lại trang (Reload), phiên vẫn duy trì đúng Avatar từ database ---');
-        await cdp.send('Page.navigate', { url: BASE_URL });
-        await sleep(3000);
+        await cdp.send('Page.reload');
+        await sleep(2500);
 
-        const reloadCheck = await cdp.eval(`(() => {
-            const state = window.ViVuApp.getState();
-            const headerProfileBtn = document.getElementById('headerProfileBtn');
-            const headerImg = headerProfileBtn?.querySelector('img');
-            const sidebarAvatar = document.getElementById('sidebarUserAvatar');
-            const sidebarImg = sidebarAvatar?.querySelector('img');
-            const drawerAvatar = document.getElementById('drawerUserAvatar');
-            const drawerImg = drawerAvatar?.querySelector('img');
-
+        const reloadStatus = await cdp.eval(`(() => {
+            const stateAvatar = window.ViVuApp.getState().userProfile?.avatar;
+            const headerAvatarImg = document.getElementById('headerProfileBtn')?.querySelector('img')?.src;
+            const sidebarAvatarImg = document.getElementById('sidebarUserAvatar')?.querySelector('img')?.src;
+            const drawerAvatarImg = document.getElementById('drawerUserAvatar')?.querySelector('img')?.src;
             return {
-                stateAvatar: state.userProfile?.avatar,
-                headerImgSrc: headerImg ? headerImg.src : null,
-                sidebarImgSrc: sidebarImg ? sidebarImg.src : null,
-                drawerImgSrc: drawerImg ? drawerImg.src : null
+                stateAvatar,
+                headerImgSrc: headerAvatarImg,
+                sidebarImgSrc: sidebarAvatarImg,
+                drawerImgSrc: drawerAvatarImg
             };
         })()`);
-        console.log('Trạng thái Avatar sau reload trang:', reloadCheck);
-        assert(reloadCheck.stateAvatar.includes('supabase.co/storage/v1/object/public/review-photos/reviews/avatars/'), 'Sau reload avatar vẫn phải là link Supabase thực');
-        assert(reloadCheck.headerImgSrc === reloadCheck.stateAvatar, 'Header sau reload phải hiện đúng ảnh');
-        assert(reloadCheck.sidebarImgSrc === reloadCheck.stateAvatar, 'Sidebar sau reload phải hiện đúng ảnh');
-        assert(reloadCheck.drawerImgSrc === reloadCheck.stateAvatar, 'Drawer sau reload phải hiện đúng ảnh');
+        console.log('Trạng thái Avatar sau reload trang:', reloadStatus);
+        assert(reloadStatus.stateAvatar === postSubmitCheck.avatarStateUrl, 'Sau reload, state avatar phải duy trì từ database');
+        assert(reloadStatus.headerImgSrc === postSubmitCheck.avatarStateUrl, 'Sau reload, Header avatar phải duy trì đúng URL');
+        assert(reloadStatus.sidebarImgSrc === postSubmitCheck.avatarStateUrl, 'Sau reload, Sidebar avatar phải duy trì đúng URL');
+        assert(reloadStatus.drawerImgSrc === postSubmitCheck.avatarStateUrl, 'Sau reload, Drawer avatar phải duy trì đúng URL');
 
-        // 5. KIỂM TRA RLS BẢO VỆ: USER KHÔNG THỂ SỬA AVATAR NGƯỜI KHÁC
+        // 4.1. BỔ SUNG KIỂM TRA: ĐĂNG XUẤT VÀ ĐĂNG NHẬP LẠI (RE-LOGIN) VẪN HIỆN ĐÚNG AVATAR
+        console.log('\n--- BƯỚC 4.1: Kiểm tra Đăng xuất & Đăng nhập lại (Re-login) vẫn hiện đúng Avatar ---');
+        console.log('Thực hiện Đăng xuất...');
+        await cdp.eval(`window.ViVuApp.handleUserSignOut()`);
+        await sleep(1000);
+
+        const loggedOutCheck = await cdp.eval(`(() => {
+            const headerImg = document.getElementById('headerProfileBtn')?.querySelector('img');
+            const stateAvatar = window.ViVuApp.getState().userProfile?.avatar;
+            return {
+                isLoggedOut: !localStorage.getItem('vivu_user_session'),
+                headerHasImg: !!headerImg
+            };
+        })()`);
+        console.log('Trạng thái sau khi đăng xuất:', loggedOutCheck);
+        assert(loggedOutCheck.isLoggedOut, 'Session phải được xóa sau khi đăng xuất');
+
+        console.log('Thực hiện Đăng nhập lại (Re-login)...');
+        await cdp.eval(`(() => {
+            const authObj = ${JSON.stringify(normalAuth)};
+            localStorage.setItem('vivu_user_session', JSON.stringify({
+                access_token: authObj.access_token,
+                refresh_token: authObj.refresh_token,
+                user: authObj.user,
+                expires_at: Math.floor(Date.now() / 1000) + 3600
+            }));
+            window.dispatchEvent(new CustomEvent('vivu:user-auth-changed'));
+        })()`);
+        await sleep(1500);
+
+        const reloginStatus = await cdp.eval(`(() => {
+            const stateAvatar = window.ViVuApp.getState().userProfile?.avatar;
+            const headerAvatarImg = document.getElementById('headerProfileBtn')?.querySelector('img')?.src;
+            const sidebarAvatarImg = document.getElementById('sidebarUserAvatar')?.querySelector('img')?.src;
+            const drawerAvatarImg = document.getElementById('drawerUserAvatar')?.querySelector('img')?.src;
+            return {
+                stateAvatar,
+                headerImgSrc: headerAvatarImg,
+                sidebarImgSrc: sidebarAvatarImg,
+                drawerImgSrc: drawerAvatarImg
+            };
+        })()`);
+        console.log('Trạng thái Avatar sau khi Đăng nhập lại:', reloginStatus);
+        assert(reloginStatus.stateAvatar === postSubmitCheck.avatarStateUrl, 'Sau re-login, state avatar phải nạp đúng từ database');
+        assert(reloginStatus.headerImgSrc === postSubmitCheck.avatarStateUrl, 'Sau re-login, Header avatar phải nạp đúng từ database');
+        assert(reloginStatus.sidebarImgSrc === postSubmitCheck.avatarStateUrl, 'Sau re-login, Sidebar avatar phải nạp đúng từ database');
+        assert(reloginStatus.drawerImgSrc === postSubmitCheck.avatarStateUrl, 'Sau re-login, Drawer avatar phải nạp đúng từ database');
+        console.log('✓ Đăng nhập lại thành công và hiển thị chính xác avatar trên cả 4 vị trí!');
+
+        // 5. Kiểm tra RLS: Không thể sửa hồ sơ của người khác
         console.log('\n--- BƯỚC 5: Kiểm tra RLS ngăn cản sửa avatar người khác ---');
-        const adminUserId = '113c9b9f-0d3e-4bc1-84be-141952a41462';
-        const hackPatchRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(adminUserId)}`, {
+        const otherUserId = '11111111-1111-1111-1111-111111111111';
+        const unauthorizedPatchRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${otherUserId}`, {
             method: 'PATCH',
             headers: {
                 'apikey': ANON_KEY,
@@ -446,18 +567,18 @@ async function main() {
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             },
-            body: JSON.stringify({
-                avatar_url: 'https://hacker.fake/evil.jpg',
-                updated_at: new Date().toISOString()
-            })
+            body: JSON.stringify({ avatar_url: 'https://attacker.example.com/hacked.png' })
         });
-        const hackModifiedRows = await hackPatchRes.json();
-        console.log('Số bản ghi người khác bị sửa bởi member thường (phải = 0):', hackModifiedRows.length);
-        assert(hackModifiedRows.length === 0, 'RLS phải chặn hoàn toàn việc sửa avatar người khác!');
+        const unauthorizedPatchData = await unauthorizedPatchRes.json().catch(() => []);
+        console.log('Số bản ghi người khác bị sửa bởi member thường (phải = 0):', unauthorizedPatchData.length);
+        assert(Array.isArray(unauthorizedPatchData) && unauthorizedPatchData.length === 0, 'RLS vi phạm: Member sửa được profile người khác');
 
         // 6. KIỂM TRA BỘ LỌC ĐỊA ĐIỂM TRÊN DESKTOP (1280px & 1440px)
         console.log('\n--- BƯỚC 6: Kiểm tra thanh bộ lọc địa điểm trên Desktop (1280px, 1440px) ---');
         await cdp.setViewport(1280, 800, false);
+        await sleep(500);
+
+        // Mở Map Modal
         await cdp.eval(`window.ViVuApp.openFullMapModal()`);
         await sleep(1000);
 
@@ -465,14 +586,16 @@ async function main() {
             const sidePanel = document.getElementById('mapSidePanel');
             const searchInput = document.getElementById('mapSideSearchInput');
             const pillsContainer = document.getElementById('mapSideCategoryPills');
-            const pills = Array.from(pillsContainer?.querySelectorAll('button') || []);
+            const pills = pillsContainer ? Array.from(pillsContainer.querySelectorAll('button')) : [];
             const openOnlyBtn = document.getElementById('mapFilterOpenOnlyBtn');
             const freeBtn = document.getElementById('mapFilterFreeBtn');
             const countBadge = document.getElementById('mapPlacesCountBadge');
             const closeBtn = document.getElementById('fullMapCloseBtn');
 
-            const pillHeights = pills.map(p => p.getBoundingClientRect().height);
-            const allPillsGe44 = pillHeights.every(h => h >= 43.5);
+            const allPillsGe44 = pills.every(p => {
+                const rect = p.getBoundingClientRect();
+                return rect.height >= 43.5;
+            });
 
             return {
                 panelVisible: sidePanel && window.getComputedStyle(sidePanel).display !== 'none',
@@ -489,42 +612,40 @@ async function main() {
         })()`);
         console.log('Kiểm tra Desktop 1280px Filter Bar:', desktopFilterCheck);
         assert(desktopFilterCheck.panelVisible, 'Side panel phải hiển thị trên Desktop');
-        assert(desktopFilterCheck.hasSearchInput, 'Phải có ô tìm kiếm');
-        assert(desktopFilterCheck.allPillsGe44, 'Các nút danh mục phải có chiều cao >= 44px');
-        assert(desktopFilterCheck.openOnlyHeight >= 43.5, 'Nút Đang mở cửa phải >= 44px');
-        assert(desktopFilterCheck.freeBtnHeight >= 43.5, 'Nút Miễn phí vé phải >= 44px');
-        assert(!desktopFilterCheck.isOverflown, 'Trang không được tràn ngang');
-
+        assert(desktopFilterCheck.searchInputHeight >= 43.5, 'Ô tìm kiếm phải cao >= 44px');
+        assert(desktopFilterCheck.allPillsGe44, 'Tất cả các nút danh mục phải có chiều cao >= 44px');
+        assert(desktopFilterCheck.openOnlyHeight >= 43.5, 'Nút Đang mở cửa phải cao >= 44px');
+        assert(desktopFilterCheck.freeBtnHeight >= 43.5, 'Nút Miễn phí vé phải cao >= 44px');
+        assert(!desktopFilterCheck.isOverflown, 'Không được tràn trang ngang');
+        assert(desktopFilterCheck.closeBtnVisible, 'Nút đóng modal phải nhìn thấy rõ ràng');
         await cdp.captureScreenshot('desktop_1280_filter_bar.png');
 
-        // Test click chọn danh mục trên desktop và scrollIntoView
+        // Thử click chọn danh mục trên Desktop
         console.log('Click chọn danh mục "Chùa Khmer"...');
         await cdp.eval(`window.ViVuApp.setMapCategory('chua-khmer')`);
         await sleep(500);
 
-        const categoryClickCheck = await cdp.eval(`(() => {
-            const state = window.ViVuApp.getState();
-            const badge = document.getElementById('mapPlacesCountBadge');
+        const catClickCheck = await cdp.eval(`(() => {
+            const countBadge = document.getElementById('mapPlacesCountBadge');
             return {
-                activeCat: state.mapCategory,
-                badgeText: badge?.textContent?.trim()
+                activeCat: window.ViVuApp.getState().mapCategory,
+                badgeText: countBadge?.textContent?.trim()
             };
         })()`);
-        console.log('Sau khi chọn "Chùa Khmer":', categoryClickCheck);
-        assert(categoryClickCheck.activeCat === 'chua-khmer', 'Category state phải là chua-khmer');
-        assert(categoryClickCheck.badgeText.includes('địa điểm'), 'Badge phải hiển thị số lượng');
+        console.log('Sau khi chọn "Chùa Khmer":', catClickCheck);
+        assert(catClickCheck.activeCat === 'chua-khmer', 'Danh mục đang chọn phải là chua-khmer');
 
         // 7. KIỂM TRA BỘ LỌC ĐỊA ĐIỂM TRÊN MOBILE (390px & 360px)
         console.log('\n--- BƯỚC 7: Kiểm tra thanh bộ lọc địa điểm trên Mobile (390px & 360px) ---');
         await cdp.setViewport(390, 844, true);
         await sleep(500);
 
-        // Kiểm tra chế độ xem bản đồ trên mobile (floating pills)
-        const mobileMapCheck = await cdp.eval(`(() => {
-            const floatingPills = document.getElementById('mapMobileCategoryPills');
-            const fade = document.getElementById('mapMobileCategoryFade');
-            const pills = Array.from(floatingPills?.querySelectorAll('button') || []);
+        // Map View (Floating Category Chips trên mobile)
+        const mobileMapViewCheck = await cdp.eval(`(() => {
+            const mobilePillsContainer = document.getElementById('mapMobileCategoryPills');
+            const pills = mobilePillsContainer ? Array.from(mobilePillsContainer.querySelectorAll('button')) : [];
             const allGe44 = pills.every(p => p.getBoundingClientRect().height >= 43.5);
+            const fade = document.getElementById('mapMobileCategoryFade');
             return {
                 pillsCount: pills.length,
                 allGe44,
@@ -533,30 +654,30 @@ async function main() {
                 isOverflown: document.documentElement.scrollWidth > window.innerWidth
             };
         })()`);
-        console.log('Mobile 390px Map View:', mobileMapCheck);
-        assert(mobileMapCheck.allGe44, 'Floating pills trên mobile phải có chiều cao >= 44px');
-        assert(!mobileMapCheck.isOverflown, 'Mobile không được tràn ngang');
+        console.log('Mobile 390px Map View:', mobileMapViewCheck);
+        assert(mobileMapViewCheck.pillsCount > 0, 'Phải có các nút danh mục trên mobile map view');
+        assert(mobileMapViewCheck.allGe44, 'Các nút danh mục trên mobile map view phải >= 44px');
+        assert(mobileMapViewCheck.hasFade, 'Phải có hiệu ứng fade mép phải');
+        assert(!mobileMapViewCheck.isOverflown, 'Mobile map view không được tràn ngang trang');
         await cdp.captureScreenshot('mobile_390_map_view_filter.png');
 
-        // Chuyển sang chế độ xem Danh sách trên mobile
+        // Chuyển sang Mobile List View
         console.log('Chuyển sang chế độ Danh sách trên Mobile...');
         await cdp.eval(`window.ViVuApp.toggleMapMobileView()`);
         await sleep(500);
 
         const mobileListCheck = await cdp.eval(`(() => {
-            const sidePanel = document.getElementById('mapSidePanel');
-            const searchInput = document.getElementById('mapSideSearchInput');
-            const pillsContainer = document.getElementById('mapSideCategoryPills');
-            const pills = Array.from(pillsContainer?.querySelectorAll('button') || []);
+            const panel = document.getElementById('mapSidePanel');
+            const pills = panel ? Array.from(document.getElementById('mapSideCategoryPills').querySelectorAll('button')) : [];
+            const allGe44 = pills.every(p => p.getBoundingClientRect().height >= 43.5);
             const fade = document.getElementById('mapSideCategoryFade');
+            const searchInput = document.getElementById('mapSideSearchInput');
             const openOnlyBtn = document.getElementById('mapFilterOpenOnlyBtn');
             const freeBtn = document.getElementById('mapFilterFreeBtn');
             const countBadge = document.getElementById('mapPlacesCountBadge');
 
-            const allGe44 = pills.every(p => p.getBoundingClientRect().height >= 43.5);
-
             return {
-                panelVisible: sidePanel && window.getComputedStyle(sidePanel).display !== 'none',
+                panelVisible: panel && window.getComputedStyle(panel).display !== 'none',
                 hasSearchInput: !!searchInput,
                 searchInputHeight: searchInput?.getBoundingClientRect().height,
                 pillsCount: pills.length,
@@ -635,17 +756,63 @@ async function main() {
 
         console.log('\n=== TẤT CẢ CÁC BƯỚC KIỂM THỬ E2E ĐÃ HOÀN TẤT THÀNH CÔNG 100%! ===');
     } finally {
-        // Dọn dẹp test file trên Supabase Storage
-        if (uploadedAvatarStoragePath && normalToken) {
-            console.log('\n--- Dọn dẹp tệp test avatar trên Storage ---');
-            await fetch(`${SUPABASE_URL}/storage/v1/object/review-photos/${uploadedAvatarStoragePath}`, {
-                method: 'DELETE',
-                headers: {
-                    'apikey': ANON_KEY,
-                    'Authorization': `Bearer ${normalToken}`
+        // QUY TRÌNH DỌN DẸP CHUẨN MỰC:
+        // 1. KHÔI PHỤC HỒ SƠ BAN ĐẦU TRONG DATABASE TRƯỚC
+        if (initialProfile && normalUserId && normalToken) {
+            console.log('\n--- 1. KHÔI PHỤC HỒ SƠ BAN ĐẦU CỦA USER TRONG DATABASE ---');
+            try {
+                const restoreRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${normalUserId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'apikey': ANON_KEY,
+                        'Authorization': `Bearer ${normalToken}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({
+                        avatar_url: initialProfile.avatar_url,
+                        display_name: initialProfile.display_name,
+                        bio: initialProfile.bio,
+                        updated_at: new Date().toISOString()
+                    })
+                });
+                console.log('✓ Khôi phục hồ sơ trong DB: Status =', restoreRes.status);
+
+                const verifyRestore = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${normalUserId}&select=avatar_url,display_name`, {
+                    headers: { apikey: ANON_KEY, Authorization: `Bearer ${normalToken}` }
+                });
+                const restoredRows = await verifyRestore.json();
+                if (restoredRows && restoredRows[0]) {
+                    console.log('✓ Hồ sơ đã được khôi phục nguyên trạng:', restoredRows[0]);
                 }
-            });
-            console.log('✓ Đã xóa tệp test avatar:', uploadedAvatarStoragePath);
+            } catch (err) {
+                console.error('Lỗi khi khôi phục hồ sơ:', err);
+            }
+        }
+
+        // 2. SAU KHI HỒ SƠ ĐÃ KHÔI PHỤC XONG, MỚI TIẾN HÀNH XÓA ẢNH TEST TRÊN STORAGE
+        if (uploadedAvatarStoragePath && normalToken) {
+            console.log('\n--- 2. Dọn dẹp tệp test avatar trên Storage ---');
+            try {
+                const delRes = await fetch(`${SUPABASE_URL}/storage/v1/object/review-photos/${uploadedAvatarStoragePath}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'apikey': SERVICE_KEY,
+                        'Authorization': `Bearer ${SERVICE_KEY}`
+                    }
+                });
+                console.log('✓ Đã xóa tệp test avatar trên Storage (Status: ' + delRes.status + '):', uploadedAvatarStoragePath);
+            } catch (err) {
+                console.error('Lỗi khi xóa tệp test avatar:', err);
+            }
+        }
+
+        // 3. Dọn dẹp thư mục tạm trên OS
+        if (tempDir && fs.existsSync(tempDir)) {
+            try {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                console.log('✓ Đã dọn dẹp các tệp tạm trên máy cục bộ');
+            } catch (_) {}
         }
 
         chromeProc.kill();

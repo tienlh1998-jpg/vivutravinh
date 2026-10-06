@@ -7751,9 +7751,9 @@ export function handleAvatarFileChange(event) {
         if (errorEl) errorEl.classList.add('hidden');
     };
 
-    hideError();
-
     if (!file) return;
+
+    hideError();
 
     // 1. Kiểm tra MIME Type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -7910,6 +7910,27 @@ export async function submitEditProfile(form) {
     if (role) state.userProfile.role = role;
     if (bio !== undefined) state.userProfile.bio = bio;
     if (location) state.userProfile.location = location;
+
+    if (isAuth && !state.pendingAvatarFile) {
+        try {
+            const token = await getValidUserToken() || session.access_token;
+            await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(session.user.id)}`, {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    display_name: name || undefined,
+                    bio: bio !== undefined ? bio : undefined,
+                    updated_at: new Date().toISOString()
+                })
+            });
+        } catch (e) {
+            console.warn('[Profile] Text fields sync to remote warning:', e);
+        }
+    }
 
     saveStoredUserProfile(state.userProfile);
     closeEditProfileModal();
