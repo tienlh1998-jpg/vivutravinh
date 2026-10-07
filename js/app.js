@@ -7135,7 +7135,8 @@ export async function handleAuthUrlCallback() {
         }
     }
 
-    // 3. Kiểm tra PKCE auth code (?code=...)
+    // 3. Xử lý tham số mã PKCE (?code=...) nếu có:
+    // Bỏ nhánh gọi token PKCE chưa hỗ trợ code_verifier; dọn sạch URL và thông báo rõ ràng cho người dùng
     if (searchStr.includes('code=')) {
         const searchParams = new URLSearchParams(searchStr);
         const code = searchParams.get('code');
@@ -7145,28 +7146,8 @@ export async function handleAuthUrlCallback() {
             const cleanUrl = window.location.pathname + (newQuery ? `?${newQuery}` : '');
             window.history.replaceState(null, '', cleanUrl);
 
-            try {
-                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-                    body: JSON.stringify({ auth_code: code })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.access_token) {
-                        const session = {
-                            access_token: data.access_token,
-                            refresh_token: data.refresh_token,
-                            expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
-                            user: data.user
-                        };
-                        saveUserSession(session);
-                        syncUserProfileFromRemote();
-                        updateAdminRoleUI();
-                        showSavedToast('✓ Đăng nhập / Xác thực thành công!');
-                    }
-                }
-            } catch (_) {}
+            showNoticeToast('Xác thực liên kết', 'Hệ thống sử dụng liên kết xác thực email trực tiếp (#access_token). Mã xác thực PKCE (?code=) không khả dụng trên trình duyệt này do thiếu code_verifier. Vui lòng mở trực tiếp liên kết trong thư hoặc gửi lại yêu cầu.');
+            return;
         }
     }
 }
@@ -11610,6 +11591,8 @@ if (typeof window !== 'undefined') {
         closeResetPasswordModal,
         handleResetPasswordSubmit,
         handleResendAuthEmail,
+        sendPasswordResetEmail,
+        resendVerificationEmail,
         handleAuthUrlCallback,
         verifyUserTokenWithServer,
         syncCommunityUgcFeed,

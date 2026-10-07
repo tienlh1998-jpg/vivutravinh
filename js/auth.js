@@ -225,24 +225,39 @@ export async function signUpWithEmail(email, password, displayName = '') {
   }
 
   const redirectUrl = getAuthRedirectUrl();
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(redirectUrl)}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({
-      email: cleanEmail,
-      password: cleanPassword,
-      data: {
-        display_name: cleanName
-      }
-    })
-  });
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(redirectUrl)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        email: cleanEmail,
+        password: cleanPassword,
+        data: {
+          display_name: cleanName
+        }
+      })
+    });
+  } catch (networkErr) {
+    throw new Error('Không thể kết nối máy chủ xác thực. Vui lòng kiểm tra kết nối mạng và thử lại.');
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error_description || data.msg || data.message || 'Đăng ký thất bại.');
+    if (res.status === 429) {
+      throw new Error('Bạn đã thử đăng ký quá nhiều lần. Vui lòng đợi 60 giây trước khi thử lại.');
+    }
+    if (res.status >= 500) {
+      throw new Error('Máy chủ xác thực tạm thời gián đoạn. Vui lòng thử lại sau.');
+    }
+    const rawMsg = data.error_description || data.msg || data.message || '';
+    if (rawMsg.toLowerCase().includes('already registered')) {
+      throw new Error('Email này đã được đăng ký trên hệ thống. Vui lòng chuyển sang tab Đăng nhập hoặc Quên mật khẩu.');
+    }
+    throw new Error(rawMsg || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.');
   }
 
   // Nếu Supabase cấp access_token ngay (không bật email confirmation)
@@ -272,7 +287,7 @@ export async function signUpWithEmail(email, password, displayName = '') {
 }
 
 /**
- * Gửi email khôi phục / đặt lại mật khẩu (Neutral response để bảo mật thông tin tài khoản)
+ * Gửi email khôi phục / đặt lại mật khẩu (Neutral response để bảo vệ tài khoản - Anti-Account Enumeration)
  */
 export async function sendPasswordResetEmail(email) {
   const cleanEmail = String(email || '').trim().toLowerCase();
@@ -281,33 +296,37 @@ export async function sendPasswordResetEmail(email) {
   }
 
   const redirectUrl = getAuthRedirectUrl();
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectUrl)}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({ email: cleanEmail })
-  });
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectUrl)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ email: cleanEmail })
+    });
+  } catch (networkErr) {
+    throw new Error('Không thể kết nối máy chủ xác thực. Vui lòng kiểm tra kết nối mạng và thử lại.');
+  }
 
   if (res.status === 429) {
     throw new Error('Bạn đã gửi yêu cầu quá nhiều lần. Vui lòng đợi 60 giây trước khi thử lại.');
   }
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    // Nếu có lỗi hệ thống không phải rate limit, kiểm tra xem có thông báo lỗi cụ thể không
-    if (res.status >= 500) {
-      throw new Error('Máy chủ xác thực tạm thời gián đoạn. Vui lòng thử lại sau.');
-    }
+  if (res.status >= 500) {
+    throw new Error('Dịch vụ gửi email tạm thời gián đoạn. Vui lòng thử lại sau.');
   }
 
-  // Trả về thông báo trung lập để bảo mật
+  // Đối với Supabase 4xx (ví dụ 400 user not found, unconfirmed,...):
+  // Theo nguyên tắc Anti-Account Enumeration (chống rà quét tài khoản),
+  // luôn trả về thành công trung lập để kẻ xấu không thể dò quét danh sách email người dùng.
   return { success: true };
 }
 
 /**
  * Gửi lại email xác thực tài khoản (Resend signup confirmation)
+ * Giữ phản hồi trung lập để chống lộ thông tin tài khoản (Anti-Account Enumeration)
  */
 export async function resendVerificationEmail(email) {
   const cleanEmail = String(email || '').trim().toLowerCase();
@@ -316,27 +335,33 @@ export async function resendVerificationEmail(email) {
   }
 
   const redirectUrl = getAuthRedirectUrl();
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/resend?redirect_to=${encodeURIComponent(redirectUrl)}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({
-      type: 'signup',
-      email: cleanEmail
-    })
-  });
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/auth/v1/resend?redirect_to=${encodeURIComponent(redirectUrl)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        type: 'signup',
+        email: cleanEmail
+      })
+    });
+  } catch (networkErr) {
+    throw new Error('Không thể kết nối máy chủ xác thực. Vui lòng kiểm tra kết nối mạng và thử lại.');
+  }
 
   if (res.status === 429) {
     throw new Error('Bạn đã yêu cầu gửi quá nhanh. Vui lòng đợi 60 giây trước khi thử lại.');
   }
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error_description || data.msg || data.message || 'Không thể gửi lại email xác thực.');
+  if (res.status >= 500) {
+    throw new Error('Dịch vụ gửi email tạm thời gián đoạn. Vui lòng thử lại sau.');
   }
 
+  // Với các mã phản hồi 4xx khác (ví dụ: user not found, user already confirmed,...):
+  // Giữ phản hồi trung lập thành công để không làm lộ trạng thái tài khoản
   return { success: true };
 }
 
@@ -354,15 +379,20 @@ export async function updateUserPassword(newPassword, accessToken = null) {
     throw new Error('Phiên khôi phục không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu liên kết mới.');
   }
 
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({ password: cleanPass })
-  });
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ password: cleanPass })
+    });
+  } catch (networkErr) {
+    throw new Error('Không thể kết nối máy chủ xác thực. Vui lòng kiểm tra kết nối mạng và thử lại.');
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -383,19 +413,24 @@ export async function signInWithEmail(email, password) {
     throw new Error('Vui lòng nhập đầy đủ email và mật khẩu.');
   }
 
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY
-    },
-    body: JSON.stringify({
-      email: cleanEmail,
-      password: cleanPassword
-    })
-  });
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        email: cleanEmail,
+        password: cleanPassword
+      })
+    });
+  } catch (networkErr) {
+    throw new Error('Không thể kết nối máy chủ xác thực. Vui lòng kiểm tra kết nối mạng và thử lại.');
+  }
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.error_description || data.msg || data.message || 'Email hoặc mật khẩu không chính xác.');
   }
