@@ -35,6 +35,33 @@ export function getJwtPayload(token) {
 }
 
 /**
+ * Xác thực token người dùng trực tiếp với máy chủ Supabase Auth.
+ * TUYỆT ĐỐI không dùng giải mã JWT client-side làm bằng chứng xác thực.
+ * @param {string} token - Access token JWT
+ * @returns {Promise<object|null>} - Thông tin đối tượng user nếu hợp lệ, null nếu không hợp lệ hoặc hết hạn
+ */
+export async function verifyUserTokenWithServer(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!res.ok) {
+      return null;
+    }
+    const user = await res.json().catch(() => null);
+    if (!user || !user.id) return null;
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Đọc phiên đăng nhập hiện tại từ localStorage (có fallback sang phiên admin nếu cần)
  */
 export function getUserSession() {

@@ -160,7 +160,8 @@ import {
     sendPasswordResetEmail,
     resendVerificationEmail,
     updateUserPassword,
-    getAuthRedirectUrl
+    getAuthRedirectUrl,
+    verifyUserTokenWithServer
 } from './auth.js';
 
 import { getSiteUrl, DEFAULT_SITE_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
@@ -7100,6 +7101,12 @@ export async function handleAuthUrlCallback() {
 
         // Trường hợp khôi phục mật khẩu (type === 'recovery')
         if (type === 'recovery') {
+            // Xác thực token khôi phục trực tiếp với máy chủ Supabase Auth (không chấp nhận token giả/hết hạn)
+            const verifiedUser = await verifyUserTokenWithServer(accessToken);
+            if (!verifiedUser || !verifiedUser.id) {
+                showNoticeToast('Liên kết hết hạn', 'Liên kết khôi phục mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng gửi lại yêu cầu mới.');
+                return;
+            }
             activeRecoveryToken = accessToken;
             openResetPasswordModal(accessToken);
             showNoticeToast('Khôi phục mật khẩu', 'Vui lòng thiết lập mật khẩu mới cho tài khoản của bạn.');
@@ -7108,23 +7115,22 @@ export async function handleAuthUrlCallback() {
 
         // Trường hợp xác thực email đăng ký mới (type === 'signup' hoặc 'email_change')
         if (type === 'signup' || type === 'email_change' || !type) {
-            const payload = getJwtPayload(accessToken);
-            if (payload && payload.sub) {
-                const session = {
-                    access_token: accessToken,
-                    refresh_token: refreshToken || null,
-                    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
-                    user: {
-                        id: payload.sub,
-                        email: payload.email,
-                        user_metadata: payload.user_metadata || {}
-                    }
-                };
-                saveUserSession(session);
-                syncUserProfileFromRemote();
-                updateAdminRoleUI();
-                showSavedToast('✓ Địa chỉ email đã được xác thực thành công! Chào mừng bạn gia nhập ViVuTràVinh.');
+            // Xác thực token trực tiếp với máy chủ Supabase Auth (TUYỆT ĐỐI không dùng giải mã JWT client-side)
+            const verifiedUser = await verifyUserTokenWithServer(accessToken);
+            if (!verifiedUser || !verifiedUser.id) {
+                showNoticeToast('Xác thực thất bại', 'Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng thử lại hoặc yêu cầu gửi lại email.');
+                return;
             }
+            const session = {
+                access_token: accessToken,
+                refresh_token: refreshToken || null,
+                expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+                user: verifiedUser
+            };
+            saveUserSession(session);
+            syncUserProfileFromRemote();
+            updateAdminRoleUI();
+            showSavedToast('✓ Địa chỉ email đã được xác thực thành công! Chào mừng bạn gia nhập ViVuTràVinh.');
             return;
         }
     }
@@ -11605,6 +11611,7 @@ if (typeof window !== 'undefined') {
         handleResetPasswordSubmit,
         handleResendAuthEmail,
         handleAuthUrlCallback,
+        verifyUserTokenWithServer,
         syncCommunityUgcFeed,
         syncCommunityEventsFromSupabase,
         // Profile & Saved Collections Methods (Phase 7)
