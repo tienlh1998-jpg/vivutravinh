@@ -3562,12 +3562,15 @@
         </div>
     </div>
 
-    <!-- 18B. MODAL ĐĂNG NHẬP / ĐĂNG KÝ NGƯỜI DÙNG (USER AUTH MODAL - SUPABASE AUTH) -->
+    <!-- 18B. MODAL ĐĂNG NHẬP / ĐĂNG KÝ / QUÊN MẬT KHẨU (USER AUTH MODAL - SUPABASE AUTH) -->
     <div id="userAuthModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="userAuthModalTitle">
         <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeAuthModal()"></div>
         <div class="relative z-10 w-full max-w-md bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-outline-variant/30 dark:border-zinc-800 text-left">
             <div class="flex items-center justify-between pb-4 border-b border-outline-variant/20 dark:border-zinc-800">
                 <div class="flex items-center gap-2">
+                    <button id="authBackToSignInBtn" type="button" onclick="window.ViVuApp.switchAuthTab('signin')" class="hidden w-8 h-8 rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface flex items-center justify-center min-h-[44px] min-w-[44px]" aria-label="Quay lại đăng nhập" title="Quay lại đăng nhập">
+                        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    </button>
                     <span class="material-symbols-outlined text-primary dark:text-emerald-400 text-2xl">account_circle</span>
                     <h3 id="userAuthModalTitle" class="font-bold text-lg text-primary dark:text-zinc-100">Tài Khoản ViVuTràVinh</h3>
                 </div>
@@ -3576,28 +3579,107 @@
                 </button>
             </div>
 
-            <!-- Tabs Đăng nhập / Đăng ký -->
-            <div class="flex rounded-xl bg-surface-container dark:bg-zinc-800 p-1 my-4">
+            <!-- Tabs Đăng nhập / Đăng ký (ẩn khi ở chế độ quên mật khẩu) -->
+            <div id="authTabsContainer" class="flex rounded-xl bg-surface-container dark:bg-zinc-800 p-1 my-4">
                 <button id="authTabSignIn" type="button" onclick="window.ViVuApp.switchAuthTab('signin')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-colors bg-white dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs">Đăng nhập</button>
                 <button id="authTabSignUp" type="button" onclick="window.ViVuApp.switchAuthTab('signup')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-colors text-on-surface-variant dark:text-zinc-400 hover:text-on-surface">Đăng ký mới</button>
             </div>
 
+            <!-- Thông báo trung lập hoặc hướng dẫn xác thực email -->
+            <div id="authNoticeMessage" class="hidden p-3 mb-3 text-xs text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 rounded-xl border border-emerald-200 dark:border-emerald-800 leading-relaxed"></div>
+
             <form id="userAuthForm" onsubmit="window.ViVuApp.handleAuthSubmit(event)">
                 <div id="authDisplayNameField" class="hidden mb-3">
-                    <label class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mb-1">Họ và tên / Tên hiển thị</label>
-                    <input id="authDisplayNameInput" type="text" placeholder="Nguyễn Văn A" class="w-full px-3 py-2 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
+                    <label for="authDisplayNameInput" class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mb-1">Họ và tên / Tên hiển thị</label>
+                    <input id="authDisplayNameInput" type="text" placeholder="Nguyễn Văn A" class="w-full px-3 py-2.5 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
                 </div>
-                <div class="mb-3">
-                    <label class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mb-1">Email</label>
-                    <input id="authEmailInput" type="email" required placeholder="name@example.com" class="w-full px-3 py-2 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
+
+                <div id="authEmailField" class="mb-3">
+                    <label for="authEmailInput" class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mb-1">Email</label>
+                    <input id="authEmailInput" type="email" required placeholder="name@example.com" class="w-full px-3 py-2.5 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
                 </div>
-                <div class="mb-4">
-                    <label class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mb-1">Mật khẩu</label>
-                    <input id="authPasswordInput" type="password" required minlength="6" placeholder="Tối thiểu 6 ký tự" class="w-full px-3 py-2 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
+
+                <div id="authPasswordField" class="mb-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <label for="authPasswordInput" class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400">Mật khẩu</label>
+                        <button id="authForgotPasswordLink" type="button" onclick="window.ViVuApp.switchAuthTab('forgot')" class="text-xs text-primary dark:text-emerald-400 hover:underline font-medium min-h-[32px] flex items-center">Quên mật khẩu?</button>
+                    </div>
+                    <div class="relative">
+                        <input id="authPasswordInput" type="password" required minlength="6" placeholder="Tối thiểu 6 ký tự" class="w-full pl-3 pr-11 py-2.5 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
+                        <button id="authPasswordToggleBtn" type="button" onclick="window.ViVuApp.togglePasswordVisibility('authPasswordInput', 'authPasswordToggleBtn')" class="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 min-h-[44px] min-w-[44px]" aria-label="Hiện mật khẩu" title="Hiện/ẩn mật khẩu">
+                            <span class="material-symbols-outlined text-[20px]">visibility</span>
+                        </button>
+                    </div>
                 </div>
-                <div id="authErrorMessage" class="hidden p-2.5 mb-3 text-xs text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 rounded-xl border border-rose-200 dark:border-rose-900"></div>
+
+                <div id="authConfirmPasswordField" class="hidden mb-3">
+                    <label for="authConfirmPasswordInput" class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mb-1">Nhập lại mật khẩu</label>
+                    <div class="relative">
+                        <input id="authConfirmPasswordInput" type="password" minlength="6" placeholder="Nhập lại mật khẩu để xác nhận" class="w-full pl-3 pr-11 py-2.5 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
+                        <button id="authConfirmPasswordToggleBtn" type="button" onclick="window.ViVuApp.togglePasswordVisibility('authConfirmPasswordInput', 'authConfirmPasswordToggleBtn')" class="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 min-h-[44px] min-w-[44px]" aria-label="Hiện mật khẩu" title="Hiện/ẩn mật khẩu">
+                            <span class="material-symbols-outlined text-[20px]">visibility</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="authErrorMessage" class="hidden p-2.5 mb-3 text-xs text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 rounded-xl border border-rose-200 dark:border-rose-900 leading-relaxed"></div>
+
                 <button id="authSubmitBtn" type="submit" class="w-full py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-bold text-sm min-h-[44px] transition-colors shadow-sm">
                     Đăng nhập
+                </button>
+            </form>
+
+            <!-- Vùng gửi lại email & thời gian chờ cooldown -->
+            <div id="authResendContainer" class="hidden mt-4 pt-3 border-t border-outline-variant/20 dark:border-zinc-800 flex flex-col items-center gap-2">
+                <button id="authResendBtn" type="button" onclick="window.ViVuApp.handleResendAuthEmail()" class="text-xs font-semibold text-primary dark:text-emerald-400 hover:underline disabled:opacity-50 disabled:no-underline min-h-[44px] inline-flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[16px]">sync</span>
+                    <span id="authResendBtnText">Gửi lại email</span>
+                </button>
+                <button id="authBackToSignInSecondaryBtn" type="button" onclick="window.ViVuApp.switchAuthTab('signin')" class="text-xs text-stone-500 dark:text-zinc-400 hover:underline min-h-[36px] flex items-center">
+                    Quay lại màn hình Đăng nhập
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 18C. MODAL ĐẶT LẠI MẬT KHẨU MỚI (RESET PASSWORD MODAL - SUPABASE AUTH) -->
+    <div id="resetPasswordModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="resetPasswordModalTitle">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp.closeResetPasswordModal()"></div>
+        <div class="relative z-10 w-full max-w-md bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-outline-variant/30 dark:border-zinc-800 text-left">
+            <div class="flex items-center justify-between pb-4 border-b border-outline-variant/20 dark:border-zinc-800">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary dark:text-emerald-400 text-2xl">lock_reset</span>
+                    <h3 id="resetPasswordModalTitle" class="font-bold text-lg text-primary dark:text-zinc-100">Đặt Lại Mật Khẩu Mới</h3>
+                </div>
+                <button type="button" onclick="window.ViVuApp.closeResetPasswordModal()" class="w-9 h-9 rounded-full bg-surface-container-low dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 hover:text-on-surface flex items-center justify-center min-h-[44px] min-w-[44px]" aria-label="Đóng">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
+            <p class="text-xs text-on-surface-variant dark:text-zinc-400 my-3 leading-relaxed">
+                Vui lòng nhập mật khẩu mới cho tài khoản ViVuTràVinh của bạn (tối thiểu 6 ký tự).
+            </p>
+            <form id="resetPasswordForm" onsubmit="window.ViVuApp.handleResetPasswordSubmit(event)">
+                <div class="mb-3">
+                    <label for="resetNewPasswordInput" class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mb-1">Mật khẩu mới</label>
+                    <div class="relative">
+                        <input id="resetNewPasswordInput" type="password" required minlength="6" placeholder="Tối thiểu 6 ký tự" class="w-full pl-3 pr-11 py-2.5 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
+                        <button id="resetNewPasswordToggleBtn" type="button" onclick="window.ViVuApp.togglePasswordVisibility('resetNewPasswordInput', 'resetNewPasswordToggleBtn')" class="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 min-h-[44px] min-w-[44px]" aria-label="Hiện mật khẩu" title="Hiện/ẩn mật khẩu">
+                            <span class="material-symbols-outlined text-[20px]">visibility</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="resetConfirmPasswordInput" class="block text-xs font-semibold text-on-surface-variant dark:text-zinc-400 mb-1">Xác nhận mật khẩu mới</label>
+                    <div class="relative">
+                        <input id="resetConfirmPasswordInput" type="password" required minlength="6" placeholder="Nhập lại mật khẩu mới" class="w-full pl-3 pr-11 py-2.5 text-sm rounded-xl border border-outline-variant/40 dark:border-zinc-700 bg-surface dark:bg-zinc-800 text-on-surface dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-secondary">
+                        <button id="resetConfirmPasswordToggleBtn" type="button" onclick="window.ViVuApp.togglePasswordVisibility('resetConfirmPasswordInput', 'resetConfirmPasswordToggleBtn')" class="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-on-surface-variant dark:text-zinc-400 hover:text-on-surface dark:hover:text-zinc-200 min-h-[44px] min-w-[44px]" aria-label="Hiện mật khẩu" title="Hiện/ẩn mật khẩu">
+                            <span class="material-symbols-outlined text-[20px]">visibility</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="resetErrorMessage" class="hidden p-2.5 mb-3 text-xs text-rose-700 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300 rounded-xl border border-rose-200 dark:border-rose-900 leading-relaxed"></div>
+                <button id="resetSubmitBtn" type="submit" class="w-full py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-bold text-sm min-h-[44px] transition-colors shadow-sm">
+                    Cập nhật mật khẩu mới
                 </button>
             </form>
         </div>

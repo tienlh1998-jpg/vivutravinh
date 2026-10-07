@@ -167,7 +167,23 @@ export async function getValidUserToken() {
 }
 
 /**
+ * Lấy URL chuyển hướng xác thực chuẩn (ưu tiên production https://vivutravinh.id.vn)
+ */
+export function getAuthRedirectUrl() {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    // Nếu đang chạy môi trường phát triển local
+    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.')) {
+      return window.location.origin;
+    }
+  }
+  // Môi trường live/production
+  return 'https://vivutravinh.id.vn';
+}
+
+/**
  * Đăng ký tài khoản người dùng mới qua Supabase Auth
+ * - Hỗ trợ email confirmation: trả về requiresConfirmation = true nếu cần xác thực email
  */
 export async function signUpWithEmail(email, password, displayName = '') {
   const cleanEmail = String(email || '').trim().toLowerCase();
@@ -181,7 +197,8 @@ export async function signUpWithEmail(email, password, displayName = '') {
     throw new Error('Mật khẩu phải có ít nhất 6 ký tự.');
   }
 
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+  const redirectUrl = getAuthRedirectUrl();
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(redirectUrl)}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -196,11 +213,12 @@ export async function signUpWithEmail(email, password, displayName = '') {
     })
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.error_description || data.msg || data.message || 'Đăng ký thất bại.');
   }
 
+  // Nếu Supabase cấp access_token ngay (không bật email confirmation)
   if (data.access_token) {
     const session = {
       access_token: data.access_token,
@@ -209,6 +227,119 @@ export async function signUpWithEmail(email, password, displayName = '') {
       user: data.user
     };
     saveUserSession(session);
+    return {
+      success: true,
+      session,
+      requiresConfirmation: false,
+      user: data.user
+    };
+  }
+
+  // Cần xác thực qua email trước khi đăng nhập
+  return {
+    success: true,
+    session: null,
+    requiresConfirmation: true,
+    user: data.user || data
+  };
+}
+
+/**
+ * Gửi email khôi phục / đặt lại mật khẩu (Neutral response để bảo mật thông tin tài khoản)
+ */
+export async function sendPasswordResetEmail(email) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new Error('Vui lòng nhập địa chỉ email hợp lệ.');
+  }
+
+  const redirectUrl = getAuthRedirectUrl();
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectUrl)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ email: cleanEmail })
+  });
+
+  if (res.status === 429) {
+    throw new Error('Bạn đã gửi yêu cầu quá nhiều lần. Vui lòng đợi 60 giây trước khi thử lại.');
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    // Nếu có lỗi hệ thống không phải rate limit, kiểm tra xem có thông báo lỗi cụ thể không
+    if (res.status >= 500) {
+      throw new Error('Máy chủ xác thực tạm thời gián đoạn. Vui lòng thử lại sau.');
+    }
+  }
+
+  // Trả về thông báo trung lập để bảo mật
+  return { success: true };
+}
+
+/**
+ * Gửi lại email xác thực tài khoản (Resend signup confirmation)
+ */
+export async function resendVerificationEmail(email) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new Error('Vui lòng nhập địa chỉ email hợp lệ.');
+  }
+
+  const redirectUrl = getAuthRedirectUrl();
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/resend?redirect_to=${encodeURIComponent(redirectUrl)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({
+      type: 'signup',
+      email: cleanEmail
+    })
+  });
+
+  if (res.status === 429) {
+    throw new Error('Bạn đã yêu cầu gửi quá nhanh. Vui lòng đợi 60 giây trước khi thử lại.');
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error_description || data.msg || data.message || 'Không thể gửi lại email xác thực.');
+  }
+
+  return { success: true };
+}
+
+/**
+ * Đặt lại mật khẩu mới cho tài khoản người dùng
+ */
+export async function updateUserPassword(newPassword, accessToken = null) {
+  const cleanPass = String(newPassword || '');
+  if (cleanPass.length < 6) {
+    throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự.');
+  }
+
+  const token = accessToken || (await getValidUserToken());
+  if (!token) {
+    throw new Error('Phiên khôi phục không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu liên kết mới.');
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ password: cleanPass })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error_description || data.msg || data.message || 'Không thể cập nhật mật khẩu mới.');
   }
 
   return data;

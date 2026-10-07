@@ -156,7 +156,11 @@ import {
     signUpWithEmail,
     signInWithEmail,
     signOutUser,
-    fetchUserProfile
+    fetchUserProfile,
+    sendPasswordResetEmail,
+    resendVerificationEmail,
+    updateUserPassword,
+    getAuthRedirectUrl
 } from './auth.js';
 
 import { getSiteUrl, DEFAULT_SITE_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
@@ -891,6 +895,9 @@ async function initApp() {
         initMiniMap();
 
         showLoading(false);
+
+        // Xử lý xác thực email / phục hồi mật khẩu callback từ Supabase URL
+        await handleAuthUrlCallback();
 
         // Kiểm tra deep link (?place=slug)
         handleDeepLink();
@@ -6533,8 +6540,32 @@ export function clearCommunityPostCheckin() {
 
 let pendingAuthCallback = null;
 
+let authResendTimer = null;
+let lastAuthTargetEmail = '';
+let lastAuthTargetType = 'signup'; // 'signup' | 'forgot'
+let activeRecoveryToken = null;
+
 /**
- * Mở modal Đăng nhập / Đăng ký người dùng
+ * Hiện hoặc ẩn mật khẩu trên form (PC và Mobile)
+ */
+export function togglePasswordVisibility(inputId, toggleBtnId) {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(toggleBtnId);
+    if (!input) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    if (btn) {
+        const icon = btn.querySelector('.material-symbols-outlined');
+        if (icon) {
+            icon.textContent = isPassword ? 'visibility_off' : 'visibility';
+        }
+        btn.setAttribute('aria-label', isPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu');
+        btn.title = isPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu';
+    }
+}
+
+/**
+ * Mở modal Đăng nhập / Đăng ký / Quên mật khẩu
  */
 export function openAuthModal(mode = 'signin', onSuccess = null) {
     pendingAuthCallback = typeof onSuccess === 'function' ? onSuccess : null;
@@ -6545,6 +6576,11 @@ export function openAuthModal(mode = 'signin', onSuccess = null) {
     if (errorEl) {
         errorEl.textContent = '';
         errorEl.classList.add('hidden');
+    }
+    const noticeEl = document.getElementById('authNoticeMessage');
+    if (noticeEl) {
+        noticeEl.textContent = '';
+        noticeEl.classList.add('hidden');
     }
     modal.classList.remove('hidden');
     syncBodyScrollLock();
@@ -6563,80 +6599,309 @@ export function closeAuthModal() {
 }
 
 /**
- * Chuyển tab giữa Đăng nhập và Đăng ký mới
+ * Chuyển đổi giữa các tab: Đăng nhập (signin), Đăng ký (signup), Quên mật khẩu (forgot)
  */
 export function switchAuthTab(tab = 'signin') {
-    const isSignIn = tab === 'signin';
+    state.currentAuthTab = tab;
     const tabSignIn = document.getElementById('authTabSignIn');
     const tabSignUp = document.getElementById('authTabSignUp');
+    const tabsContainer = document.getElementById('authTabsContainer');
+    const backBtn = document.getElementById('authBackToSignInBtn');
     const nameField = document.getElementById('authDisplayNameField');
     const nameInput = document.getElementById('authDisplayNameInput');
+    const passwordField = document.getElementById('authPasswordField');
+    const passwordInput = document.getElementById('authPasswordInput');
+    const confirmField = document.getElementById('authConfirmPasswordField');
+    const confirmInput = document.getElementById('authConfirmPasswordInput');
+    const forgotLink = document.getElementById('authForgotPasswordLink');
     const submitBtn = document.getElementById('authSubmitBtn');
     const modalTitle = document.getElementById('userAuthModalTitle');
     const errorEl = document.getElementById('authErrorMessage');
+    const noticeEl = document.getElementById('authNoticeMessage');
+    const resendContainer = document.getElementById('authResendContainer');
+
     if (errorEl) {
         errorEl.textContent = '';
         errorEl.classList.add('hidden');
     }
+    if (noticeEl) {
+        noticeEl.textContent = '';
+        noticeEl.classList.add('hidden');
+    }
+    if (resendContainer) {
+        resendContainer.classList.add('hidden');
+    }
 
-    if (isSignIn) {
+    if (tab === 'signin') {
+        if (tabsContainer) tabsContainer.classList.remove('hidden');
+        if (backBtn) backBtn.classList.add('hidden');
         if (tabSignIn) tabSignIn.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-colors bg-white dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs';
         if (tabSignUp) tabSignUp.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-colors text-on-surface-variant dark:text-zinc-400 hover:text-on-surface';
         if (nameField) nameField.classList.add('hidden');
         if (nameInput) nameInput.required = false;
-        if (submitBtn) submitBtn.textContent = 'Đăng nhập';
+        if (passwordField) passwordField.classList.remove('hidden');
+        if (passwordInput) passwordInput.required = true;
+        if (confirmField) confirmField.classList.add('hidden');
+        if (confirmInput) confirmInput.required = false;
+        if (forgotLink) forgotLink.classList.remove('hidden');
+        if (submitBtn) {
+            submitBtn.textContent = 'Đăng nhập';
+            submitBtn.classList.remove('hidden');
+        }
         if (modalTitle) modalTitle.textContent = 'Đăng Nhập Tài Khoản';
-    } else {
+    } else if (tab === 'signup') {
+        if (tabsContainer) tabsContainer.classList.remove('hidden');
+        if (backBtn) backBtn.classList.add('hidden');
         if (tabSignIn) tabSignIn.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-colors text-on-surface-variant dark:text-zinc-400 hover:text-on-surface';
         if (tabSignUp) tabSignUp.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-colors bg-white dark:bg-zinc-700 text-primary dark:text-emerald-400 shadow-xs';
         if (nameField) nameField.classList.remove('hidden');
         if (nameInput) nameInput.required = true;
-        if (submitBtn) submitBtn.textContent = 'Tạo Tài Khoản Mới';
+        if (passwordField) passwordField.classList.remove('hidden');
+        if (passwordInput) passwordInput.required = true;
+        if (confirmField) confirmField.classList.remove('hidden');
+        if (confirmInput) confirmInput.required = true;
+        if (forgotLink) forgotLink.classList.add('hidden');
+        if (submitBtn) {
+            submitBtn.textContent = 'Tạo Tài Khoản Mới';
+            submitBtn.classList.remove('hidden');
+        }
         if (modalTitle) modalTitle.textContent = 'Đăng Ký Thành Viên';
+    } else if (tab === 'forgot') {
+        if (tabsContainer) tabsContainer.classList.add('hidden');
+        if (backBtn) backBtn.classList.remove('hidden');
+        if (nameField) nameField.classList.add('hidden');
+        if (nameInput) nameInput.required = false;
+        if (passwordField) passwordField.classList.add('hidden');
+        if (passwordInput) passwordInput.required = false;
+        if (confirmField) confirmField.classList.add('hidden');
+        if (confirmInput) confirmInput.required = false;
+        if (forgotLink) forgotLink.classList.add('hidden');
+        if (submitBtn) {
+            submitBtn.textContent = 'Gửi liên kết khôi phục';
+            submitBtn.classList.remove('hidden');
+        }
+        if (modalTitle) modalTitle.textContent = 'Khôi Phục Mật Khẩu';
     }
 }
 
 /**
- * Xử lý submit form Đăng nhập / Đăng ký
+ * Đếm ngược thời gian chờ gửi lại email (cooldown 60s)
+ */
+export function startAuthResendCooldown(seconds = 60, type = 'signup', email = '') {
+    if (authResendTimer) clearInterval(authResendTimer);
+    lastAuthTargetType = type;
+    if (email) lastAuthTargetEmail = email;
+
+    const resendContainer = document.getElementById('authResendContainer');
+    const resendBtn = document.getElementById('authResendBtn');
+    const resendText = document.getElementById('authResendBtnText');
+    if (!resendContainer || !resendBtn) return;
+
+    resendContainer.classList.remove('hidden');
+    resendBtn.disabled = true;
+
+    let remaining = seconds;
+    if (resendText) resendText.textContent = `Gửi lại sau (${remaining}s)`;
+
+    authResendTimer = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+            clearInterval(authResendTimer);
+            authResendTimer = null;
+            resendBtn.disabled = false;
+            if (resendText) resendText.textContent = type === 'signup' ? 'Gửi lại email xác thực' : 'Gửi lại email khôi phục';
+        } else {
+            if (resendText) resendText.textContent = `Gửi lại sau (${remaining}s)`;
+        }
+    }, 1000);
+}
+
+/**
+ * Xử lý click nút gửi lại email xác thực hoặc khôi phục
+ */
+export async function handleResendAuthEmail() {
+    const email = lastAuthTargetEmail || document.getElementById('authEmailInput')?.value?.trim();
+    if (!email) {
+        showNoticeToast('Thiếu email', 'Vui lòng nhập địa chỉ email cần gửi lại.');
+        return;
+    }
+    const resendBtn = document.getElementById('authResendBtn');
+    const resendText = document.getElementById('authResendBtnText');
+    if (resendBtn) resendBtn.disabled = true;
+    if (resendText) resendText.textContent = 'Đang gửi...';
+
+    try {
+        if (lastAuthTargetType === 'signup') {
+            await resendVerificationEmail(email);
+            showSavedToast('✓ Đã gửi lại email xác thực! Vui lòng kiểm tra hộp thư.');
+        } else {
+            await sendPasswordResetEmail(email);
+            showSavedToast('✓ Đã gửi lại email khôi phục mật khẩu!');
+        }
+        startAuthResendCooldown(60, lastAuthTargetType, email);
+    } catch (err) {
+        showNoticeToast('Lưu ý', err.message || 'Không thể gửi lại email.');
+        if (resendBtn) resendBtn.disabled = false;
+        if (resendText) resendText.textContent = lastAuthTargetType === 'signup' ? 'Gửi lại email xác thực' : 'Gửi lại email khôi phục';
+    }
+}
+
+/**
+ * Xử lý submit form Đăng nhập / Đăng ký / Quên mật khẩu
  */
 export async function handleAuthSubmit(event) {
     if (event && typeof event.preventDefault === 'function') {
         event.preventDefault();
     }
+    const currentTab = state.currentAuthTab || 'signin';
     const emailInput = document.getElementById('authEmailInput');
     const passwordInput = document.getElementById('authPasswordInput');
+    const confirmInput = document.getElementById('authConfirmPasswordInput');
     const nameInput = document.getElementById('authDisplayNameInput');
     const errorEl = document.getElementById('authErrorMessage');
+    const noticeEl = document.getElementById('authNoticeMessage');
     const submitBtn = document.getElementById('authSubmitBtn');
 
     const email = emailInput?.value?.trim();
     const password = passwordInput?.value;
+    const confirmPassword = confirmInput?.value;
     const displayName = nameInput?.value?.trim();
-    const isSignUp = !document.getElementById('authDisplayNameField')?.classList.contains('hidden');
+
+    const showError = (msg) => {
+        if (errorEl) {
+            errorEl.textContent = msg;
+            errorEl.classList.remove('hidden');
+        }
+    };
+    const showNotice = (msg) => {
+        if (noticeEl) {
+            noticeEl.innerHTML = msg;
+            noticeEl.classList.remove('hidden');
+        }
+    };
 
     if (errorEl) {
         errorEl.textContent = '';
         errorEl.classList.add('hidden');
     }
+    if (noticeEl) {
+        noticeEl.textContent = '';
+        noticeEl.classList.add('hidden');
+    }
+
+    if (!email || !email.includes('@')) {
+        showError('Vui lòng nhập địa chỉ email hợp lệ.');
+        return;
+    }
+
+    // 1. Chế độ QUÊN MẬT KHẨU
+    if (currentTab === 'forgot') {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-70');
+            submitBtn.textContent = 'Đang gửi yêu cầu...';
+        }
+        try {
+            await sendPasswordResetEmail(email);
+            lastAuthTargetEmail = email;
+            lastAuthTargetType = 'forgot';
+            showNotice(`Nếu email <strong>${escapeHtml(email)}</strong> tồn tại trong hệ thống, chúng tôi đã gửi liên kết khôi phục mật khẩu. Vui lòng kiểm tra hộp thư (bao gồm cả thư mục Spam/Rác) và làm theo hướng dẫn.`);
+            if (submitBtn) submitBtn.classList.add('hidden');
+            startAuthResendCooldown(60, 'forgot', email);
+        } catch (err) {
+            showError(err.message || 'Không thể gửi email khôi phục mật khẩu.');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-70');
+                submitBtn.textContent = 'Gửi liên kết khôi phục';
+            }
+        }
+        return;
+    }
+
+    // 2. Chế độ ĐĂNG KÝ
+    if (currentTab === 'signup') {
+        if (!password || password.length < 6) {
+            showError('Mật khẩu phải có ít nhất 6 ký tự.');
+            passwordInput?.focus();
+            return;
+        }
+        if (password !== confirmPassword) {
+            showError('Mật khẩu xác nhận không trùng khớp. Vui lòng kiểm tra lại.');
+            confirmInput?.focus();
+            return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-70');
+            submitBtn.textContent = 'Đang khởi tạo tài khoản...';
+        }
+
+        try {
+            const signupRes = await signUpWithEmail(email, password, displayName);
+            lastAuthTargetEmail = email;
+            lastAuthTargetType = 'signup';
+
+            // Nếu Supabase yêu cầu xác thực email (chưa cấp access_token)
+            if (signupRes.requiresConfirmation) {
+                showNotice(`Đăng ký tài khoản thành công! Chúng tôi đã gửi email xác thực đến <strong>${escapeHtml(email)}</strong>. Vui lòng kiểm tra hộp thư (bao gồm cả thư mục Spam/Rác) và bấm vào liên kết để kích hoạt tài khoản trước khi đăng nhập.`);
+                if (submitBtn) submitBtn.classList.add('hidden');
+                startAuthResendCooldown(60, 'signup', email);
+                return;
+            }
+
+            // Nếu không cần xác thực email (Auto-confirm bật)
+            const session = signupRes.session;
+            showNoticeToast('Đăng ký thành công', 'Chào mừng bạn tham gia cộng đồng ViVuTràVinh!');
+            if (session && session.user) {
+                const userName = session.user.user_metadata?.display_name || displayName || email.split('@')[0];
+                state.userProfile = {
+                    ...state.userProfile,
+                    id: session.user.id,
+                    name: userName,
+                    email: session.user.email,
+                    handle: `@${userName.toLowerCase().replace(/\s+/g, '.')}`
+                };
+                saveStoredUserProfile(state.userProfile);
+                syncUserProfileFromRemote();
+                updateAdminRoleUI();
+            }
+            closeAuthModal();
+            const cb = pendingAuthCallback;
+            pendingAuthCallback = null;
+            if (typeof cb === 'function') cb();
+        } catch (err) {
+            showError(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-70');
+                submitBtn.textContent = 'Tạo Tài Khoản Mới';
+            }
+        }
+        return;
+    }
+
+    // 3. Chế độ ĐĂNG NHẬP
+    if (!password) {
+        showError('Vui lòng nhập mật khẩu.');
+        return;
+    }
 
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.classList.add('opacity-70');
+        submitBtn.textContent = 'Đang đăng nhập...';
     }
 
     try {
-        let session;
-        if (isSignUp) {
-            await signUpWithEmail(email, password, displayName);
-            session = getUserSession();
-            showNoticeToast('Đăng ký thành công', 'Chào mừng bạn tham gia cộng đồng ViVuTràVinh!');
-        } else {
-            session = await signInWithEmail(email, password);
-            showSavedToast('✓ Đăng nhập thành công!');
-        }
+        const session = await signInWithEmail(email, password);
+        showSavedToast('✓ Đăng nhập thành công!');
 
         if (session && session.user) {
-            const userName = session.user.user_metadata?.display_name || displayName || email.split('@')[0];
+            const userName = session.user.user_metadata?.display_name || email.split('@')[0];
             state.userProfile = {
                 ...state.userProfile,
                 id: session.user.id,
@@ -6654,44 +6919,248 @@ export async function handleAuthSubmit(event) {
                 if (adminProfileRes.ok) {
                     const adminData = await adminProfileRes.json().catch(() => ({}));
                     if (adminData?.success && adminData?.user?.role) {
-                        const adminSession = {
+                        saveAdminSession({
                             ...session,
-                            user: {
-                                ...session.user,
-                                role: adminData.user.role
-                            }
-                        };
-                        saveAdminSession(adminSession);
+                            user: { ...session.user, role: adminData.user.role }
+                        });
                     } else {
                         clearAdminSession();
                     }
                 } else {
                     clearAdminSession();
                 }
-            } catch (_) {
-                // Ngoại lệ mạng: giữ an toàn
-            }
+            } catch (_) {}
 
             syncUserProfileFromRemote();
             updateAdminRoleUI();
         }
 
         closeAuthModal();
-
         const cb = pendingAuthCallback;
         pendingAuthCallback = null;
-        if (typeof cb === 'function') {
-            cb();
-        }
+        if (typeof cb === 'function') cb();
     } catch (err) {
-        if (errorEl) {
-            errorEl.textContent = err.message || 'Đã xảy ra lỗi trong quá trình xác thực.';
-            errorEl.classList.remove('hidden');
+        if (err.message && (err.message.includes('Email not confirmed') || err.message.includes('chưa xác thực'))) {
+            showNotice(`Tài khoản chưa được kích hoạt qua email. Vui lòng kiểm tra hộp thư <strong>${escapeHtml(email)}</strong> để kích hoạt hoặc bấm nút gửi lại email xác thực bên dưới.`);
+            lastAuthTargetEmail = email;
+            lastAuthTargetType = 'signup';
+            startAuthResendCooldown(60, 'signup', email);
+        } else {
+            showError(err.message || 'Email hoặc mật khẩu không chính xác.');
         }
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.classList.remove('opacity-70');
+            submitBtn.textContent = 'Đăng nhập';
+        }
+    }
+}
+
+/**
+ * Mở modal Đặt lại mật khẩu mới
+ */
+export function openResetPasswordModal(recoveryToken = null) {
+    if (recoveryToken) activeRecoveryToken = recoveryToken;
+    const modal = document.getElementById('resetPasswordModal');
+    if (!modal) return;
+    const errorEl = document.getElementById('resetErrorMessage');
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+    const newPassInput = document.getElementById('resetNewPasswordInput');
+    const confirmPassInput = document.getElementById('resetConfirmPasswordInput');
+    if (newPassInput) newPassInput.value = '';
+    if (confirmPassInput) confirmPassInput.value = '';
+    modal.classList.remove('hidden');
+    syncBodyScrollLock();
+}
+
+/**
+ * Đóng modal Đặt lại mật khẩu mới
+ */
+export function closeResetPasswordModal() {
+    const modal = document.getElementById('resetPasswordModal');
+    if (modal) modal.classList.add('hidden');
+    syncBodyScrollLock();
+}
+
+/**
+ * Xử lý submit đặt lại mật khẩu mới
+ */
+export async function handleResetPasswordSubmit(event) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+    const newPassInput = document.getElementById('resetNewPasswordInput');
+    const confirmPassInput = document.getElementById('resetConfirmPasswordInput');
+    const errorEl = document.getElementById('resetErrorMessage');
+    const submitBtn = document.getElementById('resetSubmitBtn');
+
+    const newPass = newPassInput?.value;
+    const confirmPass = confirmPassInput?.value;
+
+    const showError = (msg) => {
+        if (errorEl) {
+            errorEl.textContent = msg;
+            errorEl.classList.remove('hidden');
+        }
+    };
+
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+
+    if (!newPass || newPass.length < 6) {
+        showError('Mật khẩu mới phải có ít nhất 6 ký tự.');
+        newPassInput?.focus();
+        return;
+    }
+    if (newPass !== confirmPass) {
+        showError('Mật khẩu xác nhận không trùng khớp. Vui lòng kiểm tra lại.');
+        confirmPassInput?.focus();
+        return;
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-70');
+        submitBtn.textContent = 'Đang cập nhật mật khẩu...';
+    }
+
+    try {
+        await updateUserPassword(newPass, activeRecoveryToken);
+        activeRecoveryToken = null;
+        closeResetPasswordModal();
+        showSavedToast('✓ Đổi mật khẩu thành công! Vui lòng đăng nhập lại.');
+        openAuthModal('signin');
+    } catch (err) {
+        showError(err.message || 'Không thể cập nhật mật khẩu. Liên kết có thể đã hết hạn.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-70');
+            submitBtn.textContent = 'Cập nhật mật khẩu mới';
+        }
+    }
+}
+
+/**
+ * Xử lý tự động URL Callback từ email xác thực hoặc khôi phục mật khẩu
+ */
+export async function handleAuthUrlCallback() {
+    if (typeof window === 'undefined') return;
+
+    const hashStr = window.location.hash || '';
+    const searchStr = window.location.search || '';
+
+    // 1. Kiểm tra tham số lỗi (error, error_code, otp_expired)
+    let hasError = false;
+    let errorCode = '';
+    let errorDescription = '';
+
+    if (hashStr.includes('error=') || hashStr.includes('error_code=')) {
+        const hashParams = new URLSearchParams(hashStr.replace(/^#/, ''));
+        errorCode = hashParams.get('error_code') || hashParams.get('error') || '';
+        errorDescription = hashParams.get('error_description') || '';
+        hasError = true;
+    } else if (searchStr.includes('error=') || searchStr.includes('error_code=')) {
+        const searchParams = new URLSearchParams(searchStr);
+        errorCode = searchParams.get('error_code') || searchParams.get('error') || '';
+        errorDescription = searchParams.get('error_description') || '';
+        hasError = true;
+    }
+
+    if (hasError) {
+        // Dọn URL ngay lập tức không lưu lỗi trong browser history
+        window.history.replaceState(null, '', window.location.pathname);
+
+        if (errorCode === 'otp_expired' || errorDescription.includes('expired') || errorDescription.includes('invalid')) {
+            showNoticeToast('Liên kết hết hạn', 'Liên kết xác thực hoặc khôi phục đã hết hạn hoặc đã được sử dụng. Vui lòng gửi lại yêu cầu mới.');
+        } else {
+            showNoticeToast('Xác thực không thành công', decodeURIComponent(errorDescription.replace(/\+/g, ' ') || 'Liên kết không hợp lệ.'));
+        }
+        return;
+    }
+
+    // 2. Kiểm tra token trong Hash (#access_token=...&type=recovery | signup)
+    if (hashStr.includes('access_token=') && (hashStr.includes('type=') || hashStr.includes('token_type='))) {
+        const hashParams = new URLSearchParams(hashStr.replace(/^#/, ''));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type') || '';
+        const expiresIn = parseInt(hashParams.get('expires_in') || '3600', 10);
+
+        // Xóa ngay token khỏi thanh địa chỉ URL để bảo mật, TUYỆT ĐỐI không lưu token trong browser history
+        window.history.replaceState(null, '', window.location.pathname);
+
+        if (!accessToken) return;
+
+        // Trường hợp khôi phục mật khẩu (type === 'recovery')
+        if (type === 'recovery') {
+            activeRecoveryToken = accessToken;
+            openResetPasswordModal(accessToken);
+            showNoticeToast('Khôi phục mật khẩu', 'Vui lòng thiết lập mật khẩu mới cho tài khoản của bạn.');
+            return;
+        }
+
+        // Trường hợp xác thực email đăng ký mới (type === 'signup' hoặc 'email_change')
+        if (type === 'signup' || type === 'email_change' || !type) {
+            const payload = getJwtPayload(accessToken);
+            if (payload && payload.sub) {
+                const session = {
+                    access_token: accessToken,
+                    refresh_token: refreshToken || null,
+                    expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+                    user: {
+                        id: payload.sub,
+                        email: payload.email,
+                        user_metadata: payload.user_metadata || {}
+                    }
+                };
+                saveUserSession(session);
+                syncUserProfileFromRemote();
+                updateAdminRoleUI();
+                showSavedToast('✓ Địa chỉ email đã được xác thực thành công! Chào mừng bạn gia nhập ViVuTràVinh.');
+            }
+            return;
+        }
+    }
+
+    // 3. Kiểm tra PKCE auth code (?code=...)
+    if (searchStr.includes('code=')) {
+        const searchParams = new URLSearchParams(searchStr);
+        const code = searchParams.get('code');
+        if (code) {
+            searchParams.delete('code');
+            const newQuery = searchParams.toString();
+            const cleanUrl = window.location.pathname + (newQuery ? `?${newQuery}` : '');
+            window.history.replaceState(null, '', cleanUrl);
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+                    body: JSON.stringify({ auth_code: code })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.access_token) {
+                        const session = {
+                            access_token: data.access_token,
+                            refresh_token: data.refresh_token,
+                            expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+                            user: data.user
+                        };
+                        saveUserSession(session);
+                        syncUserProfileFromRemote();
+                        updateAdminRoleUI();
+                        showSavedToast('✓ Đăng nhập / Xác thực thành công!');
+                    }
+                }
+            } catch (_) {}
         }
     }
 }
@@ -8452,12 +8921,6 @@ export function switchSecurityTab(tab) {
     if (content) {
         content.innerHTML = renderSecurityModalContent(state.securitySettings, state.securityActiveTab);
     }
-}
-
-export function togglePasswordVisibility(inputId) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    input.type = input.type === 'password' ? 'text' : 'password';
 }
 
 export function submitChangePassword(form) {
@@ -11137,6 +11600,11 @@ if (typeof window !== 'undefined') {
         handleUserSignOut,
         getUserSession,
         fetchUserProfile,
+        openResetPasswordModal,
+        closeResetPasswordModal,
+        handleResetPasswordSubmit,
+        handleResendAuthEmail,
+        handleAuthUrlCallback,
         syncCommunityUgcFeed,
         syncCommunityEventsFromSupabase,
         // Profile & Saved Collections Methods (Phase 7)
