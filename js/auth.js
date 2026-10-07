@@ -42,47 +42,81 @@ export function clearUserSession() {
   }
 }
 
+let activeUserRefreshPromise = null;
+
 /**
  * Lấy Access Token còn hạn; tự động làm mới nếu sắp hết hạn
+ * - Đồng bộ các request refresh chạy đồng thời (tránh race condition / gọi trùng)
+ * - Tuyệt đối không trả về token đã hết hạn nếu refresh thất bại
  */
 export async function getValidUserToken() {
   const session = getUserSession();
   if (!session || !session.access_token) return null;
 
   const now = Math.floor(Date.now() / 1000);
+  // Token còn hạn nhiều hơn 60s -> dùng an toàn
   if (session.expires_at && session.expires_at - now > 60) {
     return session.access_token;
   }
 
-  if (session.refresh_token) {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({ refresh_token: session.refresh_token })
-      });
-
-      if (res.ok) {
-        const refreshed = await res.json();
-        const updatedSession = {
-          ...session,
-          access_token: refreshed.access_token,
-          refresh_token: refreshed.refresh_token || session.refresh_token,
-          expires_at: Math.floor(Date.now() / 1000) + (refreshed.expires_in || 3600),
-          user: refreshed.user || session.user
-        };
-        saveUserSession(updatedSession);
-        return updatedSession.access_token;
-      }
-    } catch (e) {
-      console.warn('[UserAuth] Refresh token thất bại:', e.message);
-    }
+  // Không có refresh token -> chỉ trả token cũ nếu chưa hết hạn
+  if (!session.refresh_token) {
+    return (session.expires_at && session.expires_at > now) ? session.access_token : null;
   }
 
-  return session.access_token;
+  // Đồng bộ các yêu cầu refresh token chạy đồng thời
+  if (!activeUserRefreshPromise) {
+    activeUserRefreshPromise = (async () => {
+      try {
+        const currentSession = getUserSession() || session;
+        if (!currentSession?.refresh_token) return null;
+
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ refresh_token: currentSession.refresh_token })
+        });
+
+        if (res.ok) {
+          const refreshed = await res.json();
+          const updatedSession = {
+            ...currentSession,
+            access_token: refreshed.access_token,
+            refresh_token: refreshed.refresh_token || currentSession.refresh_token,
+            expires_at: Math.floor(Date.now() / 1000) + (refreshed.expires_in || 3600),
+            user: refreshed.user || currentSession.user
+          };
+          saveUserSession(updatedSession);
+          return updatedSession.access_token;
+        } else {
+          console.warn('[UserAuth] Refresh token endpoint trả về lỗi:', res.status);
+          return null;
+        }
+      } catch (e) {
+        console.warn('[UserAuth] Refresh token thất bại:', e.message);
+        return null;
+      } finally {
+        activeUserRefreshPromise = null;
+      }
+    })();
+  }
+
+  const refreshedToken = await activeUserRefreshPromise;
+  if (refreshedToken) {
+    return refreshedToken;
+  }
+
+  // Refresh thất bại: Kiểm tra token cũ có còn hạn hay không, TUYỆT ĐỐI không trả token đã hết hạn
+  const latestSession = getUserSession();
+  const currentTime = Math.floor(Date.now() / 1000);
+  if (latestSession && latestSession.expires_at && latestSession.expires_at > currentTime) {
+    return latestSession.access_token;
+  }
+
+  return null;
 }
 
 /**

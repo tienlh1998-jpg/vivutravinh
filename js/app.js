@@ -7838,7 +7838,17 @@ export async function submitEditProfile(form) {
         if (submitText) submitText.textContent = 'Đang tải ảnh...';
 
         try {
-            const token = await getValidUserToken() || session.access_token;
+            const token = await getValidUserToken();
+            if (!token) {
+                showError('Phiên đăng nhập đã hết hạn hoặc không thể làm mới. Vui lòng đăng nhập lại.');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                }
+                if (submitText) submitText.textContent = 'Lưu thay đổi';
+                return;
+            }
+
             const userId = session.user.id;
             const file = state.pendingAvatarFile;
             const ext = file.type === 'image/png' ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg');
@@ -7857,6 +7867,9 @@ export async function submitEditProfile(form) {
 
             if (!uploadRes.ok) {
                 const errJson = await uploadRes.json().catch(() => ({}));
+                if (uploadRes.status === 401 || uploadRes.status === 403 || errJson.message?.includes('row-level security') || errJson.message?.includes('Unauthorized')) {
+                    throw new Error('Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.');
+                }
                 throw new Error(errJson.message || `Lỗi tải ảnh lên máy chủ (${uploadRes.status})`);
             }
 
@@ -7882,6 +7895,9 @@ export async function submitEditProfile(form) {
 
             if (!patchRes.ok) {
                 const patchErr = await patchRes.json().catch(() => ({}));
+                if (patchRes.status === 401 || patchRes.status === 403) {
+                    throw new Error('Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.');
+                }
                 throw new Error(patchErr.message || `Lỗi cập nhật dữ liệu hồ sơ (${patchRes.status})`);
             }
 
@@ -7895,7 +7911,18 @@ export async function submitEditProfile(form) {
             state.pendingAvatarFile = null;
         } catch (err) {
             console.error('[Profile] Upload/Update failed:', err);
-            showError(`Lỗi lưu ảnh đại diện: ${err.message || 'Thao tác không thành công'}`);
+            const isAuthErr = err.message && (
+                err.message.includes('401') || 
+                err.message.includes('403') || 
+                err.message.includes('Unauthorized') || 
+                err.message.includes('JWT') || 
+                err.message.includes('row-level security') || 
+                err.message.includes('expired')
+            );
+            const errorMsg = isAuthErr
+                ? 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.'
+                : `Lỗi lưu ảnh đại diện: ${err.message || 'Thao tác không thành công'}`;
+            showError(errorMsg);
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
@@ -7913,7 +7940,16 @@ export async function submitEditProfile(form) {
 
     if (isAuth && !state.pendingAvatarFile) {
         try {
-            const token = await getValidUserToken() || session.access_token;
+            const token = await getValidUserToken();
+            if (!token) {
+                showError('Phiên đăng nhập đã hết hạn hoặc không thể làm mới. Vui lòng đăng nhập lại.');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                }
+                if (submitText) submitText.textContent = 'Lưu thay đổi';
+                return;
+            }
             await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(session.user.id)}`, {
                 method: 'PATCH',
                 headers: {
