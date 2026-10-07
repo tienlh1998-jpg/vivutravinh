@@ -7,12 +7,46 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './admin-auth.js';
 export const USER_SESSION_KEY = 'vivu_user_session';
 
 /**
- * Đọc phiên đăng nhập hiện tại từ localStorage
+ * Trích xuất an toàn payload từ chuỗi JWT
+ * @param {string} token
+ * @returns {object|null}
+ */
+export function getJwtPayload(token) {
+  try {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) {
+      b64 += '=';
+    }
+    const jsonStr = typeof atob === 'function'
+      ? decodeURIComponent(
+          atob(b64)
+            .split('')
+            .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        )
+      : (typeof Buffer !== 'undefined' ? Buffer.from(b64, 'base64').toString('utf8') : null);
+    return jsonStr ? JSON.parse(jsonStr) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Đọc phiên đăng nhập hiện tại từ localStorage (có fallback sang phiên admin nếu cần)
  */
 export function getUserSession() {
   try {
     const raw = localStorage.getItem(USER_SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (raw) return JSON.parse(raw);
+
+    // Fallback: nếu chưa có vivu_user_session, kiểm tra vivu_admin_session để chia sẻ phiên
+    const rawAdmin = sessionStorage.getItem('vivu_admin_session') || localStorage.getItem('vivu_admin_session');
+    if (rawAdmin) return JSON.parse(rawAdmin);
+
+    return null;
   } catch {
     return null;
   }
@@ -31,11 +65,13 @@ export function saveUserSession(session) {
 }
 
 /**
- * Xóa phiên đăng nhập người dùng
+ * Xóa phiên đăng nhập người dùng và dọn sạch phiên admin đi kèm
  */
 export function clearUserSession() {
   try {
     localStorage.removeItem(USER_SESSION_KEY);
+    sessionStorage.removeItem('vivu_admin_session');
+    localStorage.removeItem('vivu_admin_session');
     window.dispatchEvent(new CustomEvent('vivu:user-auth-changed', { detail: { session: null } }));
   } catch (err) {
     console.error('[UserAuth] Không thể xóa phiên:', err);
@@ -90,6 +126,17 @@ export async function getValidUserToken() {
             user: refreshed.user || currentSession.user
           };
           saveUserSession(updatedSession);
+          try {
+            const rawAdmin = sessionStorage.getItem('vivu_admin_session') || localStorage.getItem('vivu_admin_session');
+            if (rawAdmin) {
+              const parsedAdmin = JSON.parse(rawAdmin);
+              if (parsedAdmin?.user?.id === updatedSession.user?.id) {
+                const strAdmin = JSON.stringify({ ...parsedAdmin, access_token: updatedSession.access_token, refresh_token: updatedSession.refresh_token, expires_at: updatedSession.expires_at });
+                sessionStorage.setItem('vivu_admin_session', strAdmin);
+                localStorage.setItem('vivu_admin_session', strAdmin);
+              }
+            }
+          } catch (_) {}
           return updatedSession.access_token;
         } else {
           console.warn('[UserAuth] Refresh token endpoint trả về lỗi:', res.status);

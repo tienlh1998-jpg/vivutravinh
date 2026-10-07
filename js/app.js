@@ -142,6 +142,8 @@ import {
 } from './admin-portal-data.js';
 import {
     getSession as getAdminSession,
+    saveSession as saveAdminSession,
+    clearSession as clearAdminSession,
     getUserRole as getAdminUserRole,
     getValidToken as getValidAdminToken
 } from './admin-auth.js';
@@ -150,6 +152,7 @@ import {
     saveUserSession,
     clearUserSession,
     getValidUserToken,
+    getJwtPayload,
     signUpWithEmail,
     signInWithEmail,
     signOutUser,
@@ -6642,6 +6645,33 @@ export async function handleAuthSubmit(event) {
                 handle: `@${userName.toLowerCase().replace(/\s+/g, '.')}`
             };
             saveStoredUserProfile(state.userProfile);
+
+            // Kiểm tra phân quyền quản trị của tài khoản này để đồng bộ phiên admin nếu có
+            try {
+                const adminProfileRes = await fetch('/api/admin-profile', {
+                    headers: { 'Authorization': `Bearer ${session.access_token}` }
+                });
+                if (adminProfileRes.ok) {
+                    const adminData = await adminProfileRes.json().catch(() => ({}));
+                    if (adminData?.success && adminData?.user?.role) {
+                        const adminSession = {
+                            ...session,
+                            user: {
+                                ...session.user,
+                                role: adminData.user.role
+                            }
+                        };
+                        saveAdminSession(adminSession);
+                    } else {
+                        clearAdminSession();
+                    }
+                } else {
+                    clearAdminSession();
+                }
+            } catch (_) {
+                // Ngoại lệ mạng: giữ an toàn
+            }
+
             syncUserProfileFromRemote();
             updateAdminRoleUI();
         }
@@ -7821,7 +7851,7 @@ export async function submitEditProfile(form) {
 
     hideError();
 
-    const session = getUserSession();
+    let session = getUserSession() || (typeof getAdminSession === 'function' ? getAdminSession() : null);
     const isAuth = Boolean(session && session.user);
 
     // Nếu người dùng chọn file avatar mới
@@ -7838,7 +7868,7 @@ export async function submitEditProfile(form) {
         if (submitText) submitText.textContent = 'Đang tải ảnh...';
 
         try {
-            const token = await getValidUserToken();
+            const token = await getValidUserToken() || (typeof getValidAdminToken === 'function' ? await getValidAdminToken() : null);
             if (!token) {
                 showError('Phiên đăng nhập đã hết hạn hoặc không thể làm mới. Vui lòng đăng nhập lại.');
                 if (submitBtn) {
@@ -7849,7 +7879,30 @@ export async function submitEditProfile(form) {
                 return;
             }
 
-            const userId = session.user.id;
+            // Đối chiếu UID của token đang dùng với ID trong phiên để đảm bảo cùng một tài khoản
+            const tokenPayload = getJwtPayload(token);
+            const tokenUid = tokenPayload?.sub;
+            const userId = tokenUid || session?.user?.id;
+
+            if (!userId) {
+                showError('Không xác định được danh tính tài khoản. Vui lòng đăng nhập lại.');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                }
+                if (submitText) submitText.textContent = 'Lưu thay đổi';
+                return;
+            }
+
+            // Đồng bộ phiên nếu phát hiện lệch UID giữa phiên lưu trữ và token thật
+            if (session?.user && tokenUid && session.user.id !== tokenUid) {
+                console.warn(`[Profile] Phát hiện lệch UID: session.user.id (${session.user.id}) != tokenUid (${tokenUid}). Đồng bộ theo token.`);
+                session.user.id = tokenUid;
+                if (typeof saveUserSession === 'function') {
+                    saveUserSession(session);
+                }
+            }
+
             const file = state.pendingAvatarFile;
             const ext = file.type === 'image/png' ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg');
             const filePath = `reviews/avatars/${userId}_${Date.now()}.${ext}`;
@@ -7903,7 +7956,23 @@ export async function submitEditProfile(form) {
 
             const updatedRows = await patchRes.json().catch(() => []);
             if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
-                throw new Error('Không thể lưu hồ sơ do quyền truy cập (RLS).');
+                // Phân biệt chính xác giữa lỗi "thiếu bản ghi hồ sơ" với lỗi "quyền truy cập"
+                let recordExists = false;
+                try {
+                    const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/public_profiles?id=eq.${encodeURIComponent(userId)}&select=id&limit=1`, {
+                        headers: { 'apikey': SUPABASE_ANON_KEY }
+                    });
+                    if (checkRes.ok) {
+                        const checkData = await checkRes.json().catch(() => []);
+                        recordExists = Array.isArray(checkData) && checkData.length > 0;
+                    }
+                } catch (_) {}
+
+                if (!recordExists) {
+                    throw new Error('Hồ sơ tài khoản chưa được khởi tạo trong hệ thống. Vui lòng liên hệ quản trị viên.');
+                } else {
+                    throw new Error('Không thể cập nhật hồ sơ (Bạn chỉ có quyền chỉnh sửa hồ sơ của chính mình).');
+                }
             }
 
             // Thành công upload & lưu database -> cập nhật state avatar
@@ -7940,7 +8009,7 @@ export async function submitEditProfile(form) {
 
     if (isAuth && !state.pendingAvatarFile) {
         try {
-            const token = await getValidUserToken();
+            const token = await getValidUserToken() || (typeof getValidAdminToken === 'function' ? await getValidAdminToken() : null);
             if (!token) {
                 showError('Phiên đăng nhập đã hết hạn hoặc không thể làm mới. Vui lòng đăng nhập lại.');
                 if (submitBtn) {
@@ -7950,12 +8019,17 @@ export async function submitEditProfile(form) {
                 if (submitText) submitText.textContent = 'Lưu thay đổi';
                 return;
             }
-            await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(session.user.id)}`, {
+            const tokenPayload = getJwtPayload(token);
+            const tokenUid = tokenPayload?.sub;
+            const targetId = tokenUid || session?.user?.id;
+
+            const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}`, {
                 method: 'PATCH',
                 headers: {
                     'apikey': SUPABASE_ANON_KEY,
                     'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation'
                 },
                 body: JSON.stringify({
                     display_name: name || undefined,
@@ -7963,8 +8037,43 @@ export async function submitEditProfile(form) {
                     updated_at: new Date().toISOString()
                 })
             });
+
+            if (!patchRes.ok) {
+                const patchErr = await patchRes.json().catch(() => ({}));
+                if (patchRes.status === 401 || patchRes.status === 403) {
+                    throw new Error('Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.');
+                }
+                throw new Error(patchErr.message || `Lỗi cập nhật dữ liệu hồ sơ (${patchRes.status})`);
+            }
+
+            const updatedRows = await patchRes.json().catch(() => []);
+            if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
+                let recordExists = false;
+                try {
+                    const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/public_profiles?id=eq.${encodeURIComponent(targetId)}&select=id&limit=1`, {
+                        headers: { 'apikey': SUPABASE_ANON_KEY }
+                    });
+                    if (checkRes.ok) {
+                        const checkData = await checkRes.json().catch(() => []);
+                        recordExists = Array.isArray(checkData) && checkData.length > 0;
+                    }
+                } catch (_) {}
+
+                if (!recordExists) {
+                    throw new Error('Hồ sơ tài khoản chưa được khởi tạo trong hệ thống. Vui lòng liên hệ quản trị viên.');
+                } else {
+                    throw new Error('Không thể cập nhật hồ sơ (Bạn chỉ có quyền chỉnh sửa hồ sơ của chính mình).');
+                }
+            }
         } catch (e) {
-            console.warn('[Profile] Text fields sync to remote warning:', e);
+            console.error('[Profile] Text fields sync to remote warning:', e);
+            showError(`Lỗi lưu thông tin: ${e.message || 'Thao tác không thành công'}`);
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+            if (submitText) submitText.textContent = 'Lưu thay đổi';
+            return;
         }
     }
 
@@ -7983,7 +8092,7 @@ export async function submitEditProfile(form) {
 }
 
 export async function syncUserProfileFromRemote() {
-    const session = getUserSession();
+    const session = getUserSession() || (typeof getAdminSession === 'function' ? getAdminSession() : null);
     if (!session || !session.user) return;
     try {
         const remoteProfile = await fetchUserProfile(session.user.id);
@@ -9680,10 +9789,10 @@ export function updateAdminRoleUI() {
     // 1. Cập nhật nút Profile trên Header
     const profileBtn = document.getElementById('headerProfileBtn');
     if (profileBtn) {
-        profileBtn.onclick = () => communityUser ? openProfileModal() : openAuthModal('signin');
-        profileBtn.setAttribute('aria-label', communityUser ? 'Xem tài khoản cộng đồng' : 'Đăng nhập hoặc tạo tài khoản cộng đồng');
-        profileBtn.title = communityUser ? 'Tài khoản cộng đồng' : 'Đăng nhập cộng đồng';
-        if (communityUser) {
+        profileBtn.onclick = () => isAuth ? openProfileModal() : openAuthModal('signin');
+        profileBtn.setAttribute('aria-label', isAuth ? 'Xem tài khoản cá nhân' : 'Đăng nhập hoặc tạo tài khoản cộng đồng');
+        profileBtn.title = isAuth ? 'Tài khoản cá nhân' : 'Đăng nhập cộng đồng';
+        if (isAuth) {
             const avatarHtml = avatarUrl
                 ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(displayName)}" class="w-6 h-6 rounded-full object-cover shrink-0 border border-emerald-500/50" onerror="this.outerHTML='<span class=\\'material-symbols-outlined text-[18px]\\'>account_circle</span>'" />`
                 : '<span class="material-symbols-outlined text-[18px]" aria-hidden="true">account_circle</span>';

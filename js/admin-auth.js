@@ -12,7 +12,17 @@ export const SESSION_KEY = 'vivu_admin_session';
 export function getSession() {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (raw) return JSON.parse(raw);
+
+    // Fallback: Nếu có phiên người dùng mang quyền quản trị viên
+    const rawUser = localStorage.getItem('vivu_user_session');
+    if (rawUser) {
+      const parsedUser = JSON.parse(rawUser);
+      if (parsedUser?.user?.role && ['admin', 'editor', 'moderator'].includes(parsedUser.user.role)) {
+        return parsedUser;
+      }
+    }
+    return null;
   } catch {
     return null;
   }
@@ -27,6 +37,12 @@ export function saveSession(session) {
     const str = JSON.stringify(session);
     sessionStorage.setItem(SESSION_KEY, str);
     localStorage.setItem(SESSION_KEY, str);
+
+    // Đồng bộ sang vivu_user_session để thống nhất token và UID của cùng một tài khoản
+    localStorage.setItem('vivu_user_session', str);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vivu:user-auth-changed', { detail: { session } }));
+    }
   } catch (err) {
     console.error('[AdminAuth] Không thể lưu phiên đăng nhập:', err);
   }
@@ -37,8 +53,21 @@ export function saveSession(session) {
  */
 export function clearSession() {
   try {
+    const currentSession = getSession();
     sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SESSION_KEY);
+
+    // Đồng thời dọn vivu_user_session nếu chứa tài khoản tương ứng
+    const rawUser = localStorage.getItem('vivu_user_session');
+    if (rawUser) {
+      const parsedUser = JSON.parse(rawUser);
+      if (!currentSession?.user?.id || parsedUser?.user?.id === currentSession.user.id) {
+        localStorage.removeItem('vivu_user_session');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vivu:user-auth-changed', { detail: { session: null } }));
+        }
+      }
+    }
   } catch (err) {
     console.error('[AdminAuth] Không thể xóa phiên đăng nhập:', err);
   }
