@@ -86,9 +86,11 @@ USING (
 -- ------------------------------------------------------------------------------
 -- 2. CẬP NHẬT THỦ TỤC DỌN DẸP ẢNH MỒ CÔI (ORPHAN CLEANUP GUARD)
 -- Bảo vệ tuyệt đối ảnh đại diện khỏi việc dọn dẹp tự động
+-- Giữ nguyên kiểu trả về TABLE(deleted_name text) để 100% tương thích với hàm cũ
 -- ------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.cleanup_orphan_review_photos();
 CREATE OR REPLACE FUNCTION public.cleanup_orphan_review_photos()
-RETURNS TABLE(orphan_name text)
+RETURNS TABLE(deleted_name text)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, storage
@@ -97,7 +99,7 @@ BEGIN
   -- Trả về danh sách tệp mồ côi (tải lên quá 48h không gắn với bình luận nào)
   -- để Service Role có thể dọn dẹp an toàn qua Storage API.
   RETURN QUERY
-    SELECT o.name
+    SELECT o.name AS deleted_name
     FROM storage.objects o
     WHERE o.bucket_id = 'review-photos'
       AND o.created_at < now() - interval '48 hours'

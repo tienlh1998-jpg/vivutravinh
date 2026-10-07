@@ -96,16 +96,18 @@ drop policy if exists "Anon cannot delete review photos" on storage.objects;
 -- ==========================================================
 -- 3. THỦ TỤC DỌN DẸP ẢNH MỒ CÔI (ORPHAN PHOTOS CLEANUP)
 -- Bảo vệ tuyệt đối ảnh đại diện và ảnh bình luận khỏi việc dọn dẹp
+-- Giữ nguyên kiểu trả về TABLE(deleted_name text) để tương thích 100%
 -- ==========================================================
+drop function if exists public.cleanup_orphan_review_photos();
 create or replace function public.cleanup_orphan_review_photos()
-returns table(orphan_name text)
+returns table(deleted_name text)
 language plpgsql
 security definer
 set search_path = public, storage
 as $$
 begin
   return query
-    select o.name
+    select o.name as deleted_name
     from storage.objects o
     where o.bucket_id = 'review-photos'
       and o.created_at < now() - interval '48 hours'
