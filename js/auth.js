@@ -287,7 +287,91 @@ export async function signUpWithEmail(email, password, displayName = '') {
 }
 
 /**
- * Gửi email khôi phục / đặt lại mật khẩu (Neutral response để bảo vệ tài khoản - Anti-Account Enumeration)
+ * Phân loại và xử lý phản hồi từ API gửi email Supabase Auth (recover / resend).
+ * QUY TẮC BẢO MẬT & CHỐNG RÀ QUÉT TÀI KHOẢN (Anti-Account Enumeration):
+ * 1. Thành công res.ok (200/2xx) -> trả về { success: true }.
+ * 2. CHỈ giữ phản hồi trung lập { success: true } cho các lỗi liên quan trạng thái tài khoản:
+ *    - user_not_found / 'User not found'
+ *    - email_not_confirmed / 'Email not confirmed'
+ *    - user_already_confirmed / 'User already confirmed'
+ *    - user_already_registered / user_already_exists / identity_already_exists
+ * 3. Các lỗi cấu hình / dịch vụ (email provider disabled, API key không hợp lệ, địa chỉ gửi bị hạn chế, rate limit, 5xx):
+ *    -> Bắt buộc báo "Không thể gửi email lúc này.", KHÔNG tiết lộ thông tin tài khoản.
+ * 4. TUYỆT ĐỐI KHÔNG mặc định tất cả mã 4xx là thành công. Bất kỳ lỗi nào không thuộc nhóm trạng thái tài khoản
+ *    đều phải báo "Không thể gửi email lúc này.".
+ */
+export function handleAuthEmailResponse(res, data = {}) {
+  if (res && res.ok) {
+    return { success: true };
+  }
+
+  const status = res ? res.status : 500;
+  const errorCode = String(data?.error_code || data?.code || '').toLowerCase().trim();
+  const errorMsg = String(data?.msg || data?.message || data?.error_description || data?.error || '').toLowerCase().trim();
+
+  // 1. Nhận diện các lỗi cấu hình / dịch vụ / API key / giới hạn gửi
+  const isConfigOrServiceError =
+    status === 401 ||
+    status === 403 ||
+    status === 429 ||
+    status >= 500 ||
+    errorCode === 'invalid_api_key' ||
+    errorCode === 'email_provider_disabled' ||
+    errorCode === 'signup_disabled' ||
+    errorCode === 'email_address_not_authorized' ||
+    errorCode === 'over_email_send_rate_limit' ||
+    errorCode === 'over_request_rate_limit' ||
+    errorCode === 'email_rate_limit_exceeded' ||
+    errorCode === 'smtp_error' ||
+    errorCode === 'hook_timeout' ||
+    errorCode === 'hook_error' ||
+    errorMsg.includes('provider disabled') ||
+    errorMsg.includes('provider is disabled') ||
+    errorMsg.includes('logins are disabled') ||
+    errorMsg.includes('signups not allowed') ||
+    errorMsg.includes('invalid api key') ||
+    errorMsg.includes('unauthorized') ||
+    errorMsg.includes('forbidden') ||
+    errorMsg.includes('not authorized') ||
+    errorMsg.includes('rate limit') ||
+    errorMsg.includes('limit exceeded') ||
+    errorMsg.includes('restricted') ||
+    errorMsg.includes('smtp') ||
+    errorMsg.includes('error sending');
+
+  if (isConfigOrServiceError) {
+    throw new Error('Không thể gửi email lúc này.');
+  }
+
+  // 2. CHỈ giữ phản hồi trung lập cho lỗi liên quan trạng thái tài khoản
+  const isAccountStateError =
+    errorCode === 'user_not_found' ||
+    errorCode === 'email_not_confirmed' ||
+    errorCode === 'user_not_confirmed' ||
+    errorCode === 'user_already_exists' ||
+    errorCode === 'user_already_confirmed' ||
+    errorCode === 'identity_already_exists' ||
+    errorMsg.includes('user not found') ||
+    errorMsg.includes('email not confirmed') ||
+    errorMsg.includes('user is not confirmed') ||
+    errorMsg.includes('user already confirmed') ||
+    errorMsg.includes('email already confirmed') ||
+    errorMsg.includes('user already registered') ||
+    errorMsg.includes('user already exists');
+
+  if (isAccountStateError) {
+    return { success: true };
+  }
+
+  // 3. TUYỆT ĐỐI không mặc định tất cả 4xx là thành công:
+  // Nếu gặp bất kỳ lỗi nào khác ngoài trạng thái tài khoản -> Báo "Không thể gửi email lúc này."
+  throw new Error('Không thể gửi email lúc này.');
+}
+
+/**
+ * Gửi email khôi phục / đặt lại mật khẩu
+ * - Thành công hoặc lỗi trạng thái tài khoản: trả về { success: true } trung lập.
+ * - Lỗi cấu hình / dịch vụ / API key / hạn chế gửi / lỗi 4xx khác: báo "Không thể gửi email lúc này."
  */
 export async function sendPasswordResetEmail(email) {
   const cleanEmail = String(email || '').trim().toLowerCase();
@@ -310,23 +394,14 @@ export async function sendPasswordResetEmail(email) {
     throw new Error('Không thể kết nối máy chủ xác thực. Vui lòng kiểm tra kết nối mạng và thử lại.');
   }
 
-  if (res.status === 429) {
-    throw new Error('Bạn đã gửi yêu cầu quá nhiều lần. Vui lòng đợi 60 giây trước khi thử lại.');
-  }
-
-  if (res.status >= 500) {
-    throw new Error('Dịch vụ gửi email tạm thời gián đoạn. Vui lòng thử lại sau.');
-  }
-
-  // Đối với Supabase 4xx (ví dụ 400 user not found, unconfirmed,...):
-  // Theo nguyên tắc Anti-Account Enumeration (chống rà quét tài khoản),
-  // luôn trả về thành công trung lập để kẻ xấu không thể dò quét danh sách email người dùng.
-  return { success: true };
+  const data = await res.json().catch(() => ({}));
+  return handleAuthEmailResponse(res, data);
 }
 
 /**
  * Gửi lại email xác thực tài khoản (Resend signup confirmation)
- * Giữ phản hồi trung lập để chống lộ thông tin tài khoản (Anti-Account Enumeration)
+ * - Thành công hoặc lỗi trạng thái tài khoản: trả về { success: true } trung lập.
+ * - Lỗi cấu hình / dịch vụ / API key / hạn chế gửi / lỗi 4xx khác: báo "Không thể gửi email lúc này."
  */
 export async function resendVerificationEmail(email) {
   const cleanEmail = String(email || '').trim().toLowerCase();
@@ -352,17 +427,8 @@ export async function resendVerificationEmail(email) {
     throw new Error('Không thể kết nối máy chủ xác thực. Vui lòng kiểm tra kết nối mạng và thử lại.');
   }
 
-  if (res.status === 429) {
-    throw new Error('Bạn đã yêu cầu gửi quá nhanh. Vui lòng đợi 60 giây trước khi thử lại.');
-  }
-
-  if (res.status >= 500) {
-    throw new Error('Dịch vụ gửi email tạm thời gián đoạn. Vui lòng thử lại sau.');
-  }
-
-  // Với các mã phản hồi 4xx khác (ví dụ: user not found, user already confirmed,...):
-  // Giữ phản hồi trung lập thành công để không làm lộ trạng thái tài khoản
-  return { success: true };
+  const data = await res.json().catch(() => ({}));
+  return handleAuthEmailResponse(res, data);
 }
 
 /**

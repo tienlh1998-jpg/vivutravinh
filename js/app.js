@@ -159,6 +159,7 @@ import {
     fetchUserProfile,
     sendPasswordResetEmail,
     resendVerificationEmail,
+    handleAuthEmailResponse,
     updateUserPassword,
     getAuthRedirectUrl,
     verifyUserTokenWithServer
@@ -11593,6 +11594,7 @@ if (typeof window !== 'undefined') {
         handleResendAuthEmail,
         sendPasswordResetEmail,
         resendVerificationEmail,
+        handleAuthEmailResponse,
         handleAuthUrlCallback,
         verifyUserTokenWithServer,
         syncCommunityUgcFeed,

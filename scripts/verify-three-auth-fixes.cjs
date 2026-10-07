@@ -199,25 +199,111 @@ async function runBrowserTests() {
         console.log('✓ [PASS] Thông báo rõ ràng về liên kết email trực tiếp đã hiển thị tới người dùng.');
 
         // =====================================================================
-        // KIỂM TRA ĐIỂM 3: Xử lý gửi email & Giữ thông báo trung lập
+        // KIỂM TRA ĐIỂM 3: Xử lý gửi email & Phân biệt lỗi cấu hình/dịch vụ với lỗi trạng thái tài khoản
         // =====================================================================
-        console.log('\n=== KIỂM TRA ĐIỂM 3: XỬ LÝ LỖI GỬI EMAIL & THÔNG BÁO TRUNG LẬP ===');
+        console.log('\n=== KIỂM TRA ĐIỂM 3: XỬ LÝ LỖI GỬI EMAIL & PHÂN LOẠI LỖI CHÍNH XÁC ===');
 
-        // 3.1: Gọi sendPasswordResetEmail với email không tồn tại -> Trả về success: true (chống dò tài khoản)
+        // 3.1: Kiểm tra trực tiếp handleAuthEmailResponse với các lỗi cấu hình / dịch vụ
+        console.log('3.1 Kiểm thử các lỗi cấu hình/dịch vụ (email provider disabled, invalid api key, restricted email, 5xx):');
+
+        const testProviderDisabled = await cdp.eval(`
+            (() => {
+                try {
+                    window.ViVuApp.handleAuthEmailResponse({ ok: false, status: 400 }, { error_code: 'email_provider_disabled', msg: 'Email provider is disabled' });
+                    return 'FAILED_NOT_THROWN';
+                } catch (e) {
+                    return e.message;
+                }
+            })()
+        `);
+        assert.strictEqual(testProviderDisabled, 'Không thể gửi email lúc này.', 'Lỗi email_provider_disabled phải ném lỗi "Không thể gửi email lúc này."');
+        console.log('   ✓ [PASS] email_provider_disabled -> Báo lỗi: "Không thể gửi email lúc này." (Không lộ tài khoản)');
+
+        const testInvalidApiKey = await cdp.eval(`
+            (() => {
+                try {
+                    window.ViVuApp.handleAuthEmailResponse({ ok: false, status: 401 }, { message: 'Invalid API key' });
+                    return 'FAILED_NOT_THROWN';
+                } catch (e) {
+                    return e.message;
+                }
+            })()
+        `);
+        assert.strictEqual(testInvalidApiKey, 'Không thể gửi email lúc này.', 'Lỗi 401 Invalid API key phải ném lỗi "Không thể gửi email lúc này."');
+        console.log('   ✓ [PASS] Invalid API key (401) -> Báo lỗi: "Không thể gửi email lúc này."');
+
+        const testRestrictedEmail = await cdp.eval(`
+            (() => {
+                try {
+                    window.ViVuApp.handleAuthEmailResponse({ ok: false, status: 400 }, { error_code: 'email_address_not_authorized', msg: 'Email address not authorized' });
+                    return 'FAILED_NOT_THROWN';
+                } catch (e) {
+                    return e.message;
+                }
+            })()
+        `);
+        assert.strictEqual(testRestrictedEmail, 'Không thể gửi email lúc này.', 'Lỗi địa chỉ gửi bị hạn chế (email_address_not_authorized) phải ném lỗi "Không thể gửi email lúc này."');
+        console.log('   ✓ [PASS] Địa chỉ gửi bị hạn chế (email_address_not_authorized) -> Báo lỗi: "Không thể gửi email lúc này."');
+
+        const testRateLimitOrSendQuota = await cdp.eval(`
+            (() => {
+                try {
+                    window.ViVuApp.handleAuthEmailResponse({ ok: false, status: 429 }, { error_code: 'over_email_send_rate_limit', msg: 'Email rate limit exceeded' });
+                    return 'FAILED_NOT_THROWN';
+                } catch (e) {
+                    return e.message;
+                }
+            })()
+        `);
+        assert.strictEqual(testRateLimitOrSendQuota, 'Không thể gửi email lúc này.', 'Lỗi giới hạn gửi email (429 / over_email_send_rate_limit) phải ném lỗi "Không thể gửi email lúc này."');
+        console.log('   ✓ [PASS] Giới hạn gửi / Rate limit (429) -> Báo lỗi: "Không thể gửi email lúc này."');
+
+        const testServerError500 = await cdp.eval(`
+            (() => {
+                try {
+                    window.ViVuApp.handleAuthEmailResponse({ ok: false, status: 500 }, { msg: 'Internal server error' });
+                    return 'FAILED_NOT_THROWN';
+                } catch (e) {
+                    return e.message;
+                }
+            })()
+        `);
+        assert.strictEqual(testServerError500, 'Không thể gửi email lúc này.', 'Lỗi 5xx phải ném lỗi "Không thể gửi email lúc này."');
+        console.log('   ✓ [PASS] Lỗi máy chủ (HTTP 500) -> Báo lỗi: "Không thể gửi email lúc này."');
+
+        const testArbitrary400 = await cdp.eval(`
+            (() => {
+                try {
+                    window.ViVuApp.handleAuthEmailResponse({ ok: false, status: 400 }, { msg: 'Unexpected bad request' });
+                    return 'FAILED_NOT_THROWN';
+                } catch (e) {
+                    return e.message;
+                }
+            })()
+        `);
+        assert.strictEqual(testArbitrary400, 'Không thể gửi email lúc này.', 'Lỗi 4xx bất kỳ không phải trạng thái tài khoản KHÔNG được mặc định là thành công');
+        console.log('   ✓ [PASS] Lỗi 4xx bất kỳ không thuộc trạng thái tài khoản -> Báo lỗi: "Không thể gửi email lúc này." (Không mặc định thành công)');
+
+        // 3.2: Kiểm tra phản hồi trung lập cho lỗi liên quan trạng thái tài khoản
+        console.log('3.2 Kiểm thử phản hồi trung lập cho lỗi trạng thái tài khoản (user_not_found, user_already_confirmed):');
+
+        const testUserNotFound = await cdp.eval(`window.ViVuApp.handleAuthEmailResponse({ ok: false, status: 400 }, { error_code: 'user_not_found', msg: 'User not found' })`);
+        assert.deepStrictEqual(testUserNotFound, { success: true }, 'Lỗi user_not_found phải trả về { success: true } trung lập');
+        console.log('   ✓ [PASS] Lỗi user_not_found -> Trả về { success: true } trung lập (chống rà quét tài khoản)');
+
+        const testUserAlreadyConfirmed = await cdp.eval(`window.ViVuApp.handleAuthEmailResponse({ ok: false, status: 400 }, { msg: 'User already confirmed' })`);
+        assert.deepStrictEqual(testUserAlreadyConfirmed, { success: true }, 'Lỗi user already confirmed phải trả về { success: true } trung lập');
+        console.log('   ✓ [PASS] Lỗi user already confirmed -> Trả về { success: true } trung lập (chống rà quét tài khoản)');
+
+        // 3.3: Thử nghiệm thực tế luồng API & UI
         const fakeEmail = 'nonexistent_test_' + Date.now() + '@example-domain-xyz.com';
-        console.log(`3.1 Thử nghiệm đặt lại mật khẩu với email không tồn tại: ${fakeEmail}`);
+        console.log(`3.3 Thử nghiệm API gửi thực tế qua Supabase với email không tồn tại: ${fakeEmail}`);
         const resetResult = await cdp.eval(`window.ViVuApp.sendPasswordResetEmail('${fakeEmail}')`);
-        assert.deepStrictEqual(resetResult, { success: true }, 'sendPasswordResetEmail phải trả về { success: true } trung lập');
-        console.log('✓ [PASS] sendPasswordResetEmail trả về { success: true } an toàn, không tiết lộ tài khoản.');
+        assert.deepStrictEqual(resetResult, { success: true }, 'sendPasswordResetEmail phải trả về { success: true } trung lập khi email không tồn tại');
+        console.log('   ✓ [PASS] sendPasswordResetEmail thực tế với Supabase trả về { success: true } an toàn.');
 
-        // 3.2: Gọi resendVerificationEmail với email không tồn tại -> Trả về success: true (chống dò tài khoản)
-        console.log(`3.2 Thử nghiệm gửi lại xác thực với email không tồn tại: ${fakeEmail}`);
-        const resendResult = await cdp.eval(`window.ViVuApp.resendVerificationEmail('${fakeEmail}')`);
-        assert.deepStrictEqual(resendResult, { success: true }, 'resendVerificationEmail phải trả về { success: true } trung lập');
-        console.log('✓ [PASS] resendVerificationEmail trả về { success: true } an toàn, không tiết lộ tài khoản.');
-
-        // 3.3: Thử nghiệm submit form Quên Mật Khẩu trên giao diện người dùng
-        console.log('3.3 Thử nghiệm giao diện form Quên Mật Khẩu (Forgot Password Modal):');
+        // 3.4: Thử nghiệm submit form Quên Mật Khẩu trên giao diện người dùng
+        console.log('3.4 Thử nghiệm giao diện form Quên Mật Khẩu (Forgot Password Modal):');
         await cdp.eval(`
             window.ViVuApp.openAuthModal('forgot');
             document.getElementById('authEmailInput').value = '${fakeEmail}';
@@ -232,15 +318,15 @@ async function runBrowserTests() {
             })()
         `);
         assert(noticeText.includes('Nếu email') && noticeText.includes('tồn tại trong hệ thống'), 'Giao diện phải hiển thị thông báo trung lập "Nếu email ... tồn tại trong hệ thống..."');
-        console.log('✓ [PASS] Form Quên mật khẩu hiển thị thông báo trung lập an toàn:');
-        console.log(`       "${noticeText.trim()}"`);
+        console.log('   ✓ [PASS] Form Quên mật khẩu hiển thị thông báo trung lập an toàn:');
+        console.log(`          "${noticeText.trim()}"`);
 
-        // 3.4: Kiểm tra nút Gửi lại email (Cooldown & Rate limit handling)
+        // 3.5: Kiểm tra nút Gửi lại email (Cooldown & Rate limit handling)
         const isSubmitHidden = await cdp.eval(`document.getElementById('authSubmitBtn').classList.contains('hidden')`);
         assert(isSubmitHidden, 'Nút submit phải được ẩn sau khi gửi thành công');
         const resendVisible = await cdp.eval(`!document.getElementById('authResendContainer').classList.contains('hidden')`);
         assert(resendVisible, 'Nút gửi lại kèm đếm ngược cooldown phải xuất hiện');
-        console.log('✓ [PASS] Nút gửi lại email với bộ đếm thời gian chờ (cooldown 60s) hoạt động chuẩn xác.');
+        console.log('   ✓ [PASS] Nút gửi lại email với bộ đếm thời gian chờ (cooldown 60s) hoạt động chuẩn xác.');
 
         console.log('\n================================================================================');
         console.log(' TẤT CẢ 3 ĐIỂM KIỂM THỬ ĐÃ ĐẠT CHUẨN 100%!');
