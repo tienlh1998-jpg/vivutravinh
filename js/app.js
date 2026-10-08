@@ -2450,18 +2450,29 @@ export function stopAudioGuide() {
         if (playIcon) playIcon.textContent = 'play_arrow';
 
         const audioBtn = document.getElementById('audioPlayBtn');
-        if (audioBtn) audioBtn.setAttribute('aria-label', 'Phát thuyết minh âm thanh');
+        if (audioBtn) audioBtn.setAttribute('aria-label', 'Đọc phần giới thiệu');
 
         const audioSection = document.getElementById('modalAudioSection');
         if (audioSection) audioSection.classList.remove('audio-playing');
 
         const timerEl = document.getElementById('audioTimer');
-        if (timerEl) timerEl.textContent = '00:00 / 02:30';
+        if (timerEl) {
+            const place = state.currentDetailPlace;
+            const desc = (place?.description || '').trim();
+            if (desc) {
+                const totalSec = Math.max(10, Math.round(desc.length / 15));
+                const totalMin = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                const totalSecStr = String(totalSec % 60).padStart(2, '0');
+                timerEl.textContent = `00:00 / ~${totalMin}:${totalSecStr} (ước tính)`;
+            } else {
+                timerEl.textContent = '00:00';
+            }
+        }
     }
 }
 
 /**
- * Bật / Tắt Audio Guide thuyết minh văn hóa bản địa Trà Vinh
+ * Bật / Tắt thuyết minh tự động đọc phần giới thiệu địa điểm
  */
 export function toggleAudioGuide() {
     if (state.isAudioPlaying) {
@@ -2472,6 +2483,13 @@ export function toggleAudioGuide() {
     const place = state.currentDetailPlace;
     if (!place) return;
 
+    // Chỉ đọc nội dung mô tả của đúng địa điểm, không thêm nội dung mẫu
+    const narrative = (place.description || '').trim();
+    if (!narrative) {
+        stopAudioGuide();
+        return;
+    }
+
     state.isAudioPlaying = true;
     state.audioSeconds = 0;
 
@@ -2479,18 +2497,16 @@ export function toggleAudioGuide() {
     if (playIcon) playIcon.textContent = 'pause';
 
     const audioBtn = document.getElementById('audioPlayBtn');
-    if (audioBtn) audioBtn.setAttribute('aria-label', 'Tạm dừng thuyết minh');
+    if (audioBtn) audioBtn.setAttribute('aria-label', 'Tạm dừng đọc');
 
     const audioSection = document.getElementById('modalAudioSection');
     if (audioSection) audioSection.classList.add('audio-playing');
 
-    const narrative = `${place.name}. ${place.description || ''}. ${place.note ? 'Lời khuyên từ người địa phương: ' + place.note : ''}`;
-
-    // Ước tính độ dài âm thanh dựa trên văn bản
-    const estimatedTotalSeconds = Math.max(30, Math.min(180, Math.round(narrative.length / 15)));
+    // Ước tính độ dài âm thanh dựa trên văn bản mô tả thật (khoảng 15 ký tự/giây)
+    const estimatedTotalSeconds = Math.max(10, Math.round(narrative.length / 15));
     const totalMin = String(Math.floor(estimatedTotalSeconds / 60)).padStart(2, '0');
     const totalSec = String(estimatedTotalSeconds % 60).padStart(2, '0');
-    const totalStr = `${totalMin}:${totalSec}`;
+    const totalStr = `~${totalMin}:${totalSec} (ước tính)`;
 
     const timerEl = document.getElementById('audioTimer');
     if (timerEl) timerEl.textContent = `00:00 / ${totalStr}`;
@@ -4489,8 +4505,8 @@ export async function submitContributedPlace(payload) {
                 category: payload.category,
                 area: payload.area,
                 address: payload.address,
-                price_raw: payload.price_raw || 'Liên hệ',
-                display_hours: payload.display_hours || '07:00 - 18:00',
+                price_raw: payload.price_raw || null,
+                display_hours: payload.display_hours || null,
                 coordinates: payload.coordinates || null,
                 map_link: payload.map_link || null,
                 description: payload.description,
@@ -4683,8 +4699,8 @@ export async function handleContributeSubmit(event) {
         category,
         area: district,
         address,
-        price_raw: price || 'Liên hệ',
-        display_hours: hours || '07:00 - 18:00',
+        price_raw: price || null,
+        display_hours: hours || null,
         coordinates: `${lat},${lng}`,
         map_link: `https://www.google.com/maps?q=${lat},${lng}`,
         description,
@@ -10836,13 +10852,13 @@ export async function openAdminModerationModal(tab = 'posts') {
                             area: pl.area || 'Toàn tỉnh',
                             address: pl.address || '',
                             map_link: pl.map_link || '',
-                            price_raw: pl.price_raw || 'Liên hệ',
+                            price_raw: pl.price_raw || '',
                             description: pl.description || '',
                             note: pl.note || '',
                             contact: pl.contact || '',
                             coordinates: pl.coordinates || '',
                             contributor: pl.contributor || 'Thành viên đóng góp',
-                            display_hours: pl.display_hours || '07:00 - 18:00',
+                            display_hours: pl.display_hours || '',
                             operating_status: pl.operating_status || 'Normal',
                             status: pl.status || 'draft',
                             images: imgs,

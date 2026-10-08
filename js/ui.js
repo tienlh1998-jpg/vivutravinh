@@ -247,7 +247,7 @@ export function getVietnamHours(currentTime = new Date()) {
  */
 export function getPlaceOpenStatus(place, currentTime = new Date()) {
     if (!place) {
-        return { status: 'unknown', label: 'Chưa rõ giờ mở', color: 'slate' };
+        return { status: 'unknown', label: 'Chưa cập nhật', color: 'slate' };
     }
 
     // 1. ƯU TIÊN TẠM ĐÓNG LÊN HÀNG ĐẦU (kể cả khi 24/7)
@@ -261,8 +261,19 @@ export function getPlaceOpenStatus(place, currentTime = new Date()) {
     }
 
     // 3. Thiếu giờ mở cửa
-    if (place.isUnknownHours || (!place.openingTime && !place.closingTime)) {
-        return { status: 'unknown', label: 'Chưa rõ giờ mở', color: 'slate' };
+    let openingTime = place.openingTime;
+    let closingTime = place.closingTime;
+    const dispHours = place.displayHours || place.display_hours;
+    if (!openingTime && !closingTime && dispHours) {
+        const m = dispHours.match(/(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/);
+        if (m) {
+            openingTime = m[1];
+            closingTime = m[2];
+        }
+    }
+
+    if (place.isUnknownHours || (!openingTime && !closingTime)) {
+        return { status: 'unknown', label: 'Chưa cập nhật', color: 'slate' };
     }
 
     function parseTime(timeStr) {
@@ -272,11 +283,11 @@ export function getPlaceOpenStatus(place, currentTime = new Date()) {
         return parseInt(match[1], 10) + (parseInt(match[2], 10) / 60);
     }
 
-    const openTime = parseTime(place.openingTime);
-    const closeTime = parseTime(place.closingTime);
+    const openTime = parseTime(openingTime);
+    const closeTime = parseTime(closingTime);
 
     if (openTime === null || closeTime === null) {
-        return { status: 'unknown', label: 'Chưa rõ giờ mở', color: 'slate' };
+        return { status: 'unknown', label: 'Chưa cập nhật', color: 'slate' };
     }
 
     const currentHour = getVietnamHours(currentTime);
@@ -349,25 +360,39 @@ export function calculateDistanceKm(lat1, lon1, lat2, lon2) {
  * Định dạng giá tiền chuẩn xác (phân biệt rõ Miễn phí, Khoảng giá, Đơn giá và Chưa có giá/Liên hệ)
  */
 export function formatPlacePrice(placeOrRaw) {
-    if (!placeOrRaw) return 'Liên hệ';
+    if (!placeOrRaw) return 'Chưa cập nhật';
 
     if (typeof placeOrRaw === 'object') {
         if (placeOrRaw.isFree) return 'Miễn phí';
-        if (placeOrRaw.isUnknownPrice) return 'Liên hệ';
-        if (placeOrRaw.priceFormatted) return placeOrRaw.priceFormatted;
-        if (placeOrRaw.priceRaw) return formatPlacePrice(placeOrRaw.priceRaw);
-        return 'Liên hệ';
+        if (placeOrRaw.isUnknownPrice) return 'Chưa cập nhật';
+        if (placeOrRaw.priceFormatted && !/^(liên hệ|chưa rõ|đang cập nhật|unknown|chưa cập nhật)$/i.test(placeOrRaw.priceFormatted)) {
+            return placeOrRaw.priceFormatted;
+        }
+        const rawProp = placeOrRaw.price_raw || placeOrRaw.priceRaw || placeOrRaw.price;
+        if (rawProp) return formatPlacePrice(rawProp);
+        return 'Chưa cập nhật';
     }
 
     const raw = String(placeOrRaw).trim();
-    if (!raw || /^(liên hệ|chưa rõ|đang cập nhật|unknown)$/i.test(raw)) {
+    if (!raw || /^(chưa rõ|đang cập nhật|unknown|chưa cập nhật)$/i.test(raw)) {
+        return 'Chưa cập nhật';
+    }
+    if (/^liên hệ$/i.test(raw)) {
         return 'Liên hệ';
     }
     if (raw === '0' || /^(miễn phí|free)$/i.test(raw)) {
         return 'Miễn phí';
     }
 
-    return parsePrice(raw).formatted;
+    const parsed = parsePrice(raw);
+    if (!parsed || parsed.isUnknown || parsed.formatted === 'Liên hệ') {
+        return raw;
+    }
+    // Nếu chuỗi người dùng đã nhập có đơn vị hoặc tiền tệ rõ ràng (vd: "20.000 VNĐ / người"), ưu tiên chuỗi thực tế
+    if (/[a-zA-ZÀ-ỹ]/.test(raw) && raw.length > 3) {
+        return raw;
+    }
+    return parsed.formatted;
 }
 
 /**
@@ -623,8 +648,20 @@ export function renderWeatherAndSmartSuggestions(containerId, places, onOpenModa
                                 </div>
                             </div>
                             <div class="text-right shrink-0 ml-2">
-                                <span class="text-xs font-bold text-secondary dark:text-emerald-400 block">${formatPlacePrice(item.priceRaw)}</span>
-                                <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Đang mở cửa</span>
+                                <span class="text-xs font-bold text-secondary dark:text-emerald-400 block">${formatPlacePrice(item.priceRaw || item)}</span>
+                                ${(() => {
+                                    const st = getPlaceOpenStatus(item);
+                                    if (st.status === 'open') {
+                                        return '<span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Đang mở cửa</span>';
+                                    }
+                                    if (st.status === 'closed') {
+                                        return '<span class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Đã đóng cửa</span>';
+                                    }
+                                    if (st.status === 'temporarily_closed') {
+                                        return '<span class="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Tạm đóng</span>';
+                                    }
+                                    return '<span class="text-[10px] text-slate-400 dark:text-zinc-500">Chưa cập nhật giờ</span>';
+                                })()}
                             </div>
                         </div>
                     `).join('')}
@@ -840,9 +877,15 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
     if (!modal || !place) return;
 
     const statusInfo = getPlaceOpenStatus(place);
-    const rating = Number.parseFloat(place.rating) || 0;
+    const reviewsCount = Number(place.reviewsCount || place.reviewCount || place.reviews_count || (Array.isArray(comments) ? comments.length : 0)) || 0;
+    const hasApprovedReviews = Array.isArray(comments) ? comments.length > 0 : reviewsCount > 0;
+    const rating = (hasApprovedReviews && Number.parseFloat(place.rating) > 0) ? Number.parseFloat(place.rating) : 0;
     const priceText = formatPlacePrice(place);
     const images = (place.images && place.images.length > 0) ? place.images : [place.imageLink || NEUTRAL_PLACEHOLDER_IMAGE];
+
+    // Mặc định ẩn bảng phân bố sao khi mở modal (chỉ hiện khi có bình luận thật)
+    const breakdownCard = document.getElementById('modalRatingBreakdownCard');
+    if (breakdownCard) breakdownCard.classList.add('hidden');
 
     document.getElementById('modalTitle').textContent = place.name;
     document.getElementById('modalCategory').textContent = place.category || 'Địa Điểm';
@@ -856,7 +899,9 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
     if (mobileTitleEl) mobileTitleEl.textContent = place.name;
 
     const scoreEl = document.getElementById('modalRatingScore');
+    const starsEl = document.getElementById('modalStars');
     if (scoreEl) scoreEl.textContent = rating > 0 ? rating.toFixed(1) : '';
+    if (starsEl) starsEl.innerHTML = rating > 0 ? renderRatingStars(rating, false) : '<span class="text-xs text-on-surface-variant dark:text-zinc-400 italic">Chưa có đánh giá</span>';
 
     const statusEl = document.getElementById('modalOpenStatus');
     if (statusEl) {
@@ -870,16 +915,69 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
             statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block mr-1"></span> ' + statusInfo.label;
             statusEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300';
         } else {
-            statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-stone-400 inline-block mr-1"></span> ' + statusInfo.label;
+            statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-stone-400 inline-block mr-1"></span> ' + (statusInfo.label || 'Chưa cập nhật');
             statusEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-stone-100 dark:bg-zinc-800 text-stone-700 dark:text-zinc-300';
         }
     }
 
     const hoursEl = document.getElementById('modalHours');
-    if (hoursEl) hoursEl.textContent = place.displayHours || (place.openingTime ? `${place.openingTime} - ${place.closingTime}` : 'Chưa rõ giờ mở cửa');
+    const dispHoursVal = place.displayHours || place.display_hours;
+    const rawHours = (dispHoursVal && !/chưa rõ/i.test(dispHoursVal)) ? dispHoursVal : (place.openingTime ? `${place.openingTime} - ${place.closingTime}` : '');
+    if (hoursEl) hoursEl.textContent = rawHours || 'Chưa cập nhật';
 
     const priceEl = document.getElementById('modalPrice');
-    if (priceEl) priceEl.textContent = priceText;
+    if (priceEl) priceEl.textContent = priceText || 'Chưa cập nhật';
+
+    // Thời gian tham quan đề xuất: ẩn dòng nếu chưa có dữ liệu thật
+    const durationRow = document.getElementById('modalDurationRow');
+    const durationEl = document.getElementById('modalDuration');
+    const durationVal = place.suggestedDuration || place.duration || null;
+    if (durationRow) {
+        if (durationVal && durationVal.trim()) {
+            if (durationEl) durationEl.textContent = durationVal.trim();
+            durationRow.classList.remove('hidden');
+        } else {
+            durationRow.classList.add('hidden');
+        }
+    }
+
+    // Bãi đỗ xe: ẩn dòng nếu chưa có dữ liệu thật
+    const parkingRow = document.getElementById('modalParkingRow');
+    const parkingEl = document.getElementById('modalParking');
+    const parkingVal = place.parking || null;
+    if (parkingRow) {
+        if (parkingVal && parkingVal.trim()) {
+            if (parkingEl) parkingEl.textContent = parkingVal.trim();
+            parkingRow.classList.remove('hidden');
+        } else {
+            parkingRow.classList.add('hidden');
+        }
+    }
+
+    // Thuyết minh tự động: chỉ hiển thị khi có mô tả thật
+    const audioSection = document.getElementById('modalAudioSection');
+    const hasDesc = Boolean(place.description && place.description.trim());
+    if (audioSection) {
+        audioSection.classList.toggle('hidden', !hasDesc);
+        const timerEl = document.getElementById('audioTimer');
+        if (timerEl) {
+            if (hasDesc) {
+                const totalSec = Math.max(10, Math.round(place.description.trim().length / 15));
+                const totalMin = String(Math.floor(totalSec / 60)).padStart(2, '0');
+                const totalSecStr = String(totalSec % 60).padStart(2, '0');
+                timerEl.textContent = `00:00 / ~${totalMin}:${totalSecStr} (ước tính)`;
+            } else {
+                timerEl.textContent = '00:00';
+            }
+        }
+    }
+
+    // Thẻ gợi ý tour: ẩn nội dung mẫu khi chưa có dữ liệu tour thật
+    const ecoTourBanner = document.getElementById('modalEcoTourBanner');
+    if (ecoTourBanner) {
+        const hasRealTour = Boolean(place.tour || place.linkedTour || (Array.isArray(place.tours) && place.tours.length > 0));
+        ecoTourBanner.classList.toggle('hidden', !hasRealTour);
+    }
 
     const addressEl = document.getElementById('modalAddress');
     if (addressEl) addressEl.textContent = place.address || place.area || 'Trà Vinh, Việt Nam';
@@ -1038,9 +1136,6 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
 
     updateGalleryView(0);
 
-    const starsEl = document.getElementById('modalStars');
-    if (starsEl) starsEl.innerHTML = renderRatingStars(rating, true);
-
     // Cập nhật trạng thái bookmark trong modal
     updateModalBookmarkButton(isSaved);
 
@@ -1058,7 +1153,13 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
         renderCommentsList(comments);
     }
 
-    renderCheckinAndTikTokTab(place);
+    // Tạm ẩn tab Góc chụp & TikTok trên giao diện (giữ mã để phát triển sau)
+    const tabSwitcher = document.getElementById('modalTabSwitcherContainer');
+    if (tabSwitcher) tabSwitcher.classList.add('hidden');
+    const checkinBtn = document.getElementById('modalTabCheckinBtn');
+    if (checkinBtn) checkinBtn.classList.add('hidden');
+    const checkinPanel = document.getElementById('modalCheckinTabPanel');
+    if (checkinPanel) checkinPanel.classList.add('hidden');
 
     modal.classList.remove('hidden');
     if (typeof window !== 'undefined' && window.ViVuApp?.syncBodyScrollLock) {
@@ -1102,164 +1203,154 @@ export function renderCulturalHighlights(place) {
     const etiquetteEl = document.getElementById('modalCulturalEtiquette');
     if (!highlightsEl || !etiquetteEl || !place) return;
 
-    const fullText = `${place.name || ''} ${place.category || ''} ${place.description || ''} ${place.area || ''}`.toLowerCase();
-    const isTemple = /chùa|wat|đền|di tích|miếu|bảo tàng/i.test(fullText);
-    const isFood = /ẩm thực|quán|bún|bánh|cà phê|cafe|trà|ăn uống|món ngon/i.test(fullText);
+    // 1. ĐIỂM NHẤN RIÊNG: Chỉ hiển thị khi chính địa điểm có dữ liệu điểm nhấn riêng (không dùng mô tả để bật nội dung mẫu)
+    const rawHighlights = (Array.isArray(place.architecturalHighlights) && place.architecturalHighlights.length > 0)
+        ? place.architecturalHighlights
+        : (Array.isArray(place.culturalHighlights) && place.culturalHighlights.length > 0)
+            ? place.culturalHighlights
+            : (Array.isArray(place.highlights) && place.highlights.length > 0)
+                ? place.highlights
+                : (Array.isArray(place.heritage_details?.highlights) && place.heritage_details.highlights.length > 0)
+                    ? place.heritage_details.highlights
+                    : null;
 
-    if (isTemple) {
+    if (rawHighlights && rawHighlights.length > 0) {
+        highlightsEl.classList.remove('hidden');
         highlightsEl.innerHTML = `
             <div class="flex flex-col gap-1">
                 <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
                     <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[24px]">architecture</span>
-                    <span>Đỉnh cao kiến trúc điêu khắc Khmer</span>
+                    <span>${escapeHtml(place.highlightsTitle || 'Điểm nhấn kiến trúc & văn hóa')}</span>
                 </h4>
                 <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
-                    Từng đường nét chạm trổ là một chương sử thi về triết lý nhân sinh và cõi Phật
+                    ${escapeHtml(place.highlightsSubtitle || 'Khám phá các giá trị đặc sắc của địa điểm')}
                 </p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">roofing</span>
-                    </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Mái vòm rồng Naga</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Mái nhiều tầng chồng lên nhau, các góc vuốt cong vút hình đuôi rồng Naga che chở thiện nam tín nữ.</p>
-                </div>
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">shield</span>
-                    </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Chim Krud &amp; Yeak</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Đầu cột hiên được đỡ bằng Thần chim Krud dang cánh cùng các hộ pháp Yeak bảo vệ cửa thiền.</p>
-                </div>
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">palette</span>
-                    </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Bích họa Phật tích</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Bốn mặt tường chánh điện là chuỗi bích họa rực rỡ khắc họa con đường tu tập và giác ngộ của Đức Phật.</p>
-                </div>
-            </div>
-            <div class="p-3 rounded-xl bg-surface-container-high/60 dark:bg-zinc-800/80 flex items-start gap-2.5">
-                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] mt-0.5 shrink-0">format_quote</span>
-                <p class="font-body-sm text-xs text-on-surface dark:text-zinc-300 italic leading-relaxed">
-                    "Không gian lưu giữ những mẫu mực điêu khắc cổ xưa tinh hoa nhất của người Khmer đồng bằng sông Cửu Long."
-                </p>
+                ${rawHighlights.map(hl => {
+                    const icon = typeof hl === 'object' ? (hl.icon || 'architecture') : 'architecture';
+                    const title = typeof hl === 'object' ? (hl.title || hl.name || '') : String(hl);
+                    const desc = typeof hl === 'object' ? (hl.desc || hl.description || '') : '';
+                    return `
+                        <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
+                            <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[20px]">${escapeHtml(icon)}</span>
+                            </div>
+                            <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">${escapeHtml(title)}</h5>
+                            ${desc ? `<p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">${escapeHtml(desc)}</p>` : ''}
+                        </div>
+                    `;
+                }).join('')}
             </div>
         `;
-    } else if (isFood) {
-        highlightsEl.innerHTML = `
-            <div class="flex flex-col gap-1">
-                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[24px]">restaurant</span>
-                    <span>Tinh hoa ẩm thực ba dân tộc Kinh - Khmer - Hoa</span>
+    } else {
+        // Thiếu dữ liệu điểm nhấn riêng -> ẩn hoàn toàn khối điểm nhấn, tuyệt đối không tự gắn nội dung mẫu
+        highlightsEl.classList.add('hidden');
+        highlightsEl.innerHTML = '';
+    }
+
+    // 2. QUY TẮC ỨNG XỬ:
+    const fullText = `${place.name || ''} ${place.category || ''}`.toLowerCase();
+    const isTemple = /chùa|wat|đền|miếu|chánh điện/i.test(fullText);
+
+    if (place.culturalEtiquettes && Array.isArray(place.culturalEtiquettes) && place.culturalEtiquettes.length > 0) {
+        etiquetteEl.classList.remove('hidden');
+        etiquetteEl.innerHTML = `
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#EA580C] text-[24px]">shield</span>
+                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                    Quy tắc ứng xử &amp; Tôn trọng văn hóa bản địa
                 </h4>
-                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
-                    Sự hòa quyện độc đáo giữa sản vật sông nước cù lao và công thức gia truyền
-                </p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">soup_kitchen</span>
+            <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                Để bảo tồn nét đẹp văn hóa Trà Vinh, du khách vui lòng lưu ý:
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                ${place.culturalEtiquettes.map(eti => `
+                    <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                        <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">${escapeHtml(eti.icon || 'check_circle')}</span>
+                        <div class="flex flex-col">
+                            <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">${escapeHtml(eti.title)}</strong>
+                            <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">${escapeHtml(eti.desc)}</span>
+                        </div>
                     </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Hương vị nguyên bản</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Hương vị đậm đà đặc trưng miền Tây Nam Bộ, nấu từ mắm hoặc thảo mộc đồng quê tự nhiên.</p>
+                `).join('')}
+            </div>
+        `;
+    } else if (isTemple) {
+        etiquetteEl.classList.remove('hidden');
+        etiquetteEl.innerHTML = `
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#EA580C] text-[24px]">shield</span>
+                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                    Quy tắc ứng xử &amp; Tôn trọng văn hóa bản địa
+                </h4>
+            </div>
+            <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                Để bảo tồn tính tôn nghiêm và giữ gìn nét đẹp văn hóa Trà Vinh, du khách vui lòng lưu ý:
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">check_circle</span>
+                    <div class="flex flex-col">
+                        <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Trang phục kín đáo, lịch thiệp</strong>
+                        <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Ưu tiên áo có tay, quần hoặc váy dài qua gối khi đến nơi thờ tự và chốn tôn nghiêm.</span>
+                    </div>
                 </div>
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">eco</span>
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">do_not_step</span>
+                    <div class="flex flex-col">
+                        <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Tháo giày dép khi vào chánh điện</strong>
+                        <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Đặt giày dép ngay ngắn bên ngoài thềm theo bảng hướng dẫn của ban quản trị.</span>
                     </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Nguyên liệu tươi sạch</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Tươi ngon từ rau đồng, bắp chuối, rau thơm vườn nhà cùng thủy hải sản bến sông Trà Vinh.</p>
                 </div>
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">thumb_up</span>
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">volume_off</span>
+                    <div class="flex flex-col">
+                        <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Giữ không gian tĩnh tịnh</strong>
+                        <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Chuyển điện thoại sang chế độ rung, nói năng nhẹ nhàng, không gây ồn ào.</span>
                     </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Nồng hậu mến khách</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Phong cách phục vụ chân chất, thân thiện đúng chất người con hào sảng miền Tây.</p>
+                </div>
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">camera</span>
+                    <div class="flex flex-col">
+                        <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Chụp ảnh văn minh, tôn trọng</strong>
+                        <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Không tạo dáng phản cảm trước tượng Phật hay di vật, tắt đèn flash chiếu vào bích họa cổ.</span>
+                    </div>
                 </div>
             </div>
         `;
     } else {
-        highlightsEl.innerHTML = `
-            <div class="flex flex-col gap-1">
-                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[24px]">nature</span>
-                    <span>Cảnh quan sinh thái &amp; Giá trị bản địa</span>
+        // Địa điểm chung (quán ăn, quán cafe, check-in, điểm mới...) -> ứng xử văn minh chung
+        etiquetteEl.classList.remove('hidden');
+        etiquetteEl.innerHTML = `
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#EA580C] text-[24px]">handshake</span>
+                <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                    Quy tắc ứng xử văn minh &amp; Tôn trọng cộng đồng
                 </h4>
-                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
-                    Không gian xanh mát, lưu giữ nét bình dị và sinh thái trù phú của vùng đồng bằng
-                </p>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">forest</span>
+            <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
+                Để giữ gìn môi trường du lịch thân thiện và văn minh tại Trà Vinh:
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">delete_outline</span>
+                    <div class="flex flex-col">
+                        <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Giữ gìn vệ sinh chung</strong>
+                        <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Không vứt rác bừa bãi, bảo vệ môi trường và cảnh quan địa phương.</span>
                     </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Rợp bóng cổ thụ</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Quần thể cây xanh và bóng mát tự nhiên tạo nên bầu không khí trong lành, xua tan oi ả.</p>
                 </div>
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-secondary/10 text-secondary dark:text-emerald-400 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">water_drop</span>
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
+                    <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">groups</span>
+                    <div class="flex flex-col">
+                        <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Tôn trọng người dân địa phương</strong>
+                        <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Giao tiếp nhã nhặn, tôn trọng nếp sống và nét sinh hoạt của bà con bản địa.</span>
                     </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Không khí thanh bình</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Không gian tĩnh tại, lý tưởng để thư giãn, đi dạo và tận hưởng vẻ đẹp thiên nhiên miền quê.</p>
-                </div>
-                <div class="flex flex-col rounded-xl bg-surface-container-lowest dark:bg-zinc-900 p-3.5 gap-2 border border-outline-variant/20 dark:border-zinc-800">
-                    <div class="w-8 h-8 rounded-lg bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[20px]">photo_camera</span>
-                    </div>
-                    <h5 class="font-headline-sm text-xs font-bold text-primary dark:text-zinc-200">Góc check-in đẹp</h5>
-                    <p class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 leading-relaxed">Nhiều khung hình thơ mộng với ánh nắng len lỏi qua tán cây râm mát.</p>
                 </div>
             </div>
         `;
     }
-
-    etiquetteEl.innerHTML = `
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[#EA580C] text-[24px]">shield</span>
-            <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
-                Quy tắc ứng xử &amp; Tôn trọng văn hóa bản địa
-            </h4>
-        </div>
-        <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400">
-            Để bảo tồn tính tôn nghiêm và giữ gìn nét đẹp văn hóa Trà Vinh, du khách vui lòng lưu ý:
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
-                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">check_circle</span>
-                <div class="flex flex-col">
-                    <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Trang phục kín đáo, lịch thiệp</strong>
-                    <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Ưu tiên áo có tay, quần hoặc váy dài qua gối khi đến nơi thờ tự và chốn tôn nghiêm.</span>
-                </div>
-            </div>
-            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
-                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">do_not_step</span>
-                <div class="flex flex-col">
-                    <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Tháo giày dép khi vào chánh điện</strong>
-                    <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Đặt giày dép ngay ngắn bên ngoài thềm theo bảng hướng dẫn của ban quản trị.</span>
-                </div>
-            </div>
-            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
-                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">volume_off</span>
-                <div class="flex flex-col">
-                    <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Giữ không gian tĩnh tịnh</strong>
-                    <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Chuyển điện thoại sang chế độ rung, nói năng nhẹ nhàng, không gây ồn ào.</span>
-                </div>
-            </div>
-            <div class="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-lowest dark:bg-zinc-900 border border-outline-variant/20 dark:border-zinc-800">
-                <span class="material-symbols-outlined text-secondary dark:text-emerald-400 text-[20px] shrink-0 mt-0.5">camera</span>
-                <div class="flex flex-col">
-                    <strong class="font-button text-xs font-bold text-on-surface dark:text-zinc-200">Chụp ảnh văn minh, tôn trọng</strong>
-                    <span class="font-body-sm text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Không tạo dáng phản cảm trước tượng Phật hay di vật, tắt đèn flash chiếu vào bích họa cổ.</span>
-                </div>
-            </div>
-        </div>
-    `;
 }
 
 /**
@@ -1325,6 +1416,8 @@ export function renderCommentsSkeleton() {
     const listEl = document.getElementById('commentsList');
     const summaryEl = document.getElementById('commentSummary');
     const countEl = document.getElementById('commentCount');
+    const breakdownCard = document.getElementById('modalRatingBreakdownCard');
+    if (breakdownCard) breakdownCard.classList.add('hidden');
     if (summaryEl) summaryEl.textContent = 'Đang tải nhận xét từ du khách...';
     if (countEl) countEl.textContent = '...';
     if (!listEl) return;
@@ -1363,6 +1456,8 @@ export function renderCommentsError(onRetry) {
     const listEl = document.getElementById('commentsList');
     const summaryEl = document.getElementById('commentSummary');
     const countEl = document.getElementById('commentCount');
+    const breakdownCard = document.getElementById('modalRatingBreakdownCard');
+    if (breakdownCard) breakdownCard.classList.add('hidden');
     if (summaryEl) summaryEl.textContent = 'Không thể tải bình luận trực tuyến';
     if (countEl) countEl.textContent = '(!)';
     if (!listEl) return;
@@ -1390,21 +1485,83 @@ export function renderCommentsList(comments = []) {
     const listEl = document.getElementById('commentsList');
     const summaryEl = document.getElementById('commentSummary');
     const countEl = document.getElementById('commentCount');
+    const breakdownCard = document.getElementById('modalRatingBreakdownCard');
+    const breakdownScore = document.getElementById('modalBreakdownScore');
+    const breakdownStars = document.getElementById('modalBreakdownStars');
+    const breakdownSatisfaction = document.getElementById('modalBreakdownSatisfaction');
+    const breakdownBars = document.getElementById('modalBreakdownBars');
+    const modalRatingScore = document.getElementById('modalRatingScore');
+    const modalStars = document.getElementById('modalStars');
+
     if (!listEl) return;
 
     if (!comments || comments.length === 0) {
-        if (summaryEl) summaryEl.textContent = 'Chưa có bình luận nào. Hãy là người đầu tiên chia sẻ trải nghiệm!';
+        if (breakdownCard) breakdownCard.classList.add('hidden');
+        if (summaryEl) summaryEl.textContent = 'Chưa có đánh giá';
         if (countEl) countEl.textContent = '(0)';
+        if (modalRatingScore) modalRatingScore.textContent = '';
+        if (modalStars) modalStars.innerHTML = '<span class="text-xs text-on-surface-variant dark:text-zinc-400 italic">Chưa có đánh giá</span>';
         listEl.innerHTML = `
             <div class="p-4 rounded-xl bg-surface-container-low dark:bg-zinc-800/50 text-center text-xs text-on-surface-variant dark:text-zinc-400 italic">
-                Chưa có nhận xét từ cộng đồng. Hãy chia sẻ cảm nhận của bạn bên dưới!
+                Chưa có đánh giá nào từ cộng đồng. Hãy là người đầu tiên chia sẻ cảm nhận của bạn bên dưới!
             </div>
         `;
         return;
     }
 
-    if (summaryEl) summaryEl.textContent = `${comments.length} đánh giá từ cộng đồng du khách`;
-    if (countEl) countEl.textContent = `(${comments.length})`;
+    // Lọc các đánh giá có số sao hợp lệ từ 1 đến 5
+    const validRatings = comments
+        .map(c => Number(c.rating))
+        .filter(r => Number.isFinite(r) && r >= 1 && r <= 5);
+
+    if (validRatings.length === 0) {
+        if (breakdownCard) breakdownCard.classList.add('hidden');
+        if (summaryEl) summaryEl.textContent = `${comments.length} nhận xét (chưa có chấm sao)`;
+        if (countEl) countEl.textContent = `(${comments.length})`;
+        if (modalRatingScore) modalRatingScore.textContent = '';
+        if (modalStars) modalStars.innerHTML = '<span class="text-xs text-on-surface-variant dark:text-zinc-400 italic">Chưa có đánh giá</span>';
+    } else {
+        const totalRating = validRatings.reduce((sum, r) => sum + r, 0);
+        const avgRating = totalRating / validRatings.length;
+        const avgFormatted = (Math.round(avgRating * 10) / 10).toFixed(1);
+
+        const satisfiedCount = validRatings.filter(r => r >= 4).length;
+        const satisfactionRate = Math.round((satisfiedCount / validRatings.length) * 100);
+
+        const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+        validRatings.forEach(r => {
+            const roundedStar = Math.min(5, Math.max(1, Math.round(r)));
+            counts[roundedStar] = (counts[roundedStar] || 0) + 1;
+        });
+
+        if (breakdownCard) breakdownCard.classList.remove('hidden');
+        if (breakdownScore) breakdownScore.textContent = avgFormatted;
+        if (breakdownStars) breakdownStars.innerHTML = renderRatingStars(avgRating, false);
+        if (breakdownSatisfaction) breakdownSatisfaction.textContent = `${satisfactionRate}% du khách hài lòng`;
+
+        if (breakdownBars) {
+            breakdownBars.innerHTML = [5, 4, 3, 2, 1].map(star => {
+                const count = counts[star] || 0;
+                const percent = Math.round((count / validRatings.length) * 100);
+                return `
+                    <div class="flex items-center gap-2">
+                        <span class="w-10 text-stone-500 dark:text-zinc-400 font-medium">${star} sao</span>
+                        <div class="flex-1 h-2 rounded-full bg-stone-200 dark:bg-zinc-700 overflow-hidden">
+                            <div class="h-full bg-amber-400 dark:bg-amber-500 rounded-full transition-all" style="width: ${percent}%"></div>
+                        </div>
+                        <span class="w-8 text-right text-[11px] text-stone-400 dark:text-zinc-500">${percent}%</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        if (summaryEl) summaryEl.textContent = `${comments.length} đánh giá từ cộng đồng du khách`;
+        if (countEl) countEl.textContent = `(${comments.length})`;
+
+        // Cập nhật điểm và số sao trên header của Detail Modal theo dữ liệu thật
+        if (modalRatingScore) modalRatingScore.textContent = avgFormatted;
+        if (modalStars) modalStars.innerHTML = renderRatingStars(avgRating, false);
+    }
 
     const colors = ['bg-emerald-600', 'bg-amber-600', 'bg-teal-600', 'bg-indigo-600', 'bg-rose-600'];
 
@@ -6765,9 +6922,13 @@ export function renderSavedCollectionsModalContent(savedItems = [], folders = []
                                                 ${safeTitle}
                                             </h2>
                                             <div class="flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs font-bold shrink-0">
-                                                <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                                <span>${item.rating || 4.9}</span>
-                                                <span class="text-outline dark:text-zinc-500 font-normal">(${item.reviewsCount || 400})</span>
+                                                ${Number(item.rating) > 0 ? `
+                                                    <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                                    <span>${Number(item.rating).toFixed(1)}</span>
+                                                    ${item.reviewsCount ? `<span class="text-outline dark:text-zinc-500 font-normal">(${item.reviewsCount})</span>` : ''}
+                                                ` : `
+                                                    <span class="text-[11px] text-outline dark:text-zinc-400 font-normal italic">Chưa có đánh giá</span>
+                                                `}
                                             </div>
                                         </div>
                                         <!-- Address Pin -->
@@ -10821,7 +10982,7 @@ export function renderAdminModerationModalContent({
                                             </div>
                                             <div class="min-w-0">
                                                 <p class="text-[11px] text-outline dark:text-zinc-400">Giờ mở cửa / Giá</p>
-                                                <p class="text-xs font-bold text-primary dark:text-zinc-100 truncate">${escapeHtml(selectedPlace.display_hours || '07:00 - 18:00')} &bull; ${escapeHtml(selectedPlace.price_raw || 'Liên hệ')}</p>
+                                                <p class="text-xs font-bold text-primary dark:text-zinc-100 truncate">${escapeHtml(selectedPlace.display_hours || 'Chưa cập nhật')} &bull; ${escapeHtml(selectedPlace.price_raw || 'Chưa cập nhật')}</p>
                                             </div>
                                         </div>
 
@@ -11796,20 +11957,23 @@ export function renderDeepPlaceDetailModalContent(place, isAudioPlaying = false,
                                 ${escapeHtml(place.nativeName || '')}
                             </span>
                         </h1>
-                        <div class="flex flex-wrap items-center gap-3 sm:gap-4 text-on-surface-variant dark:text-zinc-400 text-xs sm:text-sm pt-0.5">
-                            <div class="flex items-center gap-1 text-[#EA580C]">
-                                <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                <span class="font-bold text-on-surface dark:text-zinc-200">${place.rating || '4.9'}</span>
-                                <span class="text-outline dark:text-zinc-500">(${place.reviewsCount || 386} đánh giá)</span>
-                            </div>
+                            ${(Number(place.rating) > 0 && (place.reviewsCount || (place.reviews && place.reviews.length))) ? `
+                                <div class="flex items-center gap-1 text-[#EA580C]">
+                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                                    <span class="font-bold text-on-surface dark:text-zinc-200">${Number(place.rating).toFixed(1)}</span>
+                                    <span class="text-outline dark:text-zinc-500">(${place.reviewsCount || place.reviews.length} đánh giá)</span>
+                                </div>
+                            ` : `
+                                <span class="text-xs text-on-surface-variant dark:text-zinc-400 italic">Chưa có đánh giá</span>
+                            `}
                             <span class="text-outline dark:text-zinc-600">•</span>
                             <div class="flex items-center gap-1 text-on-surface dark:text-zinc-300">
                                 <span class="material-symbols-outlined text-[18px] text-secondary">location_on</span>
-                                <span>${escapeHtml(place.address)}</span>
+                                <span>${escapeHtml(place.address || 'Trà Vinh')}</span>
                             </div>
                             <span class="text-outline dark:text-zinc-600">•</span>
                             <span class="px-2.5 py-0.5 rounded-lg bg-surface-container-high dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-300 font-medium">
-                                ${escapeHtml(place.openHours)}
+                                ${escapeHtml(place.openHours || 'Chưa cập nhật')}
                             </span>
                         </div>
                     </div>
@@ -12059,43 +12223,50 @@ export function renderDeepPlaceDetailModalContent(place, isAudioPlaying = false,
                             </div>
 
                             <!-- Overall Rating Breakdown Bar -->
-                            <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 flex flex-col sm:flex-row items-center gap-6">
-                                <div class="flex flex-col items-center justify-center sm:pr-6 sm:border-r border-outline-variant/30 dark:border-zinc-700">
-                                    <span class="font-headline-xl text-3xl font-bold text-primary dark:text-zinc-100">${place.rating || '4.9'}</span>
-                                    <div class="flex text-[#EA580C] my-1">
-                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                    </div>
-                                    <span class="text-[11px] text-outline dark:text-zinc-400 font-medium">98% khen ngợi cảnh quan</span>
-                                </div>
+                            ${(() => {
+                                const reviews = place.reviews || [];
+                                const validRatings = reviews.map(r => Number(r.rating)).filter(r => Number.isFinite(r) && r >= 1 && r <= 5);
+                                if (validRatings.length === 0) {
+                                    return `
+                                        <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 text-center text-xs text-on-surface-variant dark:text-zinc-400 italic">
+                                            Chưa có đánh giá được duyệt từ du khách
+                                        </div>
+                                    `;
+                                }
+                                const total = validRatings.reduce((sum, r) => sum + r, 0);
+                                const avg = (total / validRatings.length).toFixed(1);
+                                const satCount = validRatings.filter(r => r >= 4).length;
+                                const satPct = Math.round((satCount / validRatings.length) * 100);
+                                const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+                                validRatings.forEach(r => { counts[Math.min(5, Math.max(1, Math.round(r)))] = (counts[Math.min(5, Math.max(1, Math.round(r)))] || 0) + 1; });
 
-                                <div class="flex-1 w-full space-y-2 text-xs">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-10 text-on-surface dark:text-zinc-300">5 sao</span>
-                                        <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                            <div class="bg-secondary h-full rounded-full w-[92%]"></div>
+                                return `
+                                    <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/60 flex flex-col sm:flex-row items-center gap-6">
+                                        <div class="flex flex-col items-center justify-center sm:pr-6 sm:border-r border-outline-variant/30 dark:border-zinc-700">
+                                            <span class="font-headline-xl text-3xl font-bold text-primary dark:text-zinc-100">${avg}</span>
+                                            <div class="flex text-[#EA580C] my-1">
+                                                ${renderRatingStars(avg, false)}
+                                            </div>
+                                            <span class="text-[11px] text-outline dark:text-zinc-400 font-medium">${satPct}% khen ngợi</span>
                                         </div>
-                                        <span class="w-8 text-right text-outline dark:text-zinc-400">92%</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-10 text-on-surface dark:text-zinc-300">4 sao</span>
-                                        <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                            <div class="bg-secondary h-full rounded-full w-[6%]"></div>
+
+                                        <div class="flex-1 w-full space-y-2 text-xs">
+                                            ${[5, 4, 3, 2, 1].map(s => {
+                                                const pct = Math.round(((counts[s] || 0) / validRatings.length) * 100);
+                                                return `
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="w-10 text-on-surface dark:text-zinc-300">${s} sao</span>
+                                                        <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
+                                                            <div class="bg-secondary h-full rounded-full" style="width: ${pct}%"></div>
+                                                        </div>
+                                                        <span class="w-8 text-right text-outline dark:text-zinc-400">${pct}%</span>
+                                                    </div>
+                                                `;
+                                            }).join('')}
                                         </div>
-                                        <span class="w-8 text-right text-outline dark:text-zinc-400">6%</span>
                                     </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-10 text-on-surface dark:text-zinc-300">3 sao</span>
-                                        <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                            <div class="bg-secondary h-full rounded-full w-[2%]"></div>
-                                        </div>
-                                        <span class="w-8 text-right text-outline dark:text-zinc-400">2%</span>
-                                    </div>
-                                </div>
-                            </div>
+                                `;
+                            })()}
 
                             <!-- Review List -->
                             <div class="flex flex-col gap-4 divide-y divide-outline-variant/20 dark:divide-zinc-800">
@@ -12138,7 +12309,7 @@ export function renderDeepPlaceDetailModalContent(place, isAudioPlaying = false,
                                         <span class="material-symbols-outlined text-[18px] text-outline">schedule</span>
                                         Giờ mở cửa
                                     </span>
-                                    <span class="font-bold text-primary dark:text-zinc-200">${escapeHtml(place.openHours)}</span>
+                                    <span class="font-bold text-primary dark:text-zinc-200">${escapeHtml(place.openHours || 'Chưa cập nhật')}</span>
                                 </div>
                                 <div class="flex items-center justify-between py-2 border-b border-outline-variant/20 dark:border-zinc-800">
                                     <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
@@ -12146,23 +12317,27 @@ export function renderDeepPlaceDetailModalContent(place, isAudioPlaying = false,
                                         Vé vào cổng
                                     </span>
                                     <span class="font-bold text-secondary dark:text-emerald-400 px-2 py-0.5 rounded bg-secondary-container/50 dark:bg-emerald-950/60">
-                                        ${escapeHtml(place.ticketPrice || 'Miễn phí hoàn toàn')}
+                                        ${escapeHtml(place.ticketPrice || 'Chưa cập nhật')}
                                     </span>
                                 </div>
-                                <div class="flex items-center justify-between py-2 border-b border-outline-variant/20 dark:border-zinc-800">
-                                    <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
-                                        <span class="material-symbols-outlined text-[18px] text-outline">timelapse</span>
-                                        Thời gian khuyên nghị
-                                    </span>
-                                    <span class="font-bold text-primary dark:text-zinc-200">${escapeHtml(place.suggestedDuration || '1.5 - 2.0 giờ')}</span>
-                                </div>
-                                <div class="flex items-center justify-between py-2">
-                                    <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
-                                        <span class="material-symbols-outlined text-[18px] text-outline">local_parking</span>
-                                        Bãi đỗ xe
-                                    </span>
-                                    <span class="font-medium text-on-surface dark:text-zinc-300">${escapeHtml(place.parking || 'Có')}</span>
-                                </div>
+                                ${place.suggestedDuration ? `
+                                    <div class="flex items-center justify-between py-2 border-b border-outline-variant/20 dark:border-zinc-800">
+                                        <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[18px] text-outline">timelapse</span>
+                                            Thời gian khuyên nghị
+                                        </span>
+                                        <span class="font-bold text-primary dark:text-zinc-200">${escapeHtml(place.suggestedDuration)}</span>
+                                    </div>
+                                ` : ''}
+                                ${place.parking ? `
+                                    <div class="flex items-center justify-between py-2">
+                                        <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[18px] text-outline">local_parking</span>
+                                            Bãi đỗ xe
+                                        </span>
+                                        <span class="font-medium text-on-surface dark:text-zinc-300">${escapeHtml(place.parking)}</span>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
 

@@ -2188,26 +2188,26 @@
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 sm:p-6 pt-0">
                             <!-- CỘT TRÁI: Nội dung chính & Đánh giá (7 cols) -->
                             <div class="lg:col-span-7 xl:col-span-8 space-y-6">
-                                <!-- Audio Guide Player Banner (Khmer Cultural Immersion) -->
+                                <!-- Audio Guide Player Banner (Đọc phần giới thiệu) -->
                                 <div id="modalAudioSection" class="rounded-2xl bg-gradient-to-r from-primary-container to-[#004733] text-on-primary p-4 sm:p-5 shadow-sm relative overflow-hidden">
                                     <div class="absolute -right-8 -bottom-8 w-40 h-40 rounded-full bg-secondary/20 blur-2xl pointer-events-none"></div>
                                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
                                         <div class="flex items-center gap-3 sm:gap-4">
                                             <button id="audioPlayBtn" type="button" onclick="window.ViVuApp.toggleAudioGuide()"
                                                 class="w-12 h-12 min-w-[48px] min-h-[48px] rounded-full bg-[#EA580C] hover:bg-[#C2410C] text-white flex items-center justify-center shadow-md transition-transform active:scale-95 shrink-0"
-                                                aria-label="Phát thuyết minh âm thanh">
+                                                aria-label="Đọc phần giới thiệu">
                                                 <span id="playIcon" class="material-symbols-outlined text-[26px]">play_arrow</span>
                                             </button>
                                             <div class="flex flex-col min-w-0">
                                                 <div class="flex items-center gap-2">
-                                                    <span class="font-badge text-[11px] text-secondary-fixed bg-secondary-fixed/15 px-2 py-0.5 rounded uppercase tracking-wide font-semibold">Audio Guide Bản Địa</span>
-                                                    <span class="font-caption text-xs text-primary-fixed-dim">Thuyết minh tự động</span>
+                                                    <span class="font-badge text-[11px] text-secondary-fixed bg-secondary-fixed/15 px-2 py-0.5 rounded uppercase tracking-wide font-semibold">Thuyết minh tự động</span>
+                                                    <span class="font-caption text-xs text-primary-fixed-dim">Giọng đọc hỗ trợ</span>
                                                 </div>
                                                 <h3 class="font-headline-sm text-sm sm:text-base text-surface-bright font-bold mt-0.5 truncate">
-                                                    Lắng nghe câu chuyện di sản &amp; văn hóa
+                                                    Đọc phần giới thiệu
                                                 </h3>
                                                 <p class="font-body-sm text-xs text-on-primary-container line-clamp-1">
-                                                    Thuyết minh sống động về lịch sử, kiến trúc và nét đẹp địa phương Trà Vinh
+                                                    Nghe đọc nội dung mô tả giới thiệu của địa điểm
                                                 </p>
                                             </div>
                                         </div>
@@ -2218,20 +2218,20 @@
                                             <span class="audio-wave-bar w-1 h-4 bg-secondary-fixed rounded-full" style="animation-delay: 300ms;"></span>
                                             <span class="audio-wave-bar w-1 h-6 bg-secondary-fixed rounded-full" style="animation-delay: 75ms;"></span>
                                             <span class="audio-wave-bar w-1 h-3 bg-secondary-fixed rounded-full" style="animation-delay: 200ms;"></span>
-                                            <span id="audioTimer" class="ml-2 font-caption text-xs text-primary-fixed font-mono">00:00 / 02:30</span>
+                                            <span id="audioTimer" class="ml-2 font-caption text-xs text-primary-fixed font-mono">00:00</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- TAB SWITCHER: Tổng quan & Review VS Tọa độ Check-in & TikTok -->
-                                <div class="flex items-center p-1 bg-surface-container-low dark:bg-zinc-800/90 rounded-2xl border border-outline-variant/30 dark:border-zinc-700/60">
+                                <!-- TAB SWITCHER: Tạm ẩn tab Góc chụp & TikTok (giữ mã để phát triển sau) -->
+                                <div id="modalTabSwitcherContainer" class="hidden items-center p-1 bg-surface-container-low dark:bg-zinc-800/90 rounded-2xl border border-outline-variant/30 dark:border-zinc-700/60">
                                     <button id="modalTabOverviewBtn" type="button" onclick="window.ViVuApp.switchModalTab('overview')"
                                         class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 bg-primary text-white shadow-xs">
                                         <span class="material-symbols-outlined text-base">info</span>
                                         <span>Tổng quan &amp; Đánh giá</span>
                                     </button>
                                     <button id="modalTabCheckinBtn" type="button" onclick="window.ViVuApp.switchModalTab('checkin')"
-                                        class="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-primary dark:hover:text-emerald-300">
+                                        class="hidden flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all items-center justify-center gap-1.5 text-on-surface-variant dark:text-zinc-400 hover:text-primary dark:hover:text-emerald-300">
                                         <span class="material-symbols-outlined text-base text-rose-500">photo_camera</span>
                                         <span>Góc chụp &amp; TikTok</span>
                                         <span class="px-1.5 py-0.5 rounded-full text-[9px] bg-rose-500 text-white font-black animate-pulse">HOT</span>
@@ -2311,42 +2311,14 @@
                                             <span id="commentSummary" class="text-[11px] text-on-surface-variant dark:text-zinc-400"></span>
                                         </div>
 
-                                        <!-- Overall Rating Breakdown Bar (Stitch style) -->
-                                        <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700/60 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                                        <!-- Overall Rating Breakdown Bar (Ẩn khi chưa có đánh giá, tính từ dữ liệu thật) -->
+                                        <div id="modalRatingBreakdownCard" class="hidden p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/80 border border-outline-variant/30 dark:border-zinc-700/60 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
                                             <div class="flex flex-col items-center justify-center sm:pr-6 sm:border-r border-outline-variant/40 dark:border-zinc-700">
-                                                <span class="font-headline-xl text-3xl font-bold text-primary dark:text-emerald-400">4.9</span>
-                                                <div class="flex text-amber-500 my-1">
-                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                                    <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">star</span>
-                                                </div>
-                                                <span class="text-[11px] text-outline dark:text-zinc-400">96% du khách hài lòng</span>
+                                                <span id="modalBreakdownScore" class="font-headline-xl text-3xl font-bold text-primary dark:text-emerald-400"></span>
+                                                <div id="modalBreakdownStars" class="flex text-amber-500 my-1"></div>
+                                                <span id="modalBreakdownSatisfaction" class="text-[11px] text-outline dark:text-zinc-400"></span>
                                             </div>
-                                            <div class="flex-1 w-full space-y-1.5 text-xs">
-                                                <div class="flex items-center gap-2 font-caption">
-                                                    <span class="w-10 text-on-surface dark:text-zinc-300">5 sao</span>
-                                                    <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                                        <div class="bg-secondary dark:bg-emerald-500 h-full rounded-full w-[92%]"></div>
-                                                    </div>
-                                                    <span class="w-8 text-right text-outline dark:text-zinc-400">92%</span>
-                                                </div>
-                                                <div class="flex items-center gap-2 font-caption">
-                                                    <span class="w-10 text-on-surface dark:text-zinc-300">4 sao</span>
-                                                    <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                                        <div class="bg-secondary dark:bg-emerald-500 h-full rounded-full w-[6%]"></div>
-                                                    </div>
-                                                    <span class="w-8 text-right text-outline dark:text-zinc-400">6%</span>
-                                                </div>
-                                                <div class="flex items-center gap-2 font-caption">
-                                                    <span class="w-10 text-on-surface dark:text-zinc-300">3 sao</span>
-                                                    <div class="flex-1 h-2 rounded-full bg-surface-container-highest dark:bg-zinc-700 overflow-hidden">
-                                                        <div class="bg-secondary dark:bg-emerald-500 h-full rounded-full w-[2%]"></div>
-                                                    </div>
-                                                    <span class="w-8 text-right text-outline dark:text-zinc-400">2%</span>
-                                                </div>
-                                            </div>
+                                            <div id="modalBreakdownBars" class="flex-1 w-full space-y-1.5 text-xs"></div>
                                         </div>
 
                                         <!-- Form gửi bình luận kèm Upload ảnh thực tế & Offline Sync -->
@@ -2445,17 +2417,17 @@
                                             </span>
                                             <span id="modalPrice" class="font-bold text-secondary dark:text-emerald-400 px-2 py-0.5 rounded bg-secondary-container/50 dark:bg-emerald-950/60"></span>
                                         </div>
-                                        <div class="py-2.5 flex items-center justify-between">
+                                        <div id="modalDurationRow" class="hidden py-2.5 flex items-center justify-between">
                                             <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-1.5">
                                                 <span class="material-symbols-outlined text-base text-outline">timelapse</span> Thời gian đề xuất
                                             </span>
-                                            <span class="font-semibold text-primary dark:text-zinc-200">1.0 - 2.0 giờ</span>
+                                            <span id="modalDuration" class="font-semibold text-primary dark:text-zinc-200"></span>
                                         </div>
-                                        <div class="py-2.5 flex items-center justify-between">
+                                        <div id="modalParkingRow" class="hidden py-2.5 flex items-center justify-between">
                                             <span class="text-on-surface-variant dark:text-zinc-400 flex items-center gap-1.5">
                                                 <span class="material-symbols-outlined text-base text-outline">local_parking</span> Bãi đỗ xe
                                             </span>
-                                            <span class="font-medium text-on-surface dark:text-zinc-300">Có (Xe máy &amp; Ô tô)</span>
+                                            <span id="modalParking" class="font-medium text-on-surface dark:text-zinc-300"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -2500,8 +2472,8 @@
                                     <div id="modalNearbySpotsContainer" class="flex flex-col gap-2"></div>
                                 </div>
 
-                                <!-- Eco-Tour Experience Banner -->
-                                <div class="rounded-2xl bg-gradient-to-br from-secondary to-[#004733] p-5 text-white shadow-sm relative overflow-hidden">
+                                <!-- Eco-Tour Experience Banner (Ẩn khi chưa có dữ liệu tour thật) -->
+                                <div id="modalEcoTourBanner" class="hidden rounded-2xl bg-gradient-to-br from-secondary to-[#004733] p-5 text-white shadow-sm relative overflow-hidden">
                                     <div class="pointer-events-none absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-white/10 blur-xl"></div>
                                     <div class="flex items-center gap-2 mb-2">
                                         <span class="material-symbols-outlined text-secondary-fixed text-[20px]">pedal_bike</span>

@@ -271,8 +271,8 @@ function validatePayload(body) {
 
   const imageLink = images.length > 0 ? images[0] : (body.image_link ? String(body.image_link).trim().slice(0, 500) : null);
 
-  const priceRaw = String(body.price_raw || 'Liên hệ').trim().slice(0, 80);
-  const displayHours = String(body.display_hours || '07:00 - 18:00').trim().slice(0, 100);
+  const priceRaw = body.price_raw ? String(body.price_raw).trim().slice(0, 80) : null;
+  const displayHours = body.display_hours ? String(body.display_hours).trim().slice(0, 100) : null;
   const contributor = String(body.contributor || 'Ẩn danh').trim().slice(0, 80);
   const contact = String(body.contact || '').trim().slice(0, 120);
   const mapLink = coordinates
