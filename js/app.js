@@ -4113,6 +4113,20 @@ export function openContributeModal() {
     if (modal) {
         modal.classList.remove('hidden');
         syncBodyScrollLock();
+        setupContributeDropzone();
+        hideContributePhotoError();
+        hideContributePhotoProgress();
+        renderContributePhotosPreview();
+
+        // Điền trước thông tin tác giả nếu đã đăng nhập
+        const session = getUserSession() || (typeof getAdminSession === 'function' ? getAdminSession() : null);
+        if (session?.user) {
+            const authorInput = document.getElementById('contribAuthorName');
+            if (authorInput && !authorInput.value) {
+                authorInput.value = state.userProfile?.display_name || session.user.user_metadata?.full_name || '';
+            }
+        }
+
         setTimeout(() => {
             initContributeMap();
         }, 150);
@@ -4124,6 +4138,8 @@ export function closeContributeModal() {
     if (modal) {
         modal.classList.add('hidden');
     }
+    hideContributePhotoError();
+    hideContributePhotoProgress();
     syncBodyScrollLock();
 }
 
@@ -4214,35 +4230,130 @@ export function locateContributePosition() {
     );
 }
 
+export function showContributePhotoError(msg) {
+    const errorEl = document.getElementById('contribPhotoError');
+    const textEl = document.getElementById('contribPhotoErrorText');
+    if (errorEl && textEl) {
+        textEl.textContent = msg;
+        errorEl.classList.remove('hidden');
+    }
+}
+
+export function hideContributePhotoError() {
+    const errorEl = document.getElementById('contribPhotoError');
+    if (errorEl) {
+        errorEl.classList.add('hidden');
+    }
+}
+
+export function updateContributePhotoProgress(percent, text) {
+    const progEl = document.getElementById('contribPhotoProgress');
+    const barEl = document.getElementById('contribPhotoProgressBar');
+    const pctEl = document.getElementById('contribPhotoProgressPercent');
+    const txtEl = document.getElementById('contribPhotoProgressText');
+    if (progEl) progEl.classList.remove('hidden');
+    if (barEl) barEl.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+    if (pctEl) pctEl.textContent = `${Math.round(percent)}%`;
+    if (txtEl) {
+        txtEl.innerHTML = `
+            <span class="inline-block w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></span>
+            <span>${escapeHtml(text)}</span>
+        `;
+    }
+}
+
+export function hideContributePhotoProgress() {
+    const progEl = document.getElementById('contribPhotoProgress');
+    if (progEl) progEl.classList.add('hidden');
+}
+
+export function setupContributeDropzone() {
+    const dropzone = document.getElementById('contribPhotoDropzone');
+    if (!dropzone || dropzone._hasDropzoneEvents) return;
+    dropzone._hasDropzoneEvents = true;
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('border-emerald-600', 'bg-emerald-50/70', 'dark:bg-zinc-800/80');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('border-emerald-600', 'bg-emerald-50/70', 'dark:bg-zinc-800/80');
+        }, false);
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt?.files;
+        if (files && files.length > 0) {
+            handleContributePhotosSelect(files);
+        }
+    }, false);
+}
+
 /**
- * Xử lý chọn và nén ảnh cho form đóng góp
+ * Xử lý chọn và kiểm tra hợp lệ ảnh cho form đóng góp
  */
-export async function handleContributePhotosSelect(fileList) {
+export function handleContributePhotosSelect(fileList) {
+    hideContributePhotoError();
     if (!fileList || fileList.length === 0) return;
 
-    const files = Array.from(fileList);
-    const currentCount = state.contributePhotos.length;
-    const remaining = 5 - currentCount;
+    if (!Array.isArray(state.contributePhotos)) {
+        state.contributePhotos = [];
+    }
 
-    if (remaining <= 0) {
-        alert('Bạn đã chọn tối đa 5 hình ảnh.');
+    const currentCount = state.contributePhotos.length;
+    if (currentCount >= 5) {
+        showContributePhotoError('Bạn đã chọn tối đa 5 hình ảnh cho địa điểm.');
         return;
     }
 
-    const toProcess = files.slice(0, remaining);
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
-    for (const file of toProcess) {
-        try {
-            const compressed = await compressImage(file, 1200, 1200, 0.75);
-            state.contributePhotos.push({
-                name: file.name,
-                dataUrl: compressed.dataUrl,
-                sizeKb: Math.round(compressed.compressedSize / 1024)
-            });
-        } catch (err) {
-            console.warn('[Contribute Photo] Lỗi nén ảnh:', err);
+    const files = Array.from(fileList);
+
+    for (const file of files) {
+        if (state.contributePhotos.length >= 5) {
+            showContributePhotoError('Chỉ có thể đính kèm tối đa 5 hình ảnh. Các ảnh vượt quá đã được bỏ qua.');
+            break;
         }
+
+        if (!allowedTypes.includes(file.type)) {
+            showContributePhotoError(`Định dạng tệp "${file.name}" không hợp lệ. Vui lòng chỉ chọn ảnh JPEG, PNG hoặc WebP.`);
+            continue;
+        }
+
+        if (file.size > MAX_SIZE) {
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+            showContributePhotoError(`Dung lượng tệp "${file.name}" (${sizeMb} MB) vượt quá giới hạn cho phép (5MB). Vui lòng chọn ảnh nhẹ hơn.`);
+            continue;
+        }
+
+        // Tạo preview URL an toàn
+        let previewUrl = '';
+        try {
+            previewUrl = URL.createObjectURL(file);
+        } catch (_) {}
+
+        state.contributePhotos.push({
+            id: 'photo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            file,
+            name: file.name,
+            sizeKb: Math.round(file.size / 1024),
+            previewUrl,
+            remoteUrl: null
+        });
     }
+
+    const input = document.getElementById('contribPhotosInput');
+    if (input) input.value = '';
 
     renderContributePhotosPreview();
 }
@@ -4251,36 +4362,88 @@ export async function handleContributePhotosSelect(fileList) {
  * Xóa một ảnh trong danh sách xem trước
  */
 export function removeContributePhoto(index) {
+    if (!Array.isArray(state.contributePhotos)) return;
     if (index >= 0 && index < state.contributePhotos.length) {
+        const removed = state.contributePhotos[index];
+        if (removed?.previewUrl && removed.previewUrl.startsWith('blob:')) {
+            try {
+                URL.revokeObjectURL(removed.previewUrl);
+            } catch (_) {}
+        }
         state.contributePhotos.splice(index, 1);
         renderContributePhotosPreview();
     }
 }
 
 /**
+ * Bỏ tất cả ảnh đã chọn
+ */
+export function clearAllContributePhotos() {
+    if (Array.isArray(state.contributePhotos)) {
+        for (const p of state.contributePhotos) {
+            if (p?.previewUrl && p.previewUrl.startsWith('blob:')) {
+                try {
+                    URL.revokeObjectURL(p.previewUrl);
+                } catch (_) {}
+            }
+        }
+    }
+    state.contributePhotos = [];
+    hideContributePhotoError();
+    hideContributePhotoProgress();
+    const input = document.getElementById('contribPhotosInput');
+    if (input) input.value = '';
+    renderContributePhotosPreview();
+}
+
+/**
  * Render lưới ảnh xem trước của Contribute Modal
  */
-function renderContributePhotosPreview() {
+export function renderContributePhotosPreview() {
     const container = document.getElementById('contribPhotosPreview');
-    const countEl = document.getElementById('contribPhotoCount');
-    if (!container) return;
+    const badgeEl = document.getElementById('contribPhotoCountBadge');
+    const clearBtn = document.getElementById('contribClearAllPhotosBtn');
+    const count = Array.isArray(state.contributePhotos) ? state.contributePhotos.length : 0;
 
-    if (countEl) {
-        countEl.textContent = `${state.contributePhotos.length}/5 ảnh`;
+    if (badgeEl) {
+        badgeEl.textContent = `${count}/5 ảnh`;
     }
 
+    if (clearBtn) {
+        if (count > 0) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+    }
+
+    if (!container) return;
+
+    if (count === 0) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
     container.innerHTML = state.contributePhotos.map((photo, idx) => `
-        <div class="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1 shadow-sm">
-            <div class="w-full h-20 rounded-lg bg-slate-100 dark:bg-zinc-900 flex items-center justify-center relative overflow-hidden">
-                <img src="${photo.dataUrl}" alt="${photo.name}" class="w-full h-full object-cover">
+        <div class="relative group rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 shadow-xs hover:shadow-md transition-shadow">
+            <div class="w-full h-24 rounded-xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center relative overflow-hidden">
+                <img src="${photo.previewUrl}" alt="${escapeHtml(photo.name)}" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button type="button" onclick="window.ViVuApp.removeContributePhoto(${idx})"
+                        aria-label="Xóa ảnh ${escapeHtml(photo.name)}"
+                        class="w-8 h-8 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                    </button>
+                </div>
             </div>
-            <div class="mt-1 flex items-center justify-between text-[10px] text-slate-600 dark:text-zinc-400 px-1">
-                <span class="truncate max-w-[60px]" title="${photo.name}">${photo.name}</span>
-                <span class="text-[9px] text-slate-400 font-mono">${photo.sizeKb}KB</span>
-                <button type="button" onclick="window.ViVuApp.removeContributePhoto(${idx})" class="text-rose-500 hover:text-rose-700 p-0.5" title="Xóa ảnh">
-                    <span class="material-symbols-outlined text-sm">close</span>
-                </button>
+            <div class="mt-1.5 px-1 flex items-center justify-between text-[11px] text-slate-600 dark:text-zinc-400">
+                <span class="truncate max-w-[70px] sm:max-w-[80px] font-medium" title="${escapeHtml(photo.name)}">${escapeHtml(photo.name)}</span>
+                <span class="text-[10px] text-slate-400 font-mono">${photo.sizeKb}KB</span>
             </div>
+            <button type="button" onclick="window.ViVuApp.removeContributePhoto(${idx})"
+                aria-label="Xóa ảnh ${escapeHtml(photo.name)}"
+                class="sm:hidden absolute top-2 right-2 w-7 h-7 rounded-full bg-slate-900/80 text-white flex items-center justify-center shadow-md">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
         </div>
     `).join('');
 }
@@ -4332,7 +4495,8 @@ export async function submitContributedPlace(payload) {
                 description: payload.description,
                 contributor: payload.contributor || 'Ẩn danh',
                 contact: payload.contact || '',
-                images: payload.images || []
+                images: payload.images || [],
+                image_link: payload.image_link || (Array.isArray(payload.images) && payload.images[0]) || null
             })
         });
     } catch (networkErr) {
@@ -4376,6 +4540,8 @@ export async function handleContributeSubmit(event) {
     const form = document.getElementById('contributePlaceForm');
     if (!form) return;
 
+    hideContributePhotoError();
+
     const name = (document.getElementById('contribPlaceName')?.value || '').trim();
     const category = form.querySelector('input[name="contribCategory"]:checked')?.value || 'Chùa';
     const district = document.getElementById('contribDistrict')?.value || 'TP. Trà Vinh';
@@ -4393,11 +4559,121 @@ export async function handleContributeSubmit(event) {
         return;
     }
 
-    const clientSubmissionId = 'contrib_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const setSubmittingState = (isSubmitting, text) => {
+        if (submitBtn) {
+            submitBtn.disabled = isSubmitting;
+            if (isSubmitting) {
+                submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                if (!submitBtn.dataset.originalHtml) {
+                    submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+                }
+                submitBtn.innerHTML = `
+                    <span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>${escapeHtml(text || 'Đang xử lý...')}</span>
+                `;
+            } else {
+                submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                if (submitBtn.dataset.originalHtml) {
+                    submitBtn.innerHTML = submitBtn.dataset.originalHtml;
+                }
+            }
+        }
+    };
 
-    // Chỉ nhận URL ảnh hợp lệ (http/https), tuyệt đối không gửi Base64 trong payload 128KB
+    const hasPhotos = Array.isArray(state.contributePhotos) && state.contributePhotos.length > 0;
+
+    // 1. Nếu có đính kèm ảnh -> Yêu cầu phiên đăng nhập và tải ảnh lên Supabase Storage
+    if (hasPhotos) {
+        const session = getUserSession() || (typeof getAdminSession === 'function' ? getAdminSession() : null);
+        const isAuth = Boolean(session && session.user);
+
+        if (!isAuth) {
+            showContributePhotoError('Bạn cần đăng nhập tài khoản để tải ảnh địa điểm lên máy chủ.');
+            document.getElementById('contribPhotoError')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
+        }
+
+        setSubmittingState(true, 'Đang xác thực...');
+        updateContributePhotoProgress(10, 'Đang xác thực phiên đăng nhập...');
+
+        let token = null;
+        try {
+            token = await getValidUserToken() || (typeof getValidAdminToken === 'function' ? await getValidAdminToken() : null);
+        } catch (_) {}
+
+        if (!token) {
+            setSubmittingState(false);
+            hideContributePhotoProgress();
+            showContributePhotoError('Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại để tiếp tục tải ảnh.');
+            document.getElementById('contribPhotoError')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
+        }
+
+        const totalPhotos = state.contributePhotos.length;
+        for (let i = 0; i < totalPhotos; i++) {
+            const p = state.contributePhotos[i];
+            if (p.remoteUrl) continue; // Đã tải lên trước đó
+
+            const pct = Math.round(15 + ((i / totalPhotos) * 75));
+            updateContributePhotoProgress(pct, `Đang tải ảnh ${i + 1}/${totalPhotos}: ${p.name}...`);
+            setSubmittingState(true, `Tải ảnh ${i + 1}/${totalPhotos}...`);
+
+            const file = p.file;
+            const ext = file.type === 'image/png' ? 'png' : (file.type === 'image/webp' ? 'webp' : 'jpg');
+            const userId = session.user.id;
+            const safeName = p.name.replace(/[^a-zA-Z0-9.-]/g, '_').slice(-20);
+            const filePath = `reviews/places/${userId}_${Date.now()}_${i}_${safeName}`;
+
+            let uploadRes;
+            try {
+                uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/review-photos/${filePath}`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': file.type
+                    },
+                    body: file
+                });
+            } catch (netErr) {
+                setSubmittingState(false);
+                hideContributePhotoProgress();
+                showContributePhotoError(`Lỗi kết nối khi tải ảnh "${p.name}". Vui lòng kiểm tra đường truyền và thử lại.`);
+                return;
+            }
+
+            if (!uploadRes.ok) {
+                setSubmittingState(false);
+                hideContributePhotoProgress();
+                const errJson = await uploadRes.json().catch(() => ({}));
+                if (uploadRes.status === 413) {
+                    showContributePhotoError(`Máy chủ từ chối: Tệp "${p.name}" vượt quá dung lượng cho phép (5MB).`);
+                    return;
+                }
+                if (uploadRes.status === 415) {
+                    showContributePhotoError(`Máy chủ từ chối: Tệp "${p.name}" có định dạng không được hỗ trợ.`);
+                    return;
+                }
+                if (uploadRes.status === 401 || uploadRes.status === 403 || errJson.message?.includes('row-level security') || errJson.message?.includes('Unauthorized')) {
+                    showContributePhotoError('Phiên đăng nhập đã hết hạn hoặc không đủ quyền tải ảnh. Vui lòng đăng nhập lại.');
+                    return;
+                }
+                showContributePhotoError(errJson.message || `Lỗi tải ảnh "${p.name}" lên máy chủ (${uploadRes.status}).`);
+                return;
+            }
+
+            p.remoteUrl = `${SUPABASE_URL}/storage/v1/object/public/review-photos/${filePath}`;
+        }
+
+        updateContributePhotoProgress(95, 'Đã tải xong ảnh! Đang lưu đề xuất địa điểm...');
+    }
+
+    setSubmittingState(true, 'Đang gửi đề xuất...');
+
+    const clientSubmissionId = 'contrib_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     const validPhotoUrls = (state.contributePhotos || [])
-        .map(p => p.url || p.dataUrl)
+        .map(p => p.remoteUrl)
         .filter(u => typeof u === 'string' && /^https?:\/\//i.test(u));
 
     const payload = {
@@ -4414,13 +4690,14 @@ export async function handleContributeSubmit(event) {
         contributor: authorName,
         contact: authorContact,
         images: validPhotoUrls,
+        image_link: validPhotoUrls[0] || null,
         status: 'draft',
         created_at: new Date().toISOString()
     };
 
     let submittedSuccess = false;
 
-    // 1. Nếu thiết bị đang Online, gửi trực tiếp qua /api/submit-place
+    // Gửi qua /api/submit-place
     if (typeof navigator === 'undefined' || navigator.onLine) {
         try {
             const apiResult = await submitContributedPlace(payload);
@@ -4429,19 +4706,17 @@ export async function handleContributeSubmit(event) {
             }
         } catch (err) {
             console.warn('[Contribution] Gửi API chưa thành công:', err.message);
-            // HTTP 400 (Validation) hoặc HTTP 413 (Payload Too Large) là lỗi vĩnh viễn:
-            // Giữ nguyên form để người dùng chỉnh sửa, tuyệt đối KHÔNG đưa vào retry queue
+            setSubmittingState(false);
+            hideContributePhotoProgress();
             if (err.status === 400 || err.status === 413) {
                 alert(`⚠️ Không thể gửi (${err.status}): ${err.message}\nVui lòng kiểm tra lại thông tin trên form.`);
                 return;
             }
-            // HTTP 429: Rate Limit -> Giữ nguyên form và hiển thị Retry-After, KHÔNG đưa vào retry queue
             if (err.status === 429 || err.isRateLimitError) {
                 const retryMsg = err.retryAfter ? ` (vui lòng chờ ${err.retryAfter} giây)` : '';
                 alert(`⏳ Bạn đang gửi quá nhanh${retryMsg}. Vui lòng giữ nguyên form và thử lại sau.`);
                 return;
             }
-            // Chỉ các lỗi tạm thời: lỗi mạng, timeout, hoặc 500/502/503/504 mới tiếp tục fallback vào IndexedDB
             const isTransient = err.isNetworkError || err.name === 'AbortError' ||
                                 (err.status >= 500 && err.status <= 504);
             if (!isTransient) {
@@ -4451,25 +4726,29 @@ export async function handleContributeSubmit(event) {
         }
     }
 
-    // 2. Chỉ lưu vào IndexedDB khi thiết bị Offline hoặc gặp sự cố mạng tạm thời (5xx/timeout)
     if (!submittedSuccess) {
         try {
             await saveOfflineContribution(payload);
         } catch (idbErr) {
             console.warn('[Contribution] Lưu IndexedDB cảnh báo:', idbErr);
+            setSubmittingState(false);
+            hideContributePhotoProgress();
             alert('Không thể gửi và không thể lưu ngoại tuyến lúc này. Vui lòng thử lại sau.');
             return;
         }
     }
 
-    // 3. Hiển thị thông báo kết quả phù hợp
+    setSubmittingState(false);
+    hideContributePhotoProgress();
+
+    // Thông báo thành công
     const toast = document.getElementById('offlineSyncToast');
     const toastTitle = document.getElementById('syncToastTitle');
     const toastMsg = document.getElementById('syncToastMsg');
     if (toast && toastTitle && toastMsg) {
         toastTitle.textContent = '🎉 Đóng góp địa điểm thành công!';
         toastMsg.textContent = submittedSuccess
-            ? 'Địa điểm đã gửi lên hệ thống chờ Ban Quản Trị duyệt (+15 Điểm Thổ Địa).'
+            ? 'Địa điểm kèm hình ảnh đã gửi lên hệ thống chờ Ban Quản Trị duyệt (+15 Điểm Thổ Địa).'
             : 'Đã lưu an toàn ngoại tuyến và sẽ tự động chuyển tới BQT khi có mạng (+15 Điểm Thổ Địa).';
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 6000);
@@ -4478,8 +4757,7 @@ export async function handleContributeSubmit(event) {
     }
 
     form.reset();
-    state.contributePhotos = [];
-    renderContributePhotosPreview();
+    clearAllContributePhotos();
     closeContributeModal();
 }
 
@@ -11457,6 +11735,7 @@ if (typeof window !== 'undefined') {
         locateContributePosition,
         handleContributePhotosSelect,
         removeContributePhoto,
+        clearAllContributePhotos,
         handleContributeSubmit,
         handleGenerateRandomTour,
         sharePlace,

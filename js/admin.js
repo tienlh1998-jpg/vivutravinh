@@ -290,7 +290,13 @@ export function openPlacePreview(place) {
     <div class="space-y-4">
       <div class="relative h-56 sm:h-72 w-full rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
         ${safeMainImg ? `
-          <img src="${escapeHtml(safeMainImg)}" alt="${escapeHtml(place.name)}" class="w-full h-full object-cover">
+          <a href="${escapeHtml(safeMainImg)}" target="_blank" rel="noopener noreferrer" title="Bấm để mở ảnh kích thước gốc" class="block w-full h-full group relative">
+            <img src="${escapeHtml(safeMainImg)}" alt="${escapeHtml(place.name)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            <span class="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-white text-xs font-semibold flex items-center gap-1 opacity-90 group-hover:opacity-100 transition">
+              <span class="material-symbols-outlined text-sm">open_in_new</span>
+              <span>Xem ảnh gốc</span>
+            </span>
+          </a>
         ` : `
           <div class="w-full h-full flex flex-col items-center justify-center text-slate-400">
             <span class="material-symbols-outlined text-5xl">image_not_supported</span>

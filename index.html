@@ -2708,28 +2708,63 @@
                                         <span class="w-6 h-6 rounded-md bg-primary dark:bg-emerald-700 text-white flex items-center justify-center text-xs font-bold font-sans">3</span>
                                         <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-primary dark:text-emerald-400 font-sans">Hình Ảnh Thực Tế</h3>
                                     </div>
-                                    <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-medium border border-amber-200 dark:border-amber-800/60">
-                                        <span class="material-symbols-outlined text-xs">info</span> Đang hoàn thiện
-                                    </span>
-                                </div>
-
-                                <!-- Storage Upload In-Progress Banner -->
-                                <div class="rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/25 p-4 flex items-start gap-3.5">
-                                    <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <span class="material-symbols-outlined text-xl">cloud_sync</span>
-                                    </div>
-                                    <div class="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed space-y-1">
-                                        <p class="font-bold text-slate-900 dark:text-zinc-100">Tính năng tải ảnh trực tiếp đang hoàn thiện</p>
-                                        <p class="text-slate-600 dark:text-zinc-400">
-                                            Hạ tầng lưu trữ đám mây (Storage) đang được cấu hình bảo mật. Bạn vui lòng gửi thông tin địa điểm trước; Ban Quản Trị sẽ liên hệ qua thông tin liên lạc để bổ sung hình ảnh thực tế đẹp nhất của bạn.
-                                        </p>
+                                    <div class="flex items-center gap-2">
+                                        <span id="contribPhotoCountBadge" class="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800/60">
+                                            0/5 ảnh
+                                        </span>
+                                        <button type="button" id="contribClearAllPhotosBtn" onclick="window.ViVuApp.clearAllContributePhotos()" class="hidden text-[11px] text-rose-600 dark:text-rose-400 hover:underline font-medium">
+                                            Bỏ tất cả
+                                        </button>
                                     </div>
                                 </div>
 
-                                <!-- Hidden elements to maintain backwards compatibility with existing UI helpers -->
-                                <input type="file" id="contribPhotosInput" multiple accept="image/*" class="hidden" disabled />
-                                <div id="contribPhotosPreview" class="hidden"></div>
-                                <span id="contribPhotoCount" class="hidden">0/5 ảnh</span>
+                                <!-- Vùng Chọn / Kéo Thả Ảnh (Dropzone) -->
+                                <div id="contribPhotoDropzone"
+                                    class="relative border-2 border-dashed border-slate-300 dark:border-zinc-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-2xl p-5 sm:p-6 text-center bg-slate-50/70 dark:bg-zinc-800/40 hover:bg-emerald-50/30 dark:hover:bg-zinc-800/70 transition-all cursor-pointer group"
+                                    onclick="document.getElementById('contribPhotosInput')?.click()">
+                                    <input type="file" id="contribPhotosInput" multiple accept="image/jpeg,image/png,image/webp" class="sr-only" onchange="window.ViVuApp.handleContributePhotosSelect(this.files)" />
+                                    <div class="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                                        <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs">
+                                            <span class="material-symbols-outlined text-2xl">add_photo_alternate</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs sm:text-sm font-bold text-slate-800 dark:text-zinc-200">
+                                                Kéo thả ảnh vào đây hoặc <span class="text-emerald-600 dark:text-emerald-400 underline decoration-2 underline-offset-2">chọn từ thiết bị</span>
+                                            </p>
+                                            <p class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                                                Hỗ trợ tối đa 5 ảnh · Định dạng JPEG, PNG, WebP · Dung lượng tối đa 5MB/ảnh
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Thông báo lỗi chọn/tải ảnh -->
+                                <div id="contribPhotoError" class="hidden rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-3 flex items-start gap-2.5 text-xs text-red-700 dark:text-red-300 animate-fadeIn" role="alert">
+                                    <span class="material-symbols-outlined text-base text-red-500 flex-shrink-0 mt-0.5">error</span>
+                                    <div class="flex-1">
+                                        <span id="contribPhotoErrorText" class="leading-relaxed"></span>
+                                    </div>
+                                    <button type="button" onclick="document.getElementById('contribPhotoError').classList.add('hidden')" class="text-red-400 hover:text-red-700 text-sm">
+                                        <span class="material-symbols-outlined text-sm">close</span>
+                                    </button>
+                                </div>
+
+                                <!-- Thanh tiến trình tải ảnh -->
+                                <div id="contribPhotoProgress" class="hidden space-y-2 p-3.5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60">
+                                    <div class="flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300 font-bold">
+                                        <span id="contribPhotoProgressText" class="flex items-center gap-2">
+                                            <span class="inline-block w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></span>
+                                            Đang chuẩn bị tải ảnh lên máy chủ...
+                                        </span>
+                                        <span id="contribPhotoProgressPercent" class="font-mono text-emerald-700 dark:text-emerald-400">0%</span>
+                                    </div>
+                                    <div class="w-full bg-emerald-200/60 dark:bg-emerald-900/60 rounded-full h-2 overflow-hidden">
+                                        <div id="contribPhotoProgressBar" class="bg-emerald-600 h-2 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Danh sách ảnh xem trước (Preview Grid) -->
+                                <div id="contribPhotosPreview" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-1"></div>
                             </section>
 
                             <!-- PHẦN 4: MÔ TẢ & MẸO THỔ ĐỊA -->

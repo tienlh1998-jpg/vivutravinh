@@ -240,14 +240,36 @@ function validatePayload(body) {
     }
   }
 
-  // Images array: G6 tạm khóa chức năng tải ảnh đóng góp, API chỉ chấp nhận mảng rỗng []
+  // Images array: Tiếp nhận danh sách URL hình ảnh hợp lệ (tối đa 5 ảnh)
+  let images = [];
   if (Array.isArray(body.images) && body.images.length > 0) {
-    throw {
-      code: 'IMAGES_DISABLED',
-      message: 'Tính năng gửi ảnh đóng góp đang tạm khóa. Vui lòng để trống hình ảnh.'
-    };
+    if (body.images.length > 5) {
+      throw {
+        code: 'TOO_MANY_IMAGES',
+        message: 'Chỉ được gửi tối đa 5 hình ảnh cho mỗi địa điểm đóng góp.'
+      };
+    }
+    for (const rawUrl of body.images) {
+      if (typeof rawUrl !== 'string') continue;
+      const trimmed = rawUrl.trim();
+      if (!trimmed) continue;
+      if (trimmed.length > 1000) {
+        throw { code: 'INVALID_IMAGE_URL', message: 'Đường dẫn ảnh quá dài (tối đa 1000 ký tự).' };
+      }
+      if (!/^https?:\/\/.+/i.test(trimmed)) {
+        throw { code: 'INVALID_IMAGE_URL', message: 'Đường dẫn ảnh phải là liên kết hợp lệ (http/https).' };
+      }
+      if (/^(javascript|data|blob|file):/i.test(trimmed)) {
+        throw { code: 'INSECURE_IMAGE_URL', message: 'Giao thức đường dẫn ảnh không an toàn.' };
+      }
+      if (/[<>"'`]/.test(trimmed)) {
+        throw { code: 'INSECURE_IMAGE_URL', message: 'Đường dẫn ảnh chứa ký tự không hợp lệ.' };
+      }
+      images.push(trimmed);
+    }
   }
-  const images = [];
+
+  const imageLink = images.length > 0 ? images[0] : (body.image_link ? String(body.image_link).trim().slice(0, 500) : null);
 
   const priceRaw = String(body.price_raw || 'Liên hệ').trim().slice(0, 80);
   const displayHours = String(body.display_hours || '07:00 - 18:00').trim().slice(0, 100);
@@ -270,7 +292,7 @@ function validatePayload(body) {
     contributor,
     contact,
     images,
-    image_link: null,
+    image_link: imageLink,
     client_submission_id: clientSubmissionId
   };
 }
@@ -359,10 +381,10 @@ export default async function handler(request, response) {
     } catch (_) {}
   }
 
-  // Khóa slug duy nhất kết hợp client_submission_id để không xung đột DB slug unique
+  // Khóa slug duy nhất kết hợp client_submission_id để không xung đột DB slug unique (chỉ gồm a-z0-9 và gạch ngang đơn)
   const baseSlug = createSlug(validated.name);
-  const cleanSubId = validated.client_submission_id.replace(/[^a-zA-Z0-9_-]/g, '').slice(-16);
-  const deterministicSlug = `contrib-${baseSlug}-${cleanSubId}`;
+  const cleanSubId = createSlug(validated.client_submission_id).slice(-16);
+  const deterministicSlug = `contrib-${baseSlug}-${cleanSubId}`.replace(/--+/g, '-').replace(/^-+|-+$/g, '');
 
   // Luôn ép status: "draft" và ghi nhận client_submission_id trực tiếp
   const recordToInsert = {
