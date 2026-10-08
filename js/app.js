@@ -143,6 +143,7 @@ import {
 import {
     getSession as getAdminSession,
     saveSession as saveAdminSession,
+    clearAdminSessionOnly,
     clearSession as clearAdminSession,
     getUserRole as getAdminUserRole,
     getValidToken as getValidAdminToken
@@ -7178,7 +7179,6 @@ export async function handleAuthSubmit(event) {
 
     try {
         const session = await signInWithEmail(email, password);
-        showSavedToast('✓ Đăng nhập thành công!');
 
         if (session && session.user) {
             const userName = session.user.user_metadata?.display_name || email.split('@')[0];
@@ -7191,34 +7191,53 @@ export async function handleAuthSubmit(event) {
             };
             saveStoredUserProfile(state.userProfile);
 
-            // Kiểm tra phân quyền quản trị của tài khoản này để đồng bộ phiên admin nếu có
+            // Kiểm tra phân quyền quản trị của tài khoản này để đồng bộ phiên admin nếu có (có timeout để không chặn luồng đăng nhập)
             try {
-                const adminProfileRes = await fetch('/api/admin-profile', {
-                    headers: { 'Authorization': `Bearer ${session.access_token}` }
-                });
-                if (adminProfileRes.ok) {
-                    const adminData = await adminProfileRes.json().catch(() => ({}));
-                    if (adminData?.success && adminData?.user?.role) {
-                        saveAdminSession({
-                            ...session,
-                            user: { ...session.user, role: adminData.user.role }
-                        });
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2500);
+                try {
+                    const adminProfileRes = await fetch('/api/admin-profile', {
+                        headers: { 'Authorization': `Bearer ${session.access_token}` },
+                        signal: controller.signal
+                    });
+                    if (adminProfileRes.ok) {
+                        const adminData = await adminProfileRes.json().catch(() => ({}));
+                        if (adminData?.success && adminData?.user?.role) {
+                            saveAdminSession({
+                                ...session,
+                                user: { ...session.user, role: adminData.user.role }
+                            });
+                        } else {
+                            clearAdminSessionOnly();
+                        }
                     } else {
-                        clearAdminSession();
+                        // Người dùng thường (403 Forbidden hoặc lỗi khác): chỉ dọn phiên admin cũ nếu có, bảo đảm giữ nguyên phiên người dùng
+                        clearAdminSessionOnly();
                     }
-                } else {
-                    clearAdminSession();
+                } finally {
+                    clearTimeout(timeoutId);
                 }
-            } catch (_) {}
+            } catch (adminErr) {
+                // Khi API kiểm tra quyền bị lỗi mạng, timeout (AbortError) hoặc chậm:
+                // Bảo đảm phiên người dùng thường luôn được giữ nguyên hợp lệ
+                console.warn('[Auth] Không thể xác minh quyền quản trị (tiếp tục phiên người dùng thường):', adminErr?.message || adminErr);
+                clearAdminSessionOnly();
+            }
 
             syncUserProfileFromRemote();
             updateAdminRoleUI();
         }
 
-        closeAuthModal();
         const cb = pendingAuthCallback;
-        pendingAuthCallback = null;
-        if (typeof cb === 'function') cb();
+        closeAuthModal();
+        if (typeof cb === 'function') {
+            try {
+                cb();
+            } catch (cbErr) {
+                console.warn('[Auth] Lỗi trong pendingAuthCallback:', cbErr);
+            }
+        }
+        showSavedToast('✓ Đăng nhập thành công!');
     } catch (err) {
         if (err.message && (err.message.includes('Email not confirmed') || err.message.includes('chưa xác thực'))) {
             showNotice(`Tài khoản chưa được kích hoạt qua email. Vui lòng kiểm tra hộp thư <strong>${escapeHtml(email)}</strong> để kích hoạt hoặc bấm nút gửi lại email xác thực bên dưới.`);
@@ -7436,6 +7455,7 @@ export async function handleAuthUrlCallback() {
  */
 export async function handleUserSignOut() {
     await signOutUser();
+    clearAdminSessionOnly();
     state.userProfile = { ...USER_PROFILE };
     saveStoredUserProfile(state.userProfile);
     updateAdminRoleUI();

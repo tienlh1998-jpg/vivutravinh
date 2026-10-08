@@ -49,29 +49,42 @@ export function saveSession(session) {
 }
 
 /**
- * Xóa sạch phiên đăng nhập cục bộ
+ * Xóa riêng phiên làm việc của Quản trị viên (SESSION_KEY)
+ * TUYỆT ĐỐI KHÔNG xóa hoặc can thiệp vào phiên người dùng thường (vivu_user_session)
  */
-export function clearSession() {
+export function clearAdminSessionOnly() {
   try {
-    const currentSession = getSession();
     sessionStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SESSION_KEY);
-
-    // Đồng thời dọn vivu_user_session nếu chứa tài khoản tương ứng
-    const rawUser = localStorage.getItem('vivu_user_session');
-    if (rawUser) {
-      const parsedUser = JSON.parse(rawUser);
-      if (!currentSession?.user?.id || parsedUser?.user?.id === currentSession.user.id) {
-        localStorage.removeItem('vivu_user_session');
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('vivu:user-auth-changed', { detail: { session: null } }));
-        }
-      }
-    }
   } catch (err) {
-    console.error('[AdminAuth] Không thể xóa phiên đăng nhập:', err);
+    console.error('[AdminAuth] Không thể xóa phiên quản trị:', err);
   }
 }
+
+/**
+ * Xóa phiên đăng nhập quản trị
+ * Tách biệt hoàn toàn thao tác xóa quyền quản trị khỏi đăng xuất toàn bộ.
+ * Chỉ xóa phiên người dùng khi options.clearUserSession === true (đăng xuất toàn bộ).
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.clearUserSession=false] Có xóa luôn phiên người dùng thường hay không
+ */
+export function clearSession(options = {}) {
+  clearAdminSessionOnly();
+
+  if (options && options.clearUserSession === true) {
+    try {
+      localStorage.removeItem('vivu_user_session');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vivu:user-auth-changed', { detail: { session: null } }));
+      }
+    } catch (err) {
+      console.error('[AdminAuth] Không thể xóa phiên người dùng:', err);
+    }
+  }
+}
+
+export const clearAdminSession = clearAdminSessionOnly;
 
 /**
  * Lấy Access Token còn hạn sử dụng; tự động refresh nếu sắp hoặc đã hết hạn
