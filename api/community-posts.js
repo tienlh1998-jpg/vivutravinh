@@ -39,6 +39,7 @@ function checkUserRateLimit(userIdOrIp) {
  */
 async function handleGet(request, response) {
   const url = new URL(request.url, 'http://localhost');
+  const postId = url.searchParams.get('id');
   const clubId = url.searchParams.get('club_id');
   const authorId = url.searchParams.get('author_id');
   const statusParam = url.searchParams.get('status') || 'approved';
@@ -74,8 +75,14 @@ async function handleGet(request, response) {
         : 'id,club_id,author_id,author_name,author_avatar,category,title,content,images,likes_count,comments_count,status,metadata,created_at');
 
   let query = `${TABLE_NAME}?select=${selectColumns}&order=created_at.desc&limit=${limit}`;
+  if (postId) {
+    query += `&id=eq.${encodeURIComponent(postId)}`;
+  }
   if (effectiveStatus !== 'all') {
     query += `&status=eq.${encodeURIComponent(effectiveStatus)}`;
+  }
+  if (!isPrivileged && !isOwner) {
+    query += '&status=neq.hidden&or=(metadata->>is_hidden.is.null,metadata->>is_hidden.neq.true)';
   }
   if (clubId) {
     query += `&club_id=eq.${encodeURIComponent(clubId)}`;
@@ -86,13 +93,32 @@ async function handleGet(request, response) {
 
   try {
     const rows = await supabaseRequest(query);
-    const sanitized = (Array.isArray(rows) ? rows : []).map(p => {
+    const visiblePosts = (Array.isArray(rows) ? rows : []).filter(p => {
+      if (isPrivileged || isOwner) return true;
+      const isHidden = p.status === 'hidden' || p.metadata?.is_hidden === true;
+      return !isHidden;
+    });
+
+    const sanitized = visiblePosts.map(p => {
       if (!isPrivileged && !isOwner) {
         const { moderated_by, moderated_at, moderation_reason, admin_notes, ai_safety_score, ...safe } = p;
         return safe;
       }
       return p;
     });
+
+    if (postId) {
+      if (sanitized.length > 0) {
+        sendJson(response, 200, {
+          success: true,
+          post: sanitized[0]
+        });
+        return;
+      }
+      sendError(response, 404, 'NOT_FOUND', 'Không tìm thấy bài viết hoặc bài viết đã bị tạm ẩn.');
+      return;
+    }
+
     sendJson(response, 200, {
       success: true,
       count: sanitized.length,
@@ -249,8 +275,8 @@ async function handlePatch(request, response) {
       return;
     }
 
-    if (!isAdmin && !['draft', 'rejected', 'pending'].includes(post.status)) {
-      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa bài viết khi đang ở bản nháp, chờ duyệt hoặc bị từ chối.');
+    if (!isAdmin && !['draft', 'rejected', 'pending', 'returned', 'needs_revision'].includes(post.status)) {
+      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa bài viết khi đang ở bản nháp, chờ duyệt, bị từ chối hoặc cần chỉnh sửa.');
       return;
     }
 
@@ -261,6 +287,14 @@ async function handlePatch(request, response) {
     if (body.submit_for_review === true || body.status === 'pending' || post.status === 'rejected') {
       patch.status = 'pending';
       patch.moderation_reason = null;
+      if (post.metadata) {
+        patch.metadata = {
+          ...post.metadata,
+          is_returned: false,
+          return_reason: null,
+          resubmitted_at: new Date().toISOString()
+        };
+      }
     }
 
     patch.updated_at = new Date().toISOString();

@@ -310,9 +310,13 @@ export async function authenticateUser(request, response) {
     }
     const userRole = bearerToken === 'mock-admin-token' ? 'admin' : 'authenticated';
     const email = bearerToken === 'mock-admin-token' ? 'admin@vivutravinh.test' : `${bearerToken.replace('mock-', '')}@vivutravinh.test`;
+    let mockUserId = `usr-${bearerToken.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+    if (bearerToken.startsWith('mock-author-')) {
+      mockUserId = bearerToken.replace('mock-author-', '');
+    }
     return {
       user: {
-        id: `usr-${bearerToken.replace(/[^a-zA-Z0-9_-]/g, '')}`,
+        id: mockUserId,
         email,
         role: userRole,
         user_metadata: {
@@ -723,8 +727,12 @@ export async function recordAuditLog({
   const cid = correlationId || adminContext?.correlationId || generateCorrelationId();
   const clientIp = ip || adminContext?.ip || '127.0.0.1';
 
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const rawActorId = adminContext?.user?.id;
+  const safeActorId = rawActorId && UUID_REGEX.test(rawActorId) ? rawActorId : null;
+
   const auditEntry = {
-    actor_id: adminContext?.user?.id || null,
+    actor_id: safeActorId,
     actor_email: adminContext?.user?.email || null,
     actor_role: adminContext?.user?.role || 'unknown',
     action,

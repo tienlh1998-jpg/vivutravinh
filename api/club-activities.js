@@ -53,6 +53,7 @@ function sanitizeText(str) {
  */
 async function handleGet(request, response) {
   const url = new URL(request.url, 'http://localhost');
+  const actId = url.searchParams.get('id');
   const clubId = url.searchParams.get('club_id');
   const creatorId = url.searchParams.get('creator_id');
   const statusParam = url.searchParams.get('status') || 'approved';
@@ -80,14 +81,22 @@ async function handleGet(request, response) {
   const isPrivileged = userContext && ['admin', 'moderator', 'editor'].includes(userContext.user.role);
   const isOwner = userContext && creatorId && userContext.user.id === creatorId;
 
-  // Lấy dữ liệu an toàn
-  const targetSource = (isPrivileged || isOwner || effectiveStatus !== 'approved')
-    ? TABLE_NAME
-    : SECURE_VIEW;
+  // Giới hạn cột trả về an toàn
+  const selectColumns = isPrivileged
+    ? '*'
+    : (isOwner
+        ? 'id,club_id,club_name,creator_id,creator_name,title,description,time_schedule,location,max_attendees,is_free,icon,status,moderation_reason,created_at,updated_at'
+        : 'id,club_id,club_name,creator_id,creator_name,title,description,time_schedule,location,max_attendees,is_free,icon,status,created_at,admin_notes');
 
-  let query = `${targetSource}?order=created_at.desc&limit=${limit}`;
-  if (targetSource === TABLE_NAME && effectiveStatus !== 'all') {
+  let query = `${TABLE_NAME}?select=${selectColumns}&order=created_at.desc&limit=${limit}`;
+  if (actId) {
+    query += `&id=eq.${encodeURIComponent(actId)}`;
+  }
+  if (effectiveStatus !== 'all') {
     query += `&status=eq.${encodeURIComponent(effectiveStatus)}`;
+  }
+  if (!isPrivileged && !isOwner) {
+    query += '&status=neq.hidden&or=(admin_notes.is.null,admin_notes.not.ilike.*T%E1%BA%A0M%20%E1%BA%A8N*)';
   }
   if (clubId && clubId !== 'all') {
     query += `&club_id=eq.${encodeURIComponent(clubId)}`;
@@ -98,7 +107,13 @@ async function handleGet(request, response) {
 
   try {
     const rows = await supabaseRequest(query);
-    const sanitized = (Array.isArray(rows) ? rows : []).map(act => {
+    const visibleActs = (Array.isArray(rows) ? rows : []).filter(act => {
+      if (isPrivileged || isOwner) return true;
+      const isHidden = act.status === 'hidden' || (typeof act.admin_notes === 'string' && act.admin_notes.includes('TẠM ẨN'));
+      return !isHidden;
+    });
+
+    const sanitized = visibleActs.map(act => {
       if (isPrivileged) {
         return act;
       }
@@ -111,6 +126,18 @@ async function handleGet(request, response) {
       const { admin_notes, moderation_reason, moderated_by, moderated_at, ...publicSafe } = act;
       return publicSafe;
     });
+
+    if (actId) {
+      if (sanitized.length > 0) {
+        sendJson(response, 200, {
+          success: true,
+          activity: sanitized[0]
+        });
+        return;
+      }
+      sendError(response, 404, 'NOT_FOUND', 'Không tìm thấy lịch sinh hoạt hoặc đã bị tạm ẩn.');
+      return;
+    }
 
     sendJson(response, 200, {
       success: true,
@@ -296,8 +323,8 @@ async function handlePatch(request, response) {
       return;
     }
 
-    if (!isAdmin && !['draft', 'rejected', 'pending'].includes(activity.status)) {
-      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa lịch sinh hoạt khi đang ở bản nháp, chờ duyệt hoặc bị từ chối.');
+    if (!isAdmin && !['draft', 'rejected', 'pending', 'returned', 'needs_revision'].includes(activity.status)) {
+      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa lịch sinh hoạt khi đang ở bản nháp, chờ duyệt, bị từ chối hoặc cần chỉnh sửa.');
       return;
     }
 

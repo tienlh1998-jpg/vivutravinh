@@ -59,6 +59,8 @@ function createSlug(str) {
  */
 async function handleGet(request, response) {
   const url = new URL(request.url, 'http://localhost');
+  const clubId = url.searchParams.get('id');
+  const slug = url.searchParams.get('slug');
   const category = url.searchParams.get('category');
   const leaderId = url.searchParams.get('leader_id');
   const statusParam = url.searchParams.get('status') || 'approved';
@@ -88,11 +90,19 @@ async function handleGet(request, response) {
   // Giới hạn cột trả về: Khách và người dùng thường KHÔNG được xem leader_phone, moderated_by, moderated_at, moderation_reason
   const selectColumns = (isPrivileged || isOwner)
     ? '*'
-    : 'id,name,slug,category,category_name,badge,members_count,activities_count,image,description,last_activity,schedule_info,meeting_place,icon,color,leader_id,leader_name,status,created_at';
+    : 'id,name,slug,category,category_name,badge,members_count,activities_count,image,description,last_activity,schedule_info,meeting_place,icon,color,leader_id,leader_name,status,created_at,admin_notes';
 
   let query = `${TABLE_NAME}?select=${selectColumns}&order=created_at.desc&limit=${limit}`;
+  if (clubId) {
+    query += `&id=eq.${encodeURIComponent(clubId)}`;
+  } else if (slug) {
+    query += `&slug=eq.${encodeURIComponent(slug)}`;
+  }
   if (effectiveStatus !== 'all') {
     query += `&status=eq.${encodeURIComponent(effectiveStatus)}`;
+  }
+  if (!isPrivileged && !isOwner) {
+    query += '&status=neq.hidden&or=(admin_notes.is.null,admin_notes.not.ilike.*T%E1%BA%A0M%20%E1%BA%A8N*)';
   }
   if (category && category !== 'all') {
     query += `&category=eq.${encodeURIComponent(category)}`;
@@ -103,13 +113,32 @@ async function handleGet(request, response) {
 
   try {
     const rows = await supabaseRequest(query);
-    const sanitized = (Array.isArray(rows) ? rows : []).map(club => {
+    const visibleClubs = (Array.isArray(rows) ? rows : []).filter(club => {
+      if (isPrivileged || isOwner) return true;
+      const isHidden = club.status === 'hidden' || (typeof club.admin_notes === 'string' && club.admin_notes.includes('TẠM ẨN'));
+      return !isHidden;
+    });
+
+    const sanitized = visibleClubs.map(club => {
       if (!isPrivileged && !isOwner) {
-        const { leader_phone, moderated_by, moderated_at, moderation_reason, ...safe } = club;
+        const { leader_phone, moderated_by, moderated_at, moderation_reason, admin_notes, ...safe } = club;
         return safe;
       }
       return club;
     });
+
+    if (clubId || slug) {
+      if (sanitized.length > 0) {
+        sendJson(response, 200, {
+          success: true,
+          club: sanitized[0]
+        });
+        return;
+      }
+      sendError(response, 404, 'NOT_FOUND', 'Không tìm thấy câu lạc bộ hoặc đã bị tạm ẩn.');
+      return;
+    }
+
     sendJson(response, 200, {
       success: true,
       count: sanitized.length,
@@ -276,8 +305,8 @@ async function handlePatch(request, response) {
       return;
     }
 
-    if (!isAdmin && !['draft', 'rejected', 'pending'].includes(club.status)) {
-      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa hồ sơ CLB khi đang ở bản nháp, chờ duyệt hoặc bị từ chối.');
+    if (!isAdmin && !['draft', 'rejected', 'pending', 'returned', 'needs_revision'].includes(club.status)) {
+      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa hồ sơ CLB khi đang ở bản nháp, chờ duyệt, bị từ chối hoặc cần chỉnh sửa.');
       return;
     }
 

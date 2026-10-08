@@ -48,6 +48,7 @@ function sanitizeText(str) {
  */
 async function handleGet(request, response) {
   const url = new URL(request.url, 'http://localhost');
+  const eventId = url.searchParams.get('id');
   const category = url.searchParams.get('category');
   const creatorId = url.searchParams.get('creator_id');
   const statusParam = url.searchParams.get('status') || 'approved';
@@ -78,11 +79,17 @@ async function handleGet(request, response) {
   // Giới hạn cột trả về: Khách và thành viên khác KHÔNG được xem contact_phone, admin_notes, moderation_reason
   const selectColumns = (isPrivileged || isOwner)
     ? '*'
-    : 'id,title,organizer,category,time_schedule,location,region,description,fee,fee_type,max_attendees,creator_name,status,created_at';
+    : 'id,title,organizer,category,time_schedule,location,region,description,fee,fee_type,max_attendees,creator_name,status,created_at,admin_notes';
 
   let query = `${TABLE_NAME}?select=${selectColumns}&order=created_at.desc&limit=${limit}`;
+  if (eventId) {
+    query += `&id=eq.${encodeURIComponent(eventId)}`;
+  }
   if (effectiveStatus !== 'all') {
     query += `&status=eq.${encodeURIComponent(effectiveStatus)}`;
+  }
+  if (!isPrivileged && !isOwner) {
+    query += '&status=neq.hidden&or=(admin_notes.is.null,admin_notes.not.ilike.*T%E1%BA%A0M%20%E1%BA%A8N*)';
   }
   if (category && category !== 'all') {
     query += `&category=eq.${encodeURIComponent(category)}`;
@@ -93,13 +100,32 @@ async function handleGet(request, response) {
 
   try {
     const rows = await supabaseRequest(query);
-    const sanitized = (Array.isArray(rows) ? rows : []).map(e => {
+    const visibleEvents = (Array.isArray(rows) ? rows : []).filter(e => {
+      if (isPrivileged || isOwner) return true;
+      const isHidden = e.status === 'hidden' || (typeof e.admin_notes === 'string' && e.admin_notes.includes('TẠM ẨN'));
+      return !isHidden;
+    });
+
+    const sanitized = visibleEvents.map(e => {
       if (!isPrivileged && !isOwner) {
         const { contact_phone, admin_notes, moderation_reason, moderated_by, moderated_at, ...safe } = e;
         return safe;
       }
       return e;
     });
+
+    if (eventId) {
+      if (sanitized.length > 0) {
+        sendJson(response, 200, {
+          success: true,
+          event: sanitized[0]
+        });
+        return;
+      }
+      sendError(response, 404, 'NOT_FOUND', 'Không tìm thấy sự kiện hoặc đã bị tạm ẩn.');
+      return;
+    }
+
     sendJson(response, 200, {
       success: true,
       count: sanitized.length,
@@ -265,8 +291,8 @@ async function handlePatch(request, response) {
       return;
     }
 
-    if (!isAdmin && !['draft', 'rejected', 'pending'].includes(event.status)) {
-      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa sự kiện khi đang ở bản nháp, chờ duyệt hoặc bị từ chối.');
+    if (!isAdmin && !['draft', 'rejected', 'pending', 'returned', 'needs_revision'].includes(event.status)) {
+      sendError(response, 400, 'CANNOT_EDIT', 'Chỉ có thể chỉnh sửa sự kiện khi đang ở bản nháp, chờ duyệt, bị từ chối hoặc cần chỉnh sửa.');
       return;
     }
 

@@ -6272,13 +6272,14 @@ export async function syncCommunityUgcFeed() {
         }));
         const apiPostIds = new Set(apiPosts.map(p => p.id));
         const userPendingPosts = state.communityPosts.filter(p => p.status === 'pending');
-        const remainingSeedPosts = state.communityPosts.filter(p => !apiPostIds.has(p.id) && p.status !== 'pending');
+        const seedPostIds = new Set((typeof TRA_VINH_COMMUNITY_POSTS !== 'undefined' ? TRA_VINH_COMMUNITY_POSTS : []).map(p => p.id));
+        const remainingSeedPosts = state.communityPosts.filter(p => (p.isSample === true || seedPostIds.has(p.id)) && !apiPostIds.has(p.id));
         state.communityPosts = [...userPendingPosts, ...apiPosts, ...remainingSeedPosts];
         renderCommunityFeed();
     }
 
     function applyApiClubs(clubsList) {
-        if (!Array.isArray(clubsList) || clubsList.length === 0) return;
+        if (!Array.isArray(clubsList)) return;
         const apiClubs = clubsList.map(c => ({
             id: c.id,
             name: c.name,
@@ -6300,7 +6301,8 @@ export async function syncCommunityUgcFeed() {
         }));
         const apiClubIds = new Set(apiClubs.map(c => c.id));
         const userPendingClubs = state.clubs.filter(c => c.status === 'pending');
-        const remainingSeedClubs = state.clubs.filter(c => !apiClubIds.has(c.id) && c.status !== 'pending');
+        const seedClubIds = new Set((typeof TRA_VINH_CLUBS !== 'undefined' ? TRA_VINH_CLUBS : []).map(c => c.id));
+        const remainingSeedClubs = state.clubs.filter(c => (c.isSample === true || seedClubIds.has(c.id)) && !apiClubIds.has(c.id) && c.status !== 'pending');
         state.clubs = [...userPendingClubs, ...apiClubs, ...remainingSeedClubs];
         renderClubsGrid();
     }
@@ -6311,7 +6313,7 @@ export async function syncCommunityUgcFeed() {
         const postsRes = await fetch('/api/community-posts?status=approved&limit=30');
         if (postsRes.ok) {
             const data = await postsRes.json();
-            if (Array.isArray(data.posts) && data.posts.length > 0) {
+            if (Array.isArray(data.posts)) {
                 applyApiPosts(data.posts);
                 postsLoaded = true;
             }
@@ -8261,12 +8263,13 @@ export async function fetchUserUgcContent(force = false) {
     const headers = { 'Authorization': `Bearer ${token}` };
 
     try {
-        const [artRes, clubRes, actRes, postRes, evtRes] = await Promise.allSettled([
+        const [artRes, clubRes, actRes, postRes, evtRes, placeRes] = await Promise.allSettled([
             fetch(`/api/articles?author_id=${encodeURIComponent(userId)}&status=all`, { headers }),
             fetch(`/api/clubs?leader_id=${encodeURIComponent(userId)}&status=all`, { headers }),
             fetch(`/api/club-activities?creator_id=${encodeURIComponent(userId)}&status=all`, { headers }),
             fetch(`/api/community-posts?author_id=${encodeURIComponent(userId)}&status=all`, { headers }),
-            fetch(`/api/community-events?creator_id=${encodeURIComponent(userId)}&status=all`, { headers })
+            fetch(`/api/community-events?creator_id=${encodeURIComponent(userId)}&status=all`, { headers }),
+            fetch(`/api/submit-place?user_id=${encodeURIComponent(userId)}`, { headers })
         ]);
 
         let articles = [];
@@ -8274,6 +8277,7 @@ export async function fetchUserUgcContent(force = false) {
         let activities = [];
         let posts = [];
         let events = [];
+        let places = [];
 
         if (artRes.status === 'fulfilled' && artRes.value.ok) {
             const data = await artRes.value.json().catch(() => ({}));
@@ -8295,6 +8299,10 @@ export async function fetchUserUgcContent(force = false) {
             const data = await evtRes.value.json().catch(() => ({}));
             if (Array.isArray(data.events)) events = data.events;
         }
+        if (placeRes.status === 'fulfilled' && placeRes.value.ok) {
+            const data = await placeRes.value.json().catch(() => ({}));
+            if (Array.isArray(data.places)) places = data.places;
+        }
 
         state.userUgcContent = {
             articles,
@@ -8302,6 +8310,7 @@ export async function fetchUserUgcContent(force = false) {
             activities,
             posts,
             events,
+            places,
             loading: false,
             loaded: true,
             filter: state.userUgcContent?.filter || 'all'
@@ -8319,7 +8328,35 @@ export async function fetchUserUgcContent(force = false) {
 export function openEditUgcItem(entityType, entityId) {
     if (!entityType || !entityId) return;
 
-    if (entityType === 'article') {
+    if (entityType === 'place') {
+        const place = (state.userUgcContent.places || []).find(p => String(p.id) === String(entityId))
+            || (state.places || []).find(p => String(p.id) === String(entityId));
+        if (place) {
+            closeProfileModal();
+            openContributeModal();
+            setTimeout(() => {
+                const nameInput = document.getElementById('contribPlaceName');
+                if (nameInput) nameInput.value = place.name || '';
+                const districtSelect = document.getElementById('contribDistrict');
+                if (districtSelect && place.area) districtSelect.value = place.area;
+                const addressInput = document.getElementById('contribAddress');
+                if (addressInput) addressInput.value = place.address || '';
+                const hoursInput = document.getElementById('contribHours');
+                if (hoursInput) hoursInput.value = place.display_hours || '';
+                const priceInput = document.getElementById('contribPrice');
+                if (priceInput) priceInput.value = place.price_raw || '';
+                const descInput = document.getElementById('contribDescription');
+                if (descInput) descInput.value = place.description || '';
+                const authorContact = document.getElementById('contribAuthorContact');
+                if (authorContact && place.contact) authorContact.value = place.contact;
+                const modalTitle = document.getElementById('contributeModalTitle');
+                if (modalTitle) modalTitle.textContent = 'Chỉnh sửa & Gửi lại địa điểm đóng góp';
+                state.editingContributePlaceId = place.id;
+            }, 100);
+        } else {
+            showNoticeToast('Không tìm thấy', 'Không tìm thấy dữ liệu địa điểm cần sửa.');
+        }
+    } else if (entityType === 'article') {
         const article = (state.userUgcContent.articles || []).find(a => a.id === entityId)
             || (state.articles || []).find(a => a.id === entityId);
         if (article) {
@@ -8369,7 +8406,15 @@ export function openEditUgcItem(entityType, entityId) {
 
 export function viewPublishedUgcItem(entityType, entityId) {
     closeProfileModal();
-    if (entityType === 'article') {
+    if (entityType === 'place') {
+        navGoExplore();
+        setTimeout(() => {
+            const place = (state.places || []).find(p => String(p.id) === String(entityId));
+            if (place) {
+                openPlaceModal(place);
+            }
+        }, 200);
+    } else if (entityType === 'article') {
         navGoBlog();
         setTimeout(() => {
             const el = document.getElementById('travelStoriesSection') || document.getElementById('travelStoriesContainer');
@@ -10662,6 +10707,7 @@ function renderModerationModal() {
         kpi: state.moderationKpi,
         filterCategory: state.moderationFilterCategory,
         riskFilter: state.moderationRiskFilter,
+        statusFilter: state.moderationStatusFilter || 'pending',
         searchQuery: state.moderationSearchQuery
     });
 }
@@ -11295,10 +11341,19 @@ export function openActionReasonModal(actionType, targetId, targetTitle) {
     const container = document.getElementById('adminActionReasonModalContent');
     if (!modal || !container) return;
 
+    let targetItem = null;
+    if (actionType.endsWith('_post')) targetItem = (state.moderationPosts || []).find(p => p.id === targetId);
+    else if (actionType.endsWith('_place')) targetItem = (state.moderationPlaces || []).find(p => p.id == targetId || String(p.id) === String(targetId));
+    else if (actionType.endsWith('_club')) targetItem = (state.moderationClubs || []).find(c => c.id === targetId);
+    else if (actionType.endsWith('_event')) targetItem = (state.moderationEvents || []).find(e => e.id === targetId);
+    else if (actionType.endsWith('_article')) targetItem = (state.moderationArticles || []).find(a => a.id === targetId);
+    else if (actionType.endsWith('_activity')) targetItem = (state.moderationActivities || []).find(act => act.id === targetId);
+
     container.innerHTML = renderAdminActionReasonModalContent({
         actionType,
         targetId,
-        targetTitle
+        targetTitle,
+        targetItem
     });
     modal.classList.remove('hidden');
     syncBodyScrollLock();
@@ -11312,202 +11367,327 @@ export function closeActionReasonModal() {
     syncBodyScrollLock();
 }
 
-export async function submitActionReason(actionType, targetId) {
-    const actType = actionType || state.actionReasonModalState?.actionType || '';
-    const tgtId = targetId || state.actionReasonModalState?.targetId || '';
-    const input = document.getElementById('actionReasonInput');
-    const reason = input ? input.value.trim() : '';
+/**
+ * Cập nhật trạng thái in-memory sau khi thực hiện action kiểm duyệt
+ */
+function updateLocalStateAfterModeration(entityType, entityId, action, reason, patchData) {
+    let listKey = null;
 
-    if (actType.startsWith('reject_post')) {
-        state.moderationPosts = state.moderationPosts.filter(p => p.id !== tgtId);
-        if (typeof state.moderationKpi?.pendingPostsCount === 'number') {
-            state.moderationKpi.pendingPostsCount = Math.max(0, state.moderationKpi.pendingPostsCount - 1);
+    if (entityType === 'community_post') listKey = 'moderationPosts';
+    else if (entityType === 'place') listKey = 'moderationPlaces';
+    else if (entityType === 'club') listKey = 'moderationClubs';
+    else if (entityType === 'community_event') listKey = 'moderationEvents';
+    else if (entityType === 'article') listKey = 'moderationArticles';
+    else if (entityType === 'club_activity') listKey = 'moderationActivities';
+
+    if (!listKey || !Array.isArray(state[listKey])) return;
+
+    const item = state[listKey].find(x => x.id == entityId || String(x.id) === String(entityId));
+    if (!item) return;
+
+    if (!item.metadata) item.metadata = {};
+
+    if (action === 'approve') {
+        item.status = 'approved';
+        item.metadata.is_hidden = false;
+        item.metadata.is_returned = false;
+        item.metadata.is_trash = false;
+        state.moderationKpi.approvedToday = (state.moderationKpi.approvedToday || 0) + 1;
+        if (!state.moderationStatusFilter || state.moderationStatusFilter === 'pending') {
+            state[listKey] = state[listKey].filter(x => x.id != entityId && String(x.id) !== String(entityId));
         }
-        saveStoredModerationPosts(state.moderationPosts);
-        try {
-            const token = await getValidAdminToken();
-            if (token) {
-                await fetch('/api/admin-moderation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        entity_type: 'community_post',
-                        entity_id: tgtId,
-                        action: 'reject',
-                        reason: reason || 'Nội dung không phù hợp tiêu chuẩn cộng đồng.'
-                    })
-                });
-            }
-        } catch (e) {
-            console.warn('[Moderation] API reject post error:', e.message);
+    } else if (action === 'reject') {
+        item.status = (entityType === 'place') ? 'archived' : 'rejected';
+        item.moderation_reason = reason;
+        if (!state.moderationStatusFilter || state.moderationStatusFilter === 'pending') {
+            state[listKey] = state[listKey].filter(x => x.id != entityId && String(x.id) !== String(entityId));
         }
-        showSavedToast('Đã từ chối bài viết và gửi lý do cho người đăng.');
-    } else if (actType.startsWith('edit_post')) {
-        const post = state.moderationPosts.find(p => p.id === tgtId);
-        if (post) {
-            post.status = 'needs_edit';
-            post.editRequestReason = reason;
-            saveStoredModerationPosts(state.moderationPosts);
+    } else if (action === 'return') {
+        item.status = 'draft';
+        item.moderation_reason = reason;
+        item.metadata.is_returned = true;
+        item.metadata.return_reason = reason;
+        if (!state.moderationStatusFilter || state.moderationStatusFilter === 'pending') {
+            state[listKey] = state[listKey].filter(x => x.id != entityId && String(x.id) !== String(entityId));
         }
-        showSavedToast('Đã gửi thông báo yêu cầu tác giả chỉnh sửa bổ sung thông tin.');
-    } else if (actType.startsWith('reject_club')) {
-        state.moderationClubs = state.moderationClubs.filter(c => c.id !== tgtId);
-        if (typeof state.moderationKpi?.pendingClubsCount === 'number') {
-            state.moderationKpi.pendingClubsCount = Math.max(0, state.moderationKpi.pendingClubsCount - 1);
-        }
-        saveStoredModerationClubs(state.moderationClubs);
-        try {
-            const token = await getValidAdminToken();
-            if (token) {
-                await fetch('/api/admin-moderation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        entity_type: 'club',
-                        entity_id: tgtId,
-                        action: 'reject',
-                        reason: reason || 'Hồ sơ CLB không đạt tiêu chuẩn điều lệ.'
-                    })
-                });
-            }
-        } catch (e) {
-            console.warn('[Moderation] API reject club error:', e.message);
-        }
-        showSavedToast('Đã từ chối hồ sơ CLB và gửi lý do thẩm định.');
-    } else if (actType.startsWith('request_club_info')) {
-        const club = state.moderationClubs.find(c => c.id === tgtId);
-        if (club) {
-            club.status = 'needs_info';
-            club.infoRequestReason = reason;
-            saveStoredModerationClubs(state.moderationClubs);
-        }
-        showSavedToast('Đã gửi yêu cầu bổ sung thông tin cho Trưởng nhóm CLB.');
-    } else if (actType.startsWith('reject_event')) {
-        state.moderationEvents = state.moderationEvents.filter(e => e.id !== tgtId);
-        if (typeof state.moderationKpi?.pendingEventsCount === 'number') {
-            state.moderationKpi.pendingEventsCount = Math.max(0, state.moderationKpi.pendingEventsCount - 1);
-        }
-        saveStoredModerationEvents(state.moderationEvents);
-        try {
-            const token = await getValidAdminToken();
-            if (token) {
-                await fetch('/api/admin-moderation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        entity_type: 'community_event',
-                        entity_id: tgtId,
-                        action: 'reject',
-                        reason: reason || 'Nội dung sự kiện không phù hợp tiêu chuẩn.'
-                    })
-                });
-            }
-        } catch (e) {
-            console.warn('[Moderation] API reject event error:', e.message);
-        }
-        showSavedToast('Đã từ chối sự kiện và lưu lý do thẩm định.');
-    } else if (actType.startsWith('reject_article')) {
-        state.moderationArticles = (state.moderationArticles || []).filter(a => a.id !== tgtId);
-        if (typeof state.moderationKpi?.pendingArticlesCount === 'number') {
-            state.moderationKpi.pendingArticlesCount = Math.max(0, state.moderationKpi.pendingArticlesCount - 1);
-        }
-        try {
-            const token = await getValidAdminToken();
-            if (token) {
-                await fetch('/api/admin-moderation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        entity_type: 'article',
-                        entity_id: tgtId,
-                        action: 'reject',
-                        reason: reason || 'Nội dung chưa đáp ứng tiêu chuẩn cẩm nang du lịch.'
-                    })
-                });
-            }
-        } catch (e) {
-            console.warn('[Moderation] API reject article error:', e.message);
-        }
-        if (state.selectedModerationArticleId === tgtId) {
-            state.selectedModerationArticleId = state.moderationArticles[0]?.id || null;
-        }
-        showSavedToast('Đã từ chối bài cẩm nang và lưu lý do thẩm định.');
-    } else if (actType.startsWith('reject_activity')) {
-        state.moderationActivities = (state.moderationActivities || []).filter(a => a.id !== tgtId);
-        if (typeof state.moderationKpi?.pendingActivitiesCount === 'number') {
-            state.moderationKpi.pendingActivitiesCount = Math.max(0, state.moderationKpi.pendingActivitiesCount - 1);
-        }
-        try {
-            const token = await getValidAdminToken();
-            if (token) {
-                await fetch('/api/admin-moderation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        entity_type: 'club_activity',
-                        entity_id: tgtId,
-                        action: 'reject',
-                        reason: reason || 'Lịch sinh hoạt chưa đáp ứng tiêu chuẩn cộng đồng.'
-                    })
-                });
-            }
-        } catch (e) {
-            console.warn('[Moderation] API reject activity error:', e.message);
-        }
-        if (state.selectedModerationActivityId === tgtId) {
-            state.selectedModerationActivityId = state.moderationActivities[0]?.id || null;
-        }
-        showSavedToast('Đã từ chối lịch sinh hoạt CLB và lưu lý do thẩm định.');
-    } else if (actType.startsWith('reject_place')) {
-        state.moderationPlaces = (state.moderationPlaces || []).filter(p => p.id != tgtId && String(p.id) !== String(tgtId));
-        if (typeof state.moderationKpi?.pendingPlacesCount === 'number') {
-            state.moderationKpi.pendingPlacesCount = Math.max(0, state.moderationKpi.pendingPlacesCount - 1);
-        }
-        try {
-            const token = await getValidAdminToken();
-            if (token) {
-                await fetch('/api/admin-moderation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        entity_type: 'place',
-                        entity_id: tgtId,
-                        action: 'reject',
-                        reason: reason || 'Địa điểm không đáp ứng tiêu chuẩn cộng đồng.'
-                    })
-                });
-            }
-        } catch (e) {
-            console.warn('[Moderation] API reject place error:', e.message);
-        }
-        if (state.selectedModerationPlaceId == tgtId || String(state.selectedModerationPlaceId) === String(tgtId)) {
-            state.selectedModerationPlaceId = state.moderationPlaces[0]?.id || null;
-        }
-        showSavedToast('Đã từ chối đề xuất địa điểm và lưu lý do thẩm định.');
+    } else if (action === 'hide') {
+        item.status = 'hidden';
+        item.metadata.is_hidden = true;
+    } else if (action === 'unhide') {
+        item.status = 'approved';
+        item.metadata.is_hidden = false;
+    } else if (action === 'trash' || action === 'archive') {
+        item.status = 'archived';
+        item.metadata.is_trash = true;
+    } else if (action === 'restore') {
+        item.status = 'approved';
+        item.metadata.is_trash = false;
+    } else if (action === 'edit' && patchData) {
+        Object.assign(item, patchData);
     }
 
     syncAndRecalculateModerationPending();
-    closeActionReasonModal();
+}
+
+/**
+ * Thao tác kiểm duyệt nội dung trung tâm: Duyệt, Từ chối, Sửa trực tiếp, Hoàn duyệt, Ẩn/Hiện, Thùng rác/Khôi phục
+ */
+export async function adminModerateAction(entityType, entityId, action, reason = '', patchData = null, adminNotes = null) {
+    const session = getAdminSession();
+    const role = session?.user?.role;
+    const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
+    if (!isAdmin) {
+        showNoticeToast('Yêu cầu quyền Quản trị', 'Bạn cần đăng nhập tài khoản Quản trị để thực hiện thao tác này.');
+        return false;
+    }
+
+    const token = await getValidAdminToken();
+    if (!token) {
+        showNoticeToast('Phiên làm việc hết hạn', 'Vui lòng đăng nhập lại.');
+        return false;
+    }
+
+    try {
+        const payload = {
+            entity_type: entityType,
+            entity_id: String(entityId),
+            action: action
+        };
+        if (reason) payload.reason = reason;
+        if (patchData) payload.patch = patchData;
+        if (adminNotes) payload.admin_notes = adminNotes;
+
+        const res = await fetch('/api/admin-moderation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showNotification(data.message || 'Thao tác kiểm duyệt thất bại.');
+            return false;
+        }
+
+        updateLocalStateAfterModeration(entityType, entityId, action, reason, patchData);
+        showSavedToast(data.message || '✓ Thao tác kiểm duyệt thành công!');
+        renderModerationModal();
+        refreshAdminModerationCounts().catch(() => {});
+        return true;
+    } catch (err) {
+        console.warn('[AdminModeration] Lỗi khi thực hiện action:', err.message);
+        showNotification('Lỗi kết nối khi gửi yêu cầu kiểm duyệt: ' + err.message);
+        return false;
+    }
+}
+
+/**
+ * Lọc danh sách kiểm duyệt theo trạng thái
+ */
+export async function filterModerationStatus(status) {
+    state.moderationStatusFilter = status;
+    const token = await getValidAdminToken();
+    if (token) {
+        try {
+            const res = await fetch(`/api/admin-moderation?status=${encodeURIComponent(status)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.posts)) {
+                    state.moderationPosts = data.posts.map(p => {
+                        let loc = null;
+                        if (p.metadata?.location) loc = p.metadata.location;
+                        else if (p.location) loc = typeof p.location === 'object' ? p.location : { name: p.location };
+                        return {
+                            id: p.id,
+                            author: {
+                                name: p.author_name || 'Thành viên Xứ Trà',
+                                avatar: p.author_avatar || null,
+                                avatarText: (p.author_name || 'TV').slice(0, 2).toUpperCase(),
+                                level: 'Thành viên'
+                            },
+                            category: p.category || 'Tự do',
+                            title: p.title || (p.content ? (p.content.slice(0, 40) + '...') : 'Bài chia sẻ cộng đồng'),
+                            excerpt: p.content ? (p.content.slice(0, 160) + (p.content.length > 160 ? '...' : '')) : '',
+                            fullContent: p.content ? [p.content] : [],
+                            images: (p.images || []).map(img => typeof img === 'string' ? { src: img, caption: 'Ảnh đính kèm' } : img),
+                            location: loc,
+                            tags: ['Cộng đồng', 'Trà Vinh'],
+                            submittedAt: p.created_at || 'Vừa xong',
+                            status: p.status || 'pending',
+                            metadata: p.metadata || {}
+                        };
+                    });
+                }
+                if (Array.isArray(data.places)) {
+                    state.moderationPlaces = data.places.map(pl => {
+                        let imgs = [];
+                        if (Array.isArray(pl.images)) {
+                            imgs = pl.images.map(img => typeof img === 'string' ? { src: img, caption: pl.name } : img);
+                        } else if (typeof pl.images === 'string' && pl.images.trim()) {
+                            imgs = [{ src: pl.images.trim(), caption: pl.name }];
+                        }
+                        if (pl.image_link && !imgs.some(i => i.src === pl.image_link)) {
+                            imgs.unshift({ src: pl.image_link, caption: pl.name });
+                        }
+                        return {
+                            id: pl.id,
+                            name: pl.name || 'Địa điểm chưa đặt tên',
+                            slug: pl.slug,
+                            category: pl.category || 'Địa điểm du lịch',
+                            area: pl.area || 'Toàn tỉnh',
+                            address: pl.address || '',
+                            map_link: pl.map_link || '',
+                            price_raw: pl.price_raw || '',
+                            description: pl.description || '',
+                            note: pl.note || '',
+                            contact: pl.contact || '',
+                            coordinates: pl.coordinates || '',
+                            contributor: pl.contributor || 'Thành viên đóng góp',
+                            display_hours: pl.display_hours || '',
+                            status: pl.status || 'draft',
+                            images: imgs,
+                            image_link: pl.image_link || (imgs[0]?.src || null),
+                            client_submission_id: pl.client_submission_id,
+                            created_at: pl.created_at || 'Vừa xong',
+                            metadata: pl.metadata || {}
+                        };
+                    });
+                }
+                if (Array.isArray(data.clubs)) state.moderationClubs = data.clubs;
+                if (Array.isArray(data.events)) state.moderationEvents = data.events;
+                if (Array.isArray(data.articles)) state.moderationArticles = data.articles;
+                if (Array.isArray(data.activities)) state.moderationActivities = data.activities;
+            }
+        } catch (e) {
+            console.warn('[AdminModeration] Lỗi khi tải theo trạng thái:', e.message);
+        }
+    }
     renderModerationModal();
-    refreshAdminModerationCounts().catch(() => {});
+}
+
+export async function submitActionReason(actionType, targetId) {
+    const actType = actionType || state.actionReasonModalState?.actionType || '';
+    const tgtId = targetId || state.actionReasonModalState?.targetId || '';
+
+    // 1. Nhánh Sửa trực tiếp (edit_*)
+    if (actType.startsWith('edit_')) {
+        let entityType = '';
+        const patch = {};
+
+        if (actType.endsWith('_place')) {
+            entityType = 'place';
+            const name = document.getElementById('editDirectName')?.value?.trim();
+            if (name) patch.name = name;
+            const cat = document.getElementById('editDirectCategory')?.value?.trim();
+            if (cat) patch.category = cat;
+            const area = document.getElementById('editDirectArea')?.value?.trim();
+            if (area) patch.area = area;
+            const addr = document.getElementById('editDirectAddress')?.value?.trim();
+            if (addr) patch.address = addr;
+            const hours = document.getElementById('editDirectHours')?.value?.trim();
+            if (hours) patch.display_hours = hours;
+            const price = document.getElementById('editDirectPrice')?.value?.trim();
+            if (price) patch.price_raw = price;
+            const coords = document.getElementById('editDirectCoords')?.value?.trim();
+            if (coords) patch.coordinates = coords;
+            const desc = document.getElementById('editDirectDesc')?.value?.trim();
+            if (desc) patch.description = desc;
+        } else if (actType.endsWith('_post')) {
+            entityType = 'community_post';
+            const title = document.getElementById('editDirectTitle')?.value?.trim();
+            if (title) patch.title = title;
+            const cat = document.getElementById('editDirectCategory')?.value?.trim();
+            if (cat) patch.category = cat;
+            const content = document.getElementById('editDirectContent')?.value?.trim();
+            if (content) patch.content = content;
+        } else if (actType.endsWith('_club')) {
+            entityType = 'club';
+            const name = document.getElementById('editDirectName')?.value?.trim();
+            if (name) patch.name = name;
+            const cat = document.getElementById('editDirectCategory')?.value?.trim();
+            if (cat) patch.category = cat;
+            const mp = document.getElementById('editDirectMeetingPlace')?.value?.trim();
+            if (mp) patch.meeting_place = mp;
+            const sc = document.getElementById('editDirectSchedule')?.value?.trim();
+            if (sc) patch.schedule_info = sc;
+            const desc = document.getElementById('editDirectDesc')?.value?.trim();
+            if (desc) patch.description = desc;
+        } else if (actType.endsWith('_event')) {
+            entityType = 'community_event';
+            const title = document.getElementById('editEventTitle')?.value?.trim();
+            if (title) patch.title = title;
+            const cat = document.getElementById('editEventCategory')?.value?.trim();
+            if (cat) patch.category = cat;
+            const org = document.getElementById('editEventOrganizer')?.value?.trim();
+            if (org) patch.organizer = org;
+            const loc = document.getElementById('editEventLocation')?.value?.trim();
+            if (loc) patch.location = loc;
+            const time = document.getElementById('editEventTime')?.value?.trim();
+            if (time) patch.time_schedule = time;
+            const phone = document.getElementById('editEventPhone')?.value?.trim();
+            if (phone) patch.contact_phone = phone;
+            const desc = document.getElementById('editEventDesc')?.value?.trim();
+            if (desc) patch.description = desc;
+        } else if (actType.endsWith('_activity')) {
+            entityType = 'club_activity';
+            const title = document.getElementById('editActivityTitle')?.value?.trim();
+            if (title) patch.title = title;
+            const loc = document.getElementById('editActivityLocation')?.value?.trim();
+            if (loc) patch.location = loc;
+            const time = document.getElementById('editActivityTime')?.value?.trim();
+            if (time) patch.time_schedule = time;
+            const desc = document.getElementById('editActivityDesc')?.value?.trim();
+            if (desc) patch.description = desc;
+        } else if (actType.endsWith('_article')) {
+            entityType = 'article';
+            const title = document.getElementById('editDirectTitle')?.value?.trim();
+            if (title) patch.title = title;
+            const excerpt = document.getElementById('editDirectExcerpt')?.value?.trim();
+            if (excerpt) patch.excerpt = excerpt;
+            const readTime = document.getElementById('editDirectReadTime')?.value?.trim();
+            if (readTime) patch.read_time = readTime;
+        }
+
+        if (Object.keys(patch).length === 0) {
+            showNoticeToast('Chưa thay đổi thông tin', 'Vui lòng chỉnh sửa ít nhất một trường thông tin.');
+            return;
+        }
+
+        const success = await adminModerateAction(entityType, tgtId, 'edit', '', patch);
+        if (success) {
+            closeActionReasonModal();
+        }
+        return;
+    }
+
+    // 2. Nhánh Hoàn duyệt (return_*) & Từ chối (reject_*)
+    const input = document.getElementById('actionReasonInput');
+    const reason = input ? input.value.trim() : '';
+
+    if (!reason || reason.length < 3 || reason.length > 500) {
+        showNoticeToast('Lý do chưa hợp lệ', 'Vui lòng nhập lý do chi tiết từ 3 đến 500 ký tự để gửi cho tác giả.');
+        return;
+    }
+
+    let entityType = 'community_post';
+    const action = actType.startsWith('return') ? 'return' : 'reject';
+
+    if (actType.endsWith('_place')) entityType = 'place';
+    else if (actType.endsWith('_club')) entityType = 'club';
+    else if (actType.endsWith('_event')) entityType = 'community_event';
+    else if (actType.endsWith('_article')) entityType = 'article';
+    else if (actType.endsWith('_activity')) entityType = 'club_activity';
+    else if (actType.endsWith('_post')) entityType = 'community_post';
+
+    const success = await adminModerateAction(entityType, tgtId, action, reason);
+    if (success) {
+        closeActionReasonModal();
+    }
 }
 
 export function quickApproveHighTrust() {
@@ -12047,6 +12227,8 @@ if (typeof window !== 'undefined') {
         openActionReasonModal,
         closeActionReasonModal,
         submitActionReason,
+        adminModerateAction,
+        filterModerationStatus,
         quickApproveHighTrust,
         openSubmitArticleModal,
         closeSubmitArticleModal,

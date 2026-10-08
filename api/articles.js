@@ -137,7 +137,7 @@ async function handleGet(request, response) {
   // Giới hạn cột trả về: Khách và thành viên khác KHÔNG được xem admin_notes, moderation_reason
   const selectColumns = (isPrivileged || isOwner)
     ? '*'
-    : 'id,slug,title,category,category_name,category_badge,cover_image,read_time,excerpt,content,author_id,author_name,author_role,author_avatar,is_editorial,related_place_ids,status,created_at,updated_at';
+    : 'id,slug,title,category,category_name,category_badge,cover_image,read_time,excerpt,content,author_id,author_name,author_role,author_avatar,is_editorial,related_place_ids,status,created_at,updated_at,metadata,admin_notes';
 
   let query = `${TABLE_NAME}?select=${selectColumns}&order=created_at.desc&limit=${limit}`;
 
@@ -150,6 +150,9 @@ async function handleGet(request, response) {
   if (effectiveStatus !== 'all') {
     query += `&status=eq.${encodeURIComponent(effectiveStatus)}`;
   }
+  if (!isPrivileged && !isOwner) {
+    query += '&status=neq.hidden&or=(metadata->>is_hidden.is.null,metadata->>is_hidden.neq.true)&or=(admin_notes.is.null,admin_notes.not.ilike.*T%E1%BA%A0M%20%E1%BA%A8N*)';
+  }
   if (category && category !== 'all') {
     query += `&category=eq.${encodeURIComponent(category)}`;
   }
@@ -159,19 +162,31 @@ async function handleGet(request, response) {
 
   try {
     const rows = await supabaseRequest(query);
-    const sanitized = (Array.isArray(rows) ? rows : []).map(a => {
+    const visibleArticles = (Array.isArray(rows) ? rows : []).filter(a => {
+      if (isPrivileged || isOwner) return true;
+      const isHidden = a.status === 'hidden' ||
+        (a.metadata && (a.metadata.is_hidden === true || a.metadata.is_hidden === 'true')) ||
+        (typeof a.admin_notes === 'string' && a.admin_notes.includes('TẠM ẨN'));
+      return !isHidden;
+    });
+
+    const sanitized = visibleArticles.map(a => {
       if (!isPrivileged && !isOwner) {
-        const { admin_notes, moderation_reason, moderated_by, moderated_at, ...safe } = a;
+        const { admin_notes, moderation_reason, moderated_by, moderated_at, metadata, ...safe } = a;
         return safe;
       }
       return a;
     });
 
-    if ((articleId || slug) && sanitized.length > 0) {
-      sendJson(response, 200, {
-        success: true,
-        article: sanitized[0]
-      });
+    if (articleId || slug) {
+      if (sanitized.length > 0) {
+        sendJson(response, 200, {
+          success: true,
+          article: sanitized[0]
+        });
+        return;
+      }
+      sendError(response, 404, 'NOT_FOUND', 'Không tìm thấy bài viết hoặc bài viết đã bị tạm ẩn.');
       return;
     }
 
@@ -416,6 +431,14 @@ async function handlePatch(request, response) {
       // Người dùng chỉnh sửa bài thì đưa về pending để duyệt lại
       patch.status = 'pending';
       patch.moderation_reason = null;
+      if (current.metadata) {
+        patch.metadata = {
+          ...current.metadata,
+          is_returned: false,
+          return_reason: null,
+          resubmitted_at: new Date().toISOString()
+        };
+      }
     }
 
     await supabaseRequest(`${TABLE_NAME}?id=eq.${encodeURIComponent(articleId)}`, {

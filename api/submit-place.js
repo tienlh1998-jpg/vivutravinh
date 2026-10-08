@@ -298,8 +298,99 @@ function validatePayload(body) {
 }
 
 export default async function handler(request, response) {
+  // GET: Người dùng lấy danh sách địa điểm do mình đóng góp
+  if (request.method === 'GET') {
+    const userContext = await authenticateUser(request, response).catch(() => null);
+    if (!userContext) {
+      return sendError(response, 401, 'UNAUTHORIZED', 'Vui lòng đăng nhập để xem danh sách địa điểm đã đóng góp.');
+    }
+    const url = new URL(request.url, 'http://localhost');
+    const targetUserId = url.searchParams.get('user_id') || userContext.user.id;
+    const isAdmin = ['admin', 'moderator', 'editor'].includes(userContext.user.role);
+    if (targetUserId !== userContext.user.id && !isAdmin) {
+      return sendError(response, 403, 'FORBIDDEN', 'Bạn không có quyền xem địa điểm của người khác.');
+    }
+    try {
+      const places = await supabaseRequest(
+        `${TABLE_NAME}?user_id=eq.${encodeURIComponent(targetUserId)}&order=created_at.desc&limit=50`
+      );
+      return sendJson(response, 200, {
+        success: true,
+        places: Array.isArray(places) ? places : []
+      });
+    } catch (err) {
+      return sendError(response, 500, 'DATABASE_ERROR', 'Không thể lấy danh sách địa điểm lúc này.');
+    }
+  }
+
+  // PATCH: Tác giả chỉnh sửa địa điểm draft / returned để gửi lại cho BQT
+  if (request.method === 'PATCH') {
+    const userContext = await authenticateUser(request, response).catch(() => null);
+    if (!userContext) {
+      return sendError(response, 401, 'UNAUTHORIZED', 'Vui lòng đăng nhập để chỉnh sửa địa điểm.');
+    }
+    let body;
+    try {
+      body = await readBody(request, MAX_PAYLOAD_SIZE);
+    } catch (err) {
+      return sendError(response, 400, 'BAD_REQUEST', 'Định dạng JSON không hợp lệ.');
+    }
+    const url = new URL(request.url, 'http://localhost');
+    const placeId = body.id || url.searchParams.get('id');
+    if (!placeId) {
+      return sendError(response, 400, 'MISSING_ID', 'Thiếu id địa điểm cần sửa.');
+    }
+    try {
+      const existingRows = await supabaseRequest(`${TABLE_NAME}?id=eq.${encodeURIComponent(placeId)}&limit=1`);
+      const current = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null;
+      if (!current) {
+        return sendError(response, 404, 'NOT_FOUND', 'Không tìm thấy địa điểm.');
+      }
+      const isOwner = current.user_id === userContext.user.id;
+      const isAdmin = ['admin', 'moderator', 'editor'].includes(userContext.user.role);
+      if (!isOwner && !isAdmin) {
+        return sendError(response, 403, 'FORBIDDEN', 'Bạn không có quyền sửa địa điểm này.');
+      }
+      if (!isAdmin && current.status === 'approved') {
+        return sendError(response, 400, 'CANNOT_EDIT', 'Địa điểm đã duyệt công khai, vui lòng liên hệ Admin để cập nhật.');
+      }
+
+      const patch = { updated_at: new Date().toISOString() };
+      if (body.name) patch.name = String(body.name).trim();
+      if (body.category) patch.category = String(body.category).trim();
+      if (body.area) patch.area = String(body.area).trim();
+      if (body.address) patch.address = String(body.address).trim();
+      if (body.description) patch.description = String(body.description).trim();
+      if (body.coordinates) patch.coordinates = String(body.coordinates).trim();
+      if (body.map_link) patch.map_link = String(body.map_link).trim();
+      if (body.price_raw) patch.price_raw = String(body.price_raw).trim();
+      if (body.display_hours) patch.display_hours = String(body.display_hours).trim();
+      if (body.contact) patch.contact = String(body.contact).trim();
+      if (Array.isArray(body.images)) patch.images = body.images;
+      if (body.image_link) patch.image_link = String(body.image_link).trim();
+      if (!isAdmin) {
+        patch.status = 'draft';
+        patch.note = null;
+      }
+
+      const updated = await supabaseRequest(`${TABLE_NAME}?id=eq.${encodeURIComponent(placeId)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(patch)
+      });
+      return sendJson(response, 200, {
+        success: true,
+        message: 'Cập nhật địa điểm thành công và đã gửi lại cho Ban Quản Trị.',
+        place: Array.isArray(updated) && updated.length > 0 ? updated[0] : { ...current, ...patch }
+      });
+    } catch (dbErr) {
+      console.error('[SubmitPlace] Patch error:', dbErr.message);
+      return sendError(response, 500, 'DATABASE_ERROR', 'Không thể cập nhật địa điểm lúc này.');
+    }
+  }
+
   if (request.method !== 'POST') {
-    return sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed. Use POST.');
+    return sendError(response, 405, 'METHOD_NOT_ALLOWED', 'Method Not Allowed. Use GET, POST, or PATCH.');
   }
 
   // 1. Đọc body và kiểm tra giới hạn dung lượng trước
