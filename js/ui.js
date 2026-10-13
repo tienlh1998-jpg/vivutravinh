@@ -3276,6 +3276,13 @@ export function renderFestivalsSection(
                 <div id="eventCategoryTabs" class="flex items-center gap-2 overflow-x-auto pb-1 xl:pb-0 scrollbar-none">
                     ${EVENT_CATEGORIES.map(cat => {
                         const isActive = activeCategory === cat.id;
+                        let count = 0;
+                        if (cat.id === 'all') count = allMeetups.length;
+                        else if (cat.id === 'upcoming') count = allMeetups.filter(e => e.statusBadge === 'Sắp diễn ra' || e.month === 'Tháng 10' || e.month === 'Tháng 11').length;
+                        else if (cat.id === 'traditional') count = allMeetups.filter(e => e.categoryKey === 'traditional' || e.categoryKey === 'sports').length;
+                        else if (cat.id === 'workshop') count = allMeetups.filter(e => e.categoryKey === 'workshop').length;
+                        else if (cat.id === 'sports') count = allMeetups.filter(e => e.categoryKey === 'sports').length;
+                        else if (cat.id === 'community') count = allMeetups.filter(e => e.categoryKey === 'community').length;
                         return `
                             <button type="button" data-category-id="${cat.id}"
                                 class="event-category-tab-btn px-4 py-2 rounded-full font-button text-xs font-semibold shrink-0 flex items-center gap-1.5 transition-all min-h-[44px] ${
@@ -3288,7 +3295,7 @@ export function renderFestivalsSection(
                                     isActive
                                         ? 'bg-secondary-fixed/30 text-secondary-fixed'
                                         : 'bg-surface-container-highest dark:bg-zinc-700 text-on-surface dark:text-zinc-200'
-                                }">${cat.count}</span>
+                                }">${count}</span>
                             </button>
                         `;
                     }).join('')}

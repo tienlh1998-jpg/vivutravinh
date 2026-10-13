@@ -446,7 +446,7 @@ export const TRA_VINH_FESTIVALS = [
 export const EVENT_CATEGORIES = [
     { id: 'all', label: 'Tất cả sự kiện', count: 0 },
     { id: 'upcoming', label: 'Sắp diễn ra', count: 0 },
-    { id: 'traditional', label: 'Lễ hội truyền thống', count: 6 },
+    { id: 'traditional', label: 'Lễ hội truyền thống', count: 0 },
     { id: 'workshop', label: 'Workshop văn hóa', count: 0 },
     { id: 'sports', label: 'Thể thao & Trải nghiệm', count: 0 },
     { id: 'community', label: 'Giao lưu cộng đồng', count: 0 }

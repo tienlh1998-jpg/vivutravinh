@@ -2171,7 +2171,7 @@ export function updateHeroStats() {
 
     const placesCount = state.allPlaces?.length || 0;
     const clubsCount = state.clubs?.length || 0;
-    const eventsCount = (state.eventsAndMeetups?.length || 0) + (state.festivals?.length || 0);
+    const eventsCount = state.eventsAndMeetups?.length || 0;
 
     if (placesEl) placesEl.textContent = placesCount > 0 ? `${placesCount}+` : '0';
     if (clubsEl) clubsEl.textContent = clubsCount > 0 ? String(clubsCount).padStart(2, '0') : '0';
