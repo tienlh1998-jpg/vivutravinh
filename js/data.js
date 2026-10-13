@@ -665,6 +665,7 @@ async function loadPlacesFromSupabase(config) {
 
     return payload
         .filter(row => normalizeText(row.name))
+        .filter(row => row.status === 'approved' && !String(row.note || '').includes('[THÙNG RÁC]') && !String(row.note || '').includes('[TẠM ẨN]'))
         .map((row, index) => normalizeSupabasePlace(row, index));
 }
 
@@ -723,10 +724,20 @@ export async function loadPlaces(configOverrides = {}) {
         return [];
     }
 
-    // 4. Kiểm tra cache riêng cho từng nguồn dữ liệu
-    const cachedPlaces = readCache(config.dataSource);
-    if (cachedPlaces) {
-        return cachedPlaces;
+    // 4. Kiểm tra cache riêng cho từng nguồn dữ liệu (Bỏ qua cache nếu là Admin hoặc có yêu cầu forceRefresh)
+    const isAdminUser = Boolean(
+        typeof localStorage !== 'undefined' && (
+            localStorage.getItem('vivu_admin_session') ||
+            (localStorage.getItem('vivu_user_session') && localStorage.getItem('vivu_user_session').includes('tienlh1998@gmail.com'))
+        )
+    );
+    const shouldBypassCache = Boolean(configOverrides.forceRefresh || isAdminUser);
+
+    if (!shouldBypassCache) {
+        const cachedPlaces = readCache(config.dataSource);
+        if (cachedPlaces) {
+            return cachedPlaces;
+        }
     }
 
     // 5. Nạp dữ liệu theo nguồn được chỉ định:

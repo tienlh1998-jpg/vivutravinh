@@ -11561,18 +11561,38 @@ export async function quickModeratePlace(placeId, action) {
 
     const ok = await adminModerateAction('place', placeId, action);
     if (ok) {
-        // Cập nhật lại UI modal chi tiết nếu đang mở
-        const found = (state.allPlaces || []).find(p => p.id == placeId || String(p.id) === String(placeId) || p.slug === placeId);
-        const detailModal = document.getElementById('detailModal');
-        if (detailModal && !detailModal.classList.contains('hidden')) {
-            const updatedPlace = found || state.currentDetailPlace;
-            if (updatedPlace) {
-                updateDetailModalAdminBar(updatedPlace, true);
-            }
+        // 1. Xóa cache địa điểm lập tức
+        if (window.ViVuData?.clearPlacesCache) {
+            window.ViVuData.clearPlacesCache();
         }
-        const deepModal = document.getElementById('deepPlaceDetailModal');
-        if (deepModal && !deepModal.classList.contains('hidden') && state.deepPlaceId) {
-            openDeepPlaceDetail(state.deepPlaceId);
+
+        // 2. Nếu hành động là Tạm ẩn hoặc Xóa vào thùng rác:
+        if (action === 'hide' || action === 'trash' || action === 'archive') {
+            state.allPlaces = (state.allPlaces || []).filter(p => p.id != placeId && String(p.id) !== String(placeId) && p.slug !== placeId);
+            state.filteredPlaces = (state.filteredPlaces || []).filter(p => p.id != placeId && String(p.id) !== String(placeId) && p.slug !== placeId);
+            renderMainDiscoveryGrid();
+            updateResultsCount(state.filteredPlaces.length);
+            closeDetailModal();
+            closeDeepPlaceDetail();
+        } else if (action === 'unhide' || action === 'restore') {
+            // Khi hiện lại hoặc khôi phục: tải lại danh sách mới nhất từ server
+            if (window.ViVuData?.loadPlaces) {
+                const fresh = await window.ViVuData.loadPlaces({ forceRefresh: true }).catch(() => null);
+                if (fresh) {
+                    state.allPlaces = fresh;
+                    applyFilters();
+                }
+            }
+        } else {
+            // Sửa trực tiếp: cập nhật lại modal nếu đang mở
+            const found = (state.allPlaces || []).find(p => p.id == placeId || String(p.id) === String(placeId) || p.slug === placeId);
+            const detailModal = document.getElementById('detailModal');
+            if (detailModal && !detailModal.classList.contains('hidden')) {
+                const updatedPlace = found || state.currentDetailPlace;
+                if (updatedPlace) {
+                    updateDetailModalAdminBar(updatedPlace, true);
+                }
+            }
         }
         return true;
     }
