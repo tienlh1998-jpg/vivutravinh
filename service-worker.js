@@ -1,7 +1,7 @@
 // ViVuTraVinh Service Worker
-// Version 2.12.0 - Partitioned Caches & Atomic Precache (Mobile Drawer Navigation & Public Views)
+// Version 2.13.0 - Brand Logo Integration & Updated Assets Precache
 
-const VERSION = '2.12.0';
+const VERSION = '2.13.0';
 const CACHE_SHELL = `vivutravinh-shell-v${VERSION}`;
 const CACHE_DATA = `vivutravinh-data-v${VERSION}`;
 const CACHE_IMAGES = `vivutravinh-images-v${VERSION}`;
@@ -21,6 +21,8 @@ const APP_SHELL_URLS = [
   './vendor/fonts/be-vietnam-pro.css',
   './vendor/fonts/material-symbols.css',
   './vendor/fonts/material-symbols-outlined.woff2',
+  './icons/logo-symbol.png',
+  './icons/logo-full.jpg',
   './icons/icon.svg',
   './icons/favicon-32x32.png',
   './icons/apple-touch-icon.png',
