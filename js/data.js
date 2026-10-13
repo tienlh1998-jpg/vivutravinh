@@ -81,7 +81,7 @@ function buildSupabaseHeaders(anonKey) {
 }
 
 function getCacheKey(dataSource) {
-    return `${CACHE_KEY_PREFIX}${dataSource || 'default'}-v2`;
+    return `${CACHE_KEY_PREFIX}${dataSource || 'default'}-v3`;
 }
 
 function readCache(dataSource) {
@@ -763,9 +763,6 @@ export async function loadPlaces(configOverrides = {}) {
     try {
         console.info('[ViVuTraVinh Data] 🌐 Chế độ SUPABASE: Đang kết nối tới Supabase REST...');
         const places = await loadPlacesFromSupabase(config);
-        if (places.length === 0) {
-            throw new Error('Supabase places chưa có địa điểm approved để hiển thị.');
-        }
         recordLastUpdated('supabase');
         writeCache(config.dataSource, places);
         return places;

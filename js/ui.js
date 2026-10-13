@@ -457,7 +457,32 @@ export function renderStoryBubbles(containerId, activeFilter, onSelectBubble) {
  */
 export function renderHeroSpotlight(containerId, place, onOpenModal, onSavePlace, isSaved) {
     const container = document.getElementById(containerId);
-    if (!container || !place) return;
+    if (!container) return;
+
+    if (!place) {
+        container.innerHTML = `
+            <div class="relative w-full h-full min-h-[460px] lg:min-h-[520px] rounded-3xl overflow-hidden border border-outline-variant/40 dark:border-zinc-800 bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 shadow-sm flex flex-col justify-center items-center text-center p-8 text-white">
+                <div class="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-4 border border-white/20 shadow-inner">
+                    <span class="material-symbols-outlined text-4xl text-emerald-300">explore</span>
+                </div>
+                <h3 class="text-2xl lg:text-3xl font-bold font-serif mb-2">Chào mừng đến với ViVu Trà Vinh</h3>
+                <p class="text-white/80 max-w-md text-sm mb-6 leading-relaxed">Hệ thống sẵn sàng đón nhận những địa điểm du lịch, văn hóa và ẩm thực mới do bạn quản trị.</p>
+                <div class="flex flex-wrap items-center justify-center gap-3">
+                    <button type="button" onclick="document.getElementById('suggestPlaceNavBtn')?.click()"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-stone-900 font-bold text-sm transition-all shadow-lg active:scale-95">
+                        <span class="material-symbols-outlined text-base">add_location_alt</span>
+                        <span>Đề xuất địa điểm mới</span>
+                    </button>
+                    <a href="/admin.html"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all border border-white/20 active:scale-95">
+                        <span class="material-symbols-outlined text-base">dashboard_customize</span>
+                        <span>Mở Quản Trị</span>
+                    </a>
+                </div>
+            </div>
+        `;
+        return;
+    }
 
     const statusInfo = getPlaceOpenStatus(place);
     const isOpen = statusInfo.status === 'open';
@@ -632,7 +657,7 @@ export function renderWeatherAndSmartSuggestions(containerId, places, onOpenModa
                 </div>
 
                 <div class="space-y-2" id="smartSuggestionsList">
-                    ${samplePicks.map(item => `
+                    ${samplePicks.length > 0 ? samplePicks.map(item => `
                         <div data-place-id="${item.id}" class="smart-item flex items-center justify-between p-2.5 rounded-xl bg-surface-container-low dark:bg-zinc-800/60 hover:bg-surface-container dark:hover:bg-zinc-800 transition-colors cursor-pointer border border-transparent hover:border-outline-variant/40 group">
                             <div class="flex items-center gap-3 min-w-0">
                                 <div class="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-stone-200 dark:bg-zinc-700">
@@ -664,7 +689,13 @@ export function renderWeatherAndSmartSuggestions(containerId, places, onOpenModa
                                 })()}
                             </div>
                         </div>
-                    `).join('')}
+                    `).join('') : `
+                        <div class="py-5 text-center text-xs text-on-surface-variant dark:text-zinc-400 flex flex-col items-center justify-center gap-1.5">
+                            <span class="material-symbols-outlined text-2xl text-stone-400">schedule</span>
+                            <span>Chưa có địa điểm mở cửa lúc này.</span>
+                        </div>
+                    `}
+                </div>
                 <div class="pt-2 border-t border-outline-variant/30 dark:border-zinc-800 text-[10px] text-on-surface-variant/80 dark:text-zinc-500 flex items-center justify-between">
                     <span>Nguồn dữ liệu: Open-Meteo & Khí tượng Trà Vinh</span>
                     <span>Cập nhật định kỳ</span>

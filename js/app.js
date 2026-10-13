@@ -826,8 +826,8 @@ async function initApp() {
         }
 
         const places = await window.ViVuData.loadPlaces();
-        if (!Array.isArray(places) || places.length === 0) {
-            throw new Error('Chưa có địa điểm nào được duyệt để hiển thị.');
+        if (!Array.isArray(places)) {
+            throw new Error('Không thể nạp dữ liệu cẩm nang du lịch.');
         }
 
         state.allPlaces = places;
@@ -837,13 +837,15 @@ async function initApp() {
         canonicalizePreferences(places);
 
         // Chọn địa điểm Spotlight: ưu tiên Ao Bà Om, Chùa Âng hoặc địa điểm có rating cao nhất
-        state.spotlightPlace = places.find(p => p.name.toLowerCase().includes('ao bà om'))
-            || places.find(p => p.name.toLowerCase().includes('chùa âng'))
-            || places[0];
+        state.spotlightPlace = places.length > 0
+            ? (places.find(p => p.name.toLowerCase().includes('ao bà om'))
+                || places.find(p => p.name.toLowerCase().includes('chùa âng'))
+                || places[0])
+            : null;
 
         // Render các khối Bento
         renderStoryBubbles('storyBubblesContainer', state.activeBubble, handleBubbleSelect);
-        renderHeroSpotlight('heroSpotlightContainer', state.spotlightPlace, openDetailModal, toggleBookmark, isPlaceSaved(state.spotlightPlace));
+        renderHeroSpotlight('heroSpotlightContainer', state.spotlightPlace, openDetailModal, toggleBookmark, state.spotlightPlace ? isPlaceSaved(state.spotlightPlace) : false);
         renderWeatherAndSmartSuggestions('smartSuggestionsContainer', state.allPlaces, openDetailModal);
 
         // Render Section Lịch trình tour 1 ngày
