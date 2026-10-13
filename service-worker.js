@@ -1,7 +1,7 @@
 // ViVuTraVinh Service Worker
-// Version 2.13.0 - Brand Logo Integration & Updated Assets Precache
+// Version 2.14.0 - Fix Hero Empty State Contribute Button
 
-const VERSION = '2.13.0';
+const VERSION = '2.14.0';
 const CACHE_SHELL = `vivutravinh-shell-v${VERSION}`;
 const CACHE_DATA = `vivutravinh-data-v${VERSION}`;
 const CACHE_IMAGES = `vivutravinh-images-v${VERSION}`;

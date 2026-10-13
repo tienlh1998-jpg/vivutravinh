@@ -468,7 +468,7 @@ export function renderHeroSpotlight(containerId, place, onOpenModal, onSavePlace
                 <h3 class="text-2xl lg:text-3xl font-bold font-serif mb-2">Chào mừng đến với ViVu Trà Vinh</h3>
                 <p class="text-white/80 max-w-md text-sm mb-6 leading-relaxed">Hệ thống sẵn sàng đón nhận những địa điểm du lịch, văn hóa và ẩm thực mới do bạn quản trị.</p>
                 <div class="flex flex-wrap items-center justify-center gap-3">
-                    <button type="button" onclick="document.getElementById('suggestPlaceNavBtn')?.click()"
+                    <button type="button" onclick="window.ViVuApp?.openContributeModal ? window.ViVuApp.openContributeModal() : document.getElementById('suggestPlaceNavBtn')?.click()"
                         class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-stone-900 font-bold text-sm transition-all shadow-lg active:scale-95">
                         <span class="material-symbols-outlined text-base">add_location_alt</span>
                         <span>Đề xuất địa điểm mới</span>
