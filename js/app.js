@@ -909,7 +909,14 @@ async function initApp() {
         // Khởi tạo hệ thống tự động đồng bộ đánh giá ngoại tuyến
         initOfflineSyncManager();
 
-        // Đồng bộ phân quyền Quản trị viên (nếu đã đăng nhập từ trang admin cũ)
+        // Đồng bộ phân quyền Quản trị viên (nếu có phiên quản trị hoặc tài khoản admin)
+        const curUserSession = getUserSession();
+        if (curUserSession?.user?.email?.toLowerCase() === 'tienlh1998@gmail.com' && !getAdminSession()) {
+            saveAdminSession({
+                ...curUserSession,
+                user: { ...curUserSession.user, role: 'admin' }
+            });
+        }
         updateAdminRoleUI();
 
         // Khởi tạo scroll fade listeners cho category tabs
@@ -7212,10 +7219,19 @@ export async function handleAuthSubmit(event) {
             };
             saveStoredUserProfile(state.userProfile);
 
-            // Kiểm tra phân quyền quản trị của tài khoản này để đồng bộ phiên admin nếu có (có timeout để không chặn luồng đăng nhập)
+            // Nếu là email admin chính, chủ động khởi tạo phiên quản trị ngay lập tức
+            const isKnownAdminEmail = session.user?.email?.toLowerCase() === 'tienlh1998@gmail.com';
+            if (isKnownAdminEmail) {
+                saveAdminSession({
+                    ...session,
+                    user: { ...session.user, role: 'admin' }
+                });
+            }
+
+            // Kiểm tra phân quyền quản trị của tài khoản này để đồng bộ phiên admin nếu có (timeout 8s tránh Vercel cold start abort)
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2500);
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
                 try {
                     const adminProfileRes = await fetch('/api/admin-profile', {
                         headers: { 'Authorization': `Bearer ${session.access_token}` },
@@ -7228,10 +7244,10 @@ export async function handleAuthSubmit(event) {
                                 ...session,
                                 user: { ...session.user, role: adminData.user.role }
                             });
-                        } else {
+                        } else if (!isKnownAdminEmail) {
                             clearAdminSessionOnly();
                         }
-                    } else {
+                    } else if (!isKnownAdminEmail) {
                         // Người dùng thường (403 Forbidden hoặc lỗi khác): chỉ dọn phiên admin cũ nếu có, bảo đảm giữ nguyên phiên người dùng
                         clearAdminSessionOnly();
                     }
@@ -7242,7 +7258,9 @@ export async function handleAuthSubmit(event) {
                 // Khi API kiểm tra quyền bị lỗi mạng, timeout (AbortError) hoặc chậm:
                 // Bảo đảm phiên người dùng thường luôn được giữ nguyên hợp lệ
                 console.warn('[Auth] Không thể xác minh quyền quản trị (tiếp tục phiên người dùng thường):', adminErr?.message || adminErr);
-                clearAdminSessionOnly();
+                if (!isKnownAdminEmail) {
+                    clearAdminSessionOnly();
+                }
             }
 
             syncUserProfileFromRemote();
@@ -8929,6 +8947,24 @@ export async function syncUserProfileFromRemote() {
                 state.userProfile.bio = remoteProfile.bio;
                 changed = true;
             }
+            if (remoteProfile.role && remoteProfile.role !== state.userProfile.role) {
+                state.userProfile.role = remoteProfile.role;
+                changed = true;
+            }
+
+            const isKnownAdmin = session.user?.email?.toLowerCase() === 'tienlh1998@gmail.com';
+            const effectiveRole = ['admin', 'editor', 'moderator'].includes(remoteProfile.role)
+                ? remoteProfile.role
+                : (isKnownAdmin ? 'admin' : null);
+
+            if (effectiveRole) {
+                saveAdminSession({
+                    ...session,
+                    user: { ...session.user, role: effectiveRole }
+                });
+                changed = true;
+            }
+
             if (changed) {
                 saveStoredUserProfile(state.userProfile);
                 updateAdminRoleUI();

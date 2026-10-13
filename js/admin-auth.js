@@ -12,14 +12,57 @@ export const SESSION_KEY = 'vivu_admin_session';
 export function getSession() {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.user) {
+        if (parsed.user.email?.toLowerCase() === 'tienlh1998@gmail.com' && (!parsed.user.role || parsed.user.role === 'authenticated')) {
+          parsed.user.role = 'admin';
+        }
+        return parsed;
+      }
+    }
 
-    // Fallback: Nếu có phiên người dùng mang quyền quản trị viên
+    // Fallback: Nếu có phiên người dùng mang quyền quản trị viên trong vivu_user_session
     const rawUser = localStorage.getItem('vivu_user_session');
     if (rawUser) {
       const parsedUser = JSON.parse(rawUser);
-      if (parsedUser?.user?.role && ['admin', 'editor', 'moderator'].includes(parsedUser.user.role)) {
-        return parsedUser;
+      const user = parsedUser?.user;
+      if (user) {
+        const email = String(user.email || '').toLowerCase().trim();
+        const role = user.role;
+        const metaRole = user.user_metadata?.role || user.app_metadata?.role;
+
+        let profileRole = null;
+        try {
+          const rawProfile = localStorage.getItem('vivu_user_profile');
+          if (rawProfile) {
+            const p = JSON.parse(rawProfile);
+            if (p?.role && ['admin', 'editor', 'moderator'].includes(p.role)) {
+              profileRole = p.role;
+            }
+          }
+        } catch (_) {}
+
+        const effectiveRole = ['admin', 'editor', 'moderator'].includes(role)
+          ? role
+          : (['admin', 'editor', 'moderator'].includes(metaRole)
+            ? metaRole
+            : (profileRole || (email === 'tienlh1998@gmail.com' ? 'admin' : null)));
+
+        if (effectiveRole) {
+          const adminSession = {
+            ...parsedUser,
+            user: {
+              ...user,
+              role: effectiveRole
+            }
+          };
+          try {
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify(adminSession));
+            localStorage.setItem(SESSION_KEY, JSON.stringify(adminSession));
+          } catch (_) {}
+          return adminSession;
+        }
       }
     }
     return null;
