@@ -250,7 +250,7 @@ async function updatePlace(request, response, adminContext) {
       return;
     }
 
-    const allowedRollbackKeys = new Set(['id', 'status', 'is_rollback']);
+    const allowedRollbackKeys = new Set(['id', 'status', 'is_rollback', 'expected_updated_at']);
     const extraKeys = Object.keys(body).filter(k => !allowedRollbackKeys.has(k));
     if (extraKeys.length > 0) {
       sendError(response, 400, 'INVALID_INPUT', `Khi thực hiện rollback, chỉ được phép gửi các trường: id, status, is_rollback (phát hiện trường thừa: ${extraKeys.join(', ')}).`);

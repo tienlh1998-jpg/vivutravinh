@@ -428,9 +428,22 @@ async function moderateEntity(request, response, adminContext) {
   const adminNotes = typeof body.admin_notes === 'string' && body.admin_notes.trim() ? body.admin_notes.trim() : null;
 
   try {
-    // 4. Lấy bản ghi hiện tại (payloadBefore)
-    const existingRows = await supabaseRequest(`${entity.table}?id=eq.${encodeURIComponent(entityId)}&limit=1`);
-    const current = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null;
+    // 4. Lấy bản ghi hiện tại (payloadBefore) - Hỗ trợ cả id số nguyên lẫn slug định danh cho place
+    let current = null;
+    let targetQueryId = entityId;
+    if (entityType === 'place' && !/^\d+$/.test(entityId)) {
+      const slugRows = await supabaseRequest(`places?slug=eq.${encodeURIComponent(entityId)}&limit=1`);
+      if (Array.isArray(slugRows) && slugRows.length > 0) {
+        current = slugRows[0];
+        targetQueryId = String(current.id);
+      }
+    } else {
+      const existingRows = await supabaseRequest(`${entity.table}?id=eq.${encodeURIComponent(entityId)}&limit=1`);
+      if (Array.isArray(existingRows) && existingRows.length > 0) {
+        current = existingRows[0];
+        targetQueryId = String(current.id);
+      }
+    }
 
     if (!current) {
       sendError(response, 404, 'NOT_FOUND', `${entity.label} với mã '${entityId}' không tồn tại.`);
@@ -574,7 +587,7 @@ async function moderateEntity(request, response, adminContext) {
 
         // Thử áp dụng status hidden nếu DB đã cập nhật
         try {
-          await supabaseRequest(`${entity.table}?id=eq.${encodeURIComponent(entityId)}`, {
+          await supabaseRequest(`${entity.table}?id=eq.${encodeURIComponent(targetQueryId)}`, {
             method: 'PATCH',
             headers: { Prefer: 'return=minimal' },
             body: JSON.stringify({ status: 'hidden' })
@@ -730,7 +743,7 @@ async function moderateEntity(request, response, adminContext) {
     }
 
     // 6. Thực hiện UPDATE vào Supabase REST API
-    const updateResult = await supabaseRequest(`${entity.table}?id=eq.${encodeURIComponent(entityId)}`, {
+    const updateResult = await supabaseRequest(`${entity.table}?id=eq.${encodeURIComponent(targetQueryId)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=representation' },
       body: JSON.stringify(patchToApply)

@@ -6,6 +6,7 @@ import {
     renderWeatherAndSmartSuggestions,
     renderPlacesGrid,
     renderDetailModal,
+    updateDetailModalAdminBar,
     renderCommentsList,
     renderCommentsSkeleton,
     renderCommentsError,
@@ -2648,7 +2649,9 @@ export function openDetailModal(placeOrId, options = {}) {
     stopAudioGuide();
 
     // MỞ MODAL NGAY LẬP TỨC với comments = null (sẽ kích hoạt comment skeleton)
-    renderDetailModal(place, null, isSaved, toggleBookmark, handleCommentSubmit, state.allPlaces);
+    const adminSession = typeof getAdminSession === 'function' ? getAdminSession() : null;
+    const isAdmin = Boolean(adminSession?.user && ['admin', 'editor', 'moderator'].includes(adminSession.user.role));
+    renderDetailModal(place, null, isSaved, toggleBookmark, handleCommentSubmit, state.allPlaces, isAdmin);
 
     // Mặc định về tab Tổng quan khi mở địa điểm
     switchModalTab('overview');
@@ -11343,7 +11346,7 @@ export function openActionReasonModal(actionType, targetId, targetTitle) {
 
     let targetItem = null;
     if (actionType.endsWith('_post')) targetItem = (state.moderationPosts || []).find(p => p.id === targetId);
-    else if (actionType.endsWith('_place')) targetItem = (state.moderationPlaces || []).find(p => p.id == targetId || String(p.id) === String(targetId));
+    else if (actionType.endsWith('_place')) targetItem = (state.moderationPlaces || []).find(p => p.id == targetId || String(p.id) === String(targetId) || p.slug === targetId) || (state.allPlaces || []).find(p => p.id == targetId || String(p.id) === String(targetId) || p.slug === targetId);
     else if (actionType.endsWith('_club')) targetItem = (state.moderationClubs || []).find(c => c.id === targetId);
     else if (actionType.endsWith('_event')) targetItem = (state.moderationEvents || []).find(e => e.id === targetId);
     else if (actionType.endsWith('_article')) targetItem = (state.moderationArticles || []).find(a => a.id === targetId);
@@ -11380,10 +11383,29 @@ function updateLocalStateAfterModeration(entityType, entityId, action, reason, p
     else if (entityType === 'article') listKey = 'moderationArticles';
     else if (entityType === 'club_activity') listKey = 'moderationActivities';
 
-    if (!listKey || !Array.isArray(state[listKey])) return;
+    // Cập nhật state.allPlaces nếu thao tác trên địa điểm
+    if (entityType === 'place' && Array.isArray(state.allPlaces)) {
+        const placeInAll = state.allPlaces.find(x => x.id == entityId || String(x.id) === String(entityId) || x.slug === entityId);
+        if (placeInAll) {
+            if (action === 'approve') placeInAll.status = 'approved';
+            else if (action === 'hide') placeInAll.status = 'hidden';
+            else if (action === 'unhide') placeInAll.status = 'approved';
+            else if (action === 'trash' || action === 'archive') placeInAll.status = 'archived';
+            else if (action === 'restore') placeInAll.status = 'approved';
+            else if (action === 'edit' && patchData) Object.assign(placeInAll, patchData);
+        }
+    }
 
-    const item = state[listKey].find(x => x.id == entityId || String(x.id) === String(entityId));
-    if (!item) return;
+    if (!listKey || !Array.isArray(state[listKey])) {
+        syncAndRecalculateModerationPending();
+        return;
+    }
+
+    const item = state[listKey].find(x => x.id == entityId || String(x.id) === String(entityId) || (x.slug && x.slug === entityId));
+    if (!item) {
+        syncAndRecalculateModerationPending();
+        return;
+    }
 
     if (!item.metadata) item.metadata = {};
 
@@ -11482,6 +11504,43 @@ export async function adminModerateAction(entityType, entityId, action, reason =
         showNotification('Lỗi kết nối khi gửi yêu cầu kiểm duyệt: ' + err.message);
         return false;
     }
+}
+
+/**
+ * Thao tác kiểm duyệt nhanh 1 chạm cho Địa điểm (Admin Quick Action):
+ * Sửa trực tiếp, Tạm ẩn, Hiện lại, Xóa vào thùng rác, Khôi phục
+ */
+export async function quickModeratePlace(placeId, action) {
+    const confirmLabels = {
+        hide: 'Bạn có chắc chắn muốn TẠM ẨN địa điểm này khỏi mọi trang công khai?',
+        unhide: 'Bạn có chắc chắn muốn HIỆN LẠI địa điểm này trên trang công khai?',
+        trash: 'Bạn có chắc chắn muốn chuyển địa điểm này VÀO THÙNG RÁC?',
+        restore: 'Bạn có chắc chắn muốn KHÔI PHỤC địa điểm này từ thùng rác?'
+    };
+    if (confirmLabels[action] && typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        if (!window.confirm(confirmLabels[action])) {
+            return false;
+        }
+    }
+
+    const ok = await adminModerateAction('place', placeId, action);
+    if (ok) {
+        // Cập nhật lại UI modal chi tiết nếu đang mở
+        const found = (state.allPlaces || []).find(p => p.id == placeId || String(p.id) === String(placeId) || p.slug === placeId);
+        const detailModal = document.getElementById('detailModal');
+        if (detailModal && !detailModal.classList.contains('hidden')) {
+            const updatedPlace = found || state.currentDetailPlace;
+            if (updatedPlace) {
+                updateDetailModalAdminBar(updatedPlace, true);
+            }
+        }
+        const deepModal = document.getElementById('deepPlaceDetailModal');
+        if (deepModal && !deepModal.classList.contains('hidden') && state.deepPlaceId) {
+            openDeepPlaceDetail(state.deepPlaceId);
+        }
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -11729,11 +11788,15 @@ export function openDeepPlaceDetail(placeId = 'chua-ang') {
     const s = state.deepAudioCurrentSeconds % 60;
     const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 
+    const adminSession = typeof getAdminSession === 'function' ? getAdminSession() : null;
+    const isAdmin = Boolean(adminSession?.user && ['admin', 'editor', 'moderator'].includes(adminSession.user.role));
+
     content.innerHTML = renderDeepPlaceDetailModalContent(
         place,
         state.isDeepAudioPlaying,
         timeStr,
-        isSaved
+        isSaved,
+        isAdmin
     );
 
     modal.classList.remove('hidden');
@@ -12242,6 +12305,8 @@ if (typeof window !== 'undefined') {
         approveClubActivity,
         selectModerationPlace,
         approvePlace,
+        quickModeratePlace,
+        updateDetailModalAdminBar,
         getArticleCategoryBadgeClass,
         getArticleCategoryName,
         sanitizeArticleContent,

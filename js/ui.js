@@ -872,7 +872,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined' && !window.
 /**
  * Hiển thị Modal Chi Tiết Địa Điểm (Dựa trên template Stitch & Eco-Khmer)
  */
-export function renderDetailModal(place, comments = null, isSaved = false, onSavePlace, onSubmitComment, allPlaces = null) {
+export function renderDetailModal(place, comments = null, isSaved = false, onSavePlace, onSubmitComment, allPlaces = null, isAdmin = false) {
     const modal = document.getElementById('detailModal');
     if (!modal || !place) return;
 
@@ -1161,11 +1161,104 @@ export function renderDetailModal(place, comments = null, isSaved = false, onSav
     const checkinPanel = document.getElementById('modalCheckinTabPanel');
     if (checkinPanel) checkinPanel.classList.add('hidden');
 
+    // Cập nhật thanh công cụ quản trị (nếu là tài khoản Admin)
+    updateDetailModalAdminBar(place, isAdmin);
+
     modal.classList.remove('hidden');
     if (typeof window !== 'undefined' && window.ViVuApp?.syncBodyScrollLock) {
         window.ViVuApp.syncBodyScrollLock();
     } else {
         document.body.classList.add('overflow-hidden');
+    }
+}
+
+/**
+ * Cập nhật thanh công cụ quản trị Admin bên trong modal chi tiết địa điểm
+ */
+export function updateDetailModalAdminBar(place, isAdmin = false) {
+    const bar = document.getElementById('modalAdminBar');
+    if (!bar) return;
+    if (!isAdmin || !place) {
+        bar.classList.add('hidden');
+        return;
+    }
+    bar.classList.remove('hidden');
+
+    const badge = document.getElementById('modalAdminPlaceStatusBadge');
+    const editBtn = document.getElementById('modalAdminEditBtn');
+    const toggleHideBtn = document.getElementById('modalAdminToggleHideBtn');
+    const toggleHideIcon = document.getElementById('modalAdminToggleHideIcon');
+    const toggleHideText = document.getElementById('modalAdminToggleHideText');
+    const trashBtn = document.getElementById('modalAdminTrashBtn');
+    const trashIcon = document.getElementById('modalAdminTrashIcon');
+    const trashText = document.getElementById('modalAdminTrashText');
+
+    const status = place.status || 'approved';
+    const placeId = place.id;
+    const placeName = place.name || '';
+
+    if (badge) {
+        if (status === 'hidden') {
+            badge.textContent = 'Đã tạm ẩn';
+            badge.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800';
+        } else if (status === 'archived') {
+            badge.textContent = 'Trong thùng rác';
+            badge.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800';
+        } else if (status === 'draft') {
+            badge.textContent = 'Bản nháp / Chờ duyệt';
+            badge.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700';
+        } else {
+            badge.textContent = 'Đã xuất bản (Approved)';
+            badge.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border border-green-300 dark:border-green-800';
+        }
+    }
+
+    if (editBtn) {
+        editBtn.onclick = () => {
+            if (window.ViVuApp?.openActionReasonModal) {
+                window.ViVuApp.openActionReasonModal('edit_place', placeId, placeName);
+            }
+        };
+    }
+
+    if (toggleHideBtn) {
+        if (status === 'hidden') {
+            if (toggleHideIcon) toggleHideIcon.textContent = 'visibility';
+            if (toggleHideText) toggleHideText.textContent = 'Hiện lại';
+            toggleHideBtn.onclick = () => {
+                if (window.ViVuApp?.quickModeratePlace) {
+                    window.ViVuApp.quickModeratePlace(placeId, 'unhide');
+                }
+            };
+        } else {
+            if (toggleHideIcon) toggleHideIcon.textContent = 'visibility_off';
+            if (toggleHideText) toggleHideText.textContent = 'Tạm ẩn';
+            toggleHideBtn.onclick = () => {
+                if (window.ViVuApp?.quickModeratePlace) {
+                    window.ViVuApp.quickModeratePlace(placeId, 'hide');
+                }
+            };
+        }
+    }
+
+    if (trashBtn) {
+        if (status === 'archived') {
+            if (trashIcon) trashIcon.textContent = 'restore_from_trash';
+            if (trashText) trashText.textContent = 'Khôi phục';
+            trashBtn.onclick = () => {
+                if (window.ViVuApp?.quickModeratePlace) {
+                    window.ViVuApp.quickModeratePlace(placeId, 'restore');
+                }
+            };
+        } else {
+            if (trashIcon) trashIcon.textContent = 'delete';
+            if (trashText) trashText.textContent = 'Vào thùng rác';
+            trashBtn.onclick = () => {
+                if (window.ViVuApp?.quickModeratePlace) {
+                    window.ViVuApp.quickModeratePlace(placeId, 'trash');
+                }
+            };
+        }
     }
 }
 
@@ -12334,7 +12427,7 @@ export function renderAdminActionReasonModalContent({
  * STITCH: chi_ti_t_a_i_m_ch_a_ng_vivutravinh & chi_ti_t_ch_a_ng_vivutravinh_mobile
  * =========================================================================
  */
-export function renderDeepPlaceDetailModalContent(place, isAudioPlaying = false, audioCurrentTime = '01:24', isSaved = false) {
+export function renderDeepPlaceDetailModalContent(place, isAudioPlaying = false, audioCurrentTime = '01:24', isSaved = false, isAdmin = false) {
     if (!place) return '';
 
     const audioGuide = place.audioGuide || {};
@@ -12402,6 +12495,39 @@ export function renderDeepPlaceDetailModalContent(place, isAudioPlaying = false,
                     </div>
                 </div>
             </section>
+
+            ${isAdmin ? `
+                <!-- Admin Place Management Action Bar -->
+                <div class="w-full bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-500/30 px-4 sm:px-6 py-2.5">
+                    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 text-white shadow-xs">
+                                <span class="material-symbols-outlined text-[15px]">shield_person</span> Quản trị
+                            </span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${place.status === 'hidden' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800' : (place.status === 'archived' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800' : 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border border-green-300 dark:border-green-800')}">
+                                ${place.status === 'hidden' ? 'Đã tạm ẩn' : (place.status === 'archived' ? 'Trong thùng rác' : 'Đã duyệt (Approved)')}
+                            </span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <button type="button" onclick="window.ViVuApp.openActionReasonModal('edit_place', '${escapeHtml(place.id)}', '${escapeHtml(place.name)}')"
+                                class="min-h-[36px] px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-semibold text-xs transition shadow-xs flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">edit</span>
+                                <span>Sửa trực tiếp</span>
+                            </button>
+                            <button type="button" onclick="window.ViVuApp.quickModeratePlace('${escapeHtml(place.id)}', '${place.status === 'hidden' ? 'unhide' : 'hide'}')"
+                                class="min-h-[36px] px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-semibold text-xs transition shadow-xs flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">${place.status === 'hidden' ? 'visibility' : 'visibility_off'}</span>
+                                <span>${place.status === 'hidden' ? 'Hiện lại' : 'Tạm ẩn'}</span>
+                            </button>
+                            <button type="button" onclick="window.ViVuApp.quickModeratePlace('${escapeHtml(place.id)}', '${place.status === 'archived' ? 'restore' : 'trash'}')"
+                                class="min-h-[36px] px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-semibold text-xs transition shadow-xs flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px] text-rose-600 dark:text-rose-400">${place.status === 'archived' ? 'restore_from_trash' : 'delete'}</span>
+                                <span>${place.status === 'archived' ? 'Khôi phục' : 'Vào thùng rác'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
 
             <!-- Main Showcase Container -->
             <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col gap-6">

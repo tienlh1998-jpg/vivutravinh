@@ -2125,6 +2125,38 @@
                         </div>
                     </div>
 
+                    <!-- Admin Place Quick Management Bar (Chỉ hiển thị cho Quản trị viên) -->
+                    <div id="modalAdminBar" class="hidden px-4 sm:px-6 py-2.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-500/30 shrink-0 z-20">
+                        <div class="flex flex-wrap items-center justify-between gap-2.5">
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 text-white shadow-xs">
+                                    <span class="material-symbols-outlined text-[15px]">shield_person</span> Quản trị
+                                </span>
+                                <span id="modalAdminPlaceStatusBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">Đã duyệt</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2" id="modalAdminActionButtons">
+                                <!-- Nút Sửa trực tiếp -->
+                                <button type="button" id="modalAdminEditBtn"
+                                    class="min-h-[36px] px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-semibold text-xs transition shadow-xs flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[16px] text-blue-600 dark:text-blue-400">edit</span>
+                                    <span>Sửa trực tiếp</span>
+                                </button>
+                                <!-- Nút Tạm ẩn / Hiện lại -->
+                                <button type="button" id="modalAdminToggleHideBtn"
+                                    class="min-h-[36px] px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-semibold text-xs transition shadow-xs flex items-center gap-1">
+                                    <span id="modalAdminToggleHideIcon" class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400">visibility_off</span>
+                                    <span id="modalAdminToggleHideText">Tạm ẩn</span>
+                                </button>
+                                <!-- Nút Vào thùng rác / Khôi phục -->
+                                <button type="button" id="modalAdminTrashBtn"
+                                    class="min-h-[36px] px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-semibold text-xs transition shadow-xs flex items-center gap-1">
+                                    <span id="modalAdminTrashIcon" class="material-symbols-outlined text-[16px] text-rose-600 dark:text-rose-400">delete</span>
+                                    <span id="modalAdminTrashText">Vào thùng rác</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Scrollable Modal Content Body -->
                     <div class="overflow-y-auto custom-scrollbar flex-1 text-on-surface dark:text-zinc-200">
                         <!-- Title & Heritage Header Banner -->

@@ -552,7 +552,7 @@ export function renderPlaces(places, pagination = {}) {
               </button>
             ` : ''}
 
-            ${canEdit && place.status !== 'approved' ? `
+            ${canEdit && place.status === 'draft' ? `
               <button type="button" data-action="approve-place" data-place-id="${place.id}"
                 class="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold flex items-center gap-1.5 text-sm">
                 <span class="material-symbols-outlined text-lg">check_circle</span>
@@ -560,17 +560,46 @@ export function renderPlaces(places, pagination = {}) {
               </button>
             ` : ''}
 
+            ${canEdit && place.status === 'approved' ? `
+              <button type="button" data-action="hide-place" data-place-id="${place.id}"
+                class="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 font-bold flex items-center gap-1.5 text-sm"
+                title="Tạm ẩn địa điểm khỏi trang công khai">
+                <span class="material-symbols-outlined text-lg">visibility_off</span>
+                <span>Tạm ẩn</span>
+              </button>
+            ` : ''}
+
+            ${canEdit && place.status === 'hidden' ? `
+              <button type="button" data-action="unhide-place" data-place-id="${place.id}"
+                class="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 text-sm"
+                title="Hiện lại địa điểm trên trang công khai">
+                <span class="material-symbols-outlined text-lg">visibility</span>
+                <span>Hiện lại</span>
+              </button>
+            ` : ''}
+
+            ${canDelete && place.status === 'archived' ? `
+              <button type="button" data-action="restore-place" data-place-id="${place.id}"
+                class="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold flex items-center gap-1.5 text-sm"
+                title="Khôi phục địa điểm từ thùng rác">
+                <span class="material-symbols-outlined text-lg">restore_from_trash</span>
+                <span>Khôi phục</span>
+              </button>
+            ` : ''}
+
             ${canDelete && place.status !== 'archived' ? `
               <button type="button" data-action="archive-place" data-place-id="${place.id}"
-                class="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl border border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-400 font-bold hover:bg-amber-50 dark:hover:bg-amber-950/50 flex items-center gap-1.5 text-sm">
+                class="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 font-bold hover:bg-rose-50 dark:hover:bg-rose-950/50 flex items-center gap-1.5 text-sm"
+                title="Chuyển vào thùng rác / Lưu trữ">
                 <span class="material-symbols-outlined text-lg">archive</span>
-                <span>Lưu trữ</span>
+                <span>Thùng rác</span>
               </button>
             ` : ''}
 
             ${canDelete && place.status === 'archived' ? `
               <button type="button" data-action="delete-place" data-place-id="${place.id}"
-                class="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center gap-1.5 text-sm">
+                class="min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold flex items-center gap-1.5 text-sm"
+                title="Xóa vĩnh viễn khỏi cơ sở dữ liệu">
                 <span class="material-symbols-outlined text-lg">delete_forever</span>
                 <span>Xóa hẳn</span>
               </button>
@@ -882,6 +911,88 @@ export async function updatePlaceStatus(id, newStatus) {
     return requestApprovePlace(id);
   }
   return executeUpdatePlaceStatus(id, newStatus);
+}
+
+export function confirmHidePlace(id, optionalName) {
+  if (!canManagePlaces()) {
+    setMessage('Chỉ Admin/Editor mới có quyền tạm ẩn địa điểm.', 'error');
+    return;
+  }
+
+  const place = adminPlaces.find(p => Number(p.id) === Number(id));
+  const placeName = optionalName || (place ? place.name : `Địa điểm #${id}`);
+
+  showConfirmDialog({
+    title: 'Tạm ẩn địa điểm',
+    message: `Bạn có chắc chắn muốn TẠM ẨN địa điểm "${placeName}" khỏi mọi trang công khai? Dữ liệu vẫn được bảo lưu an toàn và có thể hiện lại bất cứ lúc nào.`,
+    confirmText: 'Tạm ẩn',
+    confirmClass: 'bg-amber-600 hover:bg-amber-700 text-white',
+    onConfirm: async () => {
+      try {
+        await executeUpdatePlaceStatus(id, 'hidden');
+      } catch (err) {
+        setMessage(err.message || 'Không thể tạm ẩn địa điểm.', 'error');
+      }
+    }
+  });
+}
+
+export function confirmUnhidePlace(id, optionalName) {
+  if (!canManagePlaces()) {
+    setMessage('Chỉ Admin/Editor mới có quyền hiện lại địa điểm.', 'error');
+    return;
+  }
+
+  const place = adminPlaces.find(p => Number(p.id) === Number(id));
+  const placeName = optionalName || (place ? place.name : `Địa điểm #${id}`);
+
+  showConfirmDialog({
+    title: 'Hiện lại địa điểm',
+    message: `Bạn có chắc chắn muốn HIỆN LẠI địa điểm "${placeName}" trên mọi trang công khai?`,
+    confirmText: 'Hiện lại',
+    confirmClass: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    onConfirm: async () => {
+      try {
+        await executeUpdatePlaceStatus(id, 'approved');
+      } catch (err) {
+        setMessage(err.message || 'Không thể hiện lại địa điểm.', 'error');
+      }
+    }
+  });
+}
+
+export function confirmRestorePlace(id, optionalName) {
+  if (!canDeletePlaces()) {
+    setMessage('Chỉ Admin mới có quyền khôi phục địa điểm từ thùng rác.', 'error');
+    return;
+  }
+
+  const place = adminPlaces.find(p => Number(p.id) === Number(id));
+  const placeName = optionalName || (place ? place.name : `Địa điểm #${id}`);
+
+  showConfirmDialog({
+    title: 'Khôi phục địa điểm',
+    message: `Bạn có chắc chắn muốn KHÔI PHỤC địa điểm "${placeName}" từ thùng rác? Địa điểm sẽ trở lại trạng thái đã duyệt công khai.`,
+    confirmText: 'Khôi phục',
+    confirmClass: 'bg-blue-600 hover:bg-blue-700 text-white',
+    onConfirm: async () => {
+      try {
+        await adminRequest('/api/admin-places', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            id: Number(id),
+            status: 'approved',
+            is_rollback: true
+          })
+        });
+        await loadAdminPlaces(placesPagination.page || 1);
+        await loadDashboardStats();
+        setMessage(`Đã khôi phục địa điểm "${placeName}" thành công.`, 'success');
+      } catch (err) {
+        setMessage(err.message || 'Không thể khôi phục địa điểm.', 'error');
+      }
+    }
+  });
 }
 
 export function confirmArchivePlace(id, optionalName) {
@@ -1582,6 +1693,15 @@ function setupEventDelegation() {
     } else if (action === 'archive-place') {
       const placeId = Number(btn.dataset.placeId);
       confirmArchivePlace(placeId);
+    } else if (action === 'hide-place') {
+      const placeId = Number(btn.dataset.placeId);
+      confirmHidePlace(placeId);
+    } else if (action === 'unhide-place') {
+      const placeId = Number(btn.dataset.placeId);
+      confirmUnhidePlace(placeId);
+    } else if (action === 'restore-place') {
+      const placeId = Number(btn.dataset.placeId);
+      confirmRestorePlace(placeId);
     } else if (action === 'delete-place') {
       const placeId = Number(btn.dataset.placeId);
       confirmPermanentDeletePlace(placeId);
@@ -1744,6 +1864,9 @@ if (typeof window !== 'undefined') {
       if (place) openPlacePreview(place);
     },
     confirmArchivePlace,
+    confirmHidePlace,
+    confirmUnhidePlace,
+    confirmRestorePlace,
     confirmPermanentDeletePlace,
     loadAdminComments,
     renderComments,
@@ -1764,6 +1887,7 @@ if (typeof window !== 'undefined') {
     setMessage,
     clearMessage
   };
+  window.AdminApp = window.VivuAdmin;
 }
 
 // ----------------------------------------------------------------------------
