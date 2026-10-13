@@ -3102,8 +3102,8 @@ export function renderFestivalsSection(
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    // Danh sách sự kiện & gặp gỡ (fallback từ TRA_VINH_EVENTS_AND_MEETUPS)
-    const allMeetups = (eventsAndMeetups && eventsAndMeetups.length > 0) ? eventsAndMeetups : TRA_VINH_EVENTS_AND_MEETUPS;
+    // Danh sách sự kiện & gặp gỡ
+    const allMeetups = Array.isArray(eventsAndMeetups) ? eventsAndMeetups : [];
 
     // Chọn Lễ hội tâm điểm (Spotlight) - mặc định là Ok Om Bok hoặc lễ hội đầu tiên
     const spotlightFestival = festivals.find(f => f.id === 'ok-om-bok') || festivals[0];
@@ -3335,7 +3335,7 @@ export function renderFestivalsSection(
 
             <!-- 4. EVENTS & MEETUPS GRID (STITCH CARDS) -->
             <div id="eventsGridContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${filteredEvents.map(evt => {
+                ${filteredEvents.length > 0 ? filteredEvents.map(evt => {
                     const isBookmarked = bookmarkedIds && bookmarkedIds.has(evt.id);
                     return `
                         <article class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-xs hover:shadow-md border border-outline-variant/40 dark:border-zinc-800 transition-all duration-300 flex flex-col group">
@@ -3428,7 +3428,13 @@ export function renderFestivalsSection(
                             </div>
                         </article>
                     `;
-                }).join('')}
+                }).join('') : `
+                    <div class="col-span-full p-8 text-center text-slate-500 dark:text-zinc-400 bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl border border-outline-variant/40 dark:border-zinc-800">
+                        <span class="material-symbols-outlined text-4xl mb-2 text-slate-400">event_busy</span>
+                        <p class="font-bold text-sm">Chưa có sự kiện & gặp gỡ nào</p>
+                        <p class="text-xs text-slate-400 dark:text-zinc-500 mt-1">Các sự kiện và workshop mới sẽ xuất hiện tại đây khi được phê duyệt!</p>
+                    </div>
+                `}
             </div>
 
             <!-- 5. BOTTOM CTA & HOST EVENT COLLABORATION BANNER -->

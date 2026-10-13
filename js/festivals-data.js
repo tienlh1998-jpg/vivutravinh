@@ -444,12 +444,12 @@ export const TRA_VINH_FESTIVALS = [
 
 // Danh mục phân loại sự kiện & gặp gỡ (Stitch design categories)
 export const EVENT_CATEGORIES = [
-    { id: 'all', label: 'Tất cả sự kiện', count: 12 },
-    { id: 'upcoming', label: 'Sắp diễn ra', count: 5 },
-    { id: 'traditional', label: 'Lễ hội truyền thống', count: 3 },
-    { id: 'workshop', label: 'Workshop văn hóa', count: 2 },
-    { id: 'sports', label: 'Thể thao & Trải nghiệm', count: 3 },
-    { id: 'community', label: 'Giao lưu cộng đồng', count: 2 }
+    { id: 'all', label: 'Tất cả sự kiện', count: 0 },
+    { id: 'upcoming', label: 'Sắp diễn ra', count: 0 },
+    { id: 'traditional', label: 'Lễ hội truyền thống', count: 6 },
+    { id: 'workshop', label: 'Workshop văn hóa', count: 0 },
+    { id: 'sports', label: 'Thể thao & Trải nghiệm', count: 0 },
+    { id: 'community', label: 'Giao lưu cộng đồng', count: 0 }
 ];
 
 // Danh sách khu vực lọc địa bàn Trà Vinh
@@ -462,128 +462,6 @@ export const EVENT_REGIONS = [
     { id: 'duyen-hai', label: 'Huyện Duyên Hải' }
 ];
 
-// Danh sách sự kiện, workshop và gặp gỡ cộng đồng (Dữ liệu mẫu tham khảo)
-export const TRA_VINH_EVENTS_AND_MEETUPS = [
-    {
-        id: 'dua-ghe-ngo-2024',
-        isSample: true,
-        title: 'Giải Đua Ghe Ngo Tranh Cúp Sông Long Bình 2026',
-        month: 'Tháng 11',
-        day: '15',
-        timeSchedule: 'Sáng 15/11 • 07:30 - 12:00',
-        location: 'Bờ kè Sông Long Bình, TP. Trà Vinh',
-        region: 'tp-tra-vinh',
-        regionName: 'TP. Trà Vinh',
-        category: 'Thể thao & Lễ hội',
-        categoryKey: 'sports',
-        fee: 'Mở cửa tự do',
-        feeType: 'free',
-        image: '/ao bà om.jpg',
-        ctaText: 'Chi tiết & Điểm xem',
-        actionType: 'modal',
-        targetModalId: 'ok-om-bok',
-        summary: 'Màn tranh tài nảy lửa giữa 36 đội ghe Ngo nam nữ đại diện cho các chùa Khmer trên dòng sông Long Bình.'
-    },
-    {
-        id: 'workshop-den-sen',
-        isSample: true,
-        title: 'Workshop: Tự tay làm lồng đèn hoa sen & Chạm khắc gáo dừa Khmer',
-        month: 'Tháng 10',
-        day: '20',
-        timeSchedule: 'Chủ Nhật • 08:30 - 11:30',
-        location: 'Không gian văn hóa Khmer Xứ Trà, Gần Ao Bà Om',
-        region: 'tp-tra-vinh',
-        regionName: 'TP. Trà Vinh',
-        category: 'Workshop văn hóa',
-        categoryKey: 'workshop',
-        fee: '50.000đ',
-        feeDetail: '(gồm trà)',
-        feeType: 'paid',
-        statusBadge: 'Giới hạn 35 chỗ',
-        image: '/ao bà om.jpg',
-        ctaText: 'Xem thông tin tham gia',
-        actionType: 'rsvp',
-        summary: 'Trải nghiệm tự tay làm lồng đèn hoa sen lung linh và chạm khắc hoa văn Khmer tinh tế trên gáo dừa cùng nghệ nhân.'
-    },
-    {
-        id: 'dap-xe-chua-co',
-        isSample: true,
-        title: 'Cuối tuần đạp xe: Cung đường Chùa Cổ & Rừng dừa Cù lao Tân Quy',
-        month: 'Tháng 10',
-        day: '27',
-        timeSchedule: 'Chủ Nhật • 06:00 - 11:00',
-        location: 'Tập trung: Quảng trường TP. Trà Vinh',
-        region: 'cau-ke',
-        regionName: 'Huyện Cầu Kè',
-        category: 'Dã ngoại & Sinh thái',
-        categoryKey: 'sports',
-        fee: 'Miễn phí',
-        feeType: 'free',
-        statusBadge: 'Tối đa 40 xe',
-        image: '/cù lao tân qui.jpg',
-        ctaText: 'Xem thông tin tham gia',
-        actionType: 'rsvp',
-        summary: 'Đoàn xe đạp trẻ khám phá cung đường rợp bóng dừa, viếng chùa cổ Khmer và trải nghiệm phà qua miệt vườn sông nước.'
-    },
-    {
-        id: 'photo-tour-chua-hang',
-        isSample: true,
-        title: 'Photo Tour Bình Minh: Đàn Chim Về Tổ & Kiến Trúc Chùa Hang',
-        month: 'Tháng 11',
-        day: '03',
-        timeSchedule: 'Thứ Bảy • 05:30 - 09:00',
-        location: 'Wat Kompong Nikrodha, Châu Thành, Trà Vinh',
-        region: 'chau-thanh',
-        regionName: 'Huyện Châu Thành',
-        category: 'Di sản & Nhiếp ảnh',
-        categoryKey: 'traditional',
-        fee: 'Miễn phí',
-        feeType: 'free',
-        statusBadge: 'Sắp diễn ra',
-        image: '/chùa hang.jpg',
-        ctaText: 'Xem lịch trình',
-        actionType: 'rsvp',
-        summary: 'Săn bình minh xuyên qua vòm cây sao trăm tuổi, ngắm đàn chim ríu rít về tổ và khám phá xưởng điêu khắc gỗ nghệ thuật.'
-    },
-    {
-        id: 'don-ca-tai-tu-co-chien',
-        isSample: true,
-        title: 'Đêm Trà & Đờn Ca Tài Tử Nam Bộ Bên Sông Cổ Chiên',
-        month: 'Tháng 11',
-        day: '08',
-        timeSchedule: 'Thứ Sáu • 19:00 - 21:30',
-        location: 'Quán Cà Phê Vườn Xứ Trà, Huyện Châu Thành',
-        region: 'chau-thanh',
-        regionName: 'Huyện Châu Thành',
-        category: 'Giao lưu cộng đồng',
-        categoryKey: 'community',
-        fee: 'Gọi nước tự túc',
-        feeType: 'drink',
-        statusBadge: 'Tối đa 30 chỗ',
-        image: '/nhà cổ huỳnh kỳ.jpg',
-        ctaText: 'Xem thông tin tham gia',
-        actionType: 'rsvp',
-        summary: 'Thưởng thức trà thảo mộc thơm lành và lắng nghe giai điệu vọng cổ ngọt ngào, tiếng đờn kìm réo rắt bên dòng Cổ Chiên.'
-    },
-    {
-        id: 'don-dep-ao-ba-om',
-        isSample: true,
-        title: 'Ngày hội Trồng Cây Cổ Thụ & Dọn Dẹp Xanh Rừng Ao Bà Om',
-        month: 'Tháng 11',
-        day: '22',
-        timeSchedule: 'Thứ Bảy • 07:00 - 10:30',
-        location: 'Khuôn viên Rừng Cổ Thụ Ao Bà Om, Trà Vinh',
-        region: 'tp-tra-vinh',
-        regionName: 'TP. Trà Vinh',
-        category: 'Môi trường & Sinh thái',
-        categoryKey: 'community',
-        fee: 'Cộng đồng tự do',
-        feeType: 'free',
-        statusBadge: 'Hoạt động tự do',
-        image: '/ao bà om.jpg',
-        ctaText: 'Xem thông tin tham gia',
-        actionType: 'rsvp',
-        summary: 'Cùng thanh niên và người dân chăm sóc vườn cây sao dầu cổ thụ, nhặt rác bảo vệ cảnh quan mặt hồ danh thắng Ao Bà Om.'
-    }
-];
+// Danh sách sự kiện, workshop và gặp gỡ cộng đồng (Được tạo động từ hệ thống / người dùng)
+export const TRA_VINH_EVENTS_AND_MEETUPS = [];
 
