@@ -10383,7 +10383,8 @@ export function renderCompanionSupportContent({
     selectedNote = 'To bun nuoc leo',
     techClearance = [],
     travelGear = [],
-    recentSupporters = []
+    recentSupporters = [],
+    isAdmin = false
 }) {
     const bank = (financialReport && financialReport.bank) || {
         name: 'Vietcombank (Demo)',
@@ -10682,36 +10683,66 @@ export function renderCompanionSupportContent({
                         Một vài món đồ công nghệ của cá nhân Admin dư dùng hoặc nâng cấp, chia sẻ lại cho anh em lập trình viên / digital nomad với giá tốt để gây quỹ server.
                     </p>
                 </div>
-                <div class="px-3.5 py-1.5 rounded-full bg-secondary-container dark:bg-emerald-950/70 text-on-secondary-container dark:text-emerald-300 font-caption text-xs font-semibold self-start md:self-auto">
-                    100% tiền dư được chuyển thẳng vào quỹ máy chủ
+                <div class="flex items-center gap-2 self-start md:self-auto flex-wrap">
+                    <div class="px-3.5 py-1.5 rounded-full bg-secondary-container dark:bg-emerald-950/70 text-on-secondary-container dark:text-emerald-300 font-caption text-xs font-semibold">
+                        100% tiền dư được chuyển thẳng vào quỹ máy chủ
+                    </div>
+                    ${isAdmin ? `
+                        <button type="button" onclick="window.ViVuApp?.openCompanionProductModal?.('tech')"
+                            class="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-button text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+                            title="Thêm thiết bị thanh lý mới">
+                            <span class="material-symbols-outlined text-[16px]">add_circle</span>
+                            <span>Thêm thiết bị</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp?.resetCompanionProducts?.('tech')"
+                            class="min-h-[36px] px-3 py-1.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-on-surface-variant dark:text-zinc-300 font-button text-xs font-medium flex items-center gap-1 transition-colors"
+                            title="Khôi phục danh sách thiết bị mặc định ban đầu">
+                            <span class="material-symbols-outlined text-[15px]">restart_alt</span>
+                            <span>Đặt lại</span>
+                        </button>
+                    ` : ''}
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 ${techClearance.map(item => `
-                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-all">
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-all relative group">
                         <div class="flex flex-col">
                             <div class="relative w-full aspect-[4/3] bg-surface-container-low dark:bg-zinc-800/80 flex items-center justify-center p-6 overflow-hidden">
                                 ${item.image ? `
                                     <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
                                 ` : `
                                     <div class="w-20 h-20 rounded-2xl bg-surface-container dark:bg-zinc-700 flex items-center justify-center text-secondary dark:text-emerald-400">
-                                        <span class="material-symbols-outlined text-[42px]">${escapeHtml(item.icon)}</span>
+                                        <span class="material-symbols-outlined text-[42px]">${escapeHtml(item.icon || 'memory')}</span>
                                     </div>
                                 `}
                                 <span class="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur text-on-surface dark:text-zinc-100 font-caption text-[11px] font-semibold">
-                                    ${escapeHtml(item.condition)}
+                                    ${escapeHtml(item.condition || 'Đã kiểm tra')}
                                 </span>
+                                ${isAdmin ? `
+                                    <div class="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                                        <button type="button" onclick="window.ViVuApp?.openCompanionProductModal?.('tech', '${escapeHtml(item.id)}')"
+                                            class="w-8 h-8 rounded-lg bg-surface-container-lowest/90 dark:bg-zinc-900/90 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 text-on-surface dark:text-zinc-200 shadow-sm flex items-center justify-center transition-colors"
+                                            title="Sửa thiết bị này" aria-label="Sửa thiết bị">
+                                            <span class="material-symbols-outlined text-[15px]">edit</span>
+                                        </button>
+                                        <button type="button" onclick="window.ViVuApp?.deleteCompanionProduct?.('tech', '${escapeHtml(item.id)}')"
+                                            class="w-8 h-8 rounded-lg bg-surface-container-lowest/90 dark:bg-zinc-900/90 hover:bg-rose-600 hover:text-white text-rose-600 shadow-sm flex items-center justify-center transition-colors"
+                                            title="Xóa thiết bị này" aria-label="Xóa thiết bị">
+                                            <span class="material-symbols-outlined text-[15px]">delete</span>
+                                        </button>
+                                    </div>
+                                ` : ''}
                             </div>
                             <div class="p-5 flex flex-col gap-2">
                                 <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-2">
                                     ${escapeHtml(item.name)}
                                 </h3>
                                 <div class="font-headline-md text-base sm:text-lg text-secondary dark:text-emerald-400 font-bold">
-                                    ${item.price.toLocaleString('vi-VN')}đ
+                                    ${Number(item.price || 0).toLocaleString('vi-VN')}đ
                                 </div>
                                 <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
-                                    ${escapeHtml(item.desc)}
+                                    ${escapeHtml(item.desc || '')}
                                 </p>
                             </div>
                         </div>
@@ -10747,39 +10778,73 @@ export function renderCompanionSupportContent({
                         Những vật dụng Admin và nhóm bạn trẻ thường mang theo khi đạp xe cồn bãi hoặc phượt chùa Khmer. Khi mua qua link Shopee, bạn được hưởng giá ưu đãi và giúp sàn trích hoa hồng nhỏ hỗ trợ máy chủ ViVuTraVinh.
                     </p>
                 </div>
-                <div class="px-3 py-1 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 font-caption text-xs flex items-center gap-1.5 self-start md:self-auto">
-                    <span class="material-symbols-outlined text-[14px]">link</span>
-                    <span>Affiliate Shopee • Hoa hồng nhỏ góp quỹ máy chủ</span>
+                <div class="flex items-center gap-2 self-start md:self-auto flex-wrap">
+                    <div class="px-3 py-1 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 font-caption text-xs flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[14px]">link</span>
+                        <span>Affiliate Shopee • Hoa hồng nhỏ góp quỹ máy chủ</span>
+                    </div>
+                    ${isAdmin ? `
+                        <button type="button" onclick="window.ViVuApp?.openCompanionProductModal?.('travel')"
+                            class="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-secondary hover:bg-primary text-white font-button text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+                            title="Thêm phụ kiện Shopee Affiliate mới">
+                            <span class="material-symbols-outlined text-[16px]">add_circle</span>
+                            <span>Thêm đồ Shopee</span>
+                        </button>
+                        <button type="button" onclick="window.ViVuApp?.resetCompanionProducts?.('travel')"
+                            class="min-h-[36px] px-3 py-1.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-on-surface-variant dark:text-zinc-300 font-button text-xs font-medium flex items-center gap-1 transition-colors"
+                            title="Khôi phục danh sách phụ kiện Shopee mặc định ban đầu">
+                            <span class="material-symbols-outlined text-[15px]">restart_alt</span>
+                            <span>Đặt lại</span>
+                        </button>
+                    ` : ''}
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 ${travelGear.map(gear => `
-                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-all">
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-all relative group">
                         <div class="flex flex-col">
-                            <div class="relative w-full aspect-[4/3] bg-surface-container-low dark:bg-zinc-800/80 flex items-center justify-center p-6">
-                                <div class="w-20 h-20 rounded-2xl bg-surface-container dark:bg-zinc-700 flex items-center justify-center text-secondary dark:text-emerald-400">
-                                    <span class="material-symbols-outlined text-[42px]">${escapeHtml(gear.icon)}</span>
-                                </div>
+                            <div class="relative w-full aspect-[4/3] bg-surface-container-low dark:bg-zinc-800/80 flex items-center justify-center p-6 overflow-hidden">
+                                ${gear.image ? `
+                                    <img src="${escapeHtml(gear.image)}" alt="${escapeHtml(gear.name)}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+                                ` : `
+                                    <div class="w-20 h-20 rounded-2xl bg-surface-container dark:bg-zinc-700 flex items-center justify-center text-secondary dark:text-emerald-400">
+                                        <span class="material-symbols-outlined text-[42px]">${escapeHtml(gear.icon || 'hiking')}</span>
+                                    </div>
+                                `}
                                 <span class="absolute bottom-3 left-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur text-on-surface dark:text-zinc-200 font-caption text-[11px] font-semibold flex items-center gap-1">
                                     <span class="material-symbols-outlined text-[13px] text-amber-500">star</span>
-                                    ${escapeHtml(gear.rating)}
+                                    ${escapeHtml(gear.rating || '4.9')}
                                 </span>
+                                ${isAdmin ? `
+                                    <div class="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                                        <button type="button" onclick="window.ViVuApp?.openCompanionProductModal?.('travel', '${escapeHtml(gear.id)}')"
+                                            class="w-8 h-8 rounded-lg bg-surface-container-lowest/90 dark:bg-zinc-900/90 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 text-on-surface dark:text-zinc-200 shadow-sm flex items-center justify-center transition-colors"
+                                            title="Sửa phụ kiện này" aria-label="Sửa phụ kiện">
+                                            <span class="material-symbols-outlined text-[15px]">edit</span>
+                                        </button>
+                                        <button type="button" onclick="window.ViVuApp?.deleteCompanionProduct?.('travel', '${escapeHtml(gear.id)}')"
+                                            class="w-8 h-8 rounded-lg bg-surface-container-lowest/90 dark:bg-zinc-900/90 hover:bg-rose-600 hover:text-white text-rose-600 shadow-sm flex items-center justify-center transition-colors"
+                                            title="Xóa phụ kiện này" aria-label="Xóa phụ kiện">
+                                            <span class="material-symbols-outlined text-[15px]">delete</span>
+                                        </button>
+                                    </div>
+                                ` : ''}
                             </div>
                             <div class="p-5 flex flex-col gap-2">
                                 <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-2">
                                     ${escapeHtml(gear.name)}
                                 </h3>
                                 <div class="font-headline-md text-base sm:text-lg text-secondary dark:text-emerald-400 font-bold">
-                                    ${gear.price.toLocaleString('vi-VN')}đ
+                                    ${Number(gear.price || 0).toLocaleString('vi-VN')}đ
                                 </div>
                                 <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
-                                    ${escapeHtml(gear.desc)}
+                                    ${escapeHtml(gear.desc || '')}
                                 </p>
                             </div>
                         </div>
                         <div class="p-5 pt-0">
-                            <a href="${escapeHtml(gear.link)}" target="_blank" rel="noopener noreferrer"
+                            <a href="${escapeHtml(gear.link || 'https://shopee.vn')}" target="_blank" rel="noopener noreferrer"
                                 class="w-full min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 font-button text-xs font-semibold transition-colors">
                                 <span>Xem trên Shopee</span>
                                 <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -10824,6 +10889,190 @@ export function renderCompanionSupportContent({
                 </div>
             </div>
         </section>
+    `;
+}
+
+/**
+ * Render modal form để Admin thêm hoặc chỉnh sửa sản phẩm thanh lý & phụ kiện Shopee
+ */
+export function renderCompanionProductModalContent({
+    type = 'tech',
+    mode = 'add',
+    item = null
+}) {
+    const isTech = type === 'tech';
+    const isEdit = mode === 'edit';
+    const title = isTech
+        ? (isEdit ? 'Chỉnh Sửa Thiết Bị Thanh Lý' : 'Thêm Thiết Bị Thanh Lý Mới')
+        : (isEdit ? 'Chỉnh Sửa Phụ Kiện Shopee' : 'Thêm Phụ Kiện Tiếp Thị Shopee Mới');
+    const subtitle = isTech
+        ? 'Góc đồ công nghệ Admin dư dùng gây quỹ máy chủ ViVuTraVinh'
+        : 'Liên kết tiếp thị Shopee Affiliate gây quỹ máy chủ ViVuTraVinh';
+
+    const techIcons = [
+        { id: 'memory', label: 'Ổ cứng / SSD / RAM' },
+        { id: 'keyboard', label: 'Bàn phím cơ' },
+        { id: 'laptop_mac', label: 'Laptop / Giá đỡ nhôm' },
+        { id: 'headphones', label: 'Tai nghe' },
+        { id: 'mouse', label: 'Chuột máy tính' },
+        { id: 'devices', label: 'Thiết bị công nghệ chung' },
+        { id: 'watch', label: 'Đồng hồ thông minh' },
+        { id: 'camera_alt', label: 'Máy ảnh / Flycam' },
+        { id: 'router', label: 'Bộ phát Wifi / Router' }
+    ];
+
+    const travelIcons = [
+        { id: 'phone_iphone', label: 'Giá đỡ điện thoại' },
+        { id: 'cable', label: 'Cáp sạc / Pin sạc dự phòng' },
+        { id: 'local_cafe', label: 'Bình giữ nhiệt / Cốc nước' },
+        { id: 'backpack', label: 'Balo du lịch / Túi đeo chéo' },
+        { id: 'umbrella', label: 'Ô / Dù đi nắng mưa' },
+        { id: 'flashlight_on', label: 'Đèn pin siêu sáng' },
+        { id: 'luggage', label: 'Vali / Túi hành lý' },
+        { id: 'rainy', label: 'Áo mưa bộ phượt' },
+        { id: 'hiking', label: 'Đồ dã ngoại / Cắm trại' }
+    ];
+
+    const availableIcons = isTech ? techIcons : travelIcons;
+    const currentIcon = (item && item.icon) ? item.icon : (isTech ? 'memory' : 'phone_iphone');
+
+    return `
+        <div class="p-6 flex flex-col gap-5 overflow-y-auto max-h-[85vh] no-scrollbar">
+            <!-- Header -->
+            <div class="flex items-center justify-between pb-3 border-b border-outline-variant/30 dark:border-zinc-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl ${isTech ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400' : 'bg-secondary/10 dark:bg-emerald-950/50 text-secondary dark:text-emerald-400'} flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-[24px]">${isTech ? 'memory' : 'shopping_bag'}</span>
+                    </div>
+                    <div>
+                        <h2 class="font-headline-sm text-base sm:text-lg font-bold text-primary dark:text-zinc-100">${escapeHtml(title)}</h2>
+                        <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5">${escapeHtml(subtitle)}</p>
+                    </div>
+                </div>
+                <button type="button" onclick="window.ViVuApp?.closeCompanionProductModal?.()"
+                    class="w-9 h-9 rounded-full bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface-variant dark:text-zinc-300 flex items-center justify-center transition-colors min-h-[36px] min-w-[36px]"
+                    aria-label="Đóng form">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
+
+            <!-- Form -->
+            <form id="companionProductForm" onsubmit="window.ViVuApp?.saveCompanionProduct?.(event); return false;" class="flex flex-col gap-4 text-xs">
+                <input type="hidden" id="prodModalType" value="${escapeHtml(type)}" />
+                <input type="hidden" id="prodModalMode" value="${escapeHtml(mode)}" />
+                <input type="hidden" id="prodModalId" value="${item ? escapeHtml(item.id) : ''}" />
+
+                <!-- Tên sản phẩm -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="prodModalName" class="font-semibold text-primary dark:text-zinc-200">
+                        Tên sản phẩm <span class="text-rose-500">*</span>
+                    </label>
+                    <input id="prodModalName" type="text" required
+                        value="${item ? escapeHtml(item.name || '') : ''}"
+                        placeholder="${isTech ? 'Ví dụ: Bàn phím cơ NuPhy Air75 v2' : 'Ví dụ: Giá đỡ điện thoại xe máy'}"
+                        class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium" />
+                </div>
+
+                <!-- Grid: Giá & (Tình trạng HOẶC Đánh giá) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <label for="prodModalPrice" class="font-semibold text-primary dark:text-zinc-200">
+                            Giá bán (VNĐ) <span class="text-rose-500">*</span>
+                        </label>
+                        <input id="prodModalPrice" type="number" min="0" step="1000" required
+                            value="${item ? Number(item.price || 0) : ''}"
+                            placeholder="Ví dụ: 350000"
+                            class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium font-mono" />
+                    </div>
+
+                    ${isTech ? `
+                        <div class="flex flex-col gap-1.5">
+                            <label for="prodModalCondition" class="font-semibold text-primary dark:text-zinc-200">
+                                Tình trạng máy <span class="text-rose-500">*</span>
+                            </label>
+                            <input id="prodModalCondition" type="text" required
+                                value="${item ? escapeHtml(item.condition || '') : 'Like new 99% • Fullbox'}"
+                                placeholder="Ví dụ: Like new 99% • Fullbox"
+                                class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium" />
+                        </div>
+                    ` : `
+                        <div class="flex flex-col gap-1.5">
+                            <label for="prodModalRating" class="font-semibold text-primary dark:text-zinc-200">
+                                Đánh giá &amp; Lượt bán <span class="text-rose-500">*</span>
+                            </label>
+                            <input id="prodModalRating" type="text" required
+                                value="${item ? escapeHtml(item.rating || '') : '4.9 (3.4k đã bán)'}"
+                                placeholder="Ví dụ: 4.9 (3.4k đã bán)"
+                                class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium" />
+                        </div>
+                    `}
+                </div>
+
+                <!-- Grid: Icon & Link ảnh -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <label for="prodModalIcon" class="font-semibold text-primary dark:text-zinc-200">
+                            Biểu tượng đại diện
+                        </label>
+                        <select id="prodModalIcon"
+                            class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium">
+                            ${availableIcons.map(ic => `
+                                <option value="${ic.id}" ${currentIcon === ic.id ? 'selected' : ''}>${ic.label} (${ic.id})</option>
+                            `).join('')}
+                        </select>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label for="prodModalImage" class="font-semibold text-primary dark:text-zinc-200">
+                            Link hình ảnh (Tùy chọn)
+                        </label>
+                        <input id="prodModalImage" type="url"
+                            value="${item && item.image ? escapeHtml(item.image) : ''}"
+                            placeholder="https://... (Để trống sẽ lấy biểu tượng)"
+                            class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium" />
+                    </div>
+                </div>
+
+                <!-- Link Shopee Affiliate (nếu là travel) -->
+                ${!isTech ? `
+                    <div class="flex flex-col gap-1.5">
+                        <label for="prodModalLink" class="font-semibold text-primary dark:text-zinc-200">
+                            Link tiếp thị liên kết Shopee Affiliate <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <input id="prodModalLink" type="url" required
+                                value="${item && item.link ? escapeHtml(item.link) : 'https://shopee.vn'}"
+                                placeholder="https://shopee.vn/universal-link..."
+                                class="w-full h-11 pl-9 pr-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium" />
+                            <span class="material-symbols-outlined absolute left-2.5 top-2.5 text-[18px] text-on-surface-variant dark:text-zinc-400">link</span>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Mô tả chi tiết -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="prodModalDesc" class="font-semibold text-primary dark:text-zinc-200">
+                        Mô tả tóm tắt <span class="text-rose-500">*</span>
+                    </label>
+                    <textarea id="prodModalDesc" rows="3" required
+                        placeholder="Mô tả công năng, độ bền, tiện ích khi mang theo du lịch hoặc làm việc..."
+                        class="p-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium leading-relaxed">${item ? escapeHtml(item.desc || '') : ''}</textarea>
+                </div>
+
+                <!-- Footer buttons -->
+                <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-outline-variant/30 dark:border-zinc-800">
+                    <button type="button" onclick="window.ViVuApp?.closeCompanionProductModal?.()"
+                        class="min-h-[44px] px-4 py-2.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high dark:hover:bg-zinc-700 text-on-surface dark:text-zinc-200 font-button text-xs font-semibold transition-colors">
+                        Hủy
+                    </button>
+                    <button type="submit"
+                        class="min-h-[44px] px-5 py-2.5 rounded-xl ${isTech ? 'bg-amber-600 hover:bg-amber-700' : 'bg-secondary hover:bg-primary'} text-white font-button text-xs font-semibold flex items-center gap-1.5 shadow-md transition-all">
+                        <span class="material-symbols-outlined text-[18px]">save</span>
+                        <span>${isEdit ? 'Lưu thay đổi' : 'Thêm sản phẩm'}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     `;
 }
 

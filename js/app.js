@@ -55,6 +55,7 @@ import {
     renderSocialStoryModalContent,
     renderAdminSupportModalContent,
     renderCompanionSupportContent,
+    renderCompanionProductModalContent,
     renderAdminModerationModalContent,
     renderAdminActionReasonModalContent,
     renderDeepPlaceDetailModalContent,
@@ -620,6 +621,64 @@ export function saveStoredTripPlan(plan, targetIdent = null) {
     } catch (e) {}
 }
 
+// Storage cho Góc Đồ Công Nghệ & Tiếp Thị Liên Kết (Phần Đồng Hành Cùng Admin)
+const TECH_CLEARANCE_STORAGE_KEY = 'vivu_custom_tech_clearance';
+const TRAVEL_GEAR_STORAGE_KEY = 'vivu_custom_travel_gear';
+
+export function getStoredTechClearance() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem(TECH_CLEARANCE_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[TechClearance] Lỗi đọc storage:', e);
+    }
+    return JSON.parse(JSON.stringify(ADMIN_TECH_CLEARANCE));
+}
+
+export function saveStoredTechClearance(items) {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem(TECH_CLEARANCE_STORAGE_KEY, JSON.stringify(items));
+        }
+    } catch (e) {
+        console.warn('[TechClearance] Lỗi lưu storage:', e);
+    }
+}
+
+export function getStoredTravelGear() {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = localStorage.getItem(TRAVEL_GEAR_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[TravelGear] Lỗi đọc storage:', e);
+    }
+    return JSON.parse(JSON.stringify(TRAVEL_GEAR_RECOMMENDATIONS));
+}
+
+export function saveStoredTravelGear(items) {
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem(TRAVEL_GEAR_STORAGE_KEY, JSON.stringify(items));
+        }
+    } catch (e) {
+        console.warn('[TravelGear] Lỗi lưu storage:', e);
+    }
+}
+
 // Global Application State
 export const state = {
     allPlaces: [],
@@ -736,8 +795,8 @@ export const state = {
     donationTiers: DONATION_TIERS,
     selectedDonationAmount: 35000,
     selectedDonationTierId: 'noodle',
-    techClearance: ADMIN_TECH_CLEARANCE,
-    travelGear: TRAVEL_GEAR_RECOMMENDATIONS,
+    techClearance: getStoredTechClearance(),
+    travelGear: getStoredTravelGear(),
     recentSupporters: getStoredDonationRecords(),
     moderationPosts: getStoredModerationPosts(),
     selectedModerationPostId: null,
@@ -5820,10 +5879,7 @@ export function switchView(viewName, options = {}) {
     }
 
     if (viewName === 'companion') {
-        const companionContainer = document.getElementById('companionSupportContainer');
-        if (companionContainer && companionContainer.children.length === 0) {
-            updateSupportViews();
-        }
+        updateSupportViews();
     }
 
     // Cuộn trang
@@ -10396,6 +10452,16 @@ export function closeAdminSupportModal() {
 }
 
 export function updateSupportViews() {
+    const adminSession = typeof getAdminSession === 'function' ? getAdminSession() : null;
+    const adminRole = adminSession?.user?.role;
+    const userSession = typeof getUserSession === 'function' ? getUserSession() : null;
+    const userEmail = (userSession?.user?.email || '').toLowerCase().trim();
+    const isAdmin = Boolean(
+        (adminSession?.user && ['admin', 'editor', 'moderator'].includes(adminRole)) ||
+        userEmail === 'tienlh1998@gmail.com' ||
+        (userSession?.user?.user_metadata?.role && ['admin', 'editor', 'moderator'].includes(userSession.user.user_metadata.role))
+    );
+
     const companionContainer = document.getElementById('companionSupportContainer');
     if (companionContainer) {
         companionContainer.innerHTML = renderCompanionSupportContent({
@@ -10405,7 +10471,8 @@ export function updateSupportViews() {
             selectedNote: state.selectedDonationTierId,
             techClearance: state.techClearance,
             travelGear: state.travelGear,
-            recentSupporters: state.recentSupporters
+            recentSupporters: state.recentSupporters,
+            isAdmin
         });
     }
 
@@ -10481,6 +10548,190 @@ export function confirmSimulatedDonation(amount) {
 
     updateSupportViews();
     showSavedToast(`Cảm ơn bạn đã ủng hộ ${newRecord.amount.toLocaleString('vi-VN')}đ vào quỹ máy chủ!`);
+}
+
+/**
+ * Mở modal thêm hoặc chỉnh sửa sản phẩm Góc công nghệ / Phụ kiện Shopee
+ * @param {'tech' | 'travel'} type 
+ * @param {string|null} itemId 
+ */
+export function openCompanionProductModal(type = 'tech', itemId = null) {
+    const isTech = type === 'tech';
+    let item = null;
+    if (itemId) {
+        if (isTech) {
+            item = (state.techClearance || []).find(x => String(x.id) === String(itemId)) || null;
+        } else {
+            item = (state.travelGear || []).find(x => String(x.id) === String(itemId)) || null;
+        }
+    }
+    const mode = item ? 'edit' : 'add';
+
+    const modal = document.getElementById('companionProductModal');
+    const container = document.getElementById('companionProductModalContent');
+    if (!modal || !container) return;
+
+    container.innerHTML = renderCompanionProductModalContent({
+        type,
+        mode,
+        item
+    });
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    syncBodyScrollLock();
+}
+
+/**
+ * Đóng modal quản lý sản phẩm
+ */
+export function closeCompanionProductModal() {
+    const modal = document.getElementById('companionProductModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    syncBodyScrollLock();
+}
+
+/**
+ * Xử lý lưu form thêm/sửa sản phẩm
+ */
+export function saveCompanionProduct(event) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+
+    const type = document.getElementById('prodModalType')?.value || 'tech';
+    const mode = document.getElementById('prodModalMode')?.value || 'add';
+    const itemId = document.getElementById('prodModalId')?.value || '';
+    const name = (document.getElementById('prodModalName')?.value || '').trim();
+    const price = parseInt(document.getElementById('prodModalPrice')?.value || '0', 10) || 0;
+    const icon = document.getElementById('prodModalIcon')?.value || (type === 'tech' ? 'memory' : 'phone_iphone');
+    const image = (document.getElementById('prodModalImage')?.value || '').trim();
+    const desc = (document.getElementById('prodModalDesc')?.value || '').trim();
+
+    if (!name) {
+        showSavedToast('Vui lòng nhập tên sản phẩm');
+        return;
+    }
+
+    if (type === 'tech') {
+        const condition = (document.getElementById('prodModalCondition')?.value || '').trim() || 'Like new 99% • Fullbox';
+        if (mode === 'edit' && itemId) {
+            const index = (state.techClearance || []).findIndex(x => String(x.id) === String(itemId));
+            if (index !== -1) {
+                state.techClearance[index] = {
+                    ...state.techClearance[index],
+                    name,
+                    price,
+                    condition,
+                    icon,
+                    image,
+                    desc
+                };
+            }
+            showSavedToast('Đã cập nhật thông tin thiết bị thanh lý!');
+        } else {
+            const newId = 'tech-' + Date.now();
+            state.techClearance.unshift({
+                id: newId,
+                name,
+                price,
+                condition,
+                icon,
+                image,
+                desc
+            });
+            showSavedToast('Đã thêm thiết bị thanh lý mới thành công!');
+        }
+        saveStoredTechClearance(state.techClearance);
+    } else {
+        const rating = (document.getElementById('prodModalRating')?.value || '').trim() || '5.0 (Mới)';
+        const link = (document.getElementById('prodModalLink')?.value || '').trim() || 'https://shopee.vn';
+        if (mode === 'edit' && itemId) {
+            const index = (state.travelGear || []).findIndex(x => String(x.id) === String(itemId));
+            if (index !== -1) {
+                state.travelGear[index] = {
+                    ...state.travelGear[index],
+                    name,
+                    price,
+                    rating,
+                    icon,
+                    image,
+                    link,
+                    desc
+                };
+            }
+            showSavedToast('Đã cập nhật phụ kiện Shopee Affiliate!');
+        } else {
+            const newId = 'gear-' + Date.now();
+            state.travelGear.unshift({
+                id: newId,
+                name,
+                price,
+                rating,
+                icon,
+                image,
+                link,
+                desc
+            });
+            showSavedToast('Đã thêm phụ kiện Shopee Affiliate mới thành công!');
+        }
+        saveStoredTravelGear(state.travelGear);
+    }
+
+    closeCompanionProductModal();
+    updateSupportViews();
+}
+
+/**
+ * Xóa sản phẩm khỏi danh sách
+ */
+export function deleteCompanionProduct(type, itemId) {
+    if (!itemId) return;
+    const isTech = type === 'tech';
+    const confirmText = isTech
+        ? 'Bạn có chắc chắn muốn xóa thiết bị thanh lý này không?'
+        : 'Bạn có chắc chắn muốn xóa phụ kiện Shopee này không?';
+
+    if (!confirm(confirmText)) return;
+
+    if (isTech) {
+        state.techClearance = (state.techClearance || []).filter(x => String(x.id) !== String(itemId));
+        saveStoredTechClearance(state.techClearance);
+        showSavedToast('Đã xóa thiết bị thanh lý khỏi danh sách!');
+    } else {
+        state.travelGear = (state.travelGear || []).filter(x => String(x.id) !== String(itemId));
+        saveStoredTravelGear(state.travelGear);
+        showSavedToast('Đã xóa phụ kiện Shopee khỏi danh sách!');
+    }
+
+    updateSupportViews();
+}
+
+/**
+ * Khôi phục danh sách sản phẩm mặc định ban đầu
+ */
+export function resetCompanionProducts(type) {
+    const isTech = type === 'tech';
+    const confirmText = isTech
+        ? 'Khôi phục danh sách thiết bị thanh lý mặc định ban đầu? Các thay đổi tùy chỉnh sẽ bị xóa.'
+        : 'Khôi phục danh sách phụ kiện Shopee mặc định ban đầu? Các thay đổi tùy chỉnh sẽ bị xóa.';
+
+    if (!confirm(confirmText)) return;
+
+    if (isTech) {
+        state.techClearance = JSON.parse(JSON.stringify(ADMIN_TECH_CLEARANCE));
+        saveStoredTechClearance(state.techClearance);
+        showSavedToast('Đã khôi phục danh sách thiết bị thanh lý mặc định!');
+    } else {
+        state.travelGear = JSON.parse(JSON.stringify(TRAVEL_GEAR_RECOMMENDATIONS));
+        saveStoredTravelGear(state.travelGear);
+        showSavedToast('Đã khôi phục danh sách phụ kiện Shopee mặc định!');
+    }
+
+    updateSupportViews();
 }
 
 /**
@@ -10947,6 +11198,10 @@ export function updateAdminRoleUI() {
             el.textContent = communityUser ? 'Thành viên' : 'Đăng nhập / Đăng ký';
             el.className = 'font-caption text-[10px] text-secondary dark:text-emerald-400 font-medium';
         });
+    }
+
+    if (document.getElementById('companionSupportContainer')) {
+        updateSupportViews();
     }
 }
 
@@ -12359,6 +12614,11 @@ if (typeof window !== 'undefined') {
         // Admin Support Wall & Moderation Portal Methods (Phase 10)
         openAdminSupportModal,
         closeAdminSupportModal,
+        openCompanionProductModal,
+        closeCompanionProductModal,
+        saveCompanionProduct,
+        deleteCompanionProduct,
+        resetCompanionProducts,
         updateSupportViews,
         selectDonationTier,
         applyCustomDonation,
