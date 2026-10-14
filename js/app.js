@@ -756,6 +756,7 @@ export const state = {
     moderationFilterCategory: 'all',
     moderationRiskFilter: 'all',
     moderationSearchQuery: '',
+    isModerationSyncing: false,
     actionReasonModalState: { type: '', targetId: '', targetTitle: '' },
     // Deep Cultural Heritage & Saved Itinerary Folder (Phase 11)
     deepPlaceId: 'chua-ang',
@@ -10573,6 +10574,212 @@ export function syncAndRecalculateModerationPending() {
 }
 
 /**
+ * Cập nhật toàn bộ các hàng đợi kiểm duyệt và KPI vào state từ phản hồi API
+ */
+function applyModerationData(data) {
+    if (!data) return;
+    if (Array.isArray(data.posts)) {
+        state.moderationPosts = data.posts.map(p => {
+            let loc = null;
+            if (p.metadata?.location) {
+                loc = p.metadata.location;
+            } else if (p.location) {
+                loc = typeof p.location === 'object' ? p.location : { name: p.location };
+            }
+            return {
+                id: p.id,
+                author: {
+                    name: p.author_name || 'Thành viên Xứ Trà',
+                    avatar: p.author_avatar || null,
+                    avatarText: (p.author_name || 'TV').slice(0, 2).toUpperCase(),
+                    trustScore: null,
+                    verified: false,
+                    memberMonths: null,
+                    postsCount: null,
+                    successRate: null,
+                    level: 'Thành viên'
+                },
+                category: p.category || 'Tự do',
+                title: p.title || (p.content ? (p.content.slice(0, 40) + '...') : 'Bài chia sẻ cộng đồng'),
+                excerpt: p.content ? (p.content.slice(0, 160) + (p.content.length > 160 ? '...' : '')) : '',
+                fullContent: p.content ? [p.content] : [],
+                images: (p.images || []).map(img => typeof img === 'string' ? { src: img, caption: 'Ảnh đính kèm' } : img),
+                location: loc,
+                tags: ['Cộng đồng', 'Trà Vinh'],
+                submittedAt: p.created_at || 'Vừa xong',
+                status: p.status || 'pending',
+                aiSafeScore: null,
+                aiSummary: null,
+                flagsCount: 0
+            };
+        });
+    }
+    if (Array.isArray(data.clubs)) {
+        state.moderationClubs = data.clubs.map(c => ({
+            id: c.id,
+            name: c.name,
+            category: c.category,
+            categoryName: c.category_name || c.category,
+            founder: {
+                name: c.leader_name || 'Chủ nhiệm CLB',
+                avatar: null
+            },
+            leaderName: c.leader_name || 'Chủ nhiệm CLB',
+            leaderPhone: c.leader_phone || '',
+            submittedAt: c.created_at || 'Vừa xong',
+            status: c.status || 'pending',
+            membersCount: c.members_count || 1,
+            membersRequired: 10,
+            progressPercent: Math.round(((c.members_count || 1) / 10) * 100),
+            desc: c.description || '',
+            operatingHub: c.meeting_place || 'TP. Trà Vinh',
+            code: c.id,
+            meetingPlace: c.meeting_place || 'TP. Trà Vinh',
+            scheduleInfo: c.schedule_info || 'Định kỳ hàng tuần',
+            isEligible: (c.members_count || 1) >= 10,
+            notableFounders: [
+                { name: c.leader_name || 'Chủ nhiệm CLB', role: 'Chủ nhiệm sáng lập' }
+            ],
+            criteriaList: [
+                { title: 'Điều lệ hoạt động', desc: 'Có tôn chỉ sinh hoạt lành mạnh', passed: true },
+                { title: 'Địa bàn hoạt động', desc: c.meeting_place || 'Tại tỉnh Trà Vinh', passed: true }
+            ],
+            threeMonthsPlan: [
+                'Kiện toàn danh sách thành viên sáng lập',
+                'Tổ chức buổi sinh hoạt định kỳ đầu tiên',
+                'Đăng ký kế hoạch hoạt động quý với BQT'
+            ]
+        }));
+    }
+    if (Array.isArray(data.events)) {
+        state.moderationEvents = data.events.map(e => ({
+            id: e.id,
+            title: e.title,
+            organizer: e.organizer,
+            category: e.category,
+            datetime: e.time_schedule,
+            timeSchedule: e.time_schedule,
+            location: e.location,
+            region: e.region,
+            description: e.description,
+            fee: e.fee,
+            contactPhone: e.contact_phone || '',
+            phone: e.contact_phone || '',
+            submittedAt: e.created_at || 'Vừa xong',
+            status: e.status || 'pending',
+            creatorName: e.creator_name || 'Thành viên Xứ Trà'
+        }));
+    }
+    if (Array.isArray(data.articles)) {
+        state.moderationArticles = data.articles.map(a => ({
+            id: a.id,
+            slug: a.slug,
+            title: a.title,
+            category: a.category,
+            category_name: a.category_name,
+            category_badge: a.category_badge,
+            cover_image: a.cover_image,
+            excerpt: a.excerpt,
+            content: a.content,
+            read_time: a.read_time,
+            author: {
+                name: a.author_name || 'Thành viên Xứ Trà',
+                avatar: a.author_avatar || null
+            },
+            author_name: a.author_name || 'Thành viên Xứ Trà',
+            author_role: a.author_role,
+            is_editorial: a.is_editorial,
+            status: a.status || 'pending',
+            created_at: a.created_at,
+            admin_notes: a.admin_notes || ''
+        }));
+    }
+    if (Array.isArray(data.activities)) {
+        state.moderationActivities = data.activities.map(act => ({
+            id: act.id,
+            club_id: act.club_id,
+            club_name: act.club_name,
+            title: act.title,
+            time_schedule: act.time_schedule,
+            location: act.location,
+            max_attendees: act.max_attendees || 50,
+            attendees_count: act.attendees_count || 0,
+            is_free: act.is_free,
+            icon: act.icon || 'event',
+            description: act.description,
+            creator_id: act.creator_id,
+            creator_name: act.creator_name || 'Chủ nhiệm CLB',
+            creator_role: act.creator_role || 'Chủ nhiệm CLB',
+            status: act.status || 'pending',
+            created_at: act.created_at,
+            admin_notes: act.admin_notes || ''
+        }));
+    }
+    if (Array.isArray(data.places)) {
+        state.moderationPlaces = data.places.map(pl => {
+            let imgs = [];
+            if (Array.isArray(pl.images)) {
+                imgs = pl.images.map(img => typeof img === 'string' ? { src: img, caption: pl.name } : img);
+            } else if (typeof pl.images === 'string' && pl.images.trim()) {
+                imgs = [{ src: pl.images.trim(), caption: pl.name }];
+            }
+            if (pl.image_link && !imgs.some(i => i.src === pl.image_link)) {
+                imgs.unshift({ src: pl.image_link, caption: pl.name });
+            }
+            return {
+                id: pl.id,
+                name: pl.name || 'Địa điểm chưa đặt tên',
+                slug: pl.slug,
+                category: pl.category || 'Địa điểm du lịch',
+                area: pl.area || 'Toàn tỉnh',
+                address: pl.address || '',
+                map_link: pl.map_link || '',
+                price_raw: pl.price_raw || '',
+                description: pl.description || '',
+                note: pl.note || '',
+                contact: pl.contact || '',
+                coordinates: pl.coordinates || '',
+                contributor: pl.contributor || 'Thành viên đóng góp',
+                display_hours: pl.display_hours || '',
+                operating_status: pl.operating_status || 'Normal',
+                status: pl.status || 'draft',
+                images: imgs,
+                image_link: pl.image_link || (imgs[0]?.src || null),
+                client_submission_id: pl.client_submission_id,
+                created_at: pl.created_at || 'Vừa xong'
+            };
+        });
+        if (!state.selectedModerationPlaceId || !state.moderationPlaces.some(p => p.id === state.selectedModerationPlaceId)) {
+            state.selectedModerationPlaceId = state.moderationPlaces[0]?.id || null;
+        }
+    }
+    if (data.kpi && !data.kpi.hasError) {
+        const total = typeof data.kpi.pendingTotal === 'number'
+            ? data.kpi.pendingTotal
+            : ((data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0) + (data.kpi.pendingPlaces || 0));
+        state.moderationKpi = {
+            hasError: false,
+            pendingCount: total,
+            pendingTotal: total,
+            pendingNew: (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0) + (data.kpi.pendingPlaces || 0),
+            flaggedCount: 0,
+            approvedToday: state.moderationKpi?.approvedToday || 0,
+            pointsIssued: 0,
+            violationRate: "0%",
+            pendingPostsCount: data.kpi.pendingPosts ?? 0,
+            pendingClubsCount: data.kpi.pendingClubs ?? 0,
+            pendingEventsCount: data.kpi.pendingEvents ?? 0,
+            pendingArticlesCount: data.kpi.pendingArticles ?? 0,
+            pendingActivitiesCount: data.kpi.pendingActivities ?? 0,
+            pendingPlacesCount: data.kpi.pendingPlaces ?? 0
+        };
+        updateAdminModerationBadge(total, false);
+    } else {
+        updateAdminModerationBadge(0, false);
+    }
+}
+
+/**
  * Tải và làm mới số lượng chờ duyệt từ database/API
  */
 export async function refreshAdminModerationCounts() {
@@ -10597,24 +10804,7 @@ export async function refreshAdminModerationCounts() {
         });
         if (res.ok) {
             const data = await res.json();
-            if (data.kpi && !data.kpi.hasError) {
-                const total = typeof data.kpi.pendingTotal === 'number' ? data.kpi.pendingTotal : 0;
-                state.moderationKpi = {
-                    ...(state.moderationKpi || {}),
-                    hasError: false,
-                    pendingCount: total,
-                    pendingTotal: total,
-                    pendingPostsCount: data.kpi.pendingPosts ?? 0,
-                    pendingClubsCount: data.kpi.pendingClubs ?? 0,
-                    pendingActivitiesCount: data.kpi.pendingActivities ?? 0,
-                    pendingEventsCount: data.kpi.pendingEvents ?? 0,
-                    pendingArticlesCount: data.kpi.pendingArticles ?? 0,
-                    pendingPlacesCount: data.kpi.pendingPlaces ?? 0
-                };
-                updateAdminModerationBadge(total, false);
-            } else {
-                updateAdminModerationBadge(0);
-            }
+            applyModerationData(data);
         } else if (res.status === 401 || res.status === 403) {
             console.warn('[AdminModeration] Phiên quản trị viên không hợp lệ hoặc đã hết hạn (401/403).');
             updateAdminModerationBadge(0);
@@ -10781,7 +10971,8 @@ function renderModerationModal() {
         filterCategory: state.moderationFilterCategory,
         riskFilter: state.moderationRiskFilter,
         statusFilter: state.moderationStatusFilter || 'pending',
-        searchQuery: state.moderationSearchQuery
+        searchQuery: state.moderationSearchQuery,
+        isSyncing: state.isModerationSyncing || false
     });
 }
 
@@ -10802,234 +10993,34 @@ export async function openAdminModerationModal(tab = 'posts') {
 
     state.moderationActiveTab = tab || 'posts';
 
-    const token = await (typeof getValidAdminToken === 'function' ? getValidAdminToken() : null) || (typeof getValidUserToken === 'function' ? await getValidUserToken() : null);
+    // 1. MỞ MODAL NGAY TỨC THÌ (0ms UI latency) với cache/dữ liệu hiện có
+    state.isModerationSyncing = true;
+    renderModerationModal();
+    modal.classList.remove('hidden');
+    syncBodyScrollLock();
 
-    if (!token) {
-        showNoticeToast('Phiên làm việc đã hết hạn', 'Phiên đăng nhập quản trị đã hết hạn. Vui lòng đăng nhập lại tài khoản Quản trị viên.');
-        openAuthModal('signin', () => openAdminModerationModal(tab));
-        return;
-    }
+    // 2. Chạy tải dữ liệu ngầm (SWR - Stale-While-Revalidate) không làm đơ giao diện
+    (async () => {
+        try {
+            const token = await (typeof getValidAdminToken === 'function' ? getValidAdminToken() : null) || (typeof getValidUserToken === 'function' ? await getValidUserToken() : null);
 
-    // Tải danh sách chờ duyệt từ API /api/admin-moderation
-    try {
-        const res = await fetch('/api/admin-moderation?status=pending', {
-            headers: {
-                'Authorization': `Bearer ${token}`
+            if (!token) {
+                state.isModerationSyncing = false;
+                renderModerationModal();
+                showNoticeToast('Phiên làm việc đã hết hạn', 'Phiên đăng nhập quản trị đã hết hạn. Vui lòng đăng nhập lại tài khoản Quản trị viên.');
+                openAuthModal('signin', () => openAdminModerationModal(tab));
+                return;
             }
-        });
-        if (res.ok) {
+
+            const res = await fetch('/api/admin-moderation?status=pending', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (res.ok) {
                 const data = await res.json();
-                if (Array.isArray(data.posts)) {
-                    state.moderationPosts = data.posts.map(p => {
-                        let loc = null;
-                        if (p.metadata?.location) {
-                            loc = p.metadata.location;
-                        } else if (p.location) {
-                            loc = typeof p.location === 'object' ? p.location : { name: p.location };
-                        }
-                        return {
-                            id: p.id,
-                            author: {
-                                name: p.author_name || 'Thành viên Xứ Trà',
-                                avatar: p.author_avatar || null,
-                                avatarText: (p.author_name || 'TV').slice(0, 2).toUpperCase(),
-                                trustScore: null,
-                                verified: false,
-                                memberMonths: null,
-                                postsCount: null,
-                                successRate: null,
-                                level: 'Thành viên'
-                            },
-                            category: p.category || 'Tự do',
-                            title: p.title || (p.content ? (p.content.slice(0, 40) + '...') : 'Bài chia sẻ cộng đồng'),
-                            excerpt: p.content ? (p.content.slice(0, 160) + (p.content.length > 160 ? '...' : '')) : '',
-                            fullContent: p.content ? [p.content] : [],
-                            images: (p.images || []).map(img => typeof img === 'string' ? { src: img, caption: 'Ảnh đính kèm' } : img),
-                            location: loc,
-                            tags: ['Cộng đồng', 'Trà Vinh'],
-                            submittedAt: p.created_at || 'Vừa xong',
-                            status: p.status || 'pending',
-                            aiSafeScore: null,
-                            aiSummary: null,
-                            flagsCount: 0
-                        };
-                    });
-                }
-                if (Array.isArray(data.clubs)) {
-                    state.moderationClubs = data.clubs.map(c => ({
-                        id: c.id,
-                        name: c.name,
-                        category: c.category,
-                        categoryName: c.category_name || c.category,
-                        founder: {
-                            name: c.leader_name || 'Chủ nhiệm CLB',
-                            avatar: null
-                        },
-                        leaderName: c.leader_name || 'Chủ nhiệm CLB',
-                        leaderPhone: c.leader_phone || '',
-                        submittedAt: c.created_at || 'Vừa xong',
-                        status: c.status || 'pending',
-                        membersCount: c.members_count || 1,
-                        membersRequired: 10,
-                        progressPercent: Math.round(((c.members_count || 1) / 10) * 100),
-                        desc: c.description || '',
-                        operatingHub: c.meeting_place || 'TP. Trà Vinh',
-                        code: c.id,
-                        meetingPlace: c.meeting_place || 'TP. Trà Vinh',
-                        scheduleInfo: c.schedule_info || 'Định kỳ hàng tuần',
-                        isEligible: (c.members_count || 1) >= 10,
-                        notableFounders: [
-                            { name: c.leader_name || 'Chủ nhiệm CLB', role: 'Chủ nhiệm sáng lập' }
-                        ],
-                        criteriaList: [
-                            { title: 'Điều lệ hoạt động', desc: 'Có tôn chỉ sinh hoạt lành mạnh', passed: true },
-                            { title: 'Địa bàn hoạt động', desc: c.meeting_place || 'Tại tỉnh Trà Vinh', passed: true }
-                        ],
-                        threeMonthsPlan: [
-                            'Kiện toàn danh sách thành viên sáng lập',
-                            'Tổ chức buổi sinh hoạt định kỳ đầu tiên',
-                            'Đăng ký kế hoạch hoạt động quý với BQT'
-                        ]
-                    }));
-                }
-                if (Array.isArray(data.events)) {
-                    state.moderationEvents = data.events.map(e => ({
-                        id: e.id,
-                        title: e.title,
-                        organizer: e.organizer,
-                        category: e.category,
-                        datetime: e.time_schedule,
-                        timeSchedule: e.time_schedule,
-                        location: e.location,
-                        region: e.region,
-                        description: e.description,
-                        fee: e.fee,
-                        contactPhone: e.contact_phone || '',
-                        phone: e.contact_phone || '',
-                        submittedAt: e.created_at || 'Vừa xong',
-                        status: e.status || 'pending',
-                        creatorName: e.creator_name || 'Thành viên Xứ Trà'
-                    }));
-                }
-                if (Array.isArray(data.articles)) {
-                    state.moderationArticles = data.articles.map(a => ({
-                        id: a.id,
-                        slug: a.slug,
-                        title: a.title,
-                        category: a.category,
-                        category_name: a.category_name,
-                        category_badge: a.category_badge,
-                        cover_image: a.cover_image,
-                        excerpt: a.excerpt,
-                        content: a.content,
-                        read_time: a.read_time,
-                        author: {
-                            name: a.author_name || 'Thành viên Xứ Trà',
-                            avatar: a.author_avatar || null
-                        },
-                        author_name: a.author_name || 'Thành viên Xứ Trà',
-                        author_role: a.author_role,
-                        is_editorial: a.is_editorial,
-                        status: a.status || 'pending',
-                        created_at: a.created_at,
-                        admin_notes: a.admin_notes || ''
-                    }));
-                }
-                if (Array.isArray(data.activities)) {
-                    state.moderationActivities = data.activities.map(act => ({
-                        id: act.id,
-                        club_id: act.club_id,
-                        club_name: act.club_name,
-                        title: act.title,
-                        time_schedule: act.time_schedule,
-                        location: act.location,
-                        max_attendees: act.max_attendees || 50,
-                        attendees_count: act.attendees_count || 0,
-                        is_free: act.is_free,
-                        icon: act.icon || 'event',
-                        description: act.description,
-                        creator_id: act.creator_id,
-                        creator_name: act.creator_name || 'Chủ nhiệm CLB',
-                        creator_role: act.creator_role || 'Chủ nhiệm CLB',
-                        status: act.status || 'pending',
-                        created_at: act.created_at,
-                        admin_notes: act.admin_notes || ''
-                    }));
-                }
-                if (Array.isArray(data.places)) {
-                    state.moderationPlaces = data.places.map(pl => {
-                        let imgs = [];
-                        if (Array.isArray(pl.images)) {
-                            imgs = pl.images.map(img => typeof img === 'string' ? { src: img, caption: pl.name } : img);
-                        } else if (typeof pl.images === 'string' && pl.images.trim()) {
-                            imgs = [{ src: pl.images.trim(), caption: pl.name }];
-                        }
-                        if (pl.image_link && !imgs.some(i => i.src === pl.image_link)) {
-                            imgs.unshift({ src: pl.image_link, caption: pl.name });
-                        }
-                        return {
-                            id: pl.id,
-                            name: pl.name || 'Địa điểm chưa đặt tên',
-                            slug: pl.slug,
-                            category: pl.category || 'Địa điểm du lịch',
-                            area: pl.area || 'Toàn tỉnh',
-                            address: pl.address || '',
-                            map_link: pl.map_link || '',
-                            price_raw: pl.price_raw || '',
-                            description: pl.description || '',
-                            note: pl.note || '',
-                            contact: pl.contact || '',
-                            coordinates: pl.coordinates || '',
-                            contributor: pl.contributor || 'Thành viên đóng góp',
-                            display_hours: pl.display_hours || '',
-                            operating_status: pl.operating_status || 'Normal',
-                            status: pl.status || 'draft',
-                            images: imgs,
-                            image_link: pl.image_link || (imgs[0]?.src || null),
-                            client_submission_id: pl.client_submission_id,
-                            created_at: pl.created_at || 'Vừa xong'
-                        };
-                    });
-                    if (!state.selectedModerationPlaceId || !state.moderationPlaces.some(p => p.id === state.selectedModerationPlaceId)) {
-                        state.selectedModerationPlaceId = state.moderationPlaces[0]?.id || null;
-                    }
-                }
-                if (data.kpi && !data.kpi.hasError) {
-                    const total = typeof data.kpi.pendingTotal === 'number'
-                        ? data.kpi.pendingTotal
-                        : ((data.kpi.pendingPosts || 0) + (data.kpi.pendingClubs || 0) + (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0) + (data.kpi.pendingPlaces || 0));
-                    state.moderationKpi = {
-                        hasError: false,
-                        pendingCount: total,
-                        pendingTotal: total,
-                        pendingNew: (data.kpi.pendingEvents || 0) + (data.kpi.pendingArticles || 0) + (data.kpi.pendingActivities || 0) + (data.kpi.pendingPlaces || 0),
-                        flaggedCount: 0,
-                        approvedToday: state.moderationKpi?.approvedToday || 0,
-                        pointsIssued: 0,
-                        violationRate: "0%",
-                        pendingPostsCount: data.kpi.pendingPosts ?? 0,
-                        pendingClubsCount: data.kpi.pendingClubs ?? 0,
-                        pendingEventsCount: data.kpi.pendingEvents ?? 0,
-                        pendingArticlesCount: data.kpi.pendingArticles ?? 0,
-                        pendingActivitiesCount: data.kpi.pendingActivities ?? 0,
-                        pendingPlacesCount: data.kpi.pendingPlaces ?? 0
-                    };
-                    updateAdminModerationBadge(total, false);
-                } else {
-                    state.moderationKpi = {
-                        ...(state.moderationKpi || {}),
-                        hasError: true,
-                        pendingCount: null,
-                        pendingTotal: null,
-                        pendingPostsCount: null,
-                        pendingClubsCount: null,
-                        pendingActivitiesCount: null,
-                        pendingEventsCount: null,
-                        pendingArticlesCount: null,
-                        pendingPlacesCount: null
-                    };
-                    updateAdminModerationBadge(null, true);
-                }
+                applyModerationData(data);
             } else if (res.status === 401 || res.status === 403) {
                 console.warn('[AdminModeration] Token bị từ chối bởi máy chủ (401/403).');
                 clearAdminSessionOnly();
@@ -11053,29 +11044,29 @@ export async function openAdminModerationModal(tab = 'posts') {
                 };
                 updateAdminModerationBadge(null, true);
             }
-    } catch (e) {
-        console.warn('[AdminModeration] Lỗi khi tải dữ liệu duyệt từ API:', e.message);
-        state.moderationKpi = {
-            ...(state.moderationKpi || {}),
-            hasError: true,
-            pendingCount: null,
-            pendingTotal: null,
-            pendingPostsCount: null,
-            pendingClubsCount: null,
-            pendingActivitiesCount: null,
-            pendingEventsCount: null,
-            pendingArticlesCount: null,
-            pendingPlacesCount: null
-        };
-        updateAdminModerationBadge(null, true);
-    }
-
-    if (!state.moderationKpi?.hasError && typeof state.moderationKpi?.pendingCount !== 'number') {
-        syncAndRecalculateModerationPending();
-    }
-    renderModerationModal();
-    modal.classList.remove('hidden');
-    syncBodyScrollLock();
+        } catch (e) {
+            console.warn('[AdminModeration] Lỗi khi tải dữ liệu duyệt từ API:', e.message);
+            state.moderationKpi = {
+                ...(state.moderationKpi || {}),
+                hasError: true,
+                pendingCount: null,
+                pendingTotal: null,
+                pendingPostsCount: null,
+                pendingClubsCount: null,
+                pendingActivitiesCount: null,
+                pendingEventsCount: null,
+                pendingArticlesCount: null,
+                pendingPlacesCount: null
+            };
+            updateAdminModerationBadge(null, true);
+        } finally {
+            state.isModerationSyncing = false;
+            if (!state.moderationKpi?.hasError && typeof state.moderationKpi?.pendingCount !== 'number') {
+                syncAndRecalculateModerationPending();
+            }
+            renderModerationModal();
+        }
+    })();
 }
 
 export function closeAdminModerationModal() {

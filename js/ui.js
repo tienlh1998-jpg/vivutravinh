@@ -10942,7 +10942,8 @@ export function renderAdminModerationModalContent({
     filterCategory = 'all',
     riskFilter = 'all',
     statusFilter = 'pending',
-    searchQuery = ''
+    searchQuery = '',
+    isSyncing = false
 }) {
     const isError = Boolean(kpi && kpi.hasError);
 
@@ -11083,9 +11084,9 @@ export function renderAdminModerationModalContent({
                         <h1 class="font-headline-lg text-lg sm:text-2xl font-bold text-primary dark:text-zinc-100 tracking-tight">
                             Trung tâm Kiểm duyệt Nội dung &amp; CLB
                         </h1>
-                        <span class="px-2.5 py-0.5 rounded-full bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300 font-badge text-xs font-bold flex items-center gap-1 shadow-xs">
-                            <span class="w-2 h-2 rounded-full bg-secondary dark:bg-emerald-400 animate-pulse"></span>
-                            AI Guardian Live
+                        <span class="px-2.5 py-0.5 rounded-full ${isSyncing ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300' : 'bg-secondary-container dark:bg-emerald-950/60 text-on-secondary-container dark:text-emerald-300'} font-badge text-xs font-bold flex items-center gap-1 shadow-xs transition-colors">
+                            <span class="w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-ping' : 'bg-secondary dark:bg-emerald-400 animate-pulse'}"></span>
+                            ${isSyncing ? 'Đang đồng bộ...' : 'AI Guardian Live'}
                         </span>
                     </div>
                 </div>
