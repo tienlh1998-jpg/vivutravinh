@@ -10373,6 +10373,462 @@ export function renderAdminSupportModalContent({
 }
 
 /**
+ * Render nội dung khối hỗ trợ trên trang công khai "Đồng hành cùng Admin" (#view-companion)
+ * Tương thích Stitch Design & Tailwind CSS
+ */
+export function renderCompanionSupportContent({
+    financialReport = {},
+    donationTiers = [],
+    selectedAmount = 35000,
+    selectedNote = 'To bun nuoc leo',
+    techClearance = [],
+    travelGear = [],
+    recentSupporters = []
+}) {
+    const bank = (financialReport && financialReport.bank) || {
+        name: 'Vietcombank (Demo)',
+        accountName: 'VIVUTRAVINH COMMUNITY',
+        accountNumber: '9826',
+        defaultMemo: 'VIVU UNG HO'
+    };
+
+    const currentMemo = selectedAmount
+        ? `VIVU ${selectedAmount.toLocaleString('vi-VN')} UNG HO`
+        : 'VIVU UNG HO';
+
+    return `
+        <!-- Khối 1: BÁO CÁO MINH BẠCH & TIẾN ĐỘ QUỸ MÁY CHỦ -->
+        <section class="space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                <!-- Transparency Mission (7 cols) -->
+                <div class="lg:col-span-7 bg-primary-container text-on-primary rounded-3xl p-6 sm:p-7 shadow-sm flex flex-col justify-between relative overflow-hidden">
+                    <div class="relative z-10 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="px-3 py-1 rounded-full bg-secondary text-on-secondary font-badge text-xs font-bold uppercase tracking-wider">
+                                BÁO CÁO MINH BẠCH
+                            </span>
+                            <span class="font-caption text-xs text-on-primary-container">
+                                Kỳ vận hành: ${escapeHtml(financialReport.cycle || 'Quý I/2025')}
+                            </span>
+                        </div>
+                        <div>
+                            <h3 class="font-headline-lg text-xl sm:text-2xl font-bold text-white tracking-tight">
+                                Vì một Trà Vinh số hóa, bền vững
+                            </h3>
+                            <p class="font-body-md text-xs sm:text-sm text-on-primary-container mt-2 max-w-xl leading-relaxed">
+                                Tất cả mã nguồn ứng dụng, tọa độ bản đồ di sản và danh bạ làng nghề được xây dựng thủ công với sự trợ giúp của cộng đồng địa phương. Không quảng cáo gây phiền toái, không thu phí du khách.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Subtle background SVG -->
+                    <svg class="absolute -right-10 -bottom-10 w-56 h-56 text-white/5 pointer-events-none" fill="currentColor" viewBox="0 0 200 200" aria-hidden="true">
+                        <path d="M100 0 C44.8 0 0 44.8 0 100 C0 155.2 44.8 200 100 200 C155.2 200 200 155.2 200 100 C200 44.8 155.2 0 100 0 Z"></path>
+                    </svg>
+
+                    <!-- Metrics Row -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-5 mt-4 relative z-10">
+                        <div class="bg-black/25 backdrop-blur-sm rounded-2xl p-3.5 flex flex-col border border-white/10">
+                            <span class="font-caption text-[11px] text-on-primary-container">Chi phí duy trì</span>
+                            <span class="font-headline-sm text-lg font-bold text-secondary-fixed mt-0.5">
+                                ${(financialReport.monthlyCost || 650000).toLocaleString('vi-VN')}đ
+                            </span>
+                            <span class="font-caption text-[10px] text-on-primary-container">Hàng tháng (Cloud + DNS)</span>
+                        </div>
+                        <div class="bg-black/25 backdrop-blur-sm rounded-2xl p-3.5 flex flex-col border border-white/10">
+                            <span class="font-caption text-[11px] text-on-primary-container">Thời gian vận hành</span>
+                            <span class="font-headline-sm text-lg font-bold text-secondary-fixed mt-0.5">
+                                ${financialReport.uptimeMonths || 18} tháng
+                            </span>
+                            <span class="font-caption text-[10px] text-on-primary-container">Liên tục không gián đoạn</span>
+                        </div>
+                        <div class="bg-black/25 backdrop-blur-sm rounded-2xl p-3.5 flex flex-col border border-white/10">
+                            <span class="font-caption text-[11px] text-on-primary-container">Dữ liệu xác thực</span>
+                            <span class="font-headline-sm text-lg font-bold text-secondary-fixed mt-0.5">
+                                ${financialReport.verifiedPlaces || 128} tọa độ
+                            </span>
+                            <span class="font-caption text-[10px] text-on-primary-container">Chùa, ẩm thực &amp; làng nghề</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Budget Progress Bar (5 cols) -->
+                <div class="lg:col-span-5 bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl p-6 sm:p-7 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">query_stats</span>
+                            <h3 class="font-headline-sm text-base sm:text-lg font-bold text-primary dark:text-zinc-100">
+                                Tiến độ quỹ máy chủ
+                            </h3>
+                        </div>
+                        <p class="text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                            Kinh phí đóng góp được dùng 100% để thanh toán hạ tầng máy chủ, tên miền và lưu trữ dữ liệu bản đồ phục vụ cộng đồng.
+                        </p>
+                    </div>
+
+                    <div class="space-y-2.5 bg-surface-container-low dark:bg-zinc-800/50 p-4 rounded-2xl border border-outline-variant/20 dark:border-zinc-700/40">
+                        <div class="flex items-center justify-between text-xs sm:text-sm">
+                            <span class="font-semibold text-primary dark:text-zinc-100">Đã gây quỹ:</span>
+                            <span class="font-bold text-secondary dark:text-emerald-400">
+                                ${(financialReport.monthlyFunded || 520000).toLocaleString('vi-VN')}đ / ${(financialReport.monthlyCost || 650000).toLocaleString('vi-VN')}đ (${financialReport.percentFunded || 80}%)
+                            </span>
+                        </div>
+                        <div class="w-full h-3 rounded-full bg-surface-container dark:bg-zinc-700 overflow-hidden">
+                            <div class="h-full bg-secondary dark:bg-emerald-500 rounded-full transition-all duration-500" style="width: ${financialReport.percentFunded || 80}%;"></div>
+                        </div>
+                        <p class="font-caption text-[11px] text-on-surface-variant dark:text-zinc-400">
+                            Chỉ còn thiếu <strong class="text-secondary dark:text-emerald-400 font-semibold">${(financialReport.remainingNeeded || 130000).toLocaleString('vi-VN')}đ</strong> để hoàn tất chi phí máy chủ tháng này. Cảm ơn sự hỗ trợ bền bỉ từ các bạn!
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Khối 2: GÓI ỦNG HỘ KINH PHÍ TỰ NGUYỆN & VIETQR BOX -->
+        <section class="space-y-4">
+            <div>
+                <span class="text-xs font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 block mb-0.5">
+                    ỦNG HỘ TỰ NGUYỆN
+                </span>
+                <h2 class="text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                    Ủng Hộ Kinh Phí Duy Trì ViVuTraVinh
+                </h2>
+                <p class="text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 mt-1 max-w-3xl leading-relaxed">
+                    Nếu bạn thấy nền tảng hữu ích, một ly cà phê nhỏ có thể giúp dự án trang trải chi phí máy chủ Cloud, tên miền và duy trì dữ liệu bản đồ luôn cập nhật.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <!-- Donation Options (7 cols) -->
+                <div class="lg:col-span-7 flex flex-col gap-3.5">
+                    ${donationTiers.map(tier => {
+                        const isSelected = selectedAmount === tier.amount;
+                        return `
+                            <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border ${isSelected ? 'border-2 border-secondary dark:border-emerald-500 bg-secondary/5 dark:bg-emerald-950/20' : 'border-outline-variant/30 dark:border-zinc-800'} relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all">
+                                ${tier.popular ? `
+                                    <div class="absolute top-0 right-0">
+                                        <span class="bg-secondary text-white text-[10px] font-bold px-3 py-0.5 rounded-bl-xl tracking-wider">
+                                            PHỔ BIẾN NHẤT
+                                        </span>
+                                    </div>
+                                ` : ''}
+                                <div class="flex items-start gap-3.5">
+                                    <div class="w-12 h-12 rounded-2xl ${isSelected ? 'bg-secondary text-white' : 'bg-surface-container dark:bg-zinc-800 text-secondary dark:text-emerald-400'} flex items-center justify-center shrink-0">
+                                        <span class="material-symbols-outlined text-[24px]">${escapeHtml(tier.icon)}</span>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <h4 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                                            ${escapeHtml(tier.name)}
+                                        </h4>
+                                        <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 mt-0.5 leading-relaxed">
+                                            ${escapeHtml(tier.desc)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="window.ViVuApp.selectDonationTier(${tier.amount}, '${escapeHtml(tier.id)}')"
+                                    class="w-full sm:w-auto px-5 py-2.5 min-h-[44px] rounded-xl ${isSelected ? 'bg-secondary text-white shadow-md' : 'bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-secondary hover:text-white'} font-button text-xs font-semibold transition-all shrink-0">
+                                    Ủng hộ ${tier.amount.toLocaleString('vi-VN')}đ
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
+
+                    <!-- Custom amount input -->
+                    <div class="p-4 rounded-2xl bg-surface-container-low dark:bg-zinc-800/40 border border-outline-variant/30 dark:border-zinc-700/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">volunteer_activism</span>
+                            <span class="text-xs text-on-surface-variant dark:text-zinc-300 font-medium">Hoặc nhập số tiền tùy ý bạn muốn tiếp sức:</span>
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <input id="companionCustomDonationInput" type="number" min="10000" step="10000" placeholder="50.000đ"
+                                class="h-11 px-3.5 rounded-xl bg-surface-container-lowest dark:bg-zinc-800 text-xs font-semibold outline-none border border-outline-variant/40 dark:border-zinc-700 w-32" />
+                            <button type="button" onclick="window.ViVuApp.applyCustomDonation()"
+                                class="h-11 px-4 rounded-xl bg-secondary text-white font-button text-xs font-semibold hover:bg-primary transition-colors min-h-[44px]">
+                                Tạo mã QR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VietQR Box (5 cols) -->
+                <div class="lg:col-span-5 bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">qr_code_2</span>
+                            Quét mã VietQR nhanh
+                        </h3>
+                        <span class="inline-flex items-center gap-1 text-[11px] text-tertiary-container dark:text-amber-300 bg-tertiary-fixed dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full font-semibold">
+                            <span class="material-symbols-outlined text-[13px]">info</span>
+                            DEMO THỬ NGHIỆM
+                        </span>
+                    </div>
+
+                    <!-- Visual VietQR Mockup Container with pure inline SVG QR Code -->
+                    <div class="bg-surface-container-low dark:bg-zinc-800/60 rounded-2xl p-5 flex flex-col items-center justify-center relative border border-outline-variant/30 dark:border-zinc-700/50">
+                        <div class="w-48 h-48 bg-white rounded-2xl p-3 shadow-md relative flex items-center justify-center">
+                            <svg class="w-full h-full text-zinc-900" fill="currentColor" viewBox="0 0 160 160" aria-label="Mã VietQR ủng hộ ViVuTraVinh">
+                                <rect x="10" y="10" width="40" height="40" rx="4"></rect>
+                                <rect x="16" y="16" width="28" height="28" rx="2" fill="#FFFFFF"></rect>
+                                <rect x="22" y="22" width="16" height="16" rx="2"></rect>
+                                <rect x="110" y="10" width="40" height="40" rx="4"></rect>
+                                <rect x="116" y="16" width="28" height="28" rx="2" fill="#FFFFFF"></rect>
+                                <rect x="122" y="22" width="16" height="16" rx="2"></rect>
+                                <rect x="10" y="110" width="40" height="40" rx="4"></rect>
+                                <rect x="16" y="116" width="28" height="28" rx="2" fill="#FFFFFF"></rect>
+                                <rect x="22" y="122" width="16" height="16" rx="2"></rect>
+                                <rect x="58" y="12" width="8" height="8"></rect>
+                                <rect x="74" y="12" width="14" height="8"></rect>
+                                <rect x="94" y="12" width="8" height="8"></rect>
+                                <rect x="58" y="26" width="18" height="8"></rect>
+                                <rect x="84" y="26" width="8" height="8"></rect>
+                                <rect x="58" y="40" width="8" height="18"></rect>
+                                <rect x="74" y="40" width="12" height="8"></rect>
+                                <rect x="92" y="42" width="8" height="8"></rect>
+                                <rect x="12" y="58" width="14" height="8"></rect>
+                                <rect x="34" y="58" width="8" height="8"></rect>
+                                <rect x="48" y="58" width="18" height="8"></rect>
+                                <rect x="74" y="58" width="8" height="16"></rect>
+                                <rect x="90" y="58" width="18" height="8"></rect>
+                                <rect x="116" y="58" width="12" height="8"></rect>
+                                <rect x="136" y="58" width="14" height="8"></rect>
+                                <rect x="58" y="82" width="14" height="8"></rect>
+                                <rect x="80" y="82" width="8" height="16"></rect>
+                                <rect x="96" y="82" width="14" height="8"></rect>
+                                <rect x="120" y="82" width="8" height="8"></rect>
+                                <rect x="134" y="82" width="16" height="8"></rect>
+                                <rect x="58" y="104" width="8" height="18"></rect>
+                                <rect x="74" y="104" width="16" height="8"></rect>
+                                <rect x="100" y="104" width="8" height="8"></rect>
+                                <rect x="116" y="104" width="16" height="8"></rect>
+                                <rect x="140" y="104" width="10" height="8"></rect>
+                                <rect x="58" y="132" width="22" height="8"></rect>
+                                <rect x="88" y="124" width="8" height="16"></rect>
+                                <rect x="104" y="132" width="14" height="8"></rect>
+                                <rect x="126" y="124" width="10" height="8"></rect>
+                                <rect x="142" y="132" width="8" height="18"></rect>
+                            </svg>
+                            <!-- Center Logo Pill -->
+                            <div class="absolute inset-0 m-auto w-10 h-10 rounded-xl bg-white p-1 shadow-md flex items-center justify-center">
+                                <div class="w-full h-full rounded-lg bg-primary-container flex items-center justify-center text-white">
+                                    <span class="material-symbols-outlined text-[20px]">explore</span>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="font-caption text-xs text-on-surface-variant dark:text-zinc-400 mt-2 text-center">
+                            Số tiền: <strong class="text-secondary dark:text-emerald-400 font-bold">${selectedAmount.toLocaleString('vi-VN')}đ</strong>
+                        </span>
+                    </div>
+
+                    <!-- Transfer Info Table -->
+                    <div class="flex flex-col gap-2 bg-surface-container-low dark:bg-zinc-800/40 p-3.5 rounded-2xl font-caption text-xs border border-outline-variant/30 dark:border-zinc-700/50">
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-on-surface-variant dark:text-zinc-400">Ngân hàng:</span>
+                            <span class="font-semibold text-primary dark:text-zinc-100">${escapeHtml(bank.name)}</span>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-on-surface-variant dark:text-zinc-400">Tên thụ hưởng:</span>
+                            <span class="font-semibold text-primary dark:text-zinc-100">${escapeHtml(bank.accountName)}</span>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-on-surface-variant dark:text-zinc-400">Số tài khoản:</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-semibold text-primary dark:text-zinc-100 font-mono">${escapeHtml(bank.accountNumber)}</span>
+                                <button type="button" onclick="window.ViVuApp.copyToClipboard('${escapeHtml(bank.accountNumber)}', 'Đã sao chép số tài khoản!')"
+                                    class="w-8 h-8 rounded-lg bg-surface-container dark:bg-zinc-700 hover:text-secondary flex items-center justify-center min-h-[32px] min-w-[32px]" title="Sao chép số tài khoản" aria-label="Sao chép số tài khoản">
+                                    <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center py-1">
+                            <span class="text-on-surface-variant dark:text-zinc-400">Nội dung CK:</span>
+                            <div class="flex items-center gap-1.5">
+                                <span id="transferNoteLabel" class="font-semibold text-secondary dark:text-emerald-400 font-mono bg-secondary/10 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg">
+                                    ${escapeHtml(currentMemo)}
+                                </span>
+                                <button type="button" onclick="window.ViVuApp.copyTransferNote('${escapeHtml(currentMemo)}')"
+                                    class="w-8 h-8 rounded-lg bg-surface-container dark:bg-zinc-700 hover:text-secondary flex items-center justify-center min-h-[32px] min-w-[32px]" title="Sao chép nội dung chuyển khoản" aria-label="Sao chép nội dung">
+                                    <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="window.ViVuApp.confirmSimulatedDonation(${selectedAmount})"
+                        class="w-full py-3 px-4 rounded-xl bg-secondary text-white font-button text-xs font-semibold flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-md min-h-[44px]">
+                        <span class="material-symbols-outlined text-[18px]">verified</span>
+                        <span>Xác nhận đã chuyển (Mô phỏng ghi nhận)</span>
+                    </button>
+
+                    <div class="flex items-center gap-2 text-on-surface-variant dark:text-zinc-400 font-caption text-[11px]">
+                        <span class="material-symbols-outlined text-[16px] text-secondary dark:text-emerald-400 shrink-0">verified_user</span>
+                        <span>Mọi khoản ủng hộ sẽ được công khai minh bạch trong báo cáo thu chi hàng quý của cộng đồng.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Khối 3: GÓC ĐỒ CÔNG NGHỆ CỦA ADMIN (TRANG MÌNH BÁN HÀNG) -->
+        <section class="space-y-4">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+                <div>
+                    <div class="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-badge text-xs font-bold mb-1">
+                        <span class="material-symbols-outlined text-[16px]">memory</span>
+                        GÓC THANH LÝ THIẾT BỊ DƯ DÙNG
+                    </div>
+                    <h2 class="font-headline-lg text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                        Góc Đồ Công Nghệ Của Admin
+                    </h2>
+                    <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-2xl mt-1 leading-relaxed">
+                        Một vài món đồ công nghệ của cá nhân Admin dư dùng hoặc nâng cấp, chia sẻ lại cho anh em lập trình viên / digital nomad với giá tốt để gây quỹ server.
+                    </p>
+                </div>
+                <div class="px-3.5 py-1.5 rounded-full bg-secondary-container dark:bg-emerald-950/70 text-on-secondary-container dark:text-emerald-300 font-caption text-xs font-semibold self-start md:self-auto">
+                    100% tiền dư được chuyển thẳng vào quỹ máy chủ
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                ${techClearance.map(item => `
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-all">
+                        <div class="flex flex-col">
+                            <div class="relative w-full aspect-[4/3] bg-surface-container-low dark:bg-zinc-800/80 flex items-center justify-center p-6 overflow-hidden">
+                                ${item.image ? `
+                                    <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+                                ` : `
+                                    <div class="w-20 h-20 rounded-2xl bg-surface-container dark:bg-zinc-700 flex items-center justify-center text-secondary dark:text-emerald-400">
+                                        <span class="material-symbols-outlined text-[42px]">${escapeHtml(item.icon)}</span>
+                                    </div>
+                                `}
+                                <span class="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur text-on-surface dark:text-zinc-100 font-caption text-[11px] font-semibold">
+                                    ${escapeHtml(item.condition)}
+                                </span>
+                            </div>
+                            <div class="p-5 flex flex-col gap-2">
+                                <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-2">
+                                    ${escapeHtml(item.name)}
+                                </h3>
+                                <div class="font-headline-md text-base sm:text-lg text-secondary dark:text-emerald-400 font-bold">
+                                    ${item.price.toLocaleString('vi-VN')}đ
+                                </div>
+                                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    ${escapeHtml(item.desc)}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="p-5 pt-0 grid grid-cols-2 gap-2">
+                            <a href="mailto:vivutravinh@gmail.com?subject=${encodeURIComponent('[ViVuTraVinh - Mua đồ công nghệ thanh lý] ' + item.name)}"
+                                class="min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 font-button text-xs font-semibold transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">mail</span>
+                                <span>Email</span>
+                            </a>
+                            <a href="https://www.facebook.com/people/ViVu-Tr%C3%A0-Vinh-Kh%C3%A1m-ph%C3%A1-C%E1%BB%99ng-%C4%91%E1%BB%93ng/61587249012873/" target="_blank" rel="noopener noreferrer"
+                                class="min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-secondary text-white hover:bg-secondary-dark font-button text-xs font-semibold transition-colors shadow-xs">
+                                <span class="material-symbols-outlined text-[16px]">chat</span>
+                                <span>Fanpage / Zalo</span>
+                            </a>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </section>
+
+        <!-- Khối 4: ĐỒ DÙNG HỮU ÍCH KHI ĐI KHÁM PHÁ TRÀ VINH (TRANG NHỎ SHOPEE AFFILIATE) -->
+        <section class="space-y-4">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
+                <div>
+                    <div class="inline-flex items-center gap-1.5 text-secondary dark:text-emerald-400 font-badge text-xs font-bold mb-1">
+                        <span class="material-symbols-outlined text-[16px]">hiking</span>
+                        CẨM NANG &amp; PHỤ KIỆN BỎ TÚI
+                    </div>
+                    <h2 class="font-headline-lg text-xl sm:text-2xl font-bold text-primary dark:text-zinc-100">
+                        Đồ Dùng Hữu Ích Khi Đi Khám Phá Trà Vinh
+                    </h2>
+                    <p class="font-body-md text-xs sm:text-sm text-on-surface-variant dark:text-zinc-400 max-w-2xl mt-1 leading-relaxed">
+                        Những vật dụng Admin và nhóm bạn trẻ thường mang theo khi đạp xe cồn bãi hoặc phượt chùa Khmer. Khi mua qua link Shopee, bạn được hưởng giá ưu đãi và giúp sàn trích hoa hồng nhỏ hỗ trợ máy chủ ViVuTraVinh.
+                    </p>
+                </div>
+                <div class="px-3 py-1 rounded-full bg-surface-container dark:bg-zinc-800 text-on-surface-variant dark:text-zinc-400 font-caption text-xs flex items-center gap-1.5 self-start md:self-auto">
+                    <span class="material-symbols-outlined text-[14px]">link</span>
+                    <span>Affiliate Shopee • Hoa hồng nhỏ góp quỹ máy chủ</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                ${travelGear.map(gear => `
+                    <div class="bg-surface-container-lowest dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm border border-outline-variant/30 dark:border-zinc-800 flex flex-col justify-between hover:shadow-md transition-all">
+                        <div class="flex flex-col">
+                            <div class="relative w-full aspect-[4/3] bg-surface-container-low dark:bg-zinc-800/80 flex items-center justify-center p-6">
+                                <div class="w-20 h-20 rounded-2xl bg-surface-container dark:bg-zinc-700 flex items-center justify-center text-secondary dark:text-emerald-400">
+                                    <span class="material-symbols-outlined text-[42px]">${escapeHtml(gear.icon)}</span>
+                                </div>
+                                <span class="absolute bottom-3 left-3 px-2 py-0.5 rounded bg-surface-container-lowest/90 dark:bg-zinc-900/90 backdrop-blur text-on-surface dark:text-zinc-200 font-caption text-[11px] font-semibold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[13px] text-amber-500">star</span>
+                                    ${escapeHtml(gear.rating)}
+                                </span>
+                            </div>
+                            <div class="p-5 flex flex-col gap-2">
+                                <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100 line-clamp-2">
+                                    ${escapeHtml(gear.name)}
+                                </h3>
+                                <div class="font-headline-md text-base sm:text-lg text-secondary dark:text-emerald-400 font-bold">
+                                    ${gear.price.toLocaleString('vi-VN')}đ
+                                </div>
+                                <p class="font-body-sm text-xs text-on-surface-variant dark:text-zinc-400 leading-relaxed">
+                                    ${escapeHtml(gear.desc)}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="p-5 pt-0">
+                            <a href="${escapeHtml(gear.link)}" target="_blank" rel="noopener noreferrer"
+                                class="w-full min-h-[44px] flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-surface-container dark:bg-zinc-800 text-on-surface dark:text-zinc-200 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 font-button text-xs font-semibold transition-colors">
+                                <span>Xem trên Shopee</span>
+                                <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                            </a>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </section>
+
+        <!-- Khối 5: DANH SÁCH TRI ÂN NGƯỜI ĐỒNG HÀNH GẦN ĐÂY -->
+        <section class="bg-surface-container-low dark:bg-zinc-900 rounded-3xl p-6 sm:p-7 border border-outline-variant/30 dark:border-zinc-800 flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[20px] text-secondary dark:text-emerald-400">volunteer_activism</span>
+                    <h3 class="font-headline-sm text-sm sm:text-base font-bold text-primary dark:text-zinc-100">
+                        Danh sách tri ân người đồng hành gần đây
+                    </h3>
+                </div>
+                <span class="text-xs text-secondary dark:text-emerald-400 font-semibold">
+                    ${recentSupporters.length} lượt ủng hộ
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                ${recentSupporters.slice(0, 4).map(s => `
+                    <div class="p-3 rounded-2xl bg-surface-container-lowest dark:bg-zinc-800 shadow-xs border border-outline-variant/20 dark:border-zinc-700/40 flex flex-col gap-1">
+                        <div class="flex items-center justify-between">
+                            <span class="font-button text-xs font-bold text-primary dark:text-zinc-100 truncate">${escapeHtml(s.name)}</span>
+                            <span class="text-[11px] text-secondary dark:text-emerald-400 font-bold">${s.amount.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                        <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 italic line-clamp-1">"${escapeHtml(s.message)}"</p>
+                        <span class="text-[10px] text-outline dark:text-zinc-500">${escapeHtml(s.date)}</span>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-outline-variant/20 dark:border-zinc-800 text-xs text-on-surface-variant dark:text-zinc-400">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-secondary text-[18px]">favorite</span>
+                    <span>Báo cáo tài chính &amp; danh sách tri ân người ủng hộ được cập nhật minh bạch định kỳ vào ngày 01 hàng tháng.</span>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+
+/**
  * Render modal "Trung tâm Kiểm duyệt Nội dung & CLB ViVuTràVinh Admin"
  * Chuẩn thiết kế Stitch ki_m_duy_t_n_i_dung_b_i_vi_t_c_ng_ng_vivutravinh_admin/code.html
  * & ki_m_duy_t_n_i_dung_th_m_nh_c_u_l_c_b_vivutravinh_admin/code.html

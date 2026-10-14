@@ -54,6 +54,7 @@ import {
     renderTripSummaryModalContent,
     renderSocialStoryModalContent,
     renderAdminSupportModalContent,
+    renderCompanionSupportContent,
     renderAdminModerationModalContent,
     renderAdminActionReasonModalContent,
     renderDeepPlaceDetailModalContent,
@@ -899,6 +900,9 @@ async function initApp() {
 
         // Khởi tạo Mini Map Bento
         initMiniMap();
+
+        // Đồng bộ dữ liệu hiển thị khối Hỗ trợ dự án & Đồng hành cùng Admin
+        updateSupportViews();
 
         showLoading(false);
 
@@ -5814,6 +5818,13 @@ export function switchView(viewName, options = {}) {
         renderPlannerMainView();
     }
 
+    if (viewName === 'companion') {
+        const companionContainer = document.getElementById('companionSupportContainer');
+        if (companionContainer && companionContainer.children.length === 0) {
+            updateSupportViews();
+        }
+    }
+
     // Cuộn trang
     if (scrollTo) {
         setTimeout(() => {
@@ -10355,8 +10366,24 @@ export function shareToSocial(platform) {
 // =========================================================================
 
 export function openAdminSupportModal() {
-    closeAdminSupportModal();
-    navGoCompanion();
+    const modal = document.getElementById('adminSupportModal');
+    const container = document.getElementById('adminSupportModalContent');
+    if (modal && container) {
+        container.innerHTML = renderAdminSupportModalContent({
+            adminInfo: state.adminInfo,
+            financialReport: state.financialReport,
+            donationTiers: state.donationTiers,
+            selectedAmount: state.selectedDonationAmount,
+            selectedNote: state.selectedDonationTierId,
+            techClearance: state.techClearance,
+            travelGear: state.travelGear,
+            recentSupporters: state.recentSupporters
+        });
+        modal.classList.remove('hidden');
+        syncBodyScrollLock();
+    } else {
+        navGoCompanion();
+    }
 }
 
 export function closeAdminSupportModal() {
@@ -10367,12 +10394,23 @@ export function closeAdminSupportModal() {
     syncBodyScrollLock();
 }
 
-export function selectDonationTier(amount, tierId) {
-    state.selectedDonationAmount = amount;
-    state.selectedDonationTierId = tierId;
-    const container = document.getElementById('adminSupportModalContent');
-    if (container) {
-        container.innerHTML = renderAdminSupportModalContent({
+export function updateSupportViews() {
+    const companionContainer = document.getElementById('companionSupportContainer');
+    if (companionContainer) {
+        companionContainer.innerHTML = renderCompanionSupportContent({
+            financialReport: state.financialReport,
+            donationTiers: state.donationTiers,
+            selectedAmount: state.selectedDonationAmount,
+            selectedNote: state.selectedDonationTierId,
+            techClearance: state.techClearance,
+            travelGear: state.travelGear,
+            recentSupporters: state.recentSupporters
+        });
+    }
+
+    const modalContainer = document.getElementById('adminSupportModalContent');
+    if (modalContainer && modalContainer.children && modalContainer.children.length > 0) {
+        modalContainer.innerHTML = renderAdminSupportModalContent({
             adminInfo: state.adminInfo,
             financialReport: state.financialReport,
             donationTiers: state.donationTiers,
@@ -10385,8 +10423,14 @@ export function selectDonationTier(amount, tierId) {
     }
 }
 
+export function selectDonationTier(amount, tierId) {
+    state.selectedDonationAmount = amount;
+    state.selectedDonationTierId = tierId;
+    updateSupportViews();
+}
+
 export function applyCustomDonation() {
-    const input = document.getElementById('customDonationInput');
+    const input = document.getElementById('companionCustomDonationInput') || document.getElementById('customDonationInput');
     if (!input) return;
     const val = parseInt(input.value, 10);
     if (isNaN(val) || val < 10000) {
@@ -10422,9 +10466,10 @@ export function copyToClipboard(text, successMsg = 'Đã sao chép vào bộ nh�
 }
 
 export function confirmSimulatedDonation(amount) {
+    const donationAmount = amount || state.selectedDonationAmount || 35000;
     const newRecord = {
         name: state.userProfile?.displayName || 'Du khách hảo tâm',
-        amount: amount || state.selectedDonationAmount,
+        amount: donationAmount,
         date: 'Vừa xong',
         message: 'Đồng hành cùng máy chủ ViVuTraVinh'
     };
@@ -10433,19 +10478,7 @@ export function confirmSimulatedDonation(amount) {
     state.financialReport.percentFunded = Math.min(100, Math.round((state.financialReport.monthlyFunded / state.financialReport.monthlyCost) * 100));
     state.financialReport.remainingNeeded = Math.max(0, state.financialReport.monthlyCost - state.financialReport.monthlyFunded);
 
-    const container = document.getElementById('adminSupportModalContent');
-    if (container) {
-        container.innerHTML = renderAdminSupportModalContent({
-            adminInfo: state.adminInfo,
-            financialReport: state.financialReport,
-            donationTiers: state.donationTiers,
-            selectedAmount: state.selectedDonationAmount,
-            selectedNote: state.selectedDonationTierId,
-            techClearance: state.techClearance,
-            travelGear: state.travelGear,
-            recentSupporters: state.recentSupporters
-        });
-    }
+    updateSupportViews();
     showSavedToast(`Cảm ơn bạn đã ủng hộ ${newRecord.amount.toLocaleString('vi-VN')}đ vào quỹ máy chủ!`);
 }
 
@@ -12335,6 +12368,7 @@ if (typeof window !== 'undefined') {
         // Admin Support Wall & Moderation Portal Methods (Phase 10)
         openAdminSupportModal,
         closeAdminSupportModal,
+        updateSupportViews,
         selectDonationTier,
         applyCustomDonation,
         copyTransferNote,

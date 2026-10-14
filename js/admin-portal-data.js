@@ -12,7 +12,8 @@ export const ADMIN_INFO = {
     bio: "ViVuTraVinh được xây dựng từ tình yêu với vùng đất Trà Vinh, hương vị ẩm thực bản địa và mong muốn du khách khắp nơi có một cẩm nang địa phương chân thực nhất. Nền tảng hoạt động phi lợi nhuận và mở cho cộng đồng đóng góp. Thông tin chi tiết về chủ dự án và ban quản trị chính thức đang chờ cập nhật xác nhận.",
     contacts: {
         email: "mailto:vivutravinh@gmail.com",
-        facebook: "https://www.facebook.com/people/ViVu-Tr%C3%A0-Vinh-Kh%C3%A1m-ph%C3%A1-C%E1%BB%99ng-%C4%91%E1%BB%93ng/61587249012873/"
+        facebook: "https://www.facebook.com/people/ViVu-Tr%C3%A0-Vinh-Kh%C3%A1m-ph%C3%A1-C%E1%BB%99ng-%C4%91%E1%BB%93ng/61587249012873/",
+        zalo: "https://zalo.me"
     }
 };
 
@@ -73,7 +74,7 @@ export const ADMIN_TECH_CLEARANCE = [
         condition: "Like new 99% • Fullbox",
         desc: "Tốc độ đọc 1050MB/s, vỏ nhôm tản nhiệt cực tốt, chuyên backup ảnh chụp di tích Trà Vinh & source code ViVuTraVinh.",
         icon: "memory",
-        image: "chùa âng.jpg"
+        image: ""
     },
     {
         id: "keyboard-nuphy",

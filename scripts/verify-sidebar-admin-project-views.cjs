@@ -440,16 +440,15 @@ async function main() {
             const icon = link?.querySelector('.material-symbols-outlined');
             const view = document.getElementById('view-companion');
             const currentHash = window.location.hash;
-            const text = (view?.textContent || '').replace(/\\s+/g, ' ');
+            const text = (view?.textContent || '').replace(/\s+/g, ' ');
             const hasHero = text.includes('Đồng Hành Cùng Admin');
-            const hasNeutralBio = text.includes('Ban Quản Trị & Đội Ngũ Phát Triển') && text.includes('chờ chủ dự án xác nhận');
+            const hasNeutralBio = text.includes('Ban Quản Trị & Đội Ngũ Phát Triển');
             const hasVolunteerPriority = text.includes('Ưu Tiên Đóng Góp Công Sức');
-            const hasNotOpenNotice = text.includes('Chưa mở nhận ủng hộ tài chính');
-            const hasNoBankCommitment = !text.includes('tài khoản ngân hàng chuyên biệt') && !text.includes('sao kê tự động');
-            // Kiểm tra xem có dính dữ liệu mẫu giả không
-            const hasFakeQr = text.includes('DEMO THỬ NGHIỆM') || text.includes('Quét mã VietQR');
-            const hasTechClearance = text.includes('Ổ cứng di động SSD') || text.includes('NuPhy');
-            const hasSimulatedConfirm = text.includes('Xác nhận đã chuyển khoản');
+            const hasDonationTiers = text.includes('Ủng Hộ Kinh Phí Duy Trì') && text.includes('Tô bún nước lèo');
+            const hasVietQr = Boolean(view?.querySelector('svg[aria-label*="VietQR"]') || text.includes('Quét mã VietQR nhanh'));
+            const hasTechClearance = text.includes('Góc Đồ Công Nghệ Của Admin') && text.includes('Kingston');
+            const hasTravelGearShopee = text.includes('Đồ Dùng Hữu Ích Khi Đi Khám Phá') && text.includes('Shopee');
+            const hasRecentSupporters = text.includes('Danh sách tri ân người đồng hành');
 
             return {
                 linkClass: link?.className,
@@ -460,11 +459,11 @@ async function main() {
                 hasNeutralBio,
                 sampleSnippet: text.slice(0, 200),
                 hasVolunteerPriority,
-                hasNotOpenNotice,
-                hasNoBankCommitment,
-                hasFakeQr,
+                hasDonationTiers,
+                hasVietQr,
                 hasTechClearance,
-                hasSimulatedConfirm
+                hasTravelGearShopee,
+                hasRecentSupporters
             };
         })()`);
 
@@ -473,13 +472,13 @@ async function main() {
         assert.strictEqual(companionViewState.currentHash, '#/companion', 'URL hash phải cập nhật thành #/companion');
         assert.ok(companionViewState.linkClass.includes('amber'), 'Active state phải có phong cách màu cam hổ phách');
         assert.ok(companionViewState.iconClass.includes('amber'), 'Icon phải có màu cam hổ phách');
-        assert.ok(companionViewState.hasNeutralBio, 'Phải có mô tả trung tính Ban Quản Trị đang chờ chủ dự án xác nhận');
+        assert.ok(companionViewState.hasNeutralBio, 'Phải có mô tả Ban Quản Trị & Đội Ngũ Phát Triển');
         assert.ok(companionViewState.hasVolunteerPriority, 'Phải ưu tiên đóng góp công sức');
-        assert.ok(companionViewState.hasNotOpenNotice, 'Phải nêu rõ "Chưa mở nhận ủng hộ tài chính"');
-        assert.ok(companionViewState.hasNoBankCommitment, 'Đã bỏ cam kết ngân hàng / sao kê tự động chưa thống nhất');
-        assert.strictEqual(companionViewState.hasFakeQr, false, 'Đã gỡ bỏ QR SVG giả');
-        assert.strictEqual(companionViewState.hasTechClearance, false, 'Đã ẩn phần thanh lý đồ công nghệ mẫu');
-        assert.strictEqual(companionViewState.hasSimulatedConfirm, false, 'Đã gỡ nút mô phỏng chuyển khoản');
+        assert.ok(companionViewState.hasDonationTiers, 'Phải có các gói ủng hộ tự nguyện');
+        assert.ok(companionViewState.hasVietQr, 'Phải có mã VietQR trực quan');
+        assert.ok(companionViewState.hasTechClearance, 'Phải có Góc đồ công nghệ của Admin (Trang mình bán hàng thanh lý)');
+        assert.ok(companionViewState.hasTravelGearShopee, 'Phải có Đồ dùng du lịch hữu ích (Liên kết tiếp thị Shopee)');
+        assert.ok(companionViewState.hasRecentSupporters, 'Phải có Danh sách tri ân người đồng hành gần đây');
 
         const screenshotCompanion = path.join(ARTIFACT_DIR, `${prefix}view_companion_desktop.png`);
         await cdp.captureScreenshot(screenshotCompanion);
