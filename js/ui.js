@@ -10649,16 +10649,23 @@ export function renderAdminModerationModalContent({
 
             <div class="flex flex-col gap-6 pt-5">
                 ${isError ? `
-                    <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+                    <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
                         <div class="flex items-center gap-2.5 text-xs font-semibold">
                             <span class="material-symbols-outlined text-[20px] text-amber-600 dark:text-amber-400">warning</span>
-                            <span>Chưa tải được số lượng chờ duyệt mới nhất từ máy chủ (Lỗi kết nối). Vui lòng thử lại.</span>
+                            <span>Chưa tải được số lượng chờ duyệt mới nhất từ máy chủ hoặc phiên làm việc cần xác thực lại.</span>
                         </div>
-                        <button type="button" onclick="window.ViVuApp.openAdminModerationModal('${activeTab}')"
-                            class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-button text-xs font-bold transition-all shadow-xs shrink-0 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-[16px]">refresh</span>
-                            <span>Tải lại</span>
-                        </button>
+                        <div class="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                            <button type="button" onclick="window.ViVuApp?.openAuthModal ? window.ViVuApp.openAuthModal('signin', () => window.ViVuApp.openAdminModerationModal('${activeTab}')) : null"
+                                class="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-button text-xs font-bold transition-all shadow-xs flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">login</span>
+                                <span>Đăng nhập lại</span>
+                            </button>
+                            <button type="button" onclick="window.ViVuApp.openAdminModerationModal('${activeTab}')"
+                                class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-button text-xs font-bold transition-all shadow-xs flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[16px]">refresh</span>
+                                <span>Thử lại</span>
+                            </button>
+                        </div>
                     </div>
                 ` : ''}
 

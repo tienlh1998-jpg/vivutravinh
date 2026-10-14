@@ -116,6 +116,13 @@ export function clearUserSession() {
 
 let activeUserRefreshPromise = null;
 
+function normalizeExpiresAt(expiresAt) {
+  if (!expiresAt) return null;
+  const n = Number(expiresAt);
+  if (isNaN(n)) return null;
+  return n > 1e11 ? Math.floor(n / 1000) : Math.floor(n);
+}
+
 /**
  * Lấy Access Token còn hạn; tự động làm mới nếu sắp hết hạn
  * - Đồng bộ các request refresh chạy đồng thời (tránh race condition / gọi trùng)
@@ -126,14 +133,16 @@ export async function getValidUserToken() {
   if (!session || !session.access_token) return null;
 
   const now = Math.floor(Date.now() / 1000);
+  const expiresAt = normalizeExpiresAt(session.expires_at);
+
   // Token còn hạn nhiều hơn 60s -> dùng an toàn
-  if (session.expires_at && session.expires_at - now > 60) {
+  if (expiresAt && expiresAt - now > 60) {
     return session.access_token;
   }
 
   // Không có refresh token -> chỉ trả token cũ nếu chưa hết hạn
   if (!session.refresh_token) {
-    return (session.expires_at && session.expires_at > now) ? session.access_token : null;
+    return (expiresAt && expiresAt > now) ? session.access_token : null;
   }
 
   // Đồng bộ các yêu cầu refresh token chạy đồng thời
@@ -176,6 +185,9 @@ export async function getValidUserToken() {
           return updatedSession.access_token;
         } else {
           console.warn('[UserAuth] Refresh token endpoint trả về lỗi:', res.status);
+          if (res.status === 400 || res.status === 401) {
+            clearUserSession();
+          }
           return null;
         }
       } catch (e) {
@@ -194,8 +206,9 @@ export async function getValidUserToken() {
 
   // Refresh thất bại: Kiểm tra token cũ có còn hạn hay không, TUYỆT ĐỐI không trả token đã hết hạn
   const latestSession = getUserSession();
+  const latestExpiresAt = normalizeExpiresAt(latestSession?.expires_at);
   const currentTime = Math.floor(Date.now() / 1000);
-  if (latestSession && latestSession.expires_at && latestSession.expires_at > currentTime) {
+  if (latestSession && latestExpiresAt && latestExpiresAt > currentTime) {
     return latestSession.access_token;
   }
 

@@ -5243,6 +5243,12 @@ function initEventListeners() {
         updateAdminRoleUI();
         handleAuthTripPlanSync();
     });
+    window.addEventListener('vivu:auth-expired', (e) => {
+        console.warn('[ViVuApp] Phiên làm việc đã hết hạn:', e.detail?.message);
+        clearAdminSessionOnly();
+        updateAdminRoleUI();
+        updateAdminModerationBadge(0);
+    });
     window.addEventListener('vivu:user-auth-changed', () => {
         syncUserProfileFromRemote();
         updateAdminRoleUI();
@@ -10546,8 +10552,11 @@ export async function refreshAdminModerationCounts() {
     }
 
     try {
-        const token = await getValidAdminToken();
-        if (!token) return;
+        const token = await (typeof getValidAdminToken === 'function' ? getValidAdminToken() : null) || (typeof getValidUserToken === 'function' ? await getValidUserToken() : null);
+        if (!token) {
+            updateAdminModerationBadge(0);
+            return;
+        }
         const res = await fetch('/api/admin-moderation?status=pending', {
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -10571,21 +10580,11 @@ export async function refreshAdminModerationCounts() {
                 };
                 updateAdminModerationBadge(total, false);
             } else {
-                console.warn('[AdminModeration] KPI trả về trạng thái lỗi:', data.kpi?.errorMessage);
-                state.moderationKpi = {
-                    ...(state.moderationKpi || {}),
-                    hasError: true,
-                    pendingCount: null,
-                    pendingTotal: null,
-                    pendingPostsCount: null,
-                    pendingClubsCount: null,
-                    pendingActivitiesCount: null,
-                    pendingEventsCount: null,
-                    pendingArticlesCount: null,
-                    pendingPlacesCount: null
-                };
-                updateAdminModerationBadge(null, true);
+                updateAdminModerationBadge(0);
             }
+        } else if (res.status === 401 || res.status === 403) {
+            console.warn('[AdminModeration] Phiên quản trị viên không hợp lệ hoặc đã hết hạn (401/403).');
+            updateAdminModerationBadge(0);
         } else {
             console.warn('[AdminModeration] Lỗi HTTP khi tải số lượng chờ duyệt:', res.status);
             state.moderationKpi = {
@@ -10759,10 +10758,8 @@ export async function openAdminModerationModal(tab = 'posts') {
     const isAdmin = ['admin', 'editor', 'moderator'].includes(role);
 
     if (!isAdmin) {
-        showNoticeToast('Yêu cầu quyền Quản trị', 'Mục này chỉ dành riêng cho tài khoản Quản trị viên. Bạn sẽ được chuyển tới trang đăng nhập Quản trị.');
-        setTimeout(() => {
-            window.location.href = '/admin.html';
-        }, 1200);
+        showNoticeToast('Yêu cầu quyền Quản trị', 'Mục này chỉ dành riêng cho tài khoản Quản trị viên.');
+        openAuthModal('signin');
         return;
     }
 
@@ -10772,16 +10769,22 @@ export async function openAdminModerationModal(tab = 'posts') {
 
     state.moderationActiveTab = tab || 'posts';
 
-    // Thử tải danh sách chờ duyệt từ API /api/admin-moderation nếu có token
+    const token = await (typeof getValidAdminToken === 'function' ? getValidAdminToken() : null) || (typeof getValidUserToken === 'function' ? await getValidUserToken() : null);
+
+    if (!token) {
+        showNoticeToast('Phiên làm việc đã hết hạn', 'Phiên đăng nhập quản trị đã hết hạn. Vui lòng đăng nhập lại tài khoản Quản trị viên.');
+        openAuthModal('signin', () => openAdminModerationModal(tab));
+        return;
+    }
+
+    // Tải danh sách chờ duyệt từ API /api/admin-moderation
     try {
-        const token = await getValidAdminToken();
-        if (token) {
-            const res = await fetch('/api/admin-moderation?status=pending', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (res.ok) {
+        const res = await fetch('/api/admin-moderation?status=pending', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data.posts)) {
                     state.moderationPosts = data.posts.map(p => {
@@ -10994,6 +10997,14 @@ export async function openAdminModerationModal(tab = 'posts') {
                     };
                     updateAdminModerationBadge(null, true);
                 }
+            } else if (res.status === 401 || res.status === 403) {
+                console.warn('[AdminModeration] Token bị từ chối bởi máy chủ (401/403).');
+                clearAdminSessionOnly();
+                updateAdminRoleUI();
+                updateAdminModerationBadge(0);
+                showNoticeToast('Phiên làm việc đã hết hạn', 'Phiên làm việc quản trị đã hết hạn hoặc không đủ quyền. Vui lòng đăng nhập lại.');
+                openAuthModal('signin', () => openAdminModerationModal(tab));
+                return;
             } else {
                 state.moderationKpi = {
                     ...(state.moderationKpi || {}),
@@ -11009,7 +11020,6 @@ export async function openAdminModerationModal(tab = 'posts') {
                 };
                 updateAdminModerationBadge(null, true);
             }
-        }
     } catch (e) {
         console.warn('[AdminModeration] Lỗi khi tải dữ liệu duyệt từ API:', e.message);
         state.moderationKpi = {

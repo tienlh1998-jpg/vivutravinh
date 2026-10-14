@@ -129,8 +129,19 @@ export function clearSession(options = {}) {
 
 export const clearAdminSession = clearAdminSessionOnly;
 
+let activeAdminRefreshPromise = null;
+
+function normalizeExpiresAt(expiresAt) {
+  if (!expiresAt) return null;
+  const n = Number(expiresAt);
+  if (isNaN(n)) return null;
+  return n > 1e11 ? Math.floor(n / 1000) : Math.floor(n);
+}
+
 /**
  * Lấy Access Token còn hạn sử dụng; tự động refresh nếu sắp hoặc đã hết hạn
+ * - Đồng bộ các request refresh chạy đồng thời (tránh race condition / gọi trùng)
+ * - Tự động dọn sạch phiên chết khi refresh token bị Supabase thu hồi (400/401)
  * @returns {Promise<string|null>}
  */
 export async function getValidToken() {
@@ -138,49 +149,75 @@ export async function getValidToken() {
   if (!session || !session.access_token) return null;
 
   const now = Math.floor(Date.now() / 1000);
+  const expiresAt = normalizeExpiresAt(session.expires_at);
 
   // Nếu token còn hạn trên 60 giây, sử dụng trực tiếp
-  if (session.expires_at && session.expires_at - now > 60) {
+  if (expiresAt && expiresAt - now > 60) {
     return session.access_token;
   }
 
-  // Token sắp hết hạn hoặc đã hết hạn, thử refresh nếu có refresh_token
-  if (session.refresh_token) {
-    try {
-      const refreshRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({ refresh_token: session.refresh_token })
-      });
+  // Không có refresh token -> chỉ trả token cũ nếu chưa quá hạn
+  if (!session.refresh_token) {
+    return (expiresAt && expiresAt > now) ? session.access_token : null;
+  }
 
-      const refreshData = await refreshRes.json();
-      if (refreshRes.ok && refreshData.access_token) {
-        session.access_token = refreshData.access_token;
-        if (refreshData.refresh_token) session.refresh_token = refreshData.refresh_token;
-        session.expires_at = refreshData.expires_at || (Math.floor(Date.now() / 1000) + (refreshData.expires_in || 3600));
-        saveSession(session);
-        return session.access_token;
+  // Đồng bộ các yêu cầu refresh token chạy đồng thời (Mutex)
+  if (!activeAdminRefreshPromise) {
+    activeAdminRefreshPromise = (async () => {
+      try {
+        const currentSession = getSession() || session;
+        if (!currentSession?.refresh_token) return null;
+
+        const refreshRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ refresh_token: currentSession.refresh_token })
+        });
+
+        const refreshData = await refreshRes.json().catch(() => ({}));
+        if (refreshRes.ok && refreshData.access_token) {
+          const updatedSession = {
+            ...currentSession,
+            access_token: refreshData.access_token,
+            refresh_token: refreshData.refresh_token || currentSession.refresh_token,
+            expires_at: Math.floor(Date.now() / 1000) + (refreshData.expires_in || 3600)
+          };
+          saveSession(updatedSession);
+          return updatedSession.access_token;
+        }
+
+        // Nếu Supabase trả về lỗi 400 hoặc 401 (Refresh token không hợp lệ hoặc đã bị revoke)
+        if (refreshRes.status === 400 || refreshRes.status === 401) {
+          console.warn('[AdminAuth] Refresh token không còn hợp lệ, xóa triệt để phiên làm việc.');
+          clearSession({ clearUserSession: true });
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('vivu:auth-expired', {
+              detail: { message: 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.' }
+            }));
+          }
+          return null;
+        }
+      } catch (err) {
+        console.warn('[AdminAuth] Lỗi kết nối khi làm mới token:', err.message);
+      } finally {
+        activeAdminRefreshPromise = null;
       }
-    } catch (err) {
-      console.warn('[AdminAuth] Lỗi khi làm mới token:', err.message);
-    }
+      return null;
+    })();
   }
 
-  // Nếu đã quá thời hạn mà không refresh được -> coi như hết phiên
-  if (session.expires_at && now >= session.expires_at) {
-    clearSession();
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('vivu:auth-expired', {
-        detail: { message: 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.' }
-      }));
-    }
-    return null;
+  const refreshedToken = await activeAdminRefreshPromise;
+  if (refreshedToken) return refreshedToken;
+
+  // Nếu refresh thất bại mà token cũ vẫn còn thời gian thực sự
+  if (expiresAt && expiresAt > now) {
+    return session.access_token;
   }
 
-  return session.access_token;
+  return null;
 }
 
 /**
