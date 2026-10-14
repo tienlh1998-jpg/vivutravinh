@@ -11,9 +11,8 @@ export const ADMIN_INFO = {
     avatar: "chùa âng.jpg",
     bio: "ViVuTraVinh được xây dựng từ tình yêu với vùng đất Trà Vinh, hương vị ẩm thực bản địa và mong muốn du khách khắp nơi có một cẩm nang địa phương chân thực nhất. Nền tảng hoạt động phi lợi nhuận và mở cho cộng đồng đóng góp. Thông tin chi tiết về chủ dự án và ban quản trị chính thức đang chờ cập nhật xác nhận.",
     contacts: {
-        email: "mailto:tienlh1998@gmail.com",
-        github: "https://github.com/tienlh1998-jpg/vivutravinh",
-        facebook: "https://facebook.com/vivutravinh.official"
+        email: "mailto:vivutravinh@gmail.com",
+        facebook: "https://www.facebook.com/people/ViVu-Tr%C3%A0-Vinh-Kh%C3%A1m-ph%C3%A1-C%E1%BB%99ng-%C4%91%E1%BB%93ng/61587249012873/"
     }
 };
 

@@ -5937,7 +5937,7 @@ export function submitFeedbackDraft(event) {
 
     const subject = encodeURIComponent(`[ViVuTraVinh - ${type}] ${title}`);
     const body = encodeURIComponent(`Kính gửi Ban Quản Trị ViVuTraVinh,\n\nTôi xin gửi góp ý về: ${type}\nTiêu đề: ${title}\n\nNội dung chi tiết:\n${content}\n\n---\nGửi từ người dùng ViVuTraVinh (${window.location.origin})`);
-    const mailtoUrl = `mailto:tienlh1998@gmail.com?subject=${subject}&body=${body}`;
+    const mailtoUrl = `mailto:vivutravinh@gmail.com?subject=${subject}&body=${body}`;
     window.location.href = mailtoUrl;
     showSavedToast('Đang mở ứng dụng email để gửi góp ý cho Ban Quản Trị...');
 }

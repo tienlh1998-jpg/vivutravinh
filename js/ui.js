@@ -5035,7 +5035,7 @@ export function renderArticleReaderModal(article, comments = [], allPlaces = [],
                         <h4 class="font-serif font-bold text-sm sm:text-base text-white">Yêu thích câu chuyện này? Hãy kết nối cùng chúng tôi!</h4>
                         <p class="text-xs text-blue-200/80">Theo dõi Fanpage để cập nhật các bài ký sự du lịch mới nhất và tham gia thảo luận cùng cộng đồng.</p>
                     </div>
-                    <a href="https://www.facebook.com/vivutravinh.official" target="_blank" rel="noopener" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shrink-0 active:scale-95 transition-transform">
+                    <a href="https://www.facebook.com/people/ViVu-Tr%C3%A0-Vinh-Kh%C3%A1m-ph%C3%A1-C%E1%BB%99ng-%C4%91%E1%BB%93ng/61587249012873/" target="_blank" rel="noopener" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shrink-0 active:scale-95 transition-transform">
                         <span>Ghé thăm Fanpage</span>
                         <span class="material-symbols-outlined text-sm">open_in_new</span>
                     </a>
