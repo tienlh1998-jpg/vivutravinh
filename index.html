@@ -4417,9 +4417,9 @@
     </div>
 
     <!-- 31B. MODAL QUẢN LÝ SẢN PHẨM THANH LÝ & TIẾP THỊ LIÊN KẾT (DÀNH CHO ADMIN) -->
-    <div id="companionProductModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="companionProductModalTitle">
+    <div id="companionProductModal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="companionProductModalTitle">
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.ViVuApp?.closeCompanionProductModal?.()"></div>
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="(window.ViVuApp?.closeCompanionProductModal || window.closeCompanionProductModal)?.()"></div>
         <div class="relative z-10 w-full max-w-lg bg-surface dark:bg-zinc-900 rounded-3xl shadow-2xl border border-outline-variant/30 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
             <span id="companionProductModalTitle" class="sr-only">Quản lý sản phẩm thanh lý và tiếp thị liên kết</span>
             <div id="companionProductModalContent"></div>

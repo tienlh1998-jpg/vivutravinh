@@ -10688,13 +10688,13 @@ export function renderCompanionSupportContent({
                         100% tiền dư được chuyển thẳng vào quỹ máy chủ
                     </div>
                     ${isAdmin ? `
-                        <button type="button" onclick="window.ViVuApp?.openCompanionProductModal?.('tech')"
+                        <button type="button" onclick="(window.ViVuApp?.openCompanionProductModal || window.openCompanionProductModal)?.('tech')"
                             class="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-button text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
                             title="Thêm thiết bị thanh lý mới">
                             <span class="material-symbols-outlined text-[16px]">add_circle</span>
                             <span>Thêm thiết bị</span>
                         </button>
-                        <button type="button" onclick="window.ViVuApp?.resetCompanionProducts?.('tech')"
+                        <button type="button" onclick="(window.ViVuApp?.resetCompanionProducts || window.resetCompanionProducts)?.('tech')"
                             class="min-h-[36px] px-3 py-1.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-on-surface-variant dark:text-zinc-300 font-button text-xs font-medium flex items-center gap-1 transition-colors"
                             title="Khôi phục danh sách thiết bị mặc định ban đầu">
                             <span class="material-symbols-outlined text-[15px]">restart_alt</span>
@@ -10721,12 +10721,12 @@ export function renderCompanionSupportContent({
                                 </span>
                                 ${isAdmin ? `
                                     <div class="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-                                        <button type="button" onclick="window.ViVuApp?.openCompanionProductModal?.('tech', '${escapeHtml(item.id)}')"
+                                        <button type="button" onclick="(window.ViVuApp?.openCompanionProductModal || window.openCompanionProductModal)?.('tech', '${escapeHtml(item.id)}')"
                                             class="w-8 h-8 rounded-lg bg-surface-container-lowest/90 dark:bg-zinc-900/90 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 text-on-surface dark:text-zinc-200 shadow-sm flex items-center justify-center transition-colors"
                                             title="Sửa thiết bị này" aria-label="Sửa thiết bị">
                                             <span class="material-symbols-outlined text-[15px]">edit</span>
                                         </button>
-                                        <button type="button" onclick="window.ViVuApp?.deleteCompanionProduct?.('tech', '${escapeHtml(item.id)}')"
+                                        <button type="button" onclick="(window.ViVuApp?.deleteCompanionProduct || window.deleteCompanionProduct)?.('tech', '${escapeHtml(item.id)}')"
                                             class="w-8 h-8 rounded-lg bg-surface-container-lowest/90 dark:bg-zinc-900/90 hover:bg-rose-600 hover:text-white text-rose-600 shadow-sm flex items-center justify-center transition-colors"
                                             title="Xóa thiết bị này" aria-label="Xóa thiết bị">
                                             <span class="material-symbols-outlined text-[15px]">delete</span>
@@ -10784,13 +10784,13 @@ export function renderCompanionSupportContent({
                         <span>Affiliate Shopee • Hoa hồng nhỏ góp quỹ máy chủ</span>
                     </div>
                     ${isAdmin ? `
-                        <button type="button" onclick="window.ViVuApp?.openCompanionProductModal?.('travel')"
+                        <button type="button" onclick="(window.ViVuApp?.openCompanionProductModal || window.openCompanionProductModal)?.('travel')"
                             class="min-h-[36px] px-3.5 py-1.5 rounded-xl bg-secondary hover:bg-primary text-white font-button text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
                             title="Thêm phụ kiện Shopee Affiliate mới">
                             <span class="material-symbols-outlined text-[16px]">add_circle</span>
                             <span>Thêm đồ Shopee</span>
                         </button>
-                        <button type="button" onclick="window.ViVuApp?.resetCompanionProducts?.('travel')"
+                        <button type="button" onclick="(window.ViVuApp?.resetCompanionProducts || window.resetCompanionProducts)?.('travel')"
                             class="min-h-[36px] px-3 py-1.5 rounded-xl bg-surface-container dark:bg-zinc-800 hover:bg-surface-container-high text-on-surface-variant dark:text-zinc-300 font-button text-xs font-medium flex items-center gap-1 transition-colors"
                             title="Khôi phục danh sách phụ kiện Shopee mặc định ban đầu">
                             <span class="material-symbols-outlined text-[15px]">restart_alt</span>
@@ -10818,12 +10818,12 @@ export function renderCompanionSupportContent({
                                 </span>
                                 ${isAdmin ? `
                                     <div class="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-                                        <button type="button" onclick="window.ViVuApp?.openCompanionProductModal?.('travel', '${escapeHtml(gear.id)}')"
+                                        <button type="button" onclick="(window.ViVuApp?.openCompanionProductModal || window.openCompanionProductModal)?.('travel', '${escapeHtml(gear.id)}')"
                                             class="w-8 h-8 rounded-lg bg-surface-container-lowest/90 dark:bg-zinc-900/90 hover:bg-secondary hover:text-white dark:hover:bg-emerald-600 text-on-surface dark:text-zinc-200 shadow-sm flex items-center justify-center transition-colors"
                                             title="Sửa phụ kiện này" aria-label="Sửa phụ kiện">
                                             <span class="material-symbols-outlined text-[15px]">edit</span>
                                         </button>
-                                        <button type="button" onclick="window.ViVuApp?.deleteCompanionProduct?.('travel', '${escapeHtml(gear.id)}')"
+                                        <button type="button" onclick="(window.ViVuApp?.deleteCompanionProduct || window.deleteCompanionProduct)?.('travel', '${escapeHtml(gear.id)}')"
                                             class="w-8 h-8 rounded-lg bg-surface-container-lowest/90 dark:bg-zinc-900/90 hover:bg-rose-600 hover:text-white text-rose-600 shadow-sm flex items-center justify-center transition-colors"
                                             title="Xóa phụ kiện này" aria-label="Xóa phụ kiện">
                                             <span class="material-symbols-outlined text-[15px]">delete</span>
@@ -11008,28 +11008,75 @@ export function renderCompanionProductModalContent({
                     `}
                 </div>
 
-                <!-- Grid: Icon & Link ảnh -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="flex flex-col gap-1.5">
-                        <label for="prodModalIcon" class="font-semibold text-primary dark:text-zinc-200">
-                            Biểu tượng đại diện
+                <!-- Biểu tượng đại diện -->
+                <div class="flex flex-col gap-1.5">
+                    <label for="prodModalIcon" class="font-semibold text-primary dark:text-zinc-200">
+                        Biểu tượng đại diện (Icon fallback khi không dùng ảnh)
+                    </label>
+                    <select id="prodModalIcon"
+                        class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium">
+                        ${availableIcons.map(ic => `
+                            <option value="${ic.id}" ${currentIcon === ic.id ? 'selected' : ''}>${ic.label} (${ic.id})</option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <!-- Đính kèm hình ảnh sản phẩm (File Upload & URL Link) -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <label class="font-semibold text-primary dark:text-zinc-200">
+                            Hình ảnh sản phẩm (Ảnh đính kèm hoặc Link)
                         </label>
-                        <select id="prodModalIcon"
-                            class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium">
-                            ${availableIcons.map(ic => `
-                                <option value="${ic.id}" ${currentIcon === ic.id ? 'selected' : ''}>${ic.label} (${ic.id})</option>
-                            `).join('')}
-                        </select>
+                        <span class="text-[11px] text-on-surface-variant dark:text-zinc-400">Tùy chọn</span>
                     </div>
 
-                    <div class="flex flex-col gap-1.5">
-                        <label for="prodModalImage" class="font-semibold text-primary dark:text-zinc-200">
-                            Link hình ảnh (Tùy chọn)
-                        </label>
-                        <input id="prodModalImage" type="url"
-                            value="${item && item.image ? escapeHtml(item.image) : ''}"
-                            placeholder="https://... (Để trống sẽ lấy biểu tượng)"
-                            class="h-11 px-3.5 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-100 border border-outline-variant/30 dark:border-zinc-700 focus:outline-none focus:border-secondary font-medium" />
+                    <!-- Hidden inputs -->
+                    <input type="hidden" id="prodModalImage" value="${item && item.image ? escapeHtml(item.image) : ''}" />
+                    <input type="file" id="prodModalFileInput" accept="image/jpeg,image/png,image/webp,image/jpg" class="hidden" onchange="(window.ViVuApp?.handleCompanionImageUpload || window.handleCompanionImageUpload)?.(event)" />
+
+                    <!-- Image Preview Area -->
+                    <div id="prodModalImagePreviewArea">
+                        ${item && item.image ? `
+                            <div class="relative w-full h-44 rounded-2xl overflow-hidden bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/40 dark:border-zinc-700 flex items-center justify-center group shadow-xs">
+                                <img src="${escapeHtml(item.image)}" alt="Ảnh sản phẩm" class="w-full h-full object-cover" />
+                                <div class="absolute inset-0 bg-black/50 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2.5 backdrop-blur-xs">
+                                    <button type="button" onclick="document.getElementById('prodModalFileInput').click()"
+                                        class="px-3.5 py-2 rounded-xl bg-white text-zinc-900 font-button text-xs font-semibold flex items-center gap-1.5 shadow-md hover:bg-zinc-100 transition-all">
+                                        <span class="material-symbols-outlined text-[16px]">add_photo_alternate</span>
+                                        <span>Đổi ảnh</span>
+                                    </button>
+                                    <button type="button" onclick="(window.ViVuApp?.clearCompanionImage || window.clearCompanionImage)?.()"
+                                        class="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-button text-xs font-semibold flex items-center gap-1.5 shadow-md hover:bg-rose-700 transition-all">
+                                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                                        <span>Xóa ảnh</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ` : `
+                            <div onclick="document.getElementById('prodModalFileInput').click()"
+                                class="border-2 border-dashed border-outline-variant/50 dark:border-zinc-700 hover:border-secondary dark:hover:border-emerald-500 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer bg-surface-container-low/60 dark:bg-zinc-800/40 hover:bg-surface-container-low group">
+                                <div class="w-11 h-11 rounded-2xl ${isTech ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400' : 'bg-secondary/15 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400'} flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                                    <span class="material-symbols-outlined text-[26px]">add_photo_alternate</span>
+                                </div>
+                                <div class="text-center">
+                                    <span class="font-bold text-primary dark:text-zinc-100 text-xs sm:text-sm block">Bấm để tải ảnh chụp từ máy / điện thoại</span>
+                                    <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Hỗ trợ JPG, PNG, WebP • Tự động nén chất lượng cao</p>
+                                </div>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Row dán link URL nếu có -->
+                    <div class="flex items-center gap-2 pt-1">
+                        <span class="text-[11px] text-on-surface-variant dark:text-zinc-400 shrink-0">Hoặc dán link:</span>
+                        <input id="prodModalImageUrlManual" type="url"
+                            value="${item && item.image && !item.image.startsWith('data:') ? escapeHtml(item.image) : ''}"
+                            placeholder="https://... (link ảnh ngoài)"
+                            class="flex-1 h-9 px-3 rounded-xl bg-surface-container-low dark:bg-zinc-800 text-on-surface dark:text-zinc-200 border border-outline-variant/30 dark:border-zinc-700 text-xs font-mono focus:outline-none focus:border-secondary" />
+                        <button type="button" onclick="(window.ViVuApp?.applyManualCompanionImageUrl || window.applyManualCompanionImageUrl)?.()"
+                            class="h-9 px-3 rounded-xl bg-surface-container-high dark:bg-zinc-700 hover:bg-secondary hover:text-white text-on-surface dark:text-zinc-200 text-xs font-semibold transition-colors shrink-0">
+                            Áp dụng
+                        </button>
                     </div>
                 </div>
 

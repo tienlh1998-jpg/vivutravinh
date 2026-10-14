@@ -5185,6 +5185,7 @@ function initEventListeners() {
             closeFestivalModal();
             closeArticleModal();
             closeOfflineTicketModal();
+            closeCompanionProductModal();
         }
 
         // Focus Trap trong Drawer hoặc các Modals đang mở
@@ -5539,6 +5540,7 @@ export function hasActiveModalOpen() {
         'adminModerationModal',
         'adminActionReasonModal',
         'adminSupportModal',
+        'companionProductModal',
 
         // Tương thích ngược / alias
         'checkinModal',
@@ -10551,6 +10553,32 @@ export function confirmSimulatedDonation(amount) {
 }
 
 /**
+ * Đảm bảo modal quản lý sản phẩm luôn tồn tại trên DOM (kể cả khi chạy trên index.html cũ từ cache)
+ */
+export function ensureCompanionProductModal() {
+    let modal = document.getElementById('companionProductModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'companionProductModal';
+        modal.className = 'fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4';
+        modal.style.display = 'none';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'companionProductModalTitle');
+        modal.innerHTML = `
+            <!-- Backdrop -->
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="(window.ViVuApp?.closeCompanionProductModal || window.closeCompanionProductModal)?.()"></div>
+            <div class="relative z-10 w-full max-w-lg bg-surface dark:bg-zinc-900 rounded-3xl shadow-2xl border border-outline-variant/30 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
+                <span id="companionProductModalTitle" class="sr-only">Quản lý sản phẩm thanh lý và tiếp thị liên kết</span>
+                <div id="companionProductModalContent"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    return modal;
+}
+
+/**
  * Mở modal thêm hoặc chỉnh sửa sản phẩm Góc công nghệ / Phụ kiện Shopee
  * @param {'tech' | 'travel'} type 
  * @param {string|null} itemId 
@@ -10567,9 +10595,12 @@ export function openCompanionProductModal(type = 'tech', itemId = null) {
     }
     const mode = item ? 'edit' : 'add';
 
-    const modal = document.getElementById('companionProductModal');
+    const modal = ensureCompanionProductModal();
     const container = document.getElementById('companionProductModalContent');
-    if (!modal || !container) return;
+    if (!modal || !container) {
+        console.error('[CompanionProductModal] Không thể khởi tạo modal container');
+        return;
+    }
 
     container.innerHTML = renderCompanionProductModalContent({
         type,
@@ -10579,6 +10610,7 @@ export function openCompanionProductModal(type = 'tech', itemId = null) {
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    modal.style.display = 'flex';
     syncBodyScrollLock();
 }
 
@@ -10590,8 +10622,103 @@ export function closeCompanionProductModal() {
     if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        modal.style.display = 'none';
     }
     syncBodyScrollLock();
+}
+
+/**
+ * Xử lý tải ảnh đính kèm từ thiết bị (Mobile / Desktop) và tự động nén tối ưu
+ */
+export async function handleCompanionImageUpload(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+
+    try {
+        const { dataUrl } = await compressImage(file, 800, 800, 0.8);
+        const hiddenInput = document.getElementById('prodModalImage');
+        if (hiddenInput) {
+            hiddenInput.value = dataUrl;
+        }
+        updateCompanionImagePreview(dataUrl);
+        showSavedToast('Đã đính kèm ảnh sản phẩm thành công!');
+    } catch (err) {
+        console.error('[CompanionProduct] Lỗi nén ảnh:', err);
+        showSavedToast(err.message || 'Không thể xử lý tệp ảnh này.');
+    }
+}
+
+/**
+ * Cập nhật giao diện khung xem trước ảnh sản phẩm trong Modal
+ */
+export function updateCompanionImagePreview(imageUrl) {
+    const previewContainer = document.getElementById('prodModalImagePreviewArea');
+    if (!previewContainer) return;
+
+    if (imageUrl) {
+        previewContainer.innerHTML = `
+            <div class="relative w-full h-44 rounded-2xl overflow-hidden bg-surface-container-low dark:bg-zinc-800 border border-outline-variant/40 dark:border-zinc-700 flex items-center justify-center group shadow-xs">
+                <img src="${escapeHtml(imageUrl)}" alt="Ảnh xem trước" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-black/50 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2.5 backdrop-blur-xs">
+                    <button type="button" onclick="document.getElementById('prodModalFileInput').click()"
+                        class="px-3.5 py-2 rounded-xl bg-white text-zinc-900 font-button text-xs font-semibold flex items-center gap-1.5 shadow-md hover:bg-zinc-100 transition-all">
+                        <span class="material-symbols-outlined text-[16px]">add_photo_alternate</span>
+                        <span>Đổi ảnh</span>
+                    </button>
+                    <button type="button" onclick="(window.ViVuApp?.clearCompanionImage || window.clearCompanionImage)?.()"
+                        class="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-button text-xs font-semibold flex items-center gap-1.5 shadow-md hover:bg-rose-700 transition-all">
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Xóa ảnh</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    } else {
+        const type = document.getElementById('prodModalType')?.value || 'tech';
+        const isTech = type === 'tech';
+        previewContainer.innerHTML = `
+            <div onclick="document.getElementById('prodModalFileInput').click()"
+                class="border-2 border-dashed border-outline-variant/50 dark:border-zinc-700 hover:border-secondary dark:hover:border-emerald-500 rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer bg-surface-container-low/60 dark:bg-zinc-800/40 hover:bg-surface-container-low group">
+                <div class="w-11 h-11 rounded-2xl ${isTech ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400' : 'bg-secondary/15 dark:bg-emerald-950/60 text-secondary dark:text-emerald-400'} flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                    <span class="material-symbols-outlined text-[26px]">add_photo_alternate</span>
+                </div>
+                <div class="text-center">
+                    <span class="font-bold text-primary dark:text-zinc-100 text-xs sm:text-sm block">Bấm để tải ảnh chụp từ máy / điện thoại</span>
+                    <p class="text-[11px] text-on-surface-variant dark:text-zinc-400 mt-0.5">Hỗ trợ JPG, PNG, WebP • Tự động nén chất lượng cao</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Xóa ảnh đính kèm (chuyển lại dùng biểu tượng icon)
+ */
+export function clearCompanionImage() {
+    const hiddenInput = document.getElementById('prodModalImage');
+    if (hiddenInput) hiddenInput.value = '';
+    const fileInput = document.getElementById('prodModalFileInput');
+    if (fileInput) fileInput.value = '';
+    const urlInput = document.getElementById('prodModalImageUrlManual');
+    if (urlInput) urlInput.value = '';
+    updateCompanionImagePreview('');
+    showSavedToast('Đã gỡ ảnh sản phẩm (sẽ dùng icon đại diện).');
+}
+
+/**
+ * Áp dụng link URL ảnh bên ngoài
+ */
+export function applyManualCompanionImageUrl() {
+    const urlInput = document.getElementById('prodModalImageUrlManual');
+    const val = (urlInput?.value || '').trim();
+    if (!val) {
+        showSavedToast('Vui lòng nhập liên kết hình ảnh hợp lệ');
+        return;
+    }
+    const hiddenInput = document.getElementById('prodModalImage');
+    if (hiddenInput) hiddenInput.value = val;
+    updateCompanionImagePreview(val);
+    showSavedToast('Đã áp dụng link ảnh thành công!');
 }
 
 /**
@@ -12619,6 +12746,11 @@ if (typeof window !== 'undefined') {
         saveCompanionProduct,
         deleteCompanionProduct,
         resetCompanionProducts,
+        handleCompanionImageUpload,
+        updateCompanionImagePreview,
+        clearCompanionImage,
+        applyManualCompanionImageUrl,
+        ensureCompanionProductModal,
         updateSupportViews,
         selectDonationTier,
         applyCustomDonation,
@@ -12703,5 +12835,14 @@ if (typeof window !== 'undefined') {
             window.ViVuApp.openDetailFromMap(id);
         }
     };
+
+    window.openCompanionProductModal = openCompanionProductModal;
+    window.closeCompanionProductModal = closeCompanionProductModal;
+    window.saveCompanionProduct = saveCompanionProduct;
+    window.deleteCompanionProduct = deleteCompanionProduct;
+    window.resetCompanionProducts = resetCompanionProducts;
+    window.handleCompanionImageUpload = handleCompanionImageUpload;
+    window.clearCompanionImage = clearCompanionImage;
+    window.applyManualCompanionImageUrl = applyManualCompanionImageUrl;
 }
 
